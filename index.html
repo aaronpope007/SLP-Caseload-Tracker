@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>slp-caseload-tracker</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      console.log('=== HTML SCRIPT TAG EXECUTING ===');
+      console.log('Root element in HTML:', !!document.getElementById('root'));
+      
+      // Test if module scripts work at all
+      const testScript = document.createElement('script');
+      testScript.type = 'module';
+      testScript.textContent = `console.log('=== INLINE MODULE TEST ===');`;
+      document.head.appendChild(testScript);
+      
+      // Try to fetch main.tsx directly to see if it exists
+      fetch('/src/main.tsx')
+        .then(response => {
+          console.log('=== FETCH MAIN.TSX RESULT ===', response.status, response.statusText);
+          if (!response.ok) {
+            console.error('main.tsx not found or error:', response.status);
+            document.getElementById('root').innerHTML = `
+              <div style="padding: 20px; color: red;">
+                <h1>main.tsx Not Found</h1>
+                <p>Status: ${response.status} ${response.statusText}</p>
+              </div>
+            `;
+          }
+          return response.text();
+        })
+        .then(text => {
+          console.log('=== MAIN.TSX CONTENT (first 200 chars) ===', text.substring(0, 200));
+        })
+        .catch(error => {
+          console.error('=== FETCH ERROR ===', error);
+        });
+      
+      // Enhanced error handling for module loading
+      window.addEventListener('error', (e) => {
+        console.error('=== SCRIPT LOAD ERROR ===', e.filename, e.message, e.error);
+        if (e.filename && (e.filename.includes('main') || e.filename.includes('.tsx') || e.filename.includes('.ts'))) {
+          const root = document.getElementById('root');
+          if (root) {
+            root.innerHTML = `
+              <div style="padding: 20px; color: red; font-family: monospace;">
+                <h1>Script Load Error</h1>
+                <p><strong>File:</strong> ${e.filename}</p>
+                <p><strong>Error:</strong> ${e.message}</p>
+                ${e.error ? `<pre>${e.error.stack || e.error}</pre>` : ''}
+              </div>
+            `;
+          }
+        }
+      }, true);
+      
+      // Also catch unhandled promise rejections (for import() failures)
+      window.addEventListener('unhandledrejection', (e) => {
+        console.error('=== UNHANDLED PROMISE REJECTION ===', e.reason);
+        const root = document.getElementById('root');
+        if (root && !root.innerHTML.includes('Error')) {
+          root.innerHTML = `
+            <div style="padding: 20px; color: red; font-family: monospace;">
+              <h1>Module Import Error</h1>
+              <pre>${e.reason?.message || e.reason || 'Unknown error'}\n${e.reason?.stack || ''}</pre>
+            </div>
+          `;
+        }
+      });
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
