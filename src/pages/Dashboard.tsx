@@ -36,16 +36,25 @@ export const Dashboard = () => {
     const students = getStudents();
     const goals = getGoals();
     const sessions = getSessions();
-    const recent = sessions
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 5);
 
     // Filter out archived students (archived is optional for backward compatibility)
     const activeStudents = students.filter(s => s.status === 'active' && s.archived !== true);
+    const activeStudentIds = new Set(activeStudents.map(s => s.id));
+    
+    // Filter goals to only include those belonging to active (non-archived) students
+    const activeGoals = goals.filter(g => 
+      g.status === 'in-progress' && activeStudentIds.has(g.studentId)
+    );
+    
+    // Filter sessions to only include those belonging to active (non-archived) students
+    const activeSessions = sessions.filter(s => activeStudentIds.has(s.studentId));
+    const recent = activeSessions
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 5);
     
     setStats({
       activeStudents: activeStudents.length,
-      totalGoals: goals.filter(g => g.status === 'in-progress').length,
+      totalGoals: activeGoals.length,
       recentSessions: recent.length,
     });
 
