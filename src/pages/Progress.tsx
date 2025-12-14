@@ -47,7 +47,8 @@ export const Progress = () => {
   const [error, setError] = useState<string>('');
 
   useEffect(() => {
-    const allStudents = getStudents().filter((s) => s.status === 'active');
+    // Filter out archived students (archived is optional for backward compatibility)
+    const allStudents = getStudents().filter((s) => s.status === 'active' && s.archived !== true);
     setStudents(allStudents);
     if (allStudents.length > 0 && !selectedStudentId) {
       setSelectedStudentId(allStudents[0].id);

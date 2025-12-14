@@ -40,18 +40,24 @@ export const Dashboard = () => {
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 5);
 
+    // Filter out archived students (archived is optional for backward compatibility)
+    const activeStudents = students.filter(s => s.status === 'active' && s.archived !== true);
+    
     setStats({
-      activeStudents: students.filter(s => s.status === 'active').length,
+      activeStudents: activeStudents.length,
       totalGoals: goals.filter(g => g.status === 'in-progress').length,
       recentSessions: recent.length,
     });
 
-    const studentMap = new Map(students.map(s => [s.id, s]));
+    // Only include non-archived students in the map (archived is optional for backward compatibility)
+    const studentMap = new Map(students.filter(s => s.archived !== true).map(s => [s.id, s]));
     setRecentStudents(
-      recent.map(s => ({
-        ...s,
-        student: studentMap.get(s.studentId),
-      }))
+      recent
+        .map(s => ({
+          ...s,
+          student: studentMap.get(s.studentId),
+        }))
+        .filter(s => s.student) // Only show sessions for non-archived students
     );
   }, []);
 

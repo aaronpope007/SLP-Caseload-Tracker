@@ -6,6 +6,8 @@ export interface Student {
   concerns: string[];
   status: 'active' | 'discharged';
   dateAdded: string;
+  archived?: boolean; // Optional for backward compatibility
+  dateArchived?: string;
 }
 
 export interface Goal {

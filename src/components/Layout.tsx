@@ -25,6 +25,7 @@ import {
   TrendingUp as TrendingUpIcon,
   Lightbulb as LightbulbIcon,
   Settings as SettingsIcon,
+  Description as DescriptionIcon,
 } from '@mui/icons-material';
 import { SettingsDialog } from './SettingsDialog';
 
@@ -36,6 +37,7 @@ const menuItems = [
   { text: 'Sessions', icon: <EventNoteIcon />, path: '/sessions' },
   { text: 'Progress', icon: <TrendingUpIcon />, path: '/progress' },
   { text: 'Treatment Ideas', icon: <LightbulbIcon />, path: '/ideas' },
+  { text: 'Documentation', icon: <DescriptionIcon />, path: '/documentation' },
 ];
 
 interface LayoutProps {

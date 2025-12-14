@@ -16,10 +16,6 @@ import {
   Typography,
   Menu,
   MenuItem,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemSecondaryAction,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -27,6 +23,8 @@ import {
   Delete as DeleteIcon,
   MoreVert as MoreVertIcon,
   Search as SearchIcon,
+  Archive as ArchiveIcon,
+  Unarchive as UnarchiveIcon,
 } from '@mui/icons-material';
 import type { Student } from '../types';
 import {
@@ -42,6 +40,7 @@ export const Students = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showArchived, setShowArchived] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -55,35 +54,39 @@ export const Students = () => {
     status: 'active' as 'active' | 'discharged',
   });
 
-  useEffect(() => {
-    loadStudents();
-  }, []);
-
-  useEffect(() => {
-    filterStudents();
-  }, [searchTerm, students]);
-
-  const loadStudents = () => {
-    const allStudents = getStudents();
-    setStudents(allStudents);
-    setFilteredStudents(allStudents);
-  };
-
   const filterStudents = () => {
-    if (!searchTerm.trim()) {
-      setFilteredStudents(students);
-      return;
-    }
-    const term = searchTerm.toLowerCase();
-    setFilteredStudents(
-      students.filter(
+    // First filter by archived status (archived is optional for backward compatibility)
+    let filtered = students.filter(s => showArchived ? s.archived === true : !s.archived);
+    
+    // Then filter by search term if provided
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(
         (s) =>
           s.name.toLowerCase().includes(term) ||
           s.grade.toLowerCase().includes(term) ||
           s.concerns.some((c) => c.toLowerCase().includes(term))
-      )
-    );
+      );
+    }
+    
+    setFilteredStudents(filtered);
   };
+
+  const loadStudents = () => {
+    const allStudents = getStudents();
+    setStudents(allStudents);
+    filterStudents();
+  };
+
+  useEffect(() => {
+    loadStudents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    filterStudents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, students, showArchived]);
 
   const handleOpenDialog = (student?: Student) => {
     if (student) {
@@ -150,6 +153,15 @@ export const Students = () => {
     setAnchorEl(null);
   };
 
+  const handleArchive = (id: string, archive: boolean) => {
+    updateStudent(id, {
+      archived: archive,
+      dateArchived: archive ? new Date().toISOString() : undefined,
+    });
+    loadStudents();
+    setAnchorEl(null);
+  };
+
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, studentId: string) => {
     setAnchorEl(event.currentTarget);
     setSelectedStudent(studentId);
@@ -167,23 +179,38 @@ export const Students = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Typography variant="h4" component="h1">
-          Students
+          {showArchived ? 'Archived Students' : 'Students'}
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => handleOpenDialog()}
-        >
-          Add Student
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          <Button
+            variant={showArchived ? 'outlined' : 'contained'}
+            onClick={() => setShowArchived(false)}
+          >
+            Active
+          </Button>
+          <Button
+            variant={showArchived ? 'contained' : 'outlined'}
+            startIcon={<ArchiveIcon />}
+            onClick={() => setShowArchived(true)}
+          >
+            Archived
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpenDialog()}
+          >
+            Add Student
+          </Button>
+        </Box>
       </Box>
 
       <Box sx={{ mb: 3 }}>
         <TextField
           fullWidth
-          placeholder="Search students by name, grade, or concerns..."
+          placeholder={`Search ${showArchived ? 'archived ' : ''}students by name, grade, or concerns...`}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           InputProps={{
@@ -199,7 +226,9 @@ export const Students = () => {
               <CardContent>
                 <Typography color="text.secondary" align="center">
                   {searchTerm
-                    ? 'No students found matching your search'
+                    ? `No ${showArchived ? 'archived ' : ''}students found matching your search`
+                    : showArchived
+                    ? 'No archived students'
                     : 'No students added yet. Click "Add Student" to get started.'}
                 </Typography>
               </CardContent>
@@ -222,12 +251,20 @@ export const Students = () => {
                   <Typography color="text.secondary" gutterBottom>
                     Age: {student.age} | Grade: {student.grade}
                   </Typography>
-                  <Box sx={{ mt: 1, mb: 1 }}>
+                  <Box sx={{ mt: 1, mb: 1, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                     <Chip
                       label={student.status}
                       size="small"
                       color={student.status === 'active' ? 'primary' : 'default'}
                     />
+                    {student.archived && (
+                      <Chip
+                        label="Archived"
+                        size="small"
+                        color="default"
+                        variant="outlined"
+                      />
+                    )}
                   </Box>
                   {student.concerns.length > 0 && (
                     <Box sx={{ mt: 1 }}>
@@ -329,6 +366,19 @@ export const Students = () => {
         >
           <EditIcon sx={{ mr: 1 }} /> Edit
         </MenuItem>
+        {selectedStudent && students.find(s => s.id === selectedStudent)?.archived ? (
+          <MenuItem
+            onClick={() => selectedStudent && handleArchive(selectedStudent, false)}
+          >
+            <UnarchiveIcon sx={{ mr: 1 }} /> Unarchive
+          </MenuItem>
+        ) : (
+          <MenuItem
+            onClick={() => selectedStudent && handleArchive(selectedStudent, true)}
+          >
+            <ArchiveIcon sx={{ mr: 1 }} /> Archive
+          </MenuItem>
+        )}
         <MenuItem
           onClick={() => selectedStudent && handleDelete(selectedStudent)}
           sx={{ color: 'error.main' }}

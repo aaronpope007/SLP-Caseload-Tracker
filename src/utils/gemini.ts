@@ -6,11 +6,11 @@ async function getAvailableModels(apiKey: string): Promise<string[]> {
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`
     );
-    const data = await response.json();
+    const data = await response.json() as { models?: Array<{ name: string; supportedGenerationMethods?: string[] }> };
     if (data.models) {
       return data.models
-        .filter((m: any) => m.supportedGenerationMethods?.includes('generateContent'))
-        .map((m: any) => m.name.replace('models/', ''));
+        .filter((m) => m.supportedGenerationMethods?.includes('generateContent'))
+        .map((m) => m.name.replace('models/', ''));
     }
   } catch (e) {
     console.error('Error fetching available models:', e);
@@ -60,7 +60,7 @@ For each activity, provide:
 Format the response in a clear, easy-to-read way. Make the activities fun and appropriate for virtual therapy sessions.`;
 
   // Try the available models (or fallback to common names)
-  let lastError: any = null;
+  let lastError: Error | null = null;
 
   for (const modelName of availableModels) {
     try {
@@ -70,12 +70,14 @@ Format the response in a clear, easy-to-read way. Make the activities fun and ap
       const response = await result.response;
       console.log(`Success with model: ${modelName}`);
       return response.text();
-    } catch (error: any) {
-      console.log(`Model ${modelName} failed:`, error?.message);
-      lastError = error;
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStatus = (error as { status?: number })?.status;
+      console.log(`Model ${modelName} failed:`, errorMessage);
+      lastError = error instanceof Error ? error : new Error(errorMessage);
       
       // If it's a 404, try the next model
-      if (error?.status === 404 || error?.message?.includes('404') || error?.message?.includes('not found')) {
+      if (errorStatus === 404 || errorMessage?.includes('404') || errorMessage?.includes('not found')) {
         continue;
       }
       // For other errors (401, 403, etc.), stop trying
@@ -87,14 +89,16 @@ Format the response in a clear, easy-to-read way. Make the activities fun and ap
   console.error('All models failed. Last error:', lastError);
   
   // Provide helpful error messages
-  if (lastError?.status === 404 || lastError?.message?.includes('404') || lastError?.message?.includes('not found')) {
+  const errorMessage = lastError?.message || 'Unknown error';
+  const errorStatus = (lastError as { status?: number })?.status;
+  if (errorStatus === 404 || errorMessage?.includes('404') || errorMessage?.includes('not found')) {
     throw new Error('No available Gemini models found. Please check your API key permissions in Google AI Studio or try regenerating your API key.');
-  } else if (lastError?.status === 401 || lastError?.message?.includes('401')) {
+  } else if (errorStatus === 401 || errorMessage?.includes('401')) {
     throw new Error('Invalid API key. Please check your API key in Settings.');
-  } else if (lastError?.status === 403 || lastError?.message?.includes('403')) {
+  } else if (errorStatus === 403 || errorMessage?.includes('403')) {
     throw new Error('API key does not have permission. Please enable Gemini API in Google Cloud Console.');
   } else {
-    throw new Error(`Failed to generate ideas: ${lastError?.message || 'Unknown error'}`);
+    throw new Error(`Failed to generate ideas: ${errorMessage}`);
   }
 };
 
@@ -172,7 +176,7 @@ Please write a professional progress note that:
 
 Format the note in clear paragraphs. If multiple goals are provided, organize the note to address each goal systematically.`;
 
-  let lastError: any = null;
+  let lastError: Error | null = null;
 
   for (const modelName of availableModels) {
     try {
@@ -180,23 +184,455 @@ Format the note in clear paragraphs. If multiple goals are provided, organize th
       const result = await model.generateContent(prompt);
       const response = await result.response;
       return response.text();
-    } catch (error: any) {
-      lastError = error;
-      if (error?.status === 404 || error?.message?.includes('404') || error?.message?.includes('not found')) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStatus = (error as { status?: number })?.status;
+      lastError = error instanceof Error ? error : new Error(errorMessage);
+      if (errorStatus === 404 || errorMessage?.includes('404') || errorMessage?.includes('not found')) {
         continue;
       }
       break;
     }
   }
 
-  if (lastError?.status === 404 || lastError?.message?.includes('404') || lastError?.message?.includes('not found')) {
+  const errorMessage = lastError?.message || 'Unknown error';
+  const errorStatus = (lastError as { status?: number })?.status;
+  if (errorStatus === 404 || errorMessage?.includes('404') || errorMessage?.includes('not found')) {
     throw new Error('No available Gemini models found. Please check your API key permissions in Google AI Studio or try regenerating your API key.');
-  } else if (lastError?.status === 401 || lastError?.message?.includes('401')) {
+  } else if (errorStatus === 401 || errorMessage?.includes('401')) {
     throw new Error('Invalid API key. Please check your API key in Settings.');
-  } else if (lastError?.status === 403 || lastError?.message?.includes('403')) {
+  } else if (errorStatus === 403 || errorMessage?.includes('403')) {
     throw new Error('API key does not have permission. Please enable Gemini API in Google Cloud Console.');
   } else {
-    throw new Error(`Failed to generate progress note: ${lastError?.message || 'Unknown error'}`);
+    throw new Error(`Failed to generate progress note: ${errorMessage}`);
+  }
+};
+
+// Goal Writing Assistant
+export const generateGoalSuggestions = async (
+  apiKey: string,
+  goalArea: string,
+  studentAge: number,
+  studentGrade: string,
+  concerns: string[]
+): Promise<string> => {
+  if (!apiKey) {
+    throw new Error('API key is required');
+  }
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+  
+  let availableModels = await getAvailableModels(apiKey);
+  if (availableModels.length === 0) {
+    availableModels = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
+  }
+
+  const concernsText = concerns.length > 0 ? concerns.join(', ') : 'Not specified';
+
+  const prompt = `You are an expert speech-language pathologist. Generate 3-5 measurable, appropriate therapy goals for the following:
+
+Goal Area: ${goalArea}
+Student Age: ${studentAge}
+Grade: ${studentGrade}
+Student Concerns: ${concernsText}
+
+For each goal, provide:
+1. A complete, measurable goal statement following SMART criteria (Specific, Measurable, Achievable, Relevant, Time-bound)
+2. Suggested baseline (initial performance level)
+3. Suggested target (desired performance level)
+4. Measurement method or criteria for tracking progress
+
+Goals should be:
+- Specific and clearly defined
+- Measurable with observable outcomes
+- Appropriate for the student's age and grade level
+- Relevant to the goal area and student concerns
+- Time-bound (typically for IEP annual goals)
+
+Format each goal clearly with numbered items. Use professional SLP terminology.`;
+
+  let lastError: Error | null = null;
+
+  for (const modelName of availableModels) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      return response.text();
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStatus = (error as { status?: number })?.status;
+      lastError = error instanceof Error ? error : new Error(errorMessage);
+      if (errorStatus === 404 || errorMessage?.includes('404') || errorMessage?.includes('not found')) {
+        continue;
+      }
+      break;
+    }
+  }
+
+  const errorMessage = lastError?.message || 'Unknown error';
+  const errorStatus = (lastError as { status?: number })?.status;
+  if (errorStatus === 404 || errorMessage?.includes('404') || errorMessage?.includes('not found')) {
+    throw new Error('No available Gemini models found. Please check your API key permissions in Google AI Studio or try regenerating your API key.');
+  } else if (errorStatus === 401 || errorMessage?.includes('401')) {
+    throw new Error('Invalid API key. Please check your API key in Settings.');
+  } else if (errorStatus === 403 || errorMessage?.includes('403')) {
+    throw new Error('API key does not have permission. Please enable Gemini API in Google Cloud Console.');
+  } else {
+    throw new Error(`Failed to generate goal suggestions: ${errorMessage}`);
+  }
+};
+
+// Session Planning
+export const generateSessionPlan = async (
+  apiKey: string,
+  studentName: string,
+  studentAge: number,
+  goals: Array<{ description: string; baseline: string; target: string }>,
+  recentSessions?: Array<{ date: string; activitiesUsed: string[]; notes?: string }>
+): Promise<string> => {
+  if (!apiKey) {
+    throw new Error('API key is required');
+  }
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+  
+  let availableModels = await getAvailableModels(apiKey);
+  if (availableModels.length === 0) {
+    availableModels = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
+  }
+
+  const goalsText = goals.map((g, idx) => 
+    `Goal ${idx + 1}: ${g.description}\n  Baseline: ${g.baseline}\n  Target: ${g.target}`
+  ).join('\n\n');
+
+  const recentSessionsText = recentSessions && recentSessions.length > 0
+    ? '\n\nRecent Session History:\n' + recentSessions.slice(0, 3).map((s, idx) =>
+        `Session ${idx + 1} (${s.date}):\n  Activities: ${s.activitiesUsed.join(', ')}\n  ${s.notes ? `Notes: ${s.notes}` : ''}`
+      ).join('\n\n')
+    : '';
+
+  const prompt = `You are an expert speech-language pathologist creating a detailed session plan. Generate a comprehensive session plan for:
+
+Student: ${studentName} (Age: ${studentAge})
+
+Current Goals:
+${goalsText}${recentSessionsText}
+
+Create a session plan that includes:
+1. Session objectives (what you'll target in this session)
+2. Warm-up activity (brief, engaging activity to start the session)
+3. Main activities (2-3 activities that target the goals, with specific instructions)
+4. Materials needed (list all materials for each activity)
+5. Data collection strategy (how to measure progress during the session)
+6. Closing activity or wrap-up (to end the session positively)
+7. Homework or carryover suggestions (if applicable)
+
+Make the plan:
+- Age-appropriate and engaging
+- Directly aligned with the stated goals
+- Practical and easy to implement
+- Include variety to maintain student engagement
+- Consider recent session history to avoid repetition while building on previous work
+
+Format the plan clearly with sections and numbered steps.`;
+
+  let lastError: Error | null = null;
+
+  for (const modelName of availableModels) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      return response.text();
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStatus = (error as { status?: number })?.status;
+      lastError = error instanceof Error ? error : new Error(errorMessage);
+      if (errorStatus === 404 || errorMessage?.includes('404') || errorMessage?.includes('not found')) {
+        continue;
+      }
+      break;
+    }
+  }
+
+  const errorMessage = lastError?.message || 'Unknown error';
+  const errorStatus = (lastError as { status?: number })?.status;
+  if (errorStatus === 404 || errorMessage?.includes('404') || errorMessage?.includes('not found')) {
+    throw new Error('No available Gemini models found. Please check your API key permissions in Google AI Studio or try regenerating your API key.');
+  } else if (errorStatus === 401 || errorMessage?.includes('401')) {
+    throw new Error('Invalid API key. Please check your API key in Settings.');
+  } else if (errorStatus === 403 || errorMessage?.includes('403')) {
+    throw new Error('API key does not have permission. Please enable Gemini API in Google Cloud Console.');
+  } else {
+    throw new Error(`Failed to generate session plan: ${errorMessage}`);
+  }
+};
+
+// Treatment Recommendations
+export const generateTreatmentRecommendations = async (
+  apiKey: string,
+  studentName: string,
+  studentAge: number,
+  goals: GoalProgressData[],
+  recentSessions?: Array<{ date: string; performanceData: Array<{ goalId: string; accuracy?: number; notes?: string }>; notes?: string }>
+): Promise<string> => {
+  if (!apiKey) {
+    throw new Error('API key is required');
+  }
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+  
+  let availableModels = await getAvailableModels(apiKey);
+  if (availableModels.length === 0) {
+    availableModels = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
+  }
+
+  const goalsText = goals.map((goal, idx) => {
+    let goalInfo = `Goal ${idx + 1}: ${goal.goalDescription}\n`;
+    goalInfo += `  Baseline: ${goal.baseline}%\n`;
+    goalInfo += `  Current: ${goal.current.toFixed(1)}%\n`;
+    goalInfo += `  Target: ${goal.target}%\n`;
+    goalInfo += `  Status: ${goal.status}\n`;
+    goalInfo += `  Sessions: ${goal.sessions}`;
+    return goalInfo;
+  }).join('\n\n');
+
+  const recentSessionsText = recentSessions && recentSessions.length > 0
+    ? '\n\nRecent Performance:\n' + recentSessions.slice(0, 5).map(s => 
+        `Date: ${s.date}\n  ${s.notes || 'No session notes'}`
+      ).join('\n\n')
+    : '';
+
+  const prompt = `You are an expert speech-language pathologist providing treatment recommendations. Analyze the following student progress data and provide personalized treatment recommendations:
+
+Student: ${studentName} (Age: ${studentAge})
+
+Goal Progress:
+${goalsText}${recentSessionsText}
+
+Provide comprehensive treatment recommendations that include:
+1. Overall progress analysis (summarize the student's current status across all goals)
+2. Strategies for goals making good progress (what's working well, how to continue)
+3. Strategies for goals needing more support (areas of concern, modifications needed)
+4. Activity recommendations (specific activities or techniques to try)
+5. Modifications or adaptations (if current approach needs adjustment)
+6. Next steps (short-term and long-term recommendations)
+
+Make recommendations:
+- Evidence-based and appropriate for the student's age
+- Specific and actionable
+- Based on the progress data provided
+- Consider both strengths and areas needing improvement
+- Professional and suitable for clinical documentation
+
+Format the recommendations clearly with sections.`;
+
+  let lastError: Error | null = null;
+
+  for (const modelName of availableModels) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      return response.text();
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStatus = (error as { status?: number })?.status;
+      lastError = error instanceof Error ? error : new Error(errorMessage);
+      if (errorStatus === 404 || errorMessage?.includes('404') || errorMessage?.includes('not found')) {
+        continue;
+      }
+      break;
+    }
+  }
+
+  const errorMessage = lastError?.message || 'Unknown error';
+  const errorStatus = (lastError as { status?: number })?.status;
+  if (errorStatus === 404 || errorMessage?.includes('404') || errorMessage?.includes('not found')) {
+    throw new Error('No available Gemini models found. Please check your API key permissions in Google AI Studio or try regenerating your API key.');
+  } else if (errorStatus === 401 || errorMessage?.includes('401')) {
+    throw new Error('Invalid API key. Please check your API key in Settings.');
+  } else if (errorStatus === 403 || errorMessage?.includes('403')) {
+    throw new Error('API key does not have permission. Please enable Gemini API in Google Cloud Console.');
+  } else {
+    throw new Error(`Failed to generate treatment recommendations: ${errorMessage}`);
+  }
+};
+
+// IEP Goal Suggestions from Assessment Data
+export const generateIEPGoals = async (
+  apiKey: string,
+  studentName: string,
+  studentAge: number,
+  studentGrade: string,
+  assessmentData: string,
+  concerns: string[]
+): Promise<string> => {
+  if (!apiKey) {
+    throw new Error('API key is required');
+  }
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+  
+  let availableModels = await getAvailableModels(apiKey);
+  if (availableModels.length === 0) {
+    availableModels = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
+  }
+
+  const concernsText = concerns.length > 0 ? concerns.join(', ') : 'Not specified';
+
+  const prompt = `You are an expert speech-language pathologist creating IEP goals. Based on the following assessment data, generate appropriate annual IEP goals:
+
+Student: ${studentName}
+Age: ${studentAge}
+Grade: ${studentGrade}
+Areas of Concern: ${concernsText}
+
+Assessment Data:
+${assessmentData}
+
+Generate 3-5 comprehensive annual IEP goals that:
+1. Are measurable and follow SMART criteria
+2. Address the identified areas of need from the assessment
+3. Are appropriate for the student's age and grade level
+4. Include baseline performance levels
+5. Include target performance levels with clear criteria
+6. Specify measurement methods and frequency
+7. Are aligned with educational standards and functional outcomes
+8. Include conditions (when/where the goal will be measured)
+
+For each goal, provide:
+- Complete goal statement (measurable annual goal)
+- Baseline (current performance level)
+- Target (expected performance level by end of IEP period)
+- Measurement criteria (how progress will be measured)
+- Service delivery considerations (if applicable)
+
+Format each goal clearly. Use professional IEP language and terminology.`;
+
+  let lastError: Error | null = null;
+
+  for (const modelName of availableModels) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      return response.text();
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStatus = (error as { status?: number })?.status;
+      lastError = error instanceof Error ? error : new Error(errorMessage);
+      if (errorStatus === 404 || errorMessage?.includes('404') || errorMessage?.includes('not found')) {
+        continue;
+      }
+      break;
+    }
+  }
+
+  const errorMessage = lastError?.message || 'Unknown error';
+  const errorStatus = (lastError as { status?: number })?.status;
+  if (errorStatus === 404 || errorMessage?.includes('404') || errorMessage?.includes('not found')) {
+    throw new Error('No available Gemini models found. Please check your API key permissions in Google AI Studio or try regenerating your API key.');
+  } else if (errorStatus === 401 || errorMessage?.includes('401')) {
+    throw new Error('Invalid API key. Please check your API key in Settings.');
+  } else if (errorStatus === 403 || errorMessage?.includes('403')) {
+    throw new Error('API key does not have permission. Please enable Gemini API in Google Cloud Console.');
+  } else {
+    throw new Error(`Failed to generate IEP goals: ${errorMessage}`);
+  }
+};
+
+// Documentation Templates
+export const generateDocumentationTemplate = async (
+  apiKey: string,
+  templateType: 'evaluation' | 'progress-note' | 'discharge-summary' | 'treatment-plan' | 'soap-note',
+  studentName: string,
+  studentAge: number,
+  studentGrade: string,
+  additionalContext?: string
+): Promise<string> => {
+  if (!apiKey) {
+    throw new Error('API key is required');
+  }
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+  
+  let availableModels = await getAvailableModels(apiKey);
+  if (availableModels.length === 0) {
+    availableModels = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
+  }
+
+  const templateDescriptions: Record<string, string> = {
+    'evaluation': 'comprehensive speech-language evaluation report',
+    'progress-note': 'progress note for ongoing therapy',
+    'discharge-summary': 'discharge summary report',
+    'treatment-plan': 'treatment plan document',
+    'soap-note': 'SOAP (Subjective, Objective, Assessment, Plan) note format'
+  };
+
+  const templateDescription = templateDescriptions[templateType] || 'documentation template';
+
+  const contextText = additionalContext ? `\n\nAdditional Context:\n${additionalContext}` : '';
+
+  const prompt = `You are an expert speech-language pathologist. Generate a professional ${templateDescription} template for:
+
+Student: ${studentName}
+Age: ${studentAge}
+Grade: ${studentGrade}${contextText}
+
+Create a comprehensive template that includes:
+${templateType === 'evaluation' 
+  ? '- Background information section\n- Assessment procedures\n- Assessment results\n- Analysis and interpretation\n- Recommendations\n- Conclusion'
+  : templateType === 'progress-note'
+  ? '- Session date and duration\n- Goals addressed\n- Activities completed\n- Performance data\n- Progress summary\n- Plan for next session'
+  : templateType === 'discharge-summary'
+  ? '- Admission date and discharge date\n- Initial assessment summary\n- Treatment provided\n- Progress made\n- Current status\n- Recommendations for follow-up'
+  : templateType === 'treatment-plan'
+  ? '- Present level of performance\n- Long-term goals\n- Short-term objectives\n- Treatment approaches\n- Frequency and duration\n- Discharge criteria'
+  : templateType === 'soap-note'
+  ? '- Subjective (client report, parent/teacher input)\n- Objective (observable data, test results)\n- Assessment (clinical interpretation)\n- Plan (next steps, modifications)'
+  : '- All relevant sections for this document type'
+}
+
+The template should:
+- Use professional SLP terminology
+- Include section headers and clear structure
+- Have placeholders or guidance text indicating what information to include
+- Be comprehensive and suitable for clinical documentation
+- Follow standard documentation practices in speech-language pathology
+
+Format the template clearly with sections, subsections, and appropriate structure. Include brief guidance or examples where helpful.`;
+
+  let lastError: Error | null = null;
+
+  for (const modelName of availableModels) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      return response.text();
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStatus = (error as { status?: number })?.status;
+      lastError = error instanceof Error ? error : new Error(errorMessage);
+      if (errorStatus === 404 || errorMessage?.includes('404') || errorMessage?.includes('not found')) {
+        continue;
+      }
+      break;
+    }
+  }
+
+  const errorMessage = lastError?.message || 'Unknown error';
+  const errorStatus = (lastError as { status?: number })?.status;
+  if (errorStatus === 404 || errorMessage?.includes('404') || errorMessage?.includes('not found')) {
+    throw new Error('No available Gemini models found. Please check your API key permissions in Google AI Studio or try regenerating your API key.');
+  } else if (errorStatus === 401 || errorMessage?.includes('401')) {
+    throw new Error('Invalid API key. Please check your API key in Settings.');
+  } else if (errorStatus === 403 || errorMessage?.includes('403')) {
+    throw new Error('API key does not have permission. Please enable Gemini API in Google Cloud Console.');
+  } else {
+    throw new Error(`Failed to generate documentation template: ${errorMessage}`);
   }
 };
 

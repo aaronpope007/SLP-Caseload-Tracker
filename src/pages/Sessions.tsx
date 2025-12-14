@@ -23,12 +23,15 @@ import {
   ListItem,
   ListItemText,
   IconButton,
+  Alert,
+  CircularProgress,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
   Remove as RemoveIcon,
+  Psychology as PsychologyIcon,
 } from '@mui/icons-material';
 import type { Session, Student, Goal } from '../types';
 import {
@@ -38,8 +41,10 @@ import {
   addSession,
   updateSession,
   deleteSession,
+  getSessionsByStudent,
 } from '../utils/storage';
 import { generateId, formatDateTime, toLocalDateTimeString, fromLocalDateTimeString } from '../utils/helpers';
+import { generateSessionPlan } from '../utils/gemini';
 
 export const Sessions = () => {
   const navigate = useNavigate();
@@ -48,6 +53,13 @@ export const Sessions = () => {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSession, setEditingSession] = useState<Session | null>(null);
+
+  // Session Planning State
+  const [sessionPlanDialogOpen, setSessionPlanDialogOpen] = useState(false);
+  const [planStudentId, setPlanStudentId] = useState('');
+  const [sessionPlan, setSessionPlan] = useState('');
+  const [loadingSessionPlan, setLoadingSessionPlan] = useState(false);
+  const [sessionPlanError, setSessionPlanError] = useState('');
 
   const [formData, setFormData] = useState({
     studentId: '',
@@ -64,7 +76,8 @@ export const Sessions = () => {
 
   const loadData = () => {
     setSessions(getSessions().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-    setStudents(getStudents());
+    // Filter out archived students (archived is optional for backward compatibility)
+    setStudents(getStudents().filter(s => s.archived !== true));
     setGoals(getGoals());
   };
 
@@ -206,19 +219,88 @@ export const Sessions = () => {
     ? goals.filter((g) => g.studentId === formData.studentId)
     : [];
 
+  const handleGenerateSessionPlan = async () => {
+    if (!planStudentId) {
+      setSessionPlanError('Please select a student');
+      return;
+    }
+
+    const apiKey = localStorage.getItem('gemini_api_key');
+    if (!apiKey) {
+      setSessionPlanError('Please set your Gemini API key in Settings');
+      return;
+    }
+
+    const student = students.find(s => s.id === planStudentId);
+    if (!student) {
+      setSessionPlanError('Student not found');
+      return;
+    }
+
+    const studentGoals = goals.filter(g => g.studentId === planStudentId);
+    if (studentGoals.length === 0) {
+      setSessionPlanError('Selected student has no goals. Please add goals first.');
+      return;
+    }
+
+    setLoadingSessionPlan(true);
+    setSessionPlanError('');
+
+    try {
+      const recentSessions = getSessionsByStudent(planStudentId)
+        .slice(0, 3)
+        .map(s => ({
+          date: formatDateTime(s.date),
+          activitiesUsed: s.activitiesUsed,
+          notes: s.notes,
+        }));
+
+      const plan = await generateSessionPlan(
+        apiKey,
+        student.name,
+        student.age,
+        studentGoals.map(g => ({
+          description: g.description,
+          baseline: g.baseline,
+          target: g.target,
+        })),
+        recentSessions
+      );
+      setSessionPlan(plan);
+    } catch (err) {
+      setSessionPlanError(err instanceof Error ? err.message : 'Failed to generate session plan');
+    } finally {
+      setLoadingSessionPlan(false);
+    }
+  };
+
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 1 }}>
         <Typography variant="h4" component="h1">
           Sessions
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => handleOpenDialog()}
-        >
-          Log Session
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          <Button
+            variant="outlined"
+            startIcon={<PsychologyIcon />}
+            onClick={() => {
+              setPlanStudentId('');
+              setSessionPlan('');
+              setSessionPlanError('');
+              setSessionPlanDialogOpen(true);
+            }}
+          >
+            Generate Session Plan
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpenDialog()}
+          >
+            Log Session
+          </Button>
+        </Box>
       </Box>
 
       <Grid container spacing={2}>
@@ -461,6 +543,61 @@ export const Sessions = () => {
           >
             Save
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Session Plan Dialog */}
+      <Dialog open={sessionPlanDialogOpen} onClose={() => setSessionPlanDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>AI Session Planning</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            <FormControl fullWidth>
+              <InputLabel>Student</InputLabel>
+              <Select
+                value={planStudentId}
+                onChange={(e) => setPlanStudentId(e.target.value)}
+                label="Student"
+              >
+                {students.map((student) => (
+                  <MenuItem key={student.id} value={student.id}>
+                    {student.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            {sessionPlanError && (
+              <Alert severity="error">{sessionPlanError}</Alert>
+            )}
+            <Button
+              variant="contained"
+              onClick={handleGenerateSessionPlan}
+              disabled={loadingSessionPlan || !planStudentId}
+              startIcon={loadingSessionPlan ? <CircularProgress size={20} /> : <PsychologyIcon />}
+            >
+              Generate Session Plan
+            </Button>
+            {sessionPlan && (
+              <Box>
+                <Typography variant="subtitle2" gutterBottom>Generated Session Plan:</Typography>
+                <Typography
+                  component="div"
+                  sx={{
+                    whiteSpace: 'pre-wrap',
+                    p: 2,
+                    bgcolor: 'grey.50',
+                    borderRadius: 1,
+                    maxHeight: '500px',
+                    overflow: 'auto',
+                  }}
+                >
+                  {sessionPlan}
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSessionPlanDialogOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
     </Box>
