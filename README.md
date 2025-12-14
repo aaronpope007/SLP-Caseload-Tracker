@@ -15,8 +15,12 @@ A comprehensive web application designed to help Speech-Language Pathologists (S
   - Status tracking (active/discharged)
   - Speech/language concerns
   - Date added to caseload
+- **Archive Functionality**: Archive students to hide them from main views while keeping data accessible
+  - Toggle between Active and Archived views
+  - Archived students don't appear on dashboard or in active lists
+  - Easy unarchive option to restore students
 - **Search Functionality**: Search students by name, grade, or concerns
-- **Student Detail Pages**: Dedicated pages for each student showing all associated goals
+- **Student Detail Pages**: Dedicated pages for each student showing all associated goals with enhanced organization
 
 ### 🎯 Goal Management
 - **Goal Creation**: Set individual goals for each student with:
@@ -24,6 +28,17 @@ A comprehensive web application designed to help Speech-Language Pathologists (S
   - Baseline performance levels
   - Target performance levels
   - Status tracking (in-progress, achieved, modified)
+  - Domain categorization (Articulation, Language, Pragmatics, Fluency, Voice, AAC)
+  - Priority levels (high, medium, low)
+- **Goal Templates**: Browse and use pre-built goal templates organized by domain:
+  - Articulation goals (phonemes, clusters, phonological processes)
+  - Language goals (grammar, vocabulary, comprehension)
+  - Pragmatics goals (conversation, social communication)
+  - Fluency goals (stuttering reduction, techniques)
+  - Voice and AAC goals
+- **Sub-goals**: Break down complex goals into smaller, trackable sub-goals with hierarchical organization
+- **Goal Hierarchy**: Goals are automatically organized by domain for easy navigation
+- **AI Goal Recommendations**: Get AI-powered suggestions for appropriate goals based on student concerns
 - **Goal Editing**: Update goal information as progress is made
 - **Progress Visualization**: Visual progress bars and charts showing progress toward goals
 
@@ -147,13 +162,15 @@ SLP Caseload Tracker/
 │   │   ├── StudentDetail.tsx
 │   │   ├── Sessions.tsx
 │   │   ├── Progress.tsx
-│   │   └── TreatmentIdeas.tsx
+│   │   ├── TreatmentIdeas.tsx
+│   │   └── DocumentationTemplates.tsx
 │   ├── types/            # TypeScript type definitions
 │   │   └── index.ts
 │   ├── utils/            # Utility functions
 │   │   ├── storage.ts    # LocalStorage operations
 │   │   ├── helpers.ts    # Helper functions
-│   │   └── gemini.ts     # Gemini AI integration
+│   │   ├── gemini.ts     # Gemini AI integration
+│   │   └── goalTemplates.ts  # Goal templates library
 │   ├── App.tsx           # Main app component
 │   └── main.tsx          # Application entry point
 └── package.json
@@ -179,12 +196,17 @@ SLP Caseload Tracker/
 - **Statistical Analysis**: More advanced statistical tracking and trend analysis
 - **Benchmarking**: Compare student progress against typical development milestones
 
-### 🤖 Enhanced AI Features
-- **Goal Writing Assistant**: AI suggestions for writing measurable, appropriate goals
-- **Session Planning**: AI-generated session plans based on goals and student needs
-- **Treatment Recommendations**: Personalized treatment recommendations based on student progress
-- **IEP Goal Suggestions**: AI-assisted creation of IEP goals from assessment data
-- **Documentation Templates**: AI-generated templates for various documentation needs
+### 🤖 Enhanced AI Features (NEW!)
+- **Goal Writing Assistant**: AI suggestions for writing measurable, appropriate goals based on goal area, student age, and concerns
+- **Session Planning**: AI-generated session plans with objectives, activities, materials, and data collection strategies
+- **Treatment Recommendations**: Personalized treatment recommendations based on goal progress and session history
+- **IEP Goal Suggestions**: AI-assisted creation of comprehensive annual IEP goals from assessment data
+- **Documentation Templates**: AI-generated professional templates for:
+  - Evaluation reports
+  - Progress notes
+  - Discharge summaries
+  - Treatment plans
+  - SOAP notes
 
 ### 📋 Documentation Improvements
 - **Report Templates**: Pre-built templates for progress reports, discharge summaries, and evaluation reports
@@ -192,11 +214,12 @@ SLP Caseload Tracker/
 - **Attachments**: Support for attaching files, images, or audio recordings to sessions
 - **Notes Templates**: Reusable note templates for common session types
 
-### 🎯 Goal Management Enhancements
-- **Goal Templates**: Library of common goals by area (articulation, language, etc.)
-- **Sub-goals**: Break down complex goals into smaller, trackable sub-goals
-- **Goal Recommendations**: AI suggestions for appropriate goals based on student concerns
-- **Goal Hierarchy**: Organize goals by domain or priority
+### ✅ Recently Implemented
+- **Goal Templates**: Library of common goals by area (articulation, language, etc.) ✅
+- **Sub-goals**: Break down complex goals into smaller, trackable sub-goals ✅
+- **Goal Recommendations**: AI suggestions for appropriate goals based on student concerns ✅
+- **Goal Hierarchy**: Organize goals by domain or priority ✅
+- **Student Archive**: Archive functionality to manage active vs. archived caseloads ✅
 
 ### 📅 Scheduling and Calendar
 - **Calendar Integration**: Calendar view of sessions and upcoming appointments

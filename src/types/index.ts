@@ -18,6 +18,23 @@ export interface Goal {
   target: string;
   status: 'in-progress' | 'achieved' | 'modified';
   dateCreated: string;
+  // Goal management enhancements
+  parentGoalId?: string; // For sub-goals
+  subGoalIds?: string[]; // IDs of sub-goals
+  domain?: string; // e.g., 'Articulation', 'Language', 'Pragmatics', 'Fluency'
+  priority?: 'high' | 'medium' | 'low';
+  templateId?: string; // Reference to goal template used
+}
+
+export interface GoalTemplate {
+  id: string;
+  title: string;
+  description: string;
+  domain: string;
+  suggestedBaseline?: string;
+  suggestedTarget?: string;
+  ageRange?: string;
+  keywords?: string[]; // For matching concerns
 }
 
 export interface Session {

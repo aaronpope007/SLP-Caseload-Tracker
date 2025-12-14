@@ -1,4 +1,4 @@
-import type { Student, Goal, Session, Activity } from '../types';
+import type { Student, Goal, Session, Activity, GoalTemplate } from '../types';
 
 const STORAGE_KEYS = {
   STUDENTS: 'slp_students',

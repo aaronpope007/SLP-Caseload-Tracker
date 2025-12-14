@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -21,6 +21,11 @@ import {
   Alert,
   CircularProgress,
   Divider,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  CardActions,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -40,6 +45,7 @@ import {
   updateGoal,
   deleteGoal,
   getSessionsByStudent,
+  getGoals,
 } from '../utils/storage';
 import { generateId, formatDate } from '../utils/helpers';
 import {
@@ -48,6 +54,12 @@ import {
   generateIEPGoals,
   type GoalProgressData,
 } from '../utils/gemini';
+import {
+  goalTemplates,
+  getGoalTemplatesByDomain,
+  getGoalTemplatesByKeywords,
+  getUniqueDomains,
+} from '../utils/goalTemplates';
 
 export const StudentDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -62,7 +74,22 @@ export const StudentDetail = () => {
     baseline: '',
     target: '',
     status: 'in-progress' as 'in-progress' | 'achieved' | 'modified',
+    domain: '',
+    priority: 'medium' as 'high' | 'medium' | 'low',
+    parentGoalId: '',
   });
+  
+  // Goal template selection
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<typeof goalTemplates[0] | null>(null);
+  const [templateFilterDomain, setTemplateFilterDomain] = useState<string>('');
+  const [showRecommendedTemplates, setShowRecommendedTemplates] = useState(true);
+  
+  // Get recommended templates based on student concerns
+  const getRecommendedTemplates = (): typeof goalTemplates => {
+    if (!student || !showRecommendedTemplates) return [];
+    return getGoalTemplatesByKeywords(student.concerns);
+  };
 
   // AI Features State
   const [goalSuggestionsDialogOpen, setGoalSuggestionsDialogOpen] = useState(false);
@@ -102,7 +129,7 @@ export const StudentDetail = () => {
     }
   };
 
-  const handleOpenDialog = (goal?: Goal) => {
+  const handleOpenDialog = (goal?: Goal, parentGoalId?: string) => {
     if (goal) {
       setEditingGoal(goal);
       setFormData({
@@ -110,6 +137,9 @@ export const StudentDetail = () => {
         baseline: goal.baseline,
         target: goal.target,
         status: goal.status,
+        domain: goal.domain || '',
+        priority: goal.priority || 'medium',
+        parentGoalId: goal.parentGoalId || '',
       });
     } else {
       setEditingGoal(null);
@@ -118,8 +148,12 @@ export const StudentDetail = () => {
         baseline: '',
         target: '',
         status: 'in-progress',
+        domain: '',
+        priority: 'medium',
+        parentGoalId: parentGoalId || '',
       });
     }
+    setSelectedTemplate(null);
     setDialogOpen(true);
   };
 
@@ -131,15 +165,32 @@ export const StudentDetail = () => {
   const handleSave = () => {
     if (!id) return;
 
+    const goalData: Partial<Goal> = {
+      description: formData.description,
+      baseline: formData.baseline,
+      target: formData.target,
+      status: formData.status,
+      domain: formData.domain || undefined,
+      priority: formData.priority,
+      parentGoalId: formData.parentGoalId || undefined,
+      templateId: selectedTemplate?.id || undefined,
+    };
+
     if (editingGoal) {
-      updateGoal(editingGoal.id, {
-        description: formData.description,
-        baseline: formData.baseline,
-        target: formData.target,
-        status: formData.status,
-      });
+      updateGoal(editingGoal.id, goalData);
+      
+      // If this goal now has a parent, update parent's subGoalIds
+      if (goalData.parentGoalId) {
+        const parent = getGoals().find(g => g.id === goalData.parentGoalId);
+        if (parent) {
+          const subGoalIds = parent.subGoalIds || [];
+          if (!subGoalIds.includes(editingGoal.id)) {
+            updateGoal(parent.id, { subGoalIds: [...subGoalIds, editingGoal.id] });
+          }
+        }
+      }
     } else {
-      addGoal({
+      const newGoal: Goal = {
         id: generateId(),
         studentId: id,
         description: formData.description,
@@ -147,10 +198,36 @@ export const StudentDetail = () => {
         target: formData.target,
         status: formData.status,
         dateCreated: new Date().toISOString(),
-      });
+        domain: formData.domain || undefined,
+        priority: formData.priority,
+        parentGoalId: formData.parentGoalId || undefined,
+        templateId: selectedTemplate?.id || undefined,
+      };
+      addGoal(newGoal);
+      
+      // If this is a sub-goal, update parent's subGoalIds
+      if (newGoal.parentGoalId) {
+        const parent = getGoals().find(g => g.id === newGoal.parentGoalId);
+        if (parent) {
+          const subGoalIds = parent.subGoalIds || [];
+          updateGoal(parent.id, { subGoalIds: [...subGoalIds, newGoal.id] });
+        }
+      }
     }
     loadGoals();
     handleCloseDialog();
+  };
+
+  const handleUseTemplate = (template: typeof goalTemplates[0]) => {
+    setSelectedTemplate(template);
+    setFormData({
+      ...formData,
+      description: template.description,
+      baseline: template.suggestedBaseline || '',
+      target: template.suggestedTarget || '',
+      domain: template.domain,
+    });
+    setTemplateDialogOpen(false);
   };
 
   const handleDelete = (goalId: string) => {
@@ -391,54 +468,243 @@ export const StudentDetail = () => {
             </Card>
           </Grid>
         ) : (
-          goals.map((goal) => (
-            <Grid item xs={12} md={6} key={goal.id}>
-              <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography variant="h6">{goal.description}</Typography>
-                    <Box>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleOpenDialog(goal)}
-                      >
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleDelete(goal.id)}
-                        color="error"
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  </Box>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Baseline: {goal.baseline}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Target: {goal.target}
-                  </Typography>
-                  <Box sx={{ mt: 2 }}>
-                    <Chip
-                      label={goal.status}
-                      size="small"
-                      color={
-                        goal.status === 'achieved'
-                          ? 'success'
-                          : goal.status === 'modified'
-                          ? 'warning'
-                          : 'default'
-                      }
-                    />
-                  </Box>
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                    Created: {formatDate(goal.dateCreated)}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))
+          (() => {
+            // Organize goals: main goals first, then sub-goals grouped under parents
+            const mainGoals = goals.filter(g => !g.parentGoalId);
+            const subGoals = goals.filter(g => g.parentGoalId);
+            const subGoalsByParent = new Map<string, Goal[]>();
+            subGoals.forEach(sub => {
+              const parentId = sub.parentGoalId!;
+              if (!subGoalsByParent.has(parentId)) {
+                subGoalsByParent.set(parentId, []);
+              }
+              subGoalsByParent.get(parentId)!.push(sub);
+            });
+
+            // Group main goals by domain for better organization
+            const goalsByDomain = new Map<string, Goal[]>();
+            const goalsWithoutDomain: Goal[] = [];
+            mainGoals.forEach(goal => {
+              if (goal.domain) {
+                if (!goalsByDomain.has(goal.domain)) {
+                  goalsByDomain.set(goal.domain, []);
+                }
+                goalsByDomain.get(goal.domain)!.push(goal);
+              } else {
+                goalsWithoutDomain.push(goal);
+              }
+            });
+
+            return (
+              <>
+                {Array.from(goalsByDomain.entries()).map(([domain, domainGoals]) => (
+                  <Grid item xs={12} key={domain}>
+                    <Typography variant="h6" sx={{ mb: 1, mt: 1 }}>
+                      {domain}
+                    </Typography>
+                    <Grid container spacing={2}>
+                      {domainGoals.map((goal) => {
+                        const subs = subGoalsByParent.get(goal.id) || [];
+                        return (
+                          <React.Fragment key={goal.id}>
+                            <Grid item xs={12} md={6}>
+                              <Card sx={{ borderLeft: `4px solid ${goal.priority === 'high' ? '#f44336' : goal.priority === 'medium' ? '#ff9800' : '#4caf50'}` }}>
+                                <CardContent>
+                                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                    <Typography variant="h6">{goal.description}</Typography>
+                                    <Box>
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleOpenDialog(goal)}
+                                      >
+                                        <EditIcon fontSize="small" />
+                                      </IconButton>
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleDelete(goal.id)}
+                                        color="error"
+                                      >
+                                        <DeleteIcon fontSize="small" />
+                                      </IconButton>
+                                    </Box>
+                                  </Box>
+                                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>
+                                    <Chip
+                                      label={goal.status}
+                                      size="small"
+                                      color={
+                                        goal.status === 'achieved'
+                                          ? 'success'
+                                          : goal.status === 'modified'
+                                          ? 'warning'
+                                          : 'default'
+                                      }
+                                    />
+                                    {goal.priority && (
+                                      <Chip
+                                        label={goal.priority}
+                                        size="small"
+                                        color={goal.priority === 'high' ? 'error' : goal.priority === 'medium' ? 'warning' : 'success'}
+                                        variant="outlined"
+                                      />
+                                    )}
+                                    {goal.domain && (
+                                      <Chip
+                                        label={goal.domain}
+                                        size="small"
+                                        variant="outlined"
+                                      />
+                                    )}
+                                  </Box>
+                                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                                    Baseline: {goal.baseline}
+                                  </Typography>
+                                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                                    Target: {goal.target}
+                                  </Typography>
+                                  {subs.length > 0 && (
+                                    <Box sx={{ mt: 2, pl: 2, borderLeft: '2px solid #e0e0e0' }}>
+                                      <Typography variant="subtitle2" gutterBottom>
+                                        Sub-goals ({subs.length}):
+                                      </Typography>
+                                      {subs.map(sub => (
+                                        <Box key={sub.id} sx={{ mb: 1 }}>
+                                          <Typography variant="body2">{sub.description}</Typography>
+                                          <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
+                                            <Chip label={sub.status} size="small" />
+                                            <IconButton
+                                              size="small"
+                                              onClick={() => handleOpenDialog(sub)}
+                                            >
+                                              <EditIcon fontSize="small" />
+                                            </IconButton>
+                                          </Box>
+                                        </Box>
+                                      ))}
+                                    </Box>
+                                  )}
+                                  <Button
+                                    size="small"
+                                    startIcon={<AddIcon />}
+                                    onClick={() => handleOpenDialog(undefined, goal.id)}
+                                    sx={{ mt: 1 }}
+                                  >
+                                    Add Sub-goal
+                                  </Button>
+                                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                                    Created: {formatDate(goal.dateCreated)}
+                                  </Typography>
+                                </CardContent>
+                              </Card>
+                            </Grid>
+                          </React.Fragment>
+                        );
+                      })}
+                    </Grid>
+                  </Grid>
+                ))}
+                {goalsWithoutDomain.length > 0 && (
+                  <Grid item xs={12}>
+                    {goalsByDomain.size > 0 && (
+                      <Typography variant="h6" sx={{ mb: 1, mt: 1 }}>
+                        Other Goals
+                      </Typography>
+                    )}
+                    <Grid container spacing={2}>
+                      {goalsWithoutDomain.map((goal) => {
+                        const subs = subGoalsByParent.get(goal.id) || [];
+                        return (
+                          <Grid item xs={12} md={6} key={goal.id}>
+                            <Card sx={{ borderLeft: `4px solid ${goal.priority === 'high' ? '#f44336' : goal.priority === 'medium' ? '#ff9800' : '#4caf50'}` }}>
+                              <CardContent>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                  <Typography variant="h6">{goal.description}</Typography>
+                                  <Box>
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => handleOpenDialog(goal)}
+                                    >
+                                      <EditIcon fontSize="small" />
+                                    </IconButton>
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => handleDelete(goal.id)}
+                                      color="error"
+                                    >
+                                      <DeleteIcon fontSize="small" />
+                                    </IconButton>
+                                  </Box>
+                                </Box>
+                                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>
+                                  <Chip
+                                    label={goal.status}
+                                    size="small"
+                                    color={
+                                      goal.status === 'achieved'
+                                        ? 'success'
+                                        : goal.status === 'modified'
+                                        ? 'warning'
+                                        : 'default'
+                                    }
+                                  />
+                                  {goal.priority && (
+                                    <Chip
+                                      label={goal.priority}
+                                      size="small"
+                                      color={goal.priority === 'high' ? 'error' : goal.priority === 'medium' ? 'warning' : 'success'}
+                                      variant="outlined"
+                                    />
+                                  )}
+                                </Box>
+                                <Typography variant="body2" color="text.secondary" gutterBottom>
+                                  Baseline: {goal.baseline}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary" gutterBottom>
+                                  Target: {goal.target}
+                                </Typography>
+                                {subs.length > 0 && (
+                                  <Box sx={{ mt: 2, pl: 2, borderLeft: '2px solid #e0e0e0' }}>
+                                    <Typography variant="subtitle2" gutterBottom>
+                                      Sub-goals ({subs.length}):
+                                    </Typography>
+                                    {subs.map(sub => (
+                                      <Box key={sub.id} sx={{ mb: 1 }}>
+                                        <Typography variant="body2">{sub.description}</Typography>
+                                        <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
+                                          <Chip label={sub.status} size="small" />
+                                          <IconButton
+                                            size="small"
+                                            onClick={() => handleOpenDialog(sub)}
+                                          >
+                                            <EditIcon fontSize="small" />
+                                          </IconButton>
+                                        </Box>
+                                      </Box>
+                                    ))}
+                                  </Box>
+                                )}
+                                <Button
+                                  size="small"
+                                  startIcon={<AddIcon />}
+                                  onClick={() => handleOpenDialog(undefined, goal.id)}
+                                  sx={{ mt: 1 }}
+                                >
+                                  Add Sub-goal
+                                </Button>
+                                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                                  Created: {formatDate(goal.dateCreated)}
+                                </Typography>
+                              </CardContent>
+                            </Card>
+                          </Grid>
+                        );
+                      })}
+                    </Grid>
+                  </Grid>
+                )}
+              </>
+            );
+          })()
         )}
       </Grid>
 
@@ -473,6 +739,59 @@ export const StudentDetail = () => {
                 AI
               </Button>
             </Box>
+            {selectedTemplate && (
+              <Alert severity="info">
+                Using template: <strong>{selectedTemplate.title}</strong>
+              </Alert>
+            )}
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <TextField
+                label="Domain"
+                fullWidth
+                select
+                value={formData.domain}
+                onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
+                InputLabelProps={{
+                  shrink: true,
+                }}
+                SelectProps={{ native: true }}
+              >
+                <option value="">None</option>
+                {getUniqueDomains().map(domain => (
+                  <option key={domain} value={domain}>{domain}</option>
+                ))}
+              </TextField>
+              <TextField
+                label="Priority"
+                fullWidth
+                select
+                value={formData.priority}
+                onChange={(e) => setFormData({ ...formData, priority: e.target.value as 'high' | 'medium' | 'low' })}
+                InputLabelProps={{
+                  shrink: true,
+                }}
+                SelectProps={{ native: true }}
+              >
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </TextField>
+            </Box>
+            {!editingGoal && (
+              <TextField
+                label="Parent Goal (Optional - for sub-goals)"
+                fullWidth
+                select
+                value={formData.parentGoalId}
+                onChange={(e) => setFormData({ ...formData, parentGoalId: e.target.value })}
+                SelectProps={{ native: true }}
+              >
+                <option value="">None (Main Goal)</option>
+                {goals.filter(g => !g.parentGoalId && (!editingGoal || g.id !== editingGoal.id)).map(goal => (
+                  <option key={goal.id} value={goal.id}>{goal.description}</option>
+                ))}
+              </TextField>
+            )}
             <TextField
               label="Baseline"
               fullWidth
@@ -652,6 +971,112 @@ export const StudentDetail = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setIepGoalsDialogOpen(false)}>Close</Button>
+          </DialogActions>
+        </Dialog>
+
+      {/* Goal Template Selection Dialog */}
+      <Dialog open={templateDialogOpen} onClose={() => setTemplateDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Goal Templates</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            <FormControl fullWidth>
+              <InputLabel>Filter by Domain</InputLabel>
+              <Select
+                value={templateFilterDomain}
+                onChange={(e) => {
+                  setTemplateFilterDomain(e.target.value);
+                  setShowRecommendedTemplates(false);
+                }}
+                label="Filter by Domain"
+              >
+                <MenuItem value="">All Domains</MenuItem>
+                {getUniqueDomains().map(domain => (
+                  <MenuItem key={domain} value={domain}>{domain}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            {showRecommendedTemplates && student && student.concerns.length > 0 && getRecommendedTemplates().length > 0 && (
+              <Box>
+                <Typography variant="h6" gutterBottom>
+                  Recommended for {student.name} ({student.concerns.join(', ')})
+                </Typography>
+                <Grid container spacing={2} sx={{ mb: 2 }}>
+                  {getRecommendedTemplates().slice(0, 4).map((template) => (
+                    <Grid item xs={12} sm={6} key={template.id}>
+                      <Card variant="outlined" sx={{ bgcolor: 'primary.50' }}>
+                        <CardContent>
+                          <Typography variant="h6" gutterBottom>
+                            {template.title}
+                          </Typography>
+                          <Chip label={template.domain} size="small" sx={{ mb: 1 }} />
+                          <Typography variant="body2" color="text.secondary" paragraph>
+                            {template.description}
+                          </Typography>
+                          {template.suggestedBaseline && (
+                            <Typography variant="caption" display="block">
+                              Baseline: {template.suggestedBaseline}
+                            </Typography>
+                          )}
+                          {template.suggestedTarget && (
+                            <Typography variant="caption" display="block">
+                              Target: {template.suggestedTarget}
+                            </Typography>
+                          )}
+                        </CardContent>
+                        <CardActions>
+                          <Button size="small" onClick={() => handleUseTemplate(template)}>
+                            Use Template
+                          </Button>
+                        </CardActions>
+                      </Card>
+                    </Grid>
+                  ))}
+                </Grid>
+                <Divider sx={{ my: 2 }} />
+              </Box>
+            )}
+            <Typography variant="h6" gutterBottom>
+              {templateFilterDomain ? `${templateFilterDomain} Templates` : 'All Templates'}
+            </Typography>
+            <Grid container spacing={2}>
+              {(templateFilterDomain
+                ? getGoalTemplatesByDomain(templateFilterDomain)
+                : goalTemplates
+              ).map((template) => (
+                <Grid item xs={12} sm={6} key={template.id}>
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom>
+                        {template.title}
+                      </Typography>
+                      <Chip label={template.domain} size="small" sx={{ mb: 1 }} />
+                      <Typography variant="body2" color="text.secondary" paragraph>
+                        {template.description}
+                      </Typography>
+                      {template.suggestedBaseline && (
+                        <Typography variant="caption" display="block">
+                          Baseline: {template.suggestedBaseline}
+                        </Typography>
+                      )}
+                      {template.suggestedTarget && (
+                        <Typography variant="caption" display="block">
+                          Target: {template.suggestedTarget}
+                        </Typography>
+                      )}
+                    </CardContent>
+                    <CardActions>
+                      <Button size="small" onClick={() => handleUseTemplate(template)}>
+                        Use Template
+                      </Button>
+                    </CardActions>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTemplateDialogOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
     </Box>
