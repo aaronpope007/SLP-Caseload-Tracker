@@ -48,6 +48,7 @@ import {
   getGoals,
 } from '../utils/storage';
 import { generateId, formatDate } from '../utils/helpers';
+import { useStorageSync } from '../hooks/useStorageSync';
 import {
   generateGoalSuggestions,
   generateTreatmentRecommendations,
@@ -116,6 +117,14 @@ export const StudentDetail = () => {
     }
   }, [id]);
 
+  // Sync data across browser tabs
+  useStorageSync(() => {
+    if (id) {
+      loadStudent();
+      loadGoals();
+    }
+  });
+
   const loadStudent = () => {
     if (id) {
       const found = getStudents().find((s) => s.id === id);
@@ -127,6 +136,31 @@ export const StudentDetail = () => {
     if (id) {
       setGoals(getGoalsByStudent(id));
     }
+  };
+
+  // Helper to get recent performance for a goal
+  const getRecentPerformance = (goalId: string) => {
+    if (!id) return { recentSessions: [], average: null };
+    const sessions = getSessionsByStudent(id)
+      .filter(s => s.goalsTargeted.includes(goalId))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 3);
+    
+    const recentData = sessions.map(s => {
+      const perf = s.performanceData.find(p => p.goalId === goalId);
+      return {
+        date: s.date,
+        accuracy: perf?.accuracy,
+        correctTrials: perf?.correctTrials,
+        incorrectTrials: perf?.incorrectTrials,
+      };
+    }).filter(d => d.accuracy !== undefined);
+
+    const average = recentData.length > 0
+      ? recentData.reduce((sum, d) => sum + (d.accuracy || 0), 0) / recentData.length
+      : null;
+
+    return { recentSessions: recentData, average };
   };
 
   const handleOpenDialog = (goal?: Goal, parentGoalId?: string) => {
@@ -559,6 +593,20 @@ export const StudentDetail = () => {
                                   <Typography variant="body2" color="text.secondary" gutterBottom>
                                     Baseline: {goal.baseline}
                                   </Typography>
+                                  {(() => {
+                                    const recent = getRecentPerformance(goal.id);
+                                    if (recent.recentSessions.length > 0) {
+                                      return (
+                                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                                          Recent: {recent.average !== null 
+                                            ? `${Math.round(recent.average)}% (avg of ${recent.recentSessions.length} sessions)`
+                                            : recent.recentSessions.map(s => `${Math.round(s.accuracy || 0)}%`).join(', ')
+                                          }
+                                        </Typography>
+                                      );
+                                    }
+                                    return null;
+                                  })()}
                                   <Typography variant="body2" color="text.secondary" gutterBottom>
                                     Target: {goal.target}
                                   </Typography>
@@ -659,6 +707,20 @@ export const StudentDetail = () => {
                                 <Typography variant="body2" color="text.secondary" gutterBottom>
                                   Baseline: {goal.baseline}
                                 </Typography>
+                                {(() => {
+                                  const recent = getRecentPerformance(goal.id);
+                                  if (recent.recentSessions.length > 0) {
+                                    return (
+                                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                                        Recent: {recent.average !== null 
+                                          ? `${Math.round(recent.average)}% (avg of ${recent.recentSessions.length} sessions)`
+                                          : recent.recentSessions.map(s => `${Math.round(s.accuracy || 0)}%`).join(', ')
+                                        }
+                                      </Typography>
+                                    );
+                                  }
+                                  return null;
+                                })()}
                                 <Typography variant="body2" color="text.secondary" gutterBottom>
                                   Target: {goal.target}
                                 </Typography>

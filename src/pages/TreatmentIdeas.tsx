@@ -34,6 +34,7 @@ import {
 } from '../utils/storage';
 import { generateId } from '../utils/helpers';
 import { generateTreatmentIdeas } from '../utils/gemini';
+import { useStorageSync } from '../hooks/useStorageSync';
 
 export const TreatmentIdeas = () => {
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -51,6 +52,11 @@ export const TreatmentIdeas = () => {
   useEffect(() => {
     loadActivities();
   }, []);
+
+  // Sync data across browser tabs
+  useStorageSync(() => {
+    loadActivities();
+  });
 
   const loadActivities = () => {
     setActivities(getActivities().sort((a, b) => 

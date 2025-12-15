@@ -33,6 +33,7 @@ import {
 import { getStudents, getGoals, getSessions } from '../utils/storage';
 import { formatDate } from '../utils/helpers';
 import { generateProgressNote, type GoalProgressData } from '../utils/gemini';
+import { useStorageSync } from '../hooks/useStorageSync';
 
 export const Progress = () => {
   const [students, setStudents] = useState<any[]>([]);
@@ -61,6 +62,19 @@ export const Progress = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStudentId]);
+
+  // Sync data across browser tabs
+  useStorageSync(() => {
+    if (selectedStudentId) {
+      loadProgressData();
+    }
+    // Reload students list when storage changes
+    const allStudents = getStudents().filter((s) => s.status === 'active' && s.archived !== true);
+    setStudents(allStudents);
+    if (allStudents.length > 0 && !allStudents.find(s => s.id === selectedStudentId)) {
+      setSelectedStudentId(allStudents[0].id);
+    }
+  });
 
   const loadProgressData = () => {
     const sessions = getSessions()

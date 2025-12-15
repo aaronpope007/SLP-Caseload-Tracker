@@ -16,6 +16,10 @@ import {
   Typography,
   Menu,
   MenuItem,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  InputAdornment,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -25,6 +29,10 @@ import {
   Search as SearchIcon,
   Archive as ArchiveIcon,
   Unarchive as UnarchiveIcon,
+  ExpandMore as ExpandMoreIcon,
+  UnfoldMore as UnfoldMoreIcon,
+  UnfoldLess as UnfoldLessIcon,
+  Clear as ClearIcon,
 } from '@mui/icons-material';
 import type { Student } from '../types';
 import {
@@ -34,6 +42,7 @@ import {
   deleteStudent,
 } from '../utils/storage';
 import { generateId } from '../utils/helpers';
+import { useStorageSync } from '../hooks/useStorageSync';
 
 export const Students = () => {
   const navigate = useNavigate();
@@ -45,6 +54,7 @@ export const Students = () => {
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
+  const [expandedStudents, setExpandedStudents] = useState<Set<string>>(new Set());
 
   const [formData, setFormData] = useState({
     name: '',
@@ -69,12 +79,25 @@ export const Students = () => {
       );
     }
     
+    // Maintain alphabetical order by first name
+    filtered.sort((a, b) => {
+      const firstNameA = a.name.split(' ')[0].toLowerCase();
+      const firstNameB = b.name.split(' ')[0].toLowerCase();
+      return firstNameA.localeCompare(firstNameB);
+    });
+    
     setFilteredStudents(filtered);
   };
 
   const loadStudents = () => {
     const allStudents = getStudents();
-    setStudents(allStudents);
+    // Sort alphabetically by first name
+    const sortedStudents = [...allStudents].sort((a, b) => {
+      const firstNameA = a.name.split(' ')[0].toLowerCase();
+      const firstNameB = b.name.split(' ')[0].toLowerCase();
+      return firstNameA.localeCompare(firstNameB);
+    });
+    setStudents(sortedStudents);
     filterStudents();
   };
 
@@ -88,12 +111,25 @@ export const Students = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, students, showArchived]);
 
-  const handleOpenDialog = (student?: Student) => {
+  useEffect(() => {
+    // Clean up expanded state for students that are no longer visible
+    setExpandedStudents((prev) => {
+      const visibleIds = new Set(filteredStudents.map((s) => s.id));
+      return new Set([...prev].filter((id) => visibleIds.has(id)));
+    });
+  }, [filteredStudents]);
+
+  // Sync data across browser tabs
+  useStorageSync(() => {
+    loadStudents();
+  });
+
+  const handleOpenDialog = (student?: Student, prefillName?: string) => {
     if (student) {
       setEditingStudent(student);
       setFormData({
         name: student.name,
-        age: student.age.toString(),
+        age: student.age > 0 ? student.age.toString() : '',
         grade: student.grade,
         concerns: student.concerns.join(', '),
         status: student.status,
@@ -101,7 +137,7 @@ export const Students = () => {
     } else {
       setEditingStudent(null);
       setFormData({
-        name: '',
+        name: prefillName || '',
         age: '',
         grade: '',
         concerns: '',
@@ -117,6 +153,13 @@ export const Students = () => {
   };
 
   const handleSave = () => {
+    // Age is optional - only validate if provided
+    const ageValue = formData.age.trim() === '' ? undefined : parseInt(formData.age);
+    if (ageValue !== undefined && (isNaN(ageValue) || ageValue < 1)) {
+      alert('Please enter a valid age of 1 or greater, or leave it blank');
+      return;
+    }
+
     const concernsArray = formData.concerns
       .split(',')
       .map((c) => c.trim())
@@ -125,7 +168,7 @@ export const Students = () => {
     if (editingStudent) {
       updateStudent(editingStudent.id, {
         name: formData.name,
-        age: parseInt(formData.age) || 0,
+        age: ageValue ?? 0,
         grade: formData.grade,
         concerns: concernsArray,
         status: formData.status,
@@ -134,7 +177,7 @@ export const Students = () => {
       addStudent({
         id: generateId(),
         name: formData.name,
-        age: parseInt(formData.age) || 0,
+        age: ageValue ?? 0,
         grade: formData.grade,
         concerns: concernsArray,
         status: formData.status,
@@ -177,6 +220,28 @@ export const Students = () => {
     handleMenuClose();
   };
 
+  const handleAccordionChange = (studentId: string) => {
+    setExpandedStudents((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(studentId)) {
+        newSet.delete(studentId);
+      } else {
+        newSet.add(studentId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleExpandAll = () => {
+    if (expandedStudents.size === filteredStudents.length) {
+      // Collapse all
+      setExpandedStudents(new Set());
+    } else {
+      // Expand all
+      setExpandedStudents(new Set(filteredStudents.map((s) => s.id)));
+    }
+  };
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
@@ -197,6 +262,15 @@ export const Students = () => {
           >
             Archived
           </Button>
+          {filteredStudents.length > 0 && (
+            <Button
+              variant="outlined"
+              startIcon={expandedStudents.size === filteredStudents.length ? <UnfoldLessIcon /> : <UnfoldMoreIcon />}
+              onClick={handleExpandAll}
+            >
+              {expandedStudents.size === filteredStudents.length ? 'Collapse All' : 'Expand All'}
+            </Button>
+          )}
           <Button
             variant="contained"
             startIcon={<AddIcon />}
@@ -214,7 +288,23 @@ export const Students = () => {
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           InputProps={{
-            startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon sx={{ color: 'text.secondary' }} />
+              </InputAdornment>
+            ),
+            endAdornment: searchTerm && (
+              <InputAdornment position="end">
+                <IconButton
+                  edge="end"
+                  onClick={() => setSearchTerm('')}
+                  size="small"
+                  aria-label="clear search"
+                >
+                  <ClearIcon />
+                </IconButton>
+              </InputAdornment>
+            ),
           }}
         />
       </Box>
@@ -224,67 +314,97 @@ export const Students = () => {
           <Grid item xs={12}>
             <Card>
               <CardContent>
-                <Typography color="text.secondary" align="center">
-                  {searchTerm
-                    ? `No ${showArchived ? 'archived ' : ''}students found matching your search`
-                    : showArchived
-                    ? 'No archived students'
-                    : 'No students added yet. Click "Add Student" to get started.'}
-                </Typography>
+                <Box sx={{ textAlign: 'center', py: 2 }}>
+                  <Typography color="text.secondary" gutterBottom>
+                    {searchTerm
+                      ? `No ${showArchived ? 'archived ' : ''}students found matching "${searchTerm}"`
+                      : showArchived
+                      ? 'No archived students'
+                      : 'No students added yet. Click "Add Student" to get started.'}
+                  </Typography>
+                  {searchTerm && searchTerm.trim().length > 0 && !showArchived && (
+                    <Box sx={{ mt: 2 }}>
+                      <Button
+                        variant="contained"
+                        startIcon={<AddIcon />}
+                        onClick={() => handleOpenDialog(undefined, searchTerm.trim())}
+                      >
+                        Create New Student: {searchTerm.trim()}
+                      </Button>
+                    </Box>
+                  )}
+                </Box>
               </CardContent>
             </Card>
           </Grid>
         ) : (
           filteredStudents.map((student) => (
             <Grid item xs={12} sm={6} md={4} key={student.id}>
-              <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+              <Accordion
+                expanded={expandedStudents.has(student.id)}
+                onChange={() => handleAccordionChange(student.id)}
+              >
+                <AccordionSummary
+                  expandIcon={<ExpandMoreIcon />}
+                  sx={{
+                    '& .MuiAccordionSummary-content': {
+                      alignItems: 'center',
+                    },
+                  }}
+                >
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', pr: 1 }}>
                     <Typography variant="h6">{student.name}</Typography>
                     <IconButton
                       size="small"
-                      onClick={(e) => handleMenuOpen(e, student.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleMenuOpen(e, student.id);
+                      }}
                     >
                       <MoreVertIcon />
                     </IconButton>
                   </Box>
-                  <Typography color="text.secondary" gutterBottom>
-                    Age: {student.age} | Grade: {student.grade}
-                  </Typography>
-                  <Box sx={{ mt: 1, mb: 1, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                    <Chip
-                      label={student.status}
-                      size="small"
-                      color={student.status === 'active' ? 'primary' : 'default'}
-                    />
-                    {student.archived && (
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Box>
+                    <Typography color="text.secondary" gutterBottom>
+                      {student.age > 0 ? `Age: ${student.age}` : ''}{student.age > 0 && student.grade ? ' | ' : ''}{student.grade ? `Grade: ${student.grade}` : ''}
+                    </Typography>
+                    <Box sx={{ mt: 1, mb: 1, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                       <Chip
-                        label="Archived"
+                        label={student.status}
                         size="small"
-                        color="default"
-                        variant="outlined"
+                        color={student.status === 'active' ? 'primary' : 'default'}
                       />
+                      {student.archived && (
+                        <Chip
+                          label="Archived"
+                          size="small"
+                          color="default"
+                          variant="outlined"
+                        />
+                      )}
+                    </Box>
+                    {student.concerns.length > 0 && (
+                      <Box sx={{ mt: 1 }}>
+                        <Typography variant="caption" color="text.secondary">
+                          Concerns:
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                          {student.concerns.map((concern, idx) => (
+                            <Chip
+                              key={idx}
+                              label={concern}
+                              size="small"
+                              variant="outlined"
+                            />
+                          ))}
+                        </Box>
+                      </Box>
                     )}
                   </Box>
-                  {student.concerns.length > 0 && (
-                    <Box sx={{ mt: 1 }}>
-                      <Typography variant="caption" color="text.secondary">
-                        Concerns:
-                      </Typography>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
-                        {student.concerns.map((concern, idx) => (
-                          <Chip
-                            key={idx}
-                            label={concern}
-                            size="small"
-                            variant="outlined"
-                          />
-                        ))}
-                      </Box>
-                    </Box>
-                  )}
-                </CardContent>
-              </Card>
+                </AccordionDetails>
+              </Accordion>
             </Grid>
           ))
         )}
@@ -302,13 +422,17 @@ export const Students = () => {
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
+              autoFocus
             />
             <TextField
-              label="Age"
+              label="Age (optional)"
               type="number"
               fullWidth
               value={formData.age}
               onChange={(e) => setFormData({ ...formData, age: e.target.value })}
+              inputProps={{ min: 1 }}
+              helperText={formData.age && parseInt(formData.age) < 1 ? 'Age must be at least 1' : 'Leave blank if unknown'}
+              error={formData.age !== '' && parseInt(formData.age) < 1}
             />
             <TextField
               label="Grade"
@@ -347,7 +471,11 @@ export const Students = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Cancel</Button>
-          <Button onClick={handleSave} variant="contained" disabled={!formData.name}>
+          <Button 
+            onClick={handleSave} 
+            variant="contained" 
+            disabled={!formData.name}
+          >
             Save
           </Button>
         </DialogActions>

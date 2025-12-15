@@ -20,6 +20,7 @@ import {
 } from '@mui/icons-material';
 import { getStudents, getGoals, getSessions } from '../utils/storage';
 import { formatDate } from '../utils/helpers';
+import { useStorageSync } from '../hooks/useStorageSync';
 
 export const Dashboard = () => {
   console.log('Dashboard component rendering');
@@ -31,7 +32,7 @@ export const Dashboard = () => {
   });
   const [recentStudents, setRecentStudents] = useState<any[]>([]);
 
-  useEffect(() => {
+  const loadDashboardData = () => {
     console.log('Dashboard useEffect running');
     const students = getStudents();
     const goals = getGoals();
@@ -68,7 +69,16 @@ export const Dashboard = () => {
         }))
         .filter(s => s.student) // Only show sessions for non-archived students
     );
+  };
+
+  useEffect(() => {
+    loadDashboardData();
   }, []);
+
+  // Sync data across browser tabs
+  useStorageSync(() => {
+    loadDashboardData();
+  });
 
   const statCards = [
     {

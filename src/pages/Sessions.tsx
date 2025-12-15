@@ -45,6 +45,7 @@ import {
 } from '../utils/storage';
 import { generateId, formatDateTime, toLocalDateTimeString, fromLocalDateTimeString } from '../utils/helpers';
 import { generateSessionPlan } from '../utils/gemini';
+import { useStorageSync } from '../hooks/useStorageSync';
 
 export const Sessions = () => {
   const navigate = useNavigate();
@@ -73,6 +74,11 @@ export const Sessions = () => {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Sync data across browser tabs
+  useStorageSync(() => {
+    loadData();
+  });
 
   const loadData = () => {
     setSessions(getSessions().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
