@@ -10,6 +10,7 @@ import { Sessions } from './pages/Sessions';
 import { Progress } from './pages/Progress';
 import { TreatmentIdeas } from './pages/TreatmentIdeas';
 import { DocumentationTemplates } from './pages/DocumentationTemplates';
+import { SchoolProvider } from './context/SchoolContext';
 
 const theme = createTheme({
   palette: {
@@ -29,19 +30,21 @@ function App() {
     <ErrorBoundary>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <BrowserRouter>
-          <Layout>
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/students" element={<Students />} />
-              <Route path="/students/:id" element={<StudentDetail />} />
-              <Route path="/sessions" element={<Sessions />} />
-              <Route path="/progress" element={<Progress />} />
-              <Route path="/ideas" element={<TreatmentIdeas />} />
-              <Route path="/documentation" element={<DocumentationTemplates />} />
-            </Routes>
-          </Layout>
-        </BrowserRouter>
+        <SchoolProvider>
+          <BrowserRouter>
+            <Layout>
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/students" element={<Students />} />
+                <Route path="/students/:id" element={<StudentDetail />} />
+                <Route path="/sessions" element={<Sessions />} />
+                <Route path="/progress" element={<Progress />} />
+                <Route path="/ideas" element={<TreatmentIdeas />} />
+                <Route path="/documentation" element={<DocumentationTemplates />} />
+              </Routes>
+            </Layout>
+          </BrowserRouter>
+        </SchoolProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );

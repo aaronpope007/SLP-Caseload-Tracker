@@ -8,6 +8,7 @@ export interface Student {
   dateAdded: string;
   archived?: boolean; // Optional for backward compatibility
   dateArchived?: string;
+  school: string; // School name the student belongs to
 }
 
 export interface Goal {

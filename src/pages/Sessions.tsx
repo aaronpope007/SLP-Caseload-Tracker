@@ -46,9 +46,11 @@ import {
 import { generateId, formatDateTime, toLocalDateTimeString, fromLocalDateTimeString } from '../utils/helpers';
 import { generateSessionPlan } from '../utils/gemini';
 import { useStorageSync } from '../hooks/useStorageSync';
+import { useSchool } from '../context/SchoolContext';
 
 export const Sessions = () => {
   const navigate = useNavigate();
+  const { selectedSchool } = useSchool();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -73,18 +75,25 @@ export const Sessions = () => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [selectedSchool]);
 
   // Sync data across browser tabs
   useStorageSync(() => {
     loadData();
-  });
+  }, [selectedSchool]);
 
   const loadData = () => {
-    setSessions(getSessions().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+    const schoolStudents = getStudents(selectedSchool);
+    const studentIds = new Set(schoolStudents.map(s => s.id));
+    const allSessions = getSessions();
+    const schoolSessions = allSessions
+      .filter(s => studentIds.has(s.studentId))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    setSessions(schoolSessions);
     // Filter out archived students (archived is optional for backward compatibility)
-    setStudents(getStudents().filter(s => s.archived !== true));
-    setGoals(getGoals());
+    setStudents(schoolStudents.filter(s => s.archived !== true));
+    const allGoals = getGoals();
+    setGoals(allGoals.filter(g => studentIds.has(g.studentId)));
   };
 
   const handleOpenDialog = (session?: Session) => {

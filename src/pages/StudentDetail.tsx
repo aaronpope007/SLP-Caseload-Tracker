@@ -49,6 +49,7 @@ import {
 } from '../utils/storage';
 import { generateId, formatDate } from '../utils/helpers';
 import { useStorageSync } from '../hooks/useStorageSync';
+import { useSchool } from '../context/SchoolContext';
 import {
   generateGoalSuggestions,
   generateTreatmentRecommendations,
@@ -65,6 +66,7 @@ import {
 export const StudentDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { selectedSchool } = useSchool();
   const [student, setStudent] = useState<Student | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -115,7 +117,7 @@ export const StudentDetail = () => {
       loadStudent();
       loadGoals();
     }
-  }, [id]);
+  }, [id, selectedSchool]);
 
   // Sync data across browser tabs
   useStorageSync(() => {
@@ -123,25 +125,25 @@ export const StudentDetail = () => {
       loadStudent();
       loadGoals();
     }
-  });
+  }, [id, selectedSchool]);
 
   const loadStudent = () => {
     if (id) {
-      const found = getStudents().find((s) => s.id === id);
+      const found = getStudents(selectedSchool).find((s) => s.id === id);
       setStudent(found || null);
     }
   };
 
   const loadGoals = () => {
     if (id) {
-      setGoals(getGoalsByStudent(id));
+      setGoals(getGoalsByStudent(id, selectedSchool));
     }
   };
 
   // Helper to get recent performance for a goal
   const getRecentPerformance = (goalId: string) => {
     if (!id) return { recentSessions: [], average: null };
-    const sessions = getSessionsByStudent(id)
+    const sessions = getSessionsByStudent(id, selectedSchool)
       .filter(s => s.goalsTargeted.includes(goalId))
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 3);
@@ -315,7 +317,7 @@ export const StudentDetail = () => {
 
     try {
       // Convert goals to GoalProgressData format
-      const sessions = id ? getSessionsByStudent(id) : [];
+      const sessions = id ? getSessionsByStudent(id, selectedSchool) : [];
       const goalProgressData: GoalProgressData[] = goals.map(goal => {
         const goalSessions = sessions.filter(s => s.goalsTargeted.includes(goal.id));
         const latestPerf = goalSessions

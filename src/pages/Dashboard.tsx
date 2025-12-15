@@ -21,10 +21,12 @@ import {
 import { getStudents, getGoals, getSessions } from '../utils/storage';
 import { formatDate } from '../utils/helpers';
 import { useStorageSync } from '../hooks/useStorageSync';
+import { useSchool } from '../context/SchoolContext';
 
 export const Dashboard = () => {
   console.log('Dashboard component rendering');
   const navigate = useNavigate();
+  const { selectedSchool } = useSchool();
   const [stats, setStats] = useState({
     activeStudents: 0,
     totalGoals: 0,
@@ -34,21 +36,26 @@ export const Dashboard = () => {
 
   const loadDashboardData = () => {
     console.log('Dashboard useEffect running');
-    const students = getStudents();
+    const students = getStudents(selectedSchool);
     const goals = getGoals();
     const sessions = getSessions();
+    
+    // Filter goals and sessions by school students
+    const studentIds = new Set(students.map(s => s.id));
+    const schoolGoals = goals.filter(g => studentIds.has(g.studentId));
+    const schoolSessions = sessions.filter(s => studentIds.has(s.studentId));
 
     // Filter out archived students (archived is optional for backward compatibility)
     const activeStudents = students.filter(s => s.status === 'active' && s.archived !== true);
     const activeStudentIds = new Set(activeStudents.map(s => s.id));
     
     // Filter goals to only include those belonging to active (non-archived) students
-    const activeGoals = goals.filter(g => 
+    const activeGoals = schoolGoals.filter(g => 
       g.status === 'in-progress' && activeStudentIds.has(g.studentId)
     );
     
     // Filter sessions to only include those belonging to active (non-archived) students
-    const activeSessions = sessions.filter(s => activeStudentIds.has(s.studentId));
+    const activeSessions = schoolSessions.filter(s => activeStudentIds.has(s.studentId));
     const recent = activeSessions
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 5);
@@ -73,12 +80,12 @@ export const Dashboard = () => {
 
   useEffect(() => {
     loadDashboardData();
-  }, []);
+  }, [selectedSchool]);
 
   // Sync data across browser tabs
   useStorageSync(() => {
     loadDashboardData();
-  });
+  }, [selectedSchool]);
 
   const statCards = [
     {

@@ -43,9 +43,11 @@ import {
 } from '../utils/storage';
 import { generateId } from '../utils/helpers';
 import { useStorageSync } from '../hooks/useStorageSync';
+import { useSchool } from '../context/SchoolContext';
 
 export const Students = () => {
   const navigate = useNavigate();
+  const { selectedSchool, availableSchools } = useSchool();
   const [students, setStudents] = useState<Student[]>([]);
   const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -55,6 +57,17 @@ export const Students = () => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
   const [expandedStudents, setExpandedStudents] = useState<Set<string>>(new Set());
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    open: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
 
   const [formData, setFormData] = useState({
     name: '',
@@ -62,6 +75,7 @@ export const Students = () => {
     grade: '',
     concerns: '',
     status: 'active' as 'active' | 'discharged',
+    school: '',
   });
 
   const filterStudents = () => {
@@ -90,7 +104,7 @@ export const Students = () => {
   };
 
   const loadStudents = () => {
-    const allStudents = getStudents();
+    const allStudents = getStudents(selectedSchool);
     // Sort alphabetically by first name
     const sortedStudents = [...allStudents].sort((a, b) => {
       const firstNameA = a.name.split(' ')[0].toLowerCase();
@@ -109,7 +123,7 @@ export const Students = () => {
   useEffect(() => {
     filterStudents();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, students, showArchived]);
+  }, [searchTerm, students, showArchived, selectedSchool]);
 
   useEffect(() => {
     // Clean up expanded state for students that are no longer visible
@@ -133,6 +147,7 @@ export const Students = () => {
         grade: student.grade,
         concerns: student.concerns.join(', '),
         status: student.status,
+        school: student.school || selectedSchool,
       });
     } else {
       setEditingStudent(null);
@@ -142,6 +157,7 @@ export const Students = () => {
         grade: '',
         concerns: '',
         status: 'active',
+        school: selectedSchool,
       });
     }
     setDialogOpen(true);
@@ -172,6 +188,7 @@ export const Students = () => {
         grade: formData.grade,
         concerns: concernsArray,
         status: formData.status,
+        school: formData.school || selectedSchool,
       });
     } else {
       addStudent({
@@ -182,6 +199,7 @@ export const Students = () => {
         concerns: concernsArray,
         status: formData.status,
         dateAdded: new Date().toISOString(),
+        school: formData.school || selectedSchool,
       });
     }
     loadStudents();
@@ -189,20 +207,38 @@ export const Students = () => {
   };
 
   const handleDelete = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this student?')) {
-      deleteStudent(id);
-      loadStudents();
-    }
-    setAnchorEl(null);
+    const student = students.find(s => s.id === id);
+    handleMenuClose(); // Close menu when dialog opens
+    setConfirmDialog({
+      open: true,
+      title: 'Delete Student',
+      message: `Are you sure you want to delete ${student?.name || 'this student'}? This action cannot be undone.`,
+      onConfirm: () => {
+        deleteStudent(id);
+        loadStudents();
+        setConfirmDialog({ ...confirmDialog, open: false });
+      },
+    });
   };
 
   const handleArchive = (id: string, archive: boolean) => {
-    updateStudent(id, {
-      archived: archive,
-      dateArchived: archive ? new Date().toISOString() : undefined,
+    const student = students.find(s => s.id === id);
+    handleMenuClose(); // Close menu when dialog opens
+    setConfirmDialog({
+      open: true,
+      title: archive ? 'Archive Student' : 'Unarchive Student',
+      message: archive
+        ? `Are you sure you want to archive ${student?.name || 'this student'}? Archived students can be viewed in the Archived view.`
+        : `Are you sure you want to unarchive ${student?.name || 'this student'}?`,
+      onConfirm: () => {
+        updateStudent(id, {
+          archived: archive,
+          dateArchived: archive ? new Date().toISOString() : undefined,
+        });
+        loadStudents();
+        setConfirmDialog({ ...confirmDialog, open: false });
+      },
     });
-    loadStudents();
-    setAnchorEl(null);
   };
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, studentId: string) => {
@@ -327,7 +363,18 @@ export const Students = () => {
                       <Button
                         variant="contained"
                         startIcon={<AddIcon />}
-                        onClick={() => handleOpenDialog(undefined, searchTerm.trim())}
+                        onClick={() => {
+                          setFormData({
+                            name: searchTerm.trim(),
+                            age: '',
+                            grade: '',
+                            concerns: '',
+                            status: 'active',
+                            school: selectedSchool,
+                          });
+                          setEditingStudent(null);
+                          setDialogOpen(true);
+                        }}
                       >
                         Create New Student: {searchTerm.trim()}
                       </Button>
@@ -467,6 +514,27 @@ export const Students = () => {
               <option value="active">Active</option>
               <option value="discharged">Discharged</option>
             </TextField>
+            <TextField
+              select
+              label="School"
+              fullWidth
+              value={formData.school}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  school: e.target.value,
+                })
+              }
+              SelectProps={{
+                native: true,
+              }}
+            >
+              {availableSchools.map((school) => (
+                <option key={school} value={school}>
+                  {school}
+                </option>
+              ))}
+            </TextField>
           </Box>
         </DialogContent>
         <DialogActions>
@@ -514,6 +582,32 @@ export const Students = () => {
           <DeleteIcon sx={{ mr: 1 }} /> Delete
         </MenuItem>
       </Menu>
+
+      {/* Confirmation Dialog */}
+      <Dialog
+        open={confirmDialog.open}
+        onClose={() => setConfirmDialog({ ...confirmDialog, open: false })}
+      >
+        <DialogTitle>{confirmDialog.title}</DialogTitle>
+        <DialogContent>
+          <Typography>{confirmDialog.message}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDialog({ ...confirmDialog, open: false })}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => {
+              confirmDialog.onConfirm();
+              setConfirmDialog({ ...confirmDialog, open: false });
+            }}
+            variant="contained"
+            color={confirmDialog.title.includes('Delete') ? 'error' : 'primary'}
+          >
+            Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

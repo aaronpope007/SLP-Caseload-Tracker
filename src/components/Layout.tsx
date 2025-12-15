@@ -15,6 +15,10 @@ import {
   useTheme,
   useMediaQuery,
   Button,
+  FormControl,
+  Select,
+  MenuItem,
+  Divider,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -26,8 +30,10 @@ import {
   Lightbulb as LightbulbIcon,
   Settings as SettingsIcon,
   Description as DescriptionIcon,
+  School as SchoolIcon,
 } from '@mui/icons-material';
 import { SettingsDialog } from './SettingsDialog';
+import { useSchool } from '../context/SchoolContext';
 
 const drawerWidth = 240;
 
@@ -51,6 +57,7 @@ export const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const { selectedSchool, setSelectedSchool, availableSchools } = useSchool();
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -63,6 +70,24 @@ export const Layout = ({ children }: LayoutProps) => {
           SLP Tracker
         </Typography>
       </Toolbar>
+      <Divider />
+      <Box sx={{ p: 2 }}>
+        <FormControl fullWidth size="small">
+          <Select
+            value={selectedSchool}
+            onChange={(e) => setSelectedSchool(e.target.value)}
+            sx={{ fontSize: '0.875rem' }}
+          >
+            {availableSchools.map((school) => (
+              <MenuItem key={school} value={school}>
+                <SchoolIcon sx={{ mr: 1, fontSize: '1rem' }} />
+                {school}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Box>
+      <Divider />
       <List>
         {menuItems.map((item) => (
           <ListItem key={item.text} disablePadding>

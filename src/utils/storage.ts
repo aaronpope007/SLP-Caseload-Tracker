@@ -7,10 +7,62 @@ const STORAGE_KEYS = {
   ACTIVITIES: 'slp_activities',
 } as const;
 
-// Students
-export const getStudents = (): Student[] => {
+const DEFAULT_SCHOOL = 'Noble Academy';
+
+// Migrate existing students to have school field
+const migrateStudents = (): void => {
   const data = localStorage.getItem(STORAGE_KEYS.STUDENTS);
-  return data ? JSON.parse(data) : [];
+  if (!data) return;
+  
+  try {
+    const students = JSON.parse(data) as Student[];
+    let needsMigration = false;
+    const migrated = students.map((student) => {
+      if (!student.school) {
+        needsMigration = true;
+        return { ...student, school: DEFAULT_SCHOOL };
+      }
+      return student;
+    });
+    
+    if (needsMigration) {
+      localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(migrated));
+    }
+  } catch {
+    // If parsing fails, ignore
+  }
+};
+
+// Run migration on first load
+if (typeof window !== 'undefined') {
+  migrateStudents();
+}
+
+// Students
+export const getStudents = (school?: string): Student[] => {
+  const data = localStorage.getItem(STORAGE_KEYS.STUDENTS);
+  let students: Student[] = data ? JSON.parse(data) : [];
+  
+  // Migrate on each get to ensure all students have school
+  const migrated = students.map((student) => {
+    if (!student.school) {
+      return { ...student, school: DEFAULT_SCHOOL };
+    }
+    return student;
+  });
+  
+  // If migration happened, save it
+  if (migrated.some((s, i) => !students[i]?.school)) {
+    localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(migrated));
+    students = migrated;
+  }
+  
+  // Filter by school if provided
+  if (school) {
+    return migrated.filter((s) => s.school === school);
+  }
+  
+  return migrated;
 };
 
 export const saveStudents = (students: Student[]): void => {
@@ -43,8 +95,18 @@ export const getGoals = (): Goal[] => {
   return data ? JSON.parse(data) : [];
 };
 
-export const getGoalsByStudent = (studentId: string): Goal[] => {
-  return getGoals().filter(g => g.studentId === studentId);
+export const getGoalsByStudent = (studentId: string, school?: string): Goal[] => {
+  const allGoals = getGoals();
+  const students = getStudents(school);
+  const studentIds = new Set(students.map(s => s.id));
+  return allGoals.filter(g => g.studentId === studentId && studentIds.has(g.studentId));
+};
+
+export const getGoalsBySchool = (school: string): Goal[] => {
+  const allGoals = getGoals();
+  const students = getStudents(school);
+  const studentIds = new Set(students.map(s => s.id));
+  return allGoals.filter(g => studentIds.has(g.studentId));
 };
 
 export const saveGoals = (goals: Goal[]): void => {
@@ -77,9 +139,21 @@ export const getSessions = (): Session[] => {
   return data ? JSON.parse(data) : [];
 };
 
-export const getSessionsByStudent = (studentId: string): Session[] => {
-  return getSessions()
-    .filter(s => s.studentId === studentId)
+export const getSessionsByStudent = (studentId: string, school?: string): Session[] => {
+  const allSessions = getSessions();
+  const students = school ? getStudents(school) : getStudents();
+  const studentIds = new Set(students.map(s => s.id));
+  return allSessions
+    .filter(s => s.studentId === studentId && studentIds.has(s.studentId))
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+};
+
+export const getSessionsBySchool = (school: string): Session[] => {
+  const allSessions = getSessions();
+  const students = getStudents(school);
+  const studentIds = new Set(students.map(s => s.id));
+  return allSessions
+    .filter(s => studentIds.has(s.studentId))
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 };
 
