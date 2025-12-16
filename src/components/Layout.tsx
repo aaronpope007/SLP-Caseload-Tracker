@@ -19,6 +19,11 @@ import {
   Select,
   MenuItem,
   Divider,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -31,6 +36,7 @@ import {
   Settings as SettingsIcon,
   Description as DescriptionIcon,
   School as SchoolIcon,
+  Add as AddIcon,
 } from '@mui/icons-material';
 import { SettingsDialog } from './SettingsDialog';
 import { useSchool } from '../context/SchoolContext';
@@ -53,14 +59,40 @@ interface LayoutProps {
 export const Layout = ({ children }: LayoutProps) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [addSchoolOpen, setAddSchoolOpen] = useState(false);
+  const [newSchoolName, setNewSchoolName] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const { selectedSchool, setSelectedSchool, availableSchools } = useSchool();
+  const { selectedSchool, setSelectedSchool, availableSchools, addSchool } = useSchool();
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
+  };
+
+  const handleAddSchool = () => {
+    setAddSchoolOpen(true);
+  };
+
+  const handleCloseAddSchool = () => {
+    setAddSchoolOpen(false);
+    setNewSchoolName('');
+  };
+
+  const handleSaveNewSchool = () => {
+    if (newSchoolName.trim()) {
+      addSchool(newSchoolName.trim());
+      handleCloseAddSchool();
+    }
+  };
+
+  const handleSchoolChange = (value: string) => {
+    if (value === '__add_school__') {
+      handleAddSchool();
+    } else {
+      setSelectedSchool(value);
+    }
   };
 
   const drawer = (
@@ -75,7 +107,7 @@ export const Layout = ({ children }: LayoutProps) => {
         <FormControl fullWidth size="small">
           <Select
             value={selectedSchool}
-            onChange={(e) => setSelectedSchool(e.target.value)}
+            onChange={(e) => handleSchoolChange(e.target.value)}
             sx={{ fontSize: '0.875rem' }}
           >
             {availableSchools.map((school) => (
@@ -84,6 +116,11 @@ export const Layout = ({ children }: LayoutProps) => {
                 {school}
               </MenuItem>
             ))}
+            <Divider />
+            <MenuItem value="__add_school__">
+              <AddIcon sx={{ mr: 1, fontSize: '1rem' }} />
+              Add School
+            </MenuItem>
           </Select>
         </FormControl>
       </Box>
@@ -190,6 +227,32 @@ export const Layout = ({ children }: LayoutProps) => {
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
       />
+      <Dialog open={addSchoolOpen} onClose={handleCloseAddSchool} maxWidth="sm" fullWidth>
+        <DialogTitle>Add New School</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="School Name"
+            fullWidth
+            variant="outlined"
+            value={newSchoolName}
+            onChange={(e) => setNewSchoolName(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter' && newSchoolName.trim()) {
+                handleSaveNewSchool();
+              }
+            }}
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseAddSchool}>Cancel</Button>
+          <Button onClick={handleSaveNewSchool} variant="contained" disabled={!newSchoolName.trim()}>
+            Add
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

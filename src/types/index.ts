@@ -4,6 +4,7 @@ export interface Student {
   age: number;
   grade: string;
   concerns: string[];
+  exceptionality?: string[]; // Optional for backward compatibility
   status: 'active' | 'discharged';
   dateAdded: string;
   archived?: boolean; // Optional for backward compatibility

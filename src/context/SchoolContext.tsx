@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode, useCallback 
 import { onStorageChange } from '../utils/storageSync';
 
 const SCHOOL_STORAGE_KEY = 'slp_selected_school';
+const SCHOOLS_LIST_KEY = 'slp_schools_list';
 const DEFAULT_SCHOOL = 'Noble Academy';
 
 interface SchoolContextType {
@@ -17,16 +18,27 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
   const [selectedSchool, setSelectedSchoolState] = useState<string>(DEFAULT_SCHOOL);
   const [availableSchools, setAvailableSchools] = useState<string[]>([DEFAULT_SCHOOL]);
 
-  // Get available schools from all students
+  // Get available schools from all students and stored schools list
   const refreshAvailableSchools = useCallback(() => {
     try {
-      const students = JSON.parse(localStorage.getItem('slp_students') || '[]');
       const schools = new Set<string>();
-      students.forEach((student: any) => {
-        if (student.school) {
-          schools.add(student.school);
+      
+      // Add schools from stored list
+      const storedSchools = JSON.parse(localStorage.getItem(SCHOOLS_LIST_KEY) || '[]');
+      storedSchools.forEach((school: string) => {
+        if (school && school.trim()) {
+          schools.add(school.trim());
         }
       });
+      
+      // Add schools from students
+      const students = JSON.parse(localStorage.getItem('slp_students') || '[]');
+      students.forEach((student: any) => {
+        if (student.school && student.school.trim()) {
+          schools.add(student.school.trim());
+        }
+      });
+      
       // Always include the default school
       schools.add(DEFAULT_SCHOOL);
       const sorted = Array.from(schools).sort();
@@ -63,9 +75,25 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addSchool = (school: string) => {
-    // School will be added automatically when a student with that school is created
-    // This function is here for future extensibility
-    setSelectedSchool(school);
+    const trimmedSchool = school.trim();
+    if (!trimmedSchool) return;
+    
+    try {
+      // Get existing schools list
+      const storedSchools = JSON.parse(localStorage.getItem(SCHOOLS_LIST_KEY) || '[]');
+      
+      // Add school if it doesn't exist
+      if (!storedSchools.includes(trimmedSchool)) {
+        const updated = [...storedSchools, trimmedSchool];
+        localStorage.setItem(SCHOOLS_LIST_KEY, JSON.stringify(updated));
+      }
+      
+      // Refresh available schools and select the new school
+      refreshAvailableSchools();
+      setSelectedSchool(trimmedSchool);
+    } catch (error) {
+      console.error('Error adding school:', error);
+    }
   };
 
   return (

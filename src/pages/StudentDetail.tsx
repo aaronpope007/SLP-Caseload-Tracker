@@ -50,6 +50,8 @@ import {
 import { generateId, formatDate } from '../utils/helpers';
 import { useStorageSync } from '../hooks/useStorageSync';
 import { useSchool } from '../context/SchoolContext';
+import { useConfirm } from '../hooks/useConfirm';
+import { useDirty } from '../hooks/useDirty';
 import {
   generateGoalSuggestions,
   generateTreatmentRecommendations,
@@ -80,6 +82,28 @@ export const StudentDetail = () => {
     domain: '',
     priority: 'medium' as 'high' | 'medium' | 'low',
     parentGoalId: '',
+  });
+  const [initialFormData, setInitialFormData] = useState(formData);
+  const { confirm, ConfirmDialog } = useConfirm();
+
+  // Check if form is dirty
+  const isFormDirty = () => {
+    if (!dialogOpen) return false;
+    return (
+      formData.description !== initialFormData.description ||
+      formData.baseline !== initialFormData.baseline ||
+      formData.target !== initialFormData.target ||
+      formData.status !== initialFormData.status ||
+      formData.domain !== initialFormData.domain ||
+      formData.priority !== initialFormData.priority ||
+      formData.parentGoalId !== initialFormData.parentGoalId
+    );
+  };
+
+  // Use dirty hook to block navigation
+  const { blocker, reset: resetDirty } = useDirty({
+    isDirty: isFormDirty(),
+    message: 'You have unsaved changes to this goal. Are you sure you want to leave?',
   });
   
   // Goal template selection
@@ -166,9 +190,10 @@ export const StudentDetail = () => {
   };
 
   const handleOpenDialog = (goal?: Goal, parentGoalId?: string) => {
+    let newFormData;
     if (goal) {
       setEditingGoal(goal);
-      setFormData({
+      newFormData = {
         description: goal.description,
         baseline: goal.baseline,
         target: goal.target,
@@ -176,10 +201,10 @@ export const StudentDetail = () => {
         domain: goal.domain || '',
         priority: goal.priority || 'medium',
         parentGoalId: goal.parentGoalId || '',
-      });
+      };
     } else {
       setEditingGoal(null);
-      setFormData({
+      newFormData = {
         description: '',
         baseline: '',
         target: '',
@@ -187,15 +212,32 @@ export const StudentDetail = () => {
         domain: '',
         priority: 'medium',
         parentGoalId: parentGoalId || '',
-      });
+      };
     }
+    setFormData(newFormData);
+    setInitialFormData(newFormData);
     setSelectedTemplate(null);
     setDialogOpen(true);
   };
 
   const handleCloseDialog = () => {
-    setDialogOpen(false);
-    setEditingGoal(null);
+    if (isFormDirty()) {
+      confirm({
+        title: 'Unsaved Changes',
+        message: 'You have unsaved changes to this goal. Are you sure you want to close?',
+        confirmText: 'Discard Changes',
+        cancelText: 'Cancel',
+        onConfirm: () => {
+          setDialogOpen(false);
+          setEditingGoal(null);
+          resetDirty();
+        },
+      });
+    } else {
+      setDialogOpen(false);
+      setEditingGoal(null);
+      resetDirty();
+    }
   };
 
   const handleSave = () => {
@@ -251,7 +293,9 @@ export const StudentDetail = () => {
       }
     }
     loadGoals();
-    handleCloseDialog();
+    resetDirty();
+    setDialogOpen(false);
+    setEditingGoal(null);
   };
 
   const handleUseTemplate = (template: typeof goalTemplates[0]) => {
@@ -1143,6 +1187,34 @@ export const StudentDetail = () => {
           <Button onClick={() => setTemplateDialogOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Confirmation dialog for unsaved changes */}
+      <ConfirmDialog />
+
+      {/* Navigation blocker confirmation */}
+      {blocker.state === 'blocked' && (
+        <Dialog open={true} onClose={() => blocker.reset?.()}>
+          <DialogTitle>Unsaved Changes</DialogTitle>
+          <DialogContent>
+            <Typography>
+              You have unsaved changes to this goal. Are you sure you want to leave?
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => blocker.reset?.()}>Cancel</Button>
+            <Button
+              onClick={() => {
+                resetDirty();
+                blocker.proceed?.();
+              }}
+              variant="contained"
+              color="primary"
+            >
+              Discard Changes
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </Box>
   );
 };

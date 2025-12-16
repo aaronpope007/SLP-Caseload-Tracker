@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -23,6 +23,65 @@ const theme = createTheme({
   },
 });
 
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: (
+      <Layout>
+        <Dashboard />
+      </Layout>
+    ),
+  },
+  {
+    path: '/students',
+    element: (
+      <Layout>
+        <Students />
+      </Layout>
+    ),
+  },
+  {
+    path: '/students/:id',
+    element: (
+      <Layout>
+        <StudentDetail />
+      </Layout>
+    ),
+  },
+  {
+    path: '/sessions',
+    element: (
+      <Layout>
+        <Sessions />
+      </Layout>
+    ),
+  },
+  {
+    path: '/progress',
+    element: (
+      <Layout>
+        <Progress />
+      </Layout>
+    ),
+  },
+  {
+    path: '/ideas',
+    element: (
+      <Layout>
+        <TreatmentIdeas />
+      </Layout>
+    ),
+  },
+  {
+    path: '/documentation',
+    element: (
+      <Layout>
+        <DocumentationTemplates />
+      </Layout>
+    ),
+  },
+]);
+
 function App() {
   console.log('App component rendering...');
   
@@ -31,19 +90,7 @@ function App() {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <SchoolProvider>
-          <BrowserRouter>
-            <Layout>
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/students" element={<Students />} />
-                <Route path="/students/:id" element={<StudentDetail />} />
-                <Route path="/sessions" element={<Sessions />} />
-                <Route path="/progress" element={<Progress />} />
-                <Route path="/ideas" element={<TreatmentIdeas />} />
-                <Route path="/documentation" element={<DocumentationTemplates />} />
-              </Routes>
-            </Layout>
-          </BrowserRouter>
+          <RouterProvider router={router} />
         </SchoolProvider>
       </ThemeProvider>
     </ErrorBoundary>

@@ -44,6 +44,8 @@ import {
 import { generateId } from '../utils/helpers';
 import { useStorageSync } from '../hooks/useStorageSync';
 import { useSchool } from '../context/SchoolContext';
+import { useConfirm } from '../hooks/useConfirm';
+import { useDirty } from '../hooks/useDirty';
 
 export const Students = () => {
   const navigate = useNavigate();
@@ -74,8 +76,31 @@ export const Students = () => {
     age: '',
     grade: '',
     concerns: '',
+    exceptionality: '',
     status: 'active' as 'active' | 'discharged',
     school: '',
+  });
+  const [initialFormData, setInitialFormData] = useState(formData);
+  const { confirm, ConfirmDialog } = useConfirm();
+
+  // Check if form is dirty
+  const isFormDirty = () => {
+    if (!dialogOpen) return false;
+    return (
+      formData.name !== initialFormData.name ||
+      formData.age !== initialFormData.age ||
+      formData.grade !== initialFormData.grade ||
+      formData.concerns !== initialFormData.concerns ||
+      formData.exceptionality !== initialFormData.exceptionality ||
+      formData.status !== initialFormData.status ||
+      formData.school !== initialFormData.school
+    );
+  };
+
+  // Use dirty hook to block navigation
+  const { blocker, reset: resetDirty } = useDirty({
+    isDirty: isFormDirty(),
+    message: 'You have unsaved changes to this student. Are you sure you want to leave?',
   });
 
   const filterStudents = () => {
@@ -104,7 +129,28 @@ export const Students = () => {
   };
 
   const loadStudents = () => {
+    if (!selectedSchool) {
+      console.warn('No school selected, cannot load students');
+      setStudents([]);
+      return;
+    }
+    console.log('Loading students for school:', selectedSchool);
+    
+    // First, check if ANY students exist (without school filter)
+    const allStudentsUnfiltered = getStudents();
+    console.log('Total students in storage (no filter):', allStudentsUnfiltered.length);
+    
+    // Then filter by school
     const allStudents = getStudents(selectedSchool);
+    console.log('Found students:', allStudents.length, 'for school:', selectedSchool);
+    
+    // If no students found for this school but students exist, show a warning
+    if (allStudents.length === 0 && allStudentsUnfiltered.length > 0) {
+      console.warn('⚠️ Students exist but none match the selected school!');
+      console.log('Selected school:', selectedSchool);
+      console.log('Available school names in students:', [...new Set(allStudentsUnfiltered.map(s => s.school || 'NO SCHOOL'))]);
+    }
+    
     // Sort alphabetically by first name
     const sortedStudents = [...allStudents].sort((a, b) => {
       const firstNameA = a.name.split(' ')[0].toLowerCase();
@@ -112,18 +158,17 @@ export const Students = () => {
       return firstNameA.localeCompare(firstNameB);
     });
     setStudents(sortedStudents);
-    filterStudents();
   };
 
   useEffect(() => {
     loadStudents();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [selectedSchool]);
 
   useEffect(() => {
     filterStudents();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, students, showArchived, selectedSchool]);
+  }, [searchTerm, students, showArchived]);
 
   useEffect(() => {
     // Clean up expanded state for students that are no longer visible
@@ -139,33 +184,53 @@ export const Students = () => {
   });
 
   const handleOpenDialog = (student?: Student, prefillName?: string) => {
+    let newFormData: typeof formData;
     if (student) {
       setEditingStudent(student);
-      setFormData({
+      newFormData = {
         name: student.name,
         age: student.age > 0 ? student.age.toString() : '',
         grade: student.grade,
         concerns: student.concerns.join(', '),
+        exceptionality: (student.exceptionality || []).join(', '),
         status: student.status,
         school: student.school || selectedSchool,
-      });
+      };
     } else {
       setEditingStudent(null);
-      setFormData({
+      newFormData = {
         name: prefillName || '',
         age: '',
         grade: '',
         concerns: '',
-        status: 'active',
+        exceptionality: '',
+        status: 'active' as 'active' | 'discharged',
         school: selectedSchool,
-      });
+      };
     }
+    setFormData(newFormData);
+    setInitialFormData(newFormData);
     setDialogOpen(true);
   };
 
   const handleCloseDialog = () => {
-    setDialogOpen(false);
-    setEditingStudent(null);
+    if (isFormDirty()) {
+      confirm({
+        title: 'Unsaved Changes',
+        message: 'You have unsaved changes. Are you sure you want to close?',
+        confirmText: 'Discard Changes',
+        cancelText: 'Cancel',
+        onConfirm: () => {
+          setDialogOpen(false);
+          setEditingStudent(null);
+          resetDirty();
+        },
+      });
+    } else {
+      setDialogOpen(false);
+      setEditingStudent(null);
+      resetDirty();
+    }
   };
 
   const handleSave = () => {
@@ -181,12 +246,18 @@ export const Students = () => {
       .map((c) => c.trim())
       .filter((c) => c.length > 0);
 
+    const exceptionalityArray = formData.exceptionality
+      .split(',')
+      .map((e) => e.trim())
+      .filter((e) => e.length > 0);
+
     if (editingStudent) {
       updateStudent(editingStudent.id, {
         name: formData.name,
         age: ageValue ?? 0,
         grade: formData.grade,
         concerns: concernsArray,
+        exceptionality: exceptionalityArray.length > 0 ? exceptionalityArray : undefined,
         status: formData.status,
         school: formData.school || selectedSchool,
       });
@@ -197,13 +268,16 @@ export const Students = () => {
         age: ageValue ?? 0,
         grade: formData.grade,
         concerns: concernsArray,
+        exceptionality: exceptionalityArray.length > 0 ? exceptionalityArray : undefined,
         status: formData.status,
         dateAdded: new Date().toISOString(),
         school: formData.school || selectedSchool,
       });
     }
     loadStudents();
-    handleCloseDialog();
+    resetDirty();
+    setDialogOpen(false);
+    setEditingStudent(null);
   };
 
   const handleDelete = (id: string) => {
@@ -369,6 +443,7 @@ export const Students = () => {
                             age: '',
                             grade: '',
                             concerns: '',
+                            exceptionality: '',
                             status: 'active',
                             school: selectedSchool,
                           });
@@ -449,6 +524,24 @@ export const Students = () => {
                         </Box>
                       </Box>
                     )}
+                    {student.exceptionality && student.exceptionality.length > 0 && (
+                      <Box sx={{ mt: 1 }}>
+                        <Typography variant="caption" color="text.secondary">
+                          Exceptionality:
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                          {student.exceptionality.map((except, idx) => (
+                            <Chip
+                              key={idx}
+                              label={except}
+                              size="small"
+                              variant="outlined"
+                              color="primary"
+                            />
+                          ))}
+                        </Box>
+                      </Box>
+                    )}
                   </Box>
                 </AccordionDetails>
               </Accordion>
@@ -495,6 +588,15 @@ export const Students = () => {
               value={formData.concerns}
               onChange={(e) => setFormData({ ...formData, concerns: e.target.value })}
               helperText="e.g., Articulation, Language, Fluency"
+            />
+            <TextField
+              label="Exceptionality (comma-separated)"
+              fullWidth
+              multiline
+              rows={2}
+              value={formData.exceptionality}
+              onChange={(e) => setFormData({ ...formData, exceptionality: e.target.value })}
+              helperText="e.g., ASD, DD, SLI"
             />
             <TextField
               select
@@ -608,6 +710,34 @@ export const Students = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Confirmation dialog for unsaved changes */}
+      <ConfirmDialog />
+
+      {/* Navigation blocker confirmation */}
+      {blocker.state === 'blocked' && (
+        <Dialog open={true} onClose={() => blocker.reset?.()}>
+          <DialogTitle>Unsaved Changes</DialogTitle>
+          <DialogContent>
+            <Typography>
+              You have unsaved changes to this student. Are you sure you want to leave?
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => blocker.reset?.()}>Cancel</Button>
+            <Button
+              onClick={() => {
+                resetDirty();
+                blocker.proceed?.();
+              }}
+              variant="contained"
+              color="primary"
+            >
+              Discard Changes
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </Box>
   );
 };
