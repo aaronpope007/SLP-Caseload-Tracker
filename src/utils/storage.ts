@@ -1,10 +1,11 @@
-import type { Student, Goal, Session, Activity, GoalTemplate } from '../types';
+import type { Student, Goal, Session, Activity, GoalTemplate, Evaluation } from '../types';
 
 const STORAGE_KEYS = {
   STUDENTS: 'slp_students',
   GOALS: 'slp_goals',
   SESSIONS: 'slp_sessions',
   ACTIVITIES: 'slp_activities',
+  EVALUATIONS: 'slp_evaluations',
 } as const;
 
 const DEFAULT_SCHOOL = 'Noble Academy';
@@ -286,6 +287,56 @@ export const deleteActivity = (id: string): void => {
   saveActivities(activities);
 };
 
+// Evaluations
+export const getEvaluations = (school?: string): Evaluation[] => {
+  const data = localStorage.getItem(STORAGE_KEYS.EVALUATIONS);
+  let evaluations: Evaluation[] = data ? JSON.parse(data) : [];
+  
+  // Filter by school if provided
+  if (school && school.trim()) {
+    const students = getStudents(school);
+    const studentIds = new Set(students.map(s => s.id));
+    evaluations = evaluations.filter(e => studentIds.has(e.studentId));
+  }
+  
+  return evaluations;
+};
+
+export const getEvaluationsByStudent = (studentId: string): Evaluation[] => {
+  const allEvaluations = getEvaluations();
+  return allEvaluations
+    .filter(e => e.studentId === studentId)
+    .sort((a, b) => new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime());
+};
+
+export const saveEvaluations = (evaluations: Evaluation[]): void => {
+  localStorage.setItem(STORAGE_KEYS.EVALUATIONS, JSON.stringify(evaluations));
+};
+
+export const addEvaluation = (evaluation: Evaluation): void => {
+  const evaluations = getEvaluations();
+  evaluations.push(evaluation);
+  saveEvaluations(evaluations);
+};
+
+export const updateEvaluation = (id: string, updates: Partial<Evaluation>): void => {
+  const evaluations = getEvaluations();
+  const index = evaluations.findIndex(e => e.id === id);
+  if (index !== -1) {
+    evaluations[index] = { 
+      ...evaluations[index], 
+      ...updates,
+      dateUpdated: new Date().toISOString(),
+    };
+    saveEvaluations(evaluations);
+  }
+};
+
+export const deleteEvaluation = (id: string): void => {
+  const evaluations = getEvaluations().filter(e => e.id !== id);
+  saveEvaluations(evaluations);
+};
+
 // Export/Import
 export const exportData = (): string => {
   return JSON.stringify({
@@ -293,6 +344,7 @@ export const exportData = (): string => {
     goals: getGoals(),
     sessions: getSessions(),
     activities: getActivities(),
+    evaluations: getEvaluations(),
     exportDate: new Date().toISOString(),
   }, null, 2);
 };
@@ -304,6 +356,7 @@ export const importData = (jsonString: string): void => {
     if (data.goals) saveGoals(data.goals);
     if (data.sessions) saveSessions(data.sessions);
     if (data.activities) saveActivities(data.activities);
+    if (data.evaluations) saveEvaluations(data.evaluations);
   } catch (error) {
     throw new Error('Invalid JSON data');
   }

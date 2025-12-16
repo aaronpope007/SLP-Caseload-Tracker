@@ -10,6 +10,7 @@ import { Sessions } from './pages/Sessions';
 import { Progress } from './pages/Progress';
 import { TreatmentIdeas } from './pages/TreatmentIdeas';
 import { DocumentationTemplates } from './pages/DocumentationTemplates';
+import { Evaluations } from './pages/Evaluations';
 import { SchoolProvider } from './context/SchoolContext';
 
 const theme = createTheme({
@@ -77,6 +78,14 @@ const router = createBrowserRouter([
     element: (
       <Layout>
         <DocumentationTemplates />
+      </Layout>
+    ),
+  },
+  {
+    path: '/evaluations',
+    element: (
+      <Layout>
+        <Evaluations />
       </Layout>
     ),
   },

@@ -65,3 +65,21 @@ export interface Activity {
   source: 'AI' | 'manual';
   dateCreated: string;
 }
+
+export interface Evaluation {
+  id: string;
+  studentId: string;
+  grade: string;
+  evaluationType: string; // e.g., "Initial", "3-year", "Adding Academic"
+  areasOfConcern: string; // Comma-separated or single value
+  teacher?: string;
+  resultsOfScreening?: string;
+  dueDate?: string;
+  assessments?: string;
+  qualify?: string; // e.g., "qualified", "did not qualify"
+  reportCompleted?: string; // e.g., "yes", "no"
+  iepCompleted?: string; // e.g., "yes", "no", "n/a"
+  meetingDate?: string;
+  dateCreated: string;
+  dateUpdated: string;
+}

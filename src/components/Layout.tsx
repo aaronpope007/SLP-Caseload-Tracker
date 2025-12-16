@@ -37,6 +37,7 @@ import {
   Description as DescriptionIcon,
   School as SchoolIcon,
   Add as AddIcon,
+  Assessment as AssessmentIcon,
 } from '@mui/icons-material';
 import { SettingsDialog } from './SettingsDialog';
 import { useSchool } from '../context/SchoolContext';
@@ -48,6 +49,7 @@ const menuItems = [
   { text: 'Students', icon: <PeopleIcon />, path: '/students' },
   { text: 'Sessions', icon: <EventNoteIcon />, path: '/sessions' },
   { text: 'Progress', icon: <TrendingUpIcon />, path: '/progress' },
+  { text: 'Evaluations', icon: <AssessmentIcon />, path: '/evaluations' },
   { text: 'Treatment Ideas', icon: <LightbulbIcon />, path: '/ideas' },
   { text: 'Documentation', icon: <DescriptionIcon />, path: '/documentation' },
 ];
