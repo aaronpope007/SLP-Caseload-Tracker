@@ -15,6 +15,7 @@ import {
   Paper,
   Snackbar,
   Alert,
+  Tooltip,
 } from '@mui/material';
 import {
   AccessTime as AccessTimeIcon,
@@ -24,6 +25,7 @@ import {
   Save as SaveIcon,
   Folder as FolderIcon,
   Delete as DeleteIcon,
+  Info as InfoIcon,
 } from '@mui/icons-material';
 import type { Session, Evaluation, Student } from '../types';
 import {
@@ -237,7 +239,7 @@ export const TimeTracking = () => {
     const noteParts: string[] = [];
     
     if (isTeletherapy) {
-      noteParts.push('Offsite.');
+      noteParts.push('Offsite');
     }
     
     // Filter to only sessions (not evaluations) and sort chronologically
@@ -327,6 +329,10 @@ export const TimeTracking = () => {
     const isGroup = isGroupSession(session);
     const serviceType = session.isDirectServices ? 'Direct Services' : 'Indirect Services';
     
+    const directServicesInfo = "MN requires that specific start and end times are listed for any direct services provided remotely for each individual session. In the notes section of your entry for the school, list the specific start and end time of each direct telehealth session, with a separate line for each entry. If doing additional duties within a timeframe of billable services, you only need to include specific start/end times for the direct telehealth duties.";
+    
+    const indirectServicesInfo = "Any of the following activities: collaboration with teachers/staff, direct contact with the student to monitor and observe, modifying environment/items, preparation for sessions, or ordering/creation of materials for the student to support their IEP goals, setting up a therapeutic OT space for students, etc. It also includes performing documentation/record-keeping duties, including updating daily notes, scheduling, and updating caseload lists for Indigo sped director group schools. If you see a student for direct services and document \"Direct/indirect services,\" since you did preparation and documentation, you do not need to write \"Indirect services\" as well. You will only write this if you do other indirect services beyond the preparation and documentation of direct services, such as fulfilling monthly minutes.";
+    
     if (isGroup) {
       const groupSessions = getGroupSessions(session.groupSessionId!);
       const studentNames = groupSessions.map(s => getStudentName(s.studentId)).join(', ');
@@ -347,11 +353,18 @@ export const TimeTracking = () => {
                     color="primary"
                     variant="outlined"
                   />
-                  <Chip
-                    label={serviceType}
-                    size="small"
-                    color={session.isDirectServices ? 'primary' : 'secondary'}
-                  />
+                  <Tooltip
+                    title={session.isDirectServices ? directServicesInfo : indirectServicesInfo}
+                    arrow
+                    placement="top"
+                  >
+                    <Chip
+                      label={serviceType}
+                      size="small"
+                      color={session.isDirectServices ? 'primary' : 'secondary'}
+                      icon={<InfoIcon sx={{ fontSize: 16 }} />}
+                    />
+                  </Tooltip>
                 </Box>
                 <Typography color="text.secondary" variant="body2" sx={{ mb: 1 }}>
                   <AccessTimeIcon sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
@@ -390,11 +403,18 @@ export const TimeTracking = () => {
                     color="primary"
                     variant="outlined"
                   />
-                  <Chip
-                    label={serviceType}
-                    size="small"
-                    color={session.isDirectServices ? 'primary' : 'secondary'}
-                  />
+                  <Tooltip
+                    title={session.isDirectServices ? directServicesInfo : indirectServicesInfo}
+                    arrow
+                    placement="top"
+                  >
+                    <Chip
+                      label={serviceType}
+                      size="small"
+                      color={session.isDirectServices ? 'primary' : 'secondary'}
+                      icon={<InfoIcon sx={{ fontSize: 16 }} />}
+                    />
+                  </Tooltip>
                 </Box>
                 <Typography color="text.secondary" variant="body2">
                   <AccessTimeIcon sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
