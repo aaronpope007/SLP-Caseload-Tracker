@@ -12,6 +12,7 @@ import { TreatmentIdeas } from './pages/TreatmentIdeas';
 import { DocumentationTemplates } from './pages/DocumentationTemplates';
 import { Evaluations } from './pages/Evaluations';
 import { Schools } from './pages/Schools';
+import { TimeTracking } from './pages/TimeTracking';
 import { SchoolProvider } from './context/SchoolContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 
@@ -69,6 +70,14 @@ const router = createBrowserRouter([
     element: (
       <Layout>
         <DocumentationTemplates />
+      </Layout>
+    ),
+  },
+  {
+    path: '/time-tracking',
+    element: (
+      <Layout>
+        <TimeTracking />
       </Layout>
     ),
   },

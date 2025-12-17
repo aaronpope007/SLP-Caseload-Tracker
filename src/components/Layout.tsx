@@ -40,6 +40,7 @@ import {
   School as SchoolIcon,
   Add as AddIcon,
   Assessment as AssessmentIcon,
+  AccessTime as AccessTimeIcon,
 } from '@mui/icons-material';
 import { SettingsDialog } from './SettingsDialog';
 import { useSchool } from '../context/SchoolContext';
@@ -55,6 +56,7 @@ const menuItems = [
   { text: 'Evaluations', icon: <AssessmentIcon />, path: '/evaluations' },
   { text: 'Treatment Ideas', icon: <LightbulbIcon />, path: '/ideas' },
   { text: 'Documentation', icon: <DescriptionIcon />, path: '/documentation' },
+  { text: 'Time Tracking', icon: <AccessTimeIcon />, path: '/time-tracking' },
 ];
 
 interface LayoutProps {
