@@ -11,6 +11,7 @@ import {
   List,
   ListItem,
   ListItemText,
+  useTheme,
 } from '@mui/material';
 import {
   People as PeopleIcon,
@@ -26,6 +27,7 @@ import { useSchool } from '../context/SchoolContext';
 export const Dashboard = () => {
   console.log('Dashboard component rendering');
   const navigate = useNavigate();
+  const theme = useTheme();
   const { selectedSchool } = useSchool();
   const [stats, setStats] = useState({
     activeStudents: 0,
@@ -114,7 +116,7 @@ export const Dashboard = () => {
   console.log('Dashboard render - stats:', stats, 'recentStudents:', recentStudents.length);
   
   return (
-    <Box sx={{ backgroundColor: 'white', minHeight: '100%' }}>
+    <Box sx={{ backgroundColor: theme.palette.background.default, minHeight: '100%' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
         <Typography variant="h4" component="h1">
           Dashboard
@@ -124,7 +126,7 @@ export const Dashboard = () => {
           startIcon={<AddIcon />}
           onClick={() => navigate('/sessions')}
         >
-          Log Session
+          Log Activity
         </Button>
       </Box>
 

@@ -9,8 +9,11 @@ import {
   Box,
   Typography,
   Divider,
+  Switch,
+  FormControlLabel,
 } from '@mui/material';
 import { ExportDialog } from './ExportDialog';
+import { useTheme } from '../context/ThemeContext';
 
 interface SettingsDialogProps {
   open: boolean;
@@ -20,6 +23,7 @@ interface SettingsDialogProps {
 export const SettingsDialog = ({ open, onClose }: SettingsDialogProps) => {
   const [apiKey, setApiKey] = useState('');
   const [exportOpen, setExportOpen] = useState(false);
+  const { mode, toggleMode } = useTheme();
 
   useEffect(() => {
     const saved = localStorage.getItem('gemini_api_key');
@@ -41,6 +45,25 @@ export const SettingsDialog = ({ open, onClose }: SettingsDialogProps) => {
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Settings</DialogTitle>
       <DialogContent>
+        <Box sx={{ mt: 1 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            Appearance
+          </Typography>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={mode === 'dark'}
+                onChange={toggleMode}
+                color="primary"
+              />
+            }
+            label="Dark Mode"
+          />
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+            Toggle between light and dark theme.
+          </Typography>
+        </Box>
+        <Divider sx={{ my: 2 }} />
         <Box sx={{ mt: 1 }}>
           <Typography variant="subtitle2" gutterBottom>
             Google Gemini API Key

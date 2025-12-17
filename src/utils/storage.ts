@@ -1,4 +1,4 @@
-import type { Student, Goal, Session, Activity, GoalTemplate, Evaluation } from '../types';
+import type { Student, Goal, Session, Activity, GoalTemplate, Evaluation, School } from '../types';
 
 const STORAGE_KEYS = {
   STUDENTS: 'slp_students',
@@ -6,6 +6,7 @@ const STORAGE_KEYS = {
   SESSIONS: 'slp_sessions',
   ACTIVITIES: 'slp_activities',
   EVALUATIONS: 'slp_evaluations',
+  SCHOOLS: 'slp_schools',
 } as const;
 
 const DEFAULT_SCHOOL = 'Noble Academy';
@@ -337,6 +338,86 @@ export const deleteEvaluation = (id: string): void => {
   saveEvaluations(evaluations);
 };
 
+// Schools
+// Migrate existing schools to have teletherapy field
+const migrateSchools = (): void => {
+  const data = localStorage.getItem(STORAGE_KEYS.SCHOOLS);
+  if (!data) return;
+  
+  try {
+    const schools = JSON.parse(data) as School[];
+    let needsMigration = false;
+    const migrated = schools.map((school) => {
+      if (school.teletherapy === undefined) {
+        needsMigration = true;
+        return { ...school, teletherapy: false };
+      }
+      return school;
+    });
+    
+    if (needsMigration) {
+      localStorage.setItem(STORAGE_KEYS.SCHOOLS, JSON.stringify(migrated));
+    }
+  } catch {
+    // If parsing fails, ignore
+  }
+};
+
+// Run migration on first load
+if (typeof window !== 'undefined') {
+  migrateSchools();
+}
+
+export const getSchools = (): School[] => {
+  const data = localStorage.getItem(STORAGE_KEYS.SCHOOLS);
+  let schools: School[] = data ? JSON.parse(data) : [];
+  
+  // Ensure all schools have teletherapy field
+  const migrated = schools.map((school) => {
+    if (school.teletherapy === undefined) {
+      return { ...school, teletherapy: false };
+    }
+    return school;
+  });
+  
+  // If migration happened, save it
+  if (migrated.some((s, i) => schools[i]?.teletherapy === undefined)) {
+    localStorage.setItem(STORAGE_KEYS.SCHOOLS, JSON.stringify(migrated));
+    schools = migrated;
+  }
+  
+  return schools;
+};
+
+export const saveSchools = (schools: School[]): void => {
+  localStorage.setItem(STORAGE_KEYS.SCHOOLS, JSON.stringify(schools));
+};
+
+export const addSchool = (school: School): void => {
+  const schools = getSchools();
+  schools.push(school);
+  saveSchools(schools);
+};
+
+export const updateSchool = (id: string, updates: Partial<School>): void => {
+  const schools = getSchools();
+  const index = schools.findIndex(s => s.id === id);
+  if (index !== -1) {
+    schools[index] = { ...schools[index], ...updates };
+    saveSchools(schools);
+  }
+};
+
+export const deleteSchool = (id: string): void => {
+  const schools = getSchools().filter(s => s.id !== id);
+  saveSchools(schools);
+};
+
+export const getSchoolByName = (name: string): School | undefined => {
+  const schools = getSchools();
+  return schools.find(s => s.name.trim().toLowerCase() === name.trim().toLowerCase());
+};
+
 // Export/Import
 export const exportData = (): string => {
   return JSON.stringify({
@@ -345,6 +426,7 @@ export const exportData = (): string => {
     sessions: getSessions(),
     activities: getActivities(),
     evaluations: getEvaluations(),
+    schools: getSchools(),
     exportDate: new Date().toISOString(),
   }, null, 2);
 };
@@ -357,6 +439,7 @@ export const importData = (jsonString: string): void => {
     if (data.sessions) saveSessions(data.sessions);
     if (data.activities) saveActivities(data.activities);
     if (data.evaluations) saveEvaluations(data.evaluations);
+    if (data.schools) saveSchools(data.schools);
   } catch (error) {
     throw new Error('Invalid JSON data');
   }

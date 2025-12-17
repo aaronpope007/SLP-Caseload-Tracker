@@ -25,6 +25,11 @@ import {
   IconButton,
   Alert,
   CircularProgress,
+  Radio,
+  RadioGroup,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -32,6 +37,9 @@ import {
   Edit as EditIcon,
   Remove as RemoveIcon,
   Psychology as PsychologyIcon,
+  AccessTime as AccessTimeIcon,
+  ExpandMore as ExpandMoreIcon,
+  Group as GroupIcon,
 } from '@mui/icons-material';
 import type { Session, Student, Goal } from '../types';
 import {
@@ -65,12 +73,15 @@ export const Sessions = () => {
   const [sessionPlanError, setSessionPlanError] = useState('');
 
   const [formData, setFormData] = useState({
-    studentId: '',
+    studentIds: [] as string[], // Changed to support multiple students
     date: toLocalDateTimeString(new Date()),
+    endTime: '',
     goalsTargeted: [] as string[],
     activitiesUsed: [] as string[],
-    performanceData: [] as { goalId: string; accuracy?: string; correctTrials?: number; incorrectTrials?: number; notes?: string }[],
+    performanceData: [] as { goalId: string; studentId: string; accuracy?: string; correctTrials?: number; incorrectTrials?: number; notes?: string }[], // Added studentId to track which student's goal
     notes: '',
+    isDirectServices: true, // Default to Direct Services
+    indirectServicesNotes: '',
   });
 
   useEffect(() => {
@@ -99,29 +110,40 @@ export const Sessions = () => {
   const handleOpenDialog = (session?: Session) => {
     if (session) {
       setEditingSession(session);
+      const startDate = new Date(session.date);
+      const endDate = session.endTime ? new Date(session.endTime) : null;
       setFormData({
-        studentId: session.studentId,
-        date: toLocalDateTimeString(new Date(session.date)),
+        studentIds: [session.studentId], // Convert single student to array for editing
+        date: toLocalDateTimeString(startDate),
+        endTime: endDate ? toLocalDateTimeString(endDate) : '',
         goalsTargeted: session.goalsTargeted,
         activitiesUsed: session.activitiesUsed,
         performanceData: session.performanceData.map(p => ({
           goalId: p.goalId,
+          studentId: session.studentId, // Add studentId to performance data
           accuracy: p.accuracy?.toString() || '',
           correctTrials: p.correctTrials || 0,
           incorrectTrials: p.incorrectTrials || 0,
           notes: p.notes || '',
         })),
         notes: session.notes,
+        isDirectServices: session.isDirectServices === true, // Explicitly check for true
+        indirectServicesNotes: session.indirectServicesNotes || '',
       });
     } else {
+      const now = new Date();
+      const defaultEndTime = new Date(now.getTime() + 30 * 60000); // Default to 30 minutes later
       setEditingSession(null);
       setFormData({
-        studentId: '',
-        date: toLocalDateTimeString(new Date()),
+        studentIds: [],
+        date: toLocalDateTimeString(now),
+        endTime: toLocalDateTimeString(defaultEndTime),
         goalsTargeted: [],
         activitiesUsed: [],
         performanceData: [],
         notes: '',
+        isDirectServices: true,
+        indirectServicesNotes: '',
       });
     }
     setDialogOpen(true);
@@ -132,26 +154,43 @@ export const Sessions = () => {
     setEditingSession(null);
   };
 
-  const handleStudentChange = (studentId: string) => {
+  const handleStudentToggle = (studentId: string) => {
+    const isSelected = formData.studentIds.includes(studentId);
+    let newStudentIds: string[];
+    let newGoalsTargeted: string[] = [...formData.goalsTargeted];
+    let newPerformanceData = [...formData.performanceData];
+
+    if (isSelected) {
+      // Remove student
+      newStudentIds = formData.studentIds.filter(id => id !== studentId);
+      // Remove goals and performance data for this student
+      const studentGoals = goals.filter(g => g.studentId === studentId).map(g => g.id);
+      newGoalsTargeted = formData.goalsTargeted.filter(gId => !studentGoals.includes(gId));
+      newPerformanceData = formData.performanceData.filter(p => p.studentId !== studentId);
+    } else {
+      // Add student
+      newStudentIds = [...formData.studentIds, studentId];
+    }
+
     setFormData({
       ...formData,
-      studentId,
-      goalsTargeted: [],
-      performanceData: [],
+      studentIds: newStudentIds,
+      goalsTargeted: newGoalsTargeted,
+      performanceData: newPerformanceData,
     });
   };
 
-  const handleGoalToggle = (goalId: string) => {
+  const handleGoalToggle = (goalId: string, studentId: string) => {
     const isSelected = formData.goalsTargeted.includes(goalId);
     let newGoalsTargeted: string[];
     let newPerformanceData = [...formData.performanceData];
 
     if (isSelected) {
       newGoalsTargeted = formData.goalsTargeted.filter((id) => id !== goalId);
-      newPerformanceData = newPerformanceData.filter((p) => p.goalId !== goalId);
+      newPerformanceData = newPerformanceData.filter((p) => p.goalId !== goalId || p.studentId !== studentId);
     } else {
       newGoalsTargeted = [...formData.goalsTargeted, goalId];
-      newPerformanceData.push({ goalId, accuracy: '', notes: '' });
+      newPerformanceData.push({ goalId, studentId, accuracy: '', notes: '' });
     }
 
     setFormData({
@@ -161,20 +200,20 @@ export const Sessions = () => {
     });
   };
 
-  const handlePerformanceUpdate = (goalId: string, field: 'accuracy' | 'notes', value: string) => {
+  const handlePerformanceUpdate = (goalId: string, studentId: string, field: 'accuracy' | 'notes', value: string) => {
     setFormData({
       ...formData,
       performanceData: formData.performanceData.map((p) =>
-        p.goalId === goalId ? { ...p, [field]: value } : p
+        p.goalId === goalId && p.studentId === studentId ? { ...p, [field]: value } : p
       ),
     });
   };
 
-  const handleTrialUpdate = (goalId: string, isCorrect: boolean) => {
+  const handleTrialUpdate = (goalId: string, studentId: string, isCorrect: boolean) => {
     setFormData({
       ...formData,
       performanceData: formData.performanceData.map((p) => {
-        if (p.goalId !== goalId) return p;
+        if (p.goalId !== goalId || p.studentId !== studentId) return p;
         const correctTrials = (p.correctTrials || 0) + (isCorrect ? 1 : 0);
         const incorrectTrials = (p.incorrectTrials || 0) + (isCorrect ? 0 : 1);
         const totalTrials = correctTrials + incorrectTrials;
@@ -190,27 +229,60 @@ export const Sessions = () => {
   };
 
   const handleSave = () => {
-    const sessionData: Session = {
-      id: editingSession?.id || generateId(),
-      studentId: formData.studentId,
-      date: fromLocalDateTimeString(formData.date),
-      goalsTargeted: formData.goalsTargeted,
-      activitiesUsed: formData.activitiesUsed,
-      performanceData: formData.performanceData.map((p) => ({
-        goalId: p.goalId,
-        accuracy: p.accuracy ? parseFloat(p.accuracy) : undefined,
-        correctTrials: p.correctTrials,
-        incorrectTrials: p.incorrectTrials,
-        notes: p.notes,
-      })),
-      notes: formData.notes,
-    };
-
-    if (editingSession) {
-      updateSession(editingSession.id, sessionData);
-    } else {
-      addSession(sessionData);
+    if (formData.studentIds.length === 0) {
+      alert('Please select at least one student');
+      return;
     }
+
+    // Determine groupSessionId:
+    // - If multiple students selected, generate a new one
+    // - If editing a single session, preserve existing groupSessionId if it exists
+    // - Otherwise, undefined (individual session)
+    const isEditingSingleSession = editingSession && formData.studentIds.length === 1 && formData.studentIds[0] === editingSession.studentId;
+    const groupSessionId = formData.studentIds.length > 1 
+      ? generateId() 
+      : (isEditingSingleSession && editingSession.groupSessionId) 
+        ? editingSession.groupSessionId 
+        : undefined;
+
+    // Create a session for each selected student
+    formData.studentIds.forEach((studentId) => {
+      // Filter goals and performance data for this student
+      const studentGoals = goals.filter(g => g.studentId === studentId).map(g => g.id);
+      const studentGoalsTargeted = formData.goalsTargeted.filter(gId => studentGoals.includes(gId));
+      const studentPerformanceData = formData.performanceData
+        .filter(p => p.studentId === studentId && studentGoalsTargeted.includes(p.goalId))
+        .map((p) => ({
+          goalId: p.goalId,
+          accuracy: p.accuracy ? parseFloat(p.accuracy) : undefined,
+          correctTrials: p.correctTrials,
+          incorrectTrials: p.incorrectTrials,
+          notes: p.notes,
+        }));
+
+      const sessionData: Session = {
+        id: isEditingSingleSession
+          ? editingSession.id
+          : generateId(),
+        studentId: studentId,
+        date: fromLocalDateTimeString(formData.date),
+        endTime: formData.endTime ? fromLocalDateTimeString(formData.endTime) : undefined,
+        goalsTargeted: studentGoalsTargeted,
+        activitiesUsed: formData.activitiesUsed,
+        performanceData: studentPerformanceData,
+        notes: formData.notes,
+        isDirectServices: formData.isDirectServices === true, // Explicitly ensure boolean
+        indirectServicesNotes: formData.indirectServicesNotes || undefined,
+        groupSessionId: groupSessionId, // Link related sessions together
+      };
+
+      if (isEditingSingleSession) {
+        updateSession(editingSession.id, sessionData);
+      } else {
+        addSession(sessionData);
+      }
+    });
+
     loadData();
     handleCloseDialog();
   };
@@ -230,8 +302,13 @@ export const Sessions = () => {
     return goals.find((g) => g.id === goalId)?.description || 'Unknown Goal';
   };
 
-  const availableGoals = formData.studentId
-    ? goals.filter((g) => g.studentId === formData.studentId)
+  // Get goals for all selected students, grouped by student
+  const availableGoalsByStudent = formData.studentIds.length > 0
+    ? formData.studentIds.map(studentId => ({
+        studentId,
+        studentName: students.find(s => s.id === studentId)?.name || 'Unknown',
+        goals: goals.filter((g) => g.studentId === studentId)
+      }))
     : [];
 
   const handleGenerateSessionPlan = async () => {
@@ -313,7 +390,7 @@ export const Sessions = () => {
             startIcon={<AddIcon />}
             onClick={() => handleOpenDialog()}
           >
-            Log Session
+            Log Activity
           </Button>
         </Box>
       </Box>
@@ -324,229 +401,394 @@ export const Sessions = () => {
             <Card>
               <CardContent>
                 <Typography color="text.secondary" align="center">
-                  No sessions logged yet. Click "Log Session" to get started.
+                  No sessions logged yet. Click "Log Activity" to get started.
                 </Typography>
               </CardContent>
             </Card>
           </Grid>
-        ) : (
-          sessions.map((session) => (
-            <Grid item xs={12} key={session.id}>
-              <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Box>
+        ) : (() => {
+          // Group sessions by groupSessionId
+          const groupedSessions = new Map<string, Session[]>();
+          const individualSessions: Session[] = [];
+
+          sessions.forEach((session) => {
+            if (session.groupSessionId) {
+              if (!groupedSessions.has(session.groupSessionId)) {
+                groupedSessions.set(session.groupSessionId, []);
+              }
+              groupedSessions.get(session.groupSessionId)!.push(session);
+            } else {
+              individualSessions.push(session);
+            }
+          });
+
+          // Helper function to render a single session
+          const renderSession = (session: Session) => (
+            <Card key={session.id} sx={{ mb: 1 }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                       <Typography variant="h6">
                         {getStudentName(session.studentId)}
                       </Typography>
-                      <Typography color="text.secondary">
-                        {formatDateTime(session.date)}
-                      </Typography>
-                    </Box>
-                    <Box>
-                      <IconButton
+                      <Chip
+                        label={session.isDirectServices === true ? 'Direct Services' : 'Indirect Services'}
                         size="small"
-                        onClick={() => handleOpenDialog(session)}
-                      >
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleDelete(session.id)}
-                        color="error"
-                      >
-                        <DeleteIcon />
-                      </IconButton>
+                        color={session.isDirectServices === true ? 'primary' : 'secondary'}
+                      />
                     </Box>
-                  </Box>
-                  <Box sx={{ mb: 1 }}>
-                    <Typography variant="subtitle2" gutterBottom>
-                      Goals Targeted:
+                    <Typography color="text.secondary">
+                      {formatDateTime(session.date)}
+                      {session.endTime && ` - ${formatDateTime(session.endTime)}`}
                     </Typography>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                      {session.goalsTargeted.map((goalId) => (
-                        <Chip
-                          key={goalId}
-                          label={getGoalDescription(goalId)}
-                          size="small"
-                        />
-                      ))}
-                    </Box>
                   </Box>
-                  {session.activitiesUsed.length > 0 && (
-                    <Box sx={{ mb: 1 }}>
-                      <Typography variant="subtitle2" gutterBottom>
-                        Activities:
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {session.activitiesUsed.join(', ')}
-                      </Typography>
-                    </Box>
-                  )}
-                  {session.notes && (
+                  <Box>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleOpenDialog(session)}
+                    >
+                      <EditIcon />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleDelete(session.id)}
+                      color="error"
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </Box>
+                </Box>
+                {session.isDirectServices === true ? (
+                  <>
+                    {session.goalsTargeted.length > 0 && (
+                      <Box sx={{ mb: 1 }}>
+                        <Typography variant="subtitle2" gutterBottom>
+                          Goals Targeted:
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {session.goalsTargeted.map((goalId) => (
+                            <Chip
+                              key={goalId}
+                              label={getGoalDescription(goalId)}
+                              size="small"
+                            />
+                          ))}
+                        </Box>
+                      </Box>
+                    )}
+                    {session.activitiesUsed.length > 0 && (
+                      <Box sx={{ mb: 1 }}>
+                        <Typography variant="subtitle2" gutterBottom>
+                          Activities:
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {session.activitiesUsed.join(', ')}
+                        </Typography>
+                      </Box>
+                    )}
+                    {session.notes && (
+                      <Box sx={{ mt: 1 }}>
+                        <Typography variant="subtitle2" gutterBottom>
+                          Notes:
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {session.notes}
+                        </Typography>
+                      </Box>
+                    )}
+                  </>
+                ) : (
+                  session.indirectServicesNotes && (
                     <Box sx={{ mt: 1 }}>
                       <Typography variant="subtitle2" gutterBottom>
-                        Notes:
+                        Indirect Services Notes:
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        {session.notes}
+                        {session.indirectServicesNotes}
                       </Typography>
                     </Box>
-                  )}
-                </CardContent>
-              </Card>
-            </Grid>
-          ))
-        )}
+                  )
+                )}
+              </CardContent>
+            </Card>
+          );
+
+          return (
+            <>
+              {/* Grouped Sessions */}
+              {Array.from(groupedSessions.entries()).map(([groupSessionId, groupSessions]) => {
+                const firstSession = groupSessions[0];
+                const studentNames = groupSessions.map(s => getStudentName(s.studentId)).join(', ');
+                return (
+                  <Grid item xs={12} key={groupSessionId}>
+                    <Accordion defaultExpanded>
+                      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                          <GroupIcon color="primary" />
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="h6">
+                              Group Session ({groupSessions.length} {groupSessions.length === 1 ? 'student' : 'students'})
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {formatDateTime(firstSession.date)}
+                              {firstSession.endTime && ` - ${formatDateTime(firstSession.endTime)}`}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              Students: {studentNames}
+                            </Typography>
+                          </Box>
+                          <Chip
+                            label={firstSession.isDirectServices === true ? 'Direct Services' : 'Indirect Services'}
+                            size="small"
+                            color={firstSession.isDirectServices === true ? 'primary' : 'secondary'}
+                            sx={{ mr: 1 }}
+                          />
+                        </Box>
+                      </AccordionSummary>
+                      <AccordionDetails>
+                        {groupSessions.map((session) => renderSession(session))}
+                      </AccordionDetails>
+                    </Accordion>
+                  </Grid>
+                );
+              })}
+              {/* Individual Sessions */}
+              {individualSessions.map((session) => (
+                <Grid item xs={12} key={session.id}>
+                  {renderSession(session)}
+                </Grid>
+              ))}
+            </>
+          );
+        })()}
       </Grid>
 
       <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="md" fullWidth>
         <DialogTitle>
-          {editingSession ? 'Edit Session' : 'Log New Session'}
+          {editingSession ? 'Edit Activity' : 'Log New Activity'}
         </DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-            <FormControl fullWidth>
-              <InputLabel>Student</InputLabel>
-              <Select
-                value={formData.studentId}
-                onChange={(e) => handleStudentChange(e.target.value)}
-                label="Student"
-                required
-              >
+            <Box>
+              <Typography variant="subtitle2" gutterBottom>
+                Students (select one or more):
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 1, maxHeight: '200px', overflow: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1 }}>
                 {students.map((student) => (
-                  <MenuItem key={student.id} value={student.id}>
-                    {student.name}
-                  </MenuItem>
+                  <FormControlLabel
+                    key={student.id}
+                    control={
+                      <Checkbox
+                        checked={formData.studentIds.includes(student.id)}
+                        onChange={() => handleStudentToggle(student.id)}
+                      />
+                    }
+                    label={student.name}
+                  />
                 ))}
-              </Select>
+              </Box>
+            </Box>
+
+            <FormControl component="fieldset">
+              <Typography variant="subtitle2" gutterBottom>
+                Service Type:
+              </Typography>
+              <RadioGroup
+                row
+                value={formData.isDirectServices ? 'direct' : 'indirect'}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    isDirectServices: e.target.value === 'direct',
+                  })
+                }
+              >
+                <FormControlLabel value="direct" control={<Radio />} label="Direct Services" />
+                <FormControlLabel value="indirect" control={<Radio />} label="Indirect Services" />
+              </RadioGroup>
             </FormControl>
 
-            <TextField
-              label="Date & Time"
-              type="datetime-local"
-              fullWidth
-              value={formData.date}
-              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              InputLabelProps={{ shrink: true }}
-            />
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField
+                label="Start Time"
+                type="datetime-local"
+                fullWidth
+                value={formData.date}
+                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+              />
+              <Box sx={{ display: 'flex', gap: 1, flex: 1, alignItems: 'flex-end' }}>
+                <TextField
+                  label="End Time"
+                  type="datetime-local"
+                  fullWidth
+                  value={formData.endTime}
+                  onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                  InputLabelProps={{ shrink: true }}
+                />
+                <Button
+                  variant="outlined"
+                  size="medium"
+                  startIcon={<AccessTimeIcon />}
+                  onClick={() => setFormData({ ...formData, endTime: toLocalDateTimeString(new Date()) })}
+                  sx={{ 
+                    minWidth: 'auto',
+                    whiteSpace: 'nowrap',
+                    mb: 0.5, // Slight bottom margin to align with input baseline
+                  }}
+                  title="Set end time to current time"
+                >
+                  Now
+                </Button>
+              </Box>
+            </Box>
 
-            {formData.studentId && (
+            {formData.isDirectServices ? (
+              <>
+                {formData.studentIds.length > 0 && (
               <Box>
                 <Typography variant="subtitle2" gutterBottom>
-                  Goals Targeted:
+                  Goals Targeted (by student):
                 </Typography>
-                {availableGoals.length === 0 ? (
+                {availableGoalsByStudent.length === 0 ? (
                   <Typography color="text.secondary" variant="body2">
-                    No goals found for this student. Add goals in the student's detail page.
+                    No students selected. Please select at least one student.
                   </Typography>
                 ) : (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
-                    {availableGoals.map((goal) => (
-                      <Box key={goal.id}>
-                        <FormControlLabel
-                          control={
-                            <Checkbox
-                              checked={formData.goalsTargeted.includes(goal.id)}
-                              onChange={() => handleGoalToggle(goal.id)}
-                            />
-                          }
-                          label={goal.description}
-                        />
-                        {formData.goalsTargeted.includes(goal.id) && (() => {
-                          const perfData = formData.performanceData.find((p) => p.goalId === goal.id);
-                          const correctTrials = perfData?.correctTrials || 0;
-                          const incorrectTrials = perfData?.incorrectTrials || 0;
-                          const totalTrials = correctTrials + incorrectTrials;
-                          const calculatedAccuracy = totalTrials > 0 ? Math.round((correctTrials / totalTrials) * 100) : 0;
-                          // Use calculated accuracy if trials exist, otherwise use manually entered accuracy
-                          const displayAccuracy = totalTrials > 0 ? calculatedAccuracy : (perfData?.accuracy ? parseFloat(perfData.accuracy) : 0);
-                          const displayText = totalTrials > 0 ? `${correctTrials}/${totalTrials} trials (${calculatedAccuracy}%)` : '0/0 trials (0%)';
-                          
-                          return (
-                            <Box sx={{ ml: 4, display: 'flex', gap: 1, mt: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleTrialUpdate(goal.id, false)}
-                                  color="error"
-                                  sx={{ border: '1px solid', borderColor: 'error.main' }}
-                                >
-                                  <RemoveIcon fontSize="small" />
-                                </IconButton>
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleTrialUpdate(goal.id, true)}
-                                  color="success"
-                                  sx={{ border: '1px solid', borderColor: 'success.main' }}
-                                >
-                                  <AddIcon fontSize="small" />
-                                </IconButton>
-                                <Typography variant="body2" sx={{ ml: 1, minWidth: '140px' }}>
-                                  {displayText}
-                                </Typography>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+                    {availableGoalsByStudent.map(({ studentId, studentName, goals: studentGoals }) => (
+                      <Box key={studentId} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
+                        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold', color: 'primary.main' }}>
+                          {studentName}
+                        </Typography>
+                        {studentGoals.length === 0 ? (
+                          <Typography color="text.secondary" variant="body2">
+                            No goals found for this student. Add goals in the student's detail page.
+                          </Typography>
+                        ) : (
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                            {studentGoals.map((goal) => (
+                              <Box key={goal.id}>
+                                <FormControlLabel
+                                  control={
+                                    <Checkbox
+                                      checked={formData.goalsTargeted.includes(goal.id)}
+                                      onChange={() => handleGoalToggle(goal.id, studentId)}
+                                    />
+                                  }
+                                  label={goal.description}
+                                />
+                                {formData.goalsTargeted.includes(goal.id) && (() => {
+                                  const perfData = formData.performanceData.find((p) => p.goalId === goal.id && p.studentId === studentId);
+                                  const correctTrials = perfData?.correctTrials || 0;
+                                  const incorrectTrials = perfData?.incorrectTrials || 0;
+                                  const totalTrials = correctTrials + incorrectTrials;
+                                  const calculatedAccuracy = totalTrials > 0 ? Math.round((correctTrials / totalTrials) * 100) : 0;
+                                  // Use calculated accuracy if trials exist, otherwise use manually entered accuracy
+                                  const displayAccuracy = totalTrials > 0 ? calculatedAccuracy : (perfData?.accuracy ? parseFloat(perfData.accuracy) : 0);
+                                  const displayText = totalTrials > 0 ? `${correctTrials}/${totalTrials} trials (${calculatedAccuracy}%)` : '0/0 trials (0%)';
+                                  
+                                  return (
+                                    <Box sx={{ ml: 4, display: 'flex', gap: 1, mt: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                        <IconButton
+                                          size="small"
+                                          onClick={() => handleTrialUpdate(goal.id, studentId, false)}
+                                          color="error"
+                                          sx={{ border: '1px solid', borderColor: 'error.main' }}
+                                        >
+                                          <RemoveIcon fontSize="small" />
+                                        </IconButton>
+                                        <IconButton
+                                          size="small"
+                                          onClick={() => handleTrialUpdate(goal.id, studentId, true)}
+                                          color="success"
+                                          sx={{ border: '1px solid', borderColor: 'success.main' }}
+                                        >
+                                          <AddIcon fontSize="small" />
+                                        </IconButton>
+                                        <Typography variant="body2" sx={{ ml: 1, minWidth: '140px' }}>
+                                          {displayText}
+                                        </Typography>
+                                      </Box>
+                                      <TextField
+                                        label="Accuracy %"
+                                        type="number"
+                                        size="small"
+                                        value={totalTrials > 0 ? calculatedAccuracy.toString() : (perfData?.accuracy || '')}
+                                        onChange={(e) => {
+                                          // When manually entering, clear trials to allow manual override
+                                          setFormData({
+                                            ...formData,
+                                            performanceData: formData.performanceData.map((p) =>
+                                              p.goalId === goal.id && p.studentId === studentId
+                                                ? { ...p, accuracy: e.target.value, correctTrials: 0, incorrectTrials: 0 }
+                                                : p
+                                            ),
+                                          });
+                                        }}
+                                        helperText={totalTrials > 0 ? 'Auto-calculated from trials (clear to enter manually)' : 'Enter manually or use +/- buttons'}
+                                        sx={{ width: 140 }}
+                                      />
+                                      <TextField
+                                        label="Notes"
+                                        size="small"
+                                        fullWidth
+                                        value={perfData?.notes || ''}
+                                        onChange={(e) =>
+                                          handlePerformanceUpdate(goal.id, studentId, 'notes', e.target.value)
+                                        }
+                                      />
+                                    </Box>
+                                  );
+                                })()}
                               </Box>
-                              <TextField
-                                label="Accuracy %"
-                                type="number"
-                                size="small"
-                                value={totalTrials > 0 ? calculatedAccuracy.toString() : (perfData?.accuracy || '')}
-                                onChange={(e) => {
-                                  // When manually entering, clear trials to allow manual override
-                                  setFormData({
-                                    ...formData,
-                                    performanceData: formData.performanceData.map((p) =>
-                                      p.goalId === goal.id
-                                        ? { ...p, accuracy: e.target.value, correctTrials: 0, incorrectTrials: 0 }
-                                        : p
-                                    ),
-                                  });
-                                }}
-                                helperText={totalTrials > 0 ? 'Auto-calculated from trials (clear to enter manually)' : 'Enter manually or use +/- buttons'}
-                                sx={{ width: 140 }}
-                              />
-                              <TextField
-                                label="Notes"
-                                size="small"
-                                fullWidth
-                                value={perfData?.notes || ''}
-                                onChange={(e) =>
-                                  handlePerformanceUpdate(goal.id, 'notes', e.target.value)
-                                }
-                              />
-                            </Box>
-                          );
-                        })()}
+                            ))}
+                          </Box>
+                        )}
                       </Box>
                     ))}
                   </Box>
                 )}
               </Box>
+                )}
+
+                <TextField
+                  label="Activities Used (comma-separated)"
+                  fullWidth
+                  value={formData.activitiesUsed.join(', ')}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      activitiesUsed: e.target.value
+                        .split(',')
+                        .map((a) => a.trim())
+                        .filter((a) => a.length > 0),
+                    })
+                  }
+                />
+
+                <TextField
+                  label="Session Notes"
+                  fullWidth
+                  multiline
+                  rows={4}
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                />
+              </>
+            ) : (
+              <TextField
+                label="Indirect Services Notes"
+                fullWidth
+                multiline
+                rows={6}
+                value={formData.indirectServicesNotes}
+                onChange={(e) => setFormData({ ...formData, indirectServicesNotes: e.target.value })}
+                placeholder="Enter notes about indirect services provided..."
+              />
             )}
-
-            <TextField
-              label="Activities Used (comma-separated)"
-              fullWidth
-              value={formData.activitiesUsed.join(', ')}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  activitiesUsed: e.target.value
-                    .split(',')
-                    .map((a) => a.trim())
-                    .filter((a) => a.length > 0),
-                })
-              }
-            />
-
-            <TextField
-              label="Session Notes"
-              fullWidth
-              multiline
-              rows={4}
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-            />
           </Box>
         </DialogContent>
         <DialogActions>
@@ -554,7 +796,7 @@ export const Sessions = () => {
           <Button
             onClick={handleSave}
             variant="contained"
-            disabled={!formData.studentId}
+            disabled={formData.studentIds.length === 0}
           >
             Save
           </Button>
@@ -599,7 +841,7 @@ export const Sessions = () => {
                   sx={{
                     whiteSpace: 'pre-wrap',
                     p: 2,
-                    bgcolor: 'grey.50',
+                    bgcolor: 'background.paper',
                     borderRadius: 1,
                     maxHeight: '500px',
                     overflow: 'auto',

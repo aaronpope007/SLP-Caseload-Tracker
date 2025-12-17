@@ -24,6 +24,8 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -47,6 +49,7 @@ const drawerWidth = 240;
 const menuItems = [
   { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
   { text: 'Students', icon: <PeopleIcon />, path: '/students' },
+  { text: 'Schools', icon: <SchoolIcon />, path: '/schools' },
   { text: 'Sessions', icon: <EventNoteIcon />, path: '/sessions' },
   { text: 'Progress', icon: <TrendingUpIcon />, path: '/progress' },
   { text: 'Evaluations', icon: <AssessmentIcon />, path: '/evaluations' },
@@ -58,11 +61,68 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
+// US State abbreviations
+const US_STATES = [
+  { value: '', label: 'Select State' },
+  { value: 'AL', label: 'Alabama' },
+  { value: 'AK', label: 'Alaska' },
+  { value: 'AZ', label: 'Arizona' },
+  { value: 'AR', label: 'Arkansas' },
+  { value: 'CA', label: 'California' },
+  { value: 'CO', label: 'Colorado' },
+  { value: 'CT', label: 'Connecticut' },
+  { value: 'DE', label: 'Delaware' },
+  { value: 'FL', label: 'Florida' },
+  { value: 'GA', label: 'Georgia' },
+  { value: 'HI', label: 'Hawaii' },
+  { value: 'ID', label: 'Idaho' },
+  { value: 'IL', label: 'Illinois' },
+  { value: 'IN', label: 'Indiana' },
+  { value: 'IA', label: 'Iowa' },
+  { value: 'KS', label: 'Kansas' },
+  { value: 'KY', label: 'Kentucky' },
+  { value: 'LA', label: 'Louisiana' },
+  { value: 'ME', label: 'Maine' },
+  { value: 'MD', label: 'Maryland' },
+  { value: 'MA', label: 'Massachusetts' },
+  { value: 'MI', label: 'Michigan' },
+  { value: 'MN', label: 'Minnesota' },
+  { value: 'MS', label: 'Mississippi' },
+  { value: 'MO', label: 'Missouri' },
+  { value: 'MT', label: 'Montana' },
+  { value: 'NE', label: 'Nebraska' },
+  { value: 'NV', label: 'Nevada' },
+  { value: 'NH', label: 'New Hampshire' },
+  { value: 'NJ', label: 'New Jersey' },
+  { value: 'NM', label: 'New Mexico' },
+  { value: 'NY', label: 'New York' },
+  { value: 'NC', label: 'North Carolina' },
+  { value: 'ND', label: 'North Dakota' },
+  { value: 'OH', label: 'Ohio' },
+  { value: 'OK', label: 'Oklahoma' },
+  { value: 'OR', label: 'Oregon' },
+  { value: 'PA', label: 'Pennsylvania' },
+  { value: 'RI', label: 'Rhode Island' },
+  { value: 'SC', label: 'South Carolina' },
+  { value: 'SD', label: 'South Dakota' },
+  { value: 'TN', label: 'Tennessee' },
+  { value: 'TX', label: 'Texas' },
+  { value: 'UT', label: 'Utah' },
+  { value: 'VT', label: 'Vermont' },
+  { value: 'VA', label: 'Virginia' },
+  { value: 'WA', label: 'Washington' },
+  { value: 'WV', label: 'West Virginia' },
+  { value: 'WI', label: 'Wisconsin' },
+  { value: 'WY', label: 'Wyoming' },
+];
+
 export const Layout = ({ children }: LayoutProps) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [addSchoolOpen, setAddSchoolOpen] = useState(false);
   const [newSchoolName, setNewSchoolName] = useState('');
+  const [newSchoolState, setNewSchoolState] = useState('');
+  const [newSchoolTeletherapy, setNewSchoolTeletherapy] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
@@ -80,11 +140,13 @@ export const Layout = ({ children }: LayoutProps) => {
   const handleCloseAddSchool = () => {
     setAddSchoolOpen(false);
     setNewSchoolName('');
+    setNewSchoolState('');
+    setNewSchoolTeletherapy(false);
   };
 
   const handleSaveNewSchool = () => {
     if (newSchoolName.trim()) {
-      addSchool(newSchoolName.trim());
+      addSchool(newSchoolName.trim(), newSchoolState, newSchoolTeletherapy);
       handleCloseAddSchool();
     }
   };
@@ -149,7 +211,7 @@ export const Layout = ({ children }: LayoutProps) => {
   console.log('Layout rendering, mobileOpen:', mobileOpen, 'location:', location.pathname);
   
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', width: '100%', backgroundColor: '#fafafa' }}>
+    <Box sx={{ display: 'flex', minHeight: '100vh', width: '100%', backgroundColor: theme.palette.background.default }}>
       <AppBar
         position="fixed"
         sx={{
@@ -232,21 +294,53 @@ export const Layout = ({ children }: LayoutProps) => {
       <Dialog open={addSchoolOpen} onClose={handleCloseAddSchool} maxWidth="sm" fullWidth>
         <DialogTitle>Add New School</DialogTitle>
         <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="School Name"
-            fullWidth
-            variant="outlined"
-            value={newSchoolName}
-            onChange={(e) => setNewSchoolName(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter' && newSchoolName.trim()) {
-                handleSaveNewSchool();
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            <TextField
+              autoFocus
+              margin="normal"
+              label="School Name"
+              fullWidth
+              variant="outlined"
+              value={newSchoolName}
+              onChange={(e) => setNewSchoolName(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter' && newSchoolName.trim()) {
+                  handleSaveNewSchool();
+                }
+              }}
+            />
+            <TextField
+              select
+              margin="normal"
+              label="State"
+              fullWidth
+              variant="outlined"
+              value={newSchoolState}
+              onChange={(e) => setNewSchoolState(e.target.value)}
+              SelectProps={{
+                native: true,
+              }}
+              InputLabelProps={{
+                shrink: true,
+              }}
+            >
+              {US_STATES.map((state) => (
+                <option key={state.value} value={state.value}>
+                  {state.label}
+                </option>
+              ))}
+            </TextField>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={newSchoolTeletherapy}
+                  onChange={(e) => setNewSchoolTeletherapy(e.target.checked)}
+                />
               }
-            }}
-            sx={{ mt: 2 }}
-          />
+              label="Teletherapy"
+              sx={{ mt: 1 }}
+            />
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseAddSchool}>Cancel</Button>

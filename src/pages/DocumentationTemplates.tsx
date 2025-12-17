@@ -189,7 +189,7 @@ export const DocumentationTemplates = () => {
               sx={{
                 whiteSpace: 'pre-wrap',
                 p: 2,
-                bgcolor: 'grey.50',
+                bgcolor: 'background.paper',
                 borderRadius: 1,
                 maxHeight: '500px',
                 overflow: 'auto',

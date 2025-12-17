@@ -1,5 +1,5 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Layout } from './components/Layout';
@@ -11,18 +11,9 @@ import { Progress } from './pages/Progress';
 import { TreatmentIdeas } from './pages/TreatmentIdeas';
 import { DocumentationTemplates } from './pages/DocumentationTemplates';
 import { Evaluations } from './pages/Evaluations';
+import { Schools } from './pages/Schools';
 import { SchoolProvider } from './context/SchoolContext';
-
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#1976d2',
-    },
-    secondary: {
-      main: '#dc004e',
-    },
-  },
-});
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 
 const router = createBrowserRouter([
   {
@@ -89,18 +80,36 @@ const router = createBrowserRouter([
       </Layout>
     ),
   },
+  {
+    path: '/schools',
+    element: (
+      <Layout>
+        <Schools />
+      </Layout>
+    ),
+  },
 ]);
+
+function AppContent() {
+  const { theme } = useTheme();
+  
+  return (
+    <MuiThemeProvider theme={theme}>
+      <CssBaseline />
+      <SchoolProvider>
+        <RouterProvider router={router} />
+      </SchoolProvider>
+    </MuiThemeProvider>
+  );
+}
 
 function App() {
   console.log('App component rendering...');
   
   return (
     <ErrorBoundary>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <SchoolProvider>
-          <RouterProvider router={router} />
-        </SchoolProvider>
+      <ThemeProvider>
+        <AppContent />
       </ThemeProvider>
     </ErrorBoundary>
   );

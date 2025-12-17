@@ -1,3 +1,11 @@
+export interface School {
+  id: string;
+  name: string;
+  state: string; // US state abbreviation (e.g., 'NC', 'NY', 'CA')
+  teletherapy: boolean; // Teletherapy role
+  dateCreated: string;
+}
+
 export interface Student {
   id: string;
   name: string;
@@ -42,7 +50,8 @@ export interface GoalTemplate {
 export interface Session {
   id: string;
   studentId: string;
-  date: string;
+  date: string; // Start time
+  endTime?: string; // End time
   goalsTargeted: string[]; // Goal IDs
   activitiesUsed: string[];
   performanceData: {
@@ -53,6 +62,9 @@ export interface Session {
     notes?: string;
   }[];
   notes: string;
+  isDirectServices?: boolean; // true for Direct Services, false for Indirect Services
+  indirectServicesNotes?: string; // Notes for indirect services
+  groupSessionId?: string; // ID to link related sessions (for group sessions)
 }
 
 export interface Activity {

@@ -887,11 +887,15 @@ export const StudentDetail = () => {
             </Box>
             {!editingGoal && (
               <TextField
-                label="Parent Goal (Optional - for sub-goals)"
+                label="Parent Goal"
                 fullWidth
                 select
                 value={formData.parentGoalId}
                 onChange={(e) => setFormData({ ...formData, parentGoalId: e.target.value })}
+                helperText="Optional - for sub-goals"
+                InputLabelProps={{
+                  shrink: true,
+                }}
                 SelectProps={{ native: true }}
               >
                 <option value="">None (Main Goal)</option>
@@ -979,7 +983,7 @@ export const StudentDetail = () => {
                   sx={{
                     whiteSpace: 'pre-wrap',
                     p: 2,
-                    bgcolor: 'grey.50',
+                    bgcolor: 'background.paper',
                     borderRadius: 1,
                     maxHeight: '400px',
                     overflow: 'auto',
@@ -1065,7 +1069,7 @@ export const StudentDetail = () => {
                   sx={{
                     whiteSpace: 'pre-wrap',
                     p: 2,
-                    bgcolor: 'grey.50',
+                    bgcolor: 'background.paper',
                     borderRadius: 1,
                     maxHeight: '500px',
                     overflow: 'auto',
@@ -1111,7 +1115,7 @@ export const StudentDetail = () => {
                 <Grid container spacing={2} sx={{ mb: 2 }}>
                   {getRecommendedTemplates().slice(0, 4).map((template) => (
                     <Grid item xs={12} sm={6} key={template.id}>
-                      <Card variant="outlined" sx={{ bgcolor: 'primary.50' }}>
+                      <Card variant="outlined" sx={{ bgcolor: 'action.hover' }}>
                         <CardContent>
                           <Typography variant="h6" gutterBottom>
                             {template.title}
