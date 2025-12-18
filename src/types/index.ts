@@ -96,3 +96,11 @@ export interface Evaluation {
   dateCreated: string;
   dateUpdated: string;
 }
+
+export interface Lunch {
+  id: string;
+  school: string; // School name
+  startTime: string; // Start date/time
+  endTime: string; // End date/time
+  dateCreated: string;
+}

@@ -32,6 +32,7 @@ import {
   AccordionDetails,
   Tooltip,
   InputAdornment,
+  Menu,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -45,8 +46,10 @@ import {
   Info as InfoIcon,
   Search as SearchIcon,
   Clear as ClearIcon,
+  ArrowDropDown as ArrowDropDownIcon,
+  Restaurant as RestaurantIcon,
 } from '@mui/icons-material';
-import type { Session, Student, Goal } from '../types';
+import type { Session, Student, Goal, Lunch } from '../types';
 import {
   getSessions,
   getStudents,
@@ -55,6 +58,7 @@ import {
   updateSession,
   deleteSession,
   getSessionsByStudent,
+  addLunch,
 } from '../utils/storage';
 import { generateId, formatDateTime, toLocalDateTimeString, fromLocalDateTimeString } from '../utils/helpers';
 import { generateSessionPlan } from '../utils/gemini';
@@ -81,6 +85,17 @@ export const Sessions = () => {
   // Student search state
   const [studentSearch, setStudentSearch] = useState('');
   const studentSearchRef = useRef<HTMLInputElement>(null);
+  
+  // Menu state
+  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const menuOpen = Boolean(menuAnchorEl);
+  
+  // Lunch dialog state
+  const [lunchDialogOpen, setLunchDialogOpen] = useState(false);
+  const [lunchFormData, setLunchFormData] = useState({
+    startTime: toLocalDateTimeString(new Date()),
+    endTime: toLocalDateTimeString(new Date(Date.now() + 30 * 60000)), // Default 30 minutes
+  });
 
   const [formData, setFormData] = useState({
     studentIds: [] as string[], // Changed to support multiple students
@@ -436,6 +451,26 @@ export const Sessions = () => {
     }
   };
 
+  const handleSaveLunch = () => {
+    const lunch: Lunch = {
+      id: generateId(),
+      school: selectedSchool,
+      startTime: fromLocalDateTimeString(lunchFormData.startTime),
+      endTime: fromLocalDateTimeString(lunchFormData.endTime),
+      dateCreated: new Date().toISOString(),
+    };
+    
+    addLunch(lunch);
+    setLunchDialogOpen(false);
+    // Reset form
+    const now = new Date();
+    const defaultEndTime = new Date(now.getTime() + 30 * 60000);
+    setLunchFormData({
+      startTime: toLocalDateTimeString(now),
+      endTime: toLocalDateTimeString(defaultEndTime),
+    });
+  };
+
   const getStudentName = (studentId: string) => {
     return students.find((s) => s.id === studentId)?.name || 'Unknown';
   };
@@ -527,13 +562,52 @@ export const Sessions = () => {
           >
             Generate Session Plan
           </Button>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => handleOpenDialog()}
-          >
-            Log Activity
-          </Button>
+          <Box>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              endIcon={<ArrowDropDownIcon />}
+              onClick={(e) => setMenuAnchorEl(e.currentTarget)}
+            >
+              Log Activity
+            </Button>
+            <Menu
+              anchorEl={menuAnchorEl}
+              open={menuOpen}
+              onClose={() => setMenuAnchorEl(null)}
+            >
+              <MenuItem
+                onClick={() => {
+                  setMenuAnchorEl(null);
+                  handleOpenDialog();
+                }}
+              >
+                <AddIcon sx={{ mr: 1 }} /> Add Session
+              </MenuItem>
+              <MenuItem
+                onClick={() => {
+                  setMenuAnchorEl(null);
+                  navigate('/evaluations');
+                }}
+              >
+                <AddIcon sx={{ mr: 1 }} /> Add Evaluation
+              </MenuItem>
+              <MenuItem
+                onClick={() => {
+                  setMenuAnchorEl(null);
+                  const now = new Date();
+                  const defaultEndTime = new Date(now.getTime() + 30 * 60000);
+                  setLunchFormData({
+                    startTime: toLocalDateTimeString(now),
+                    endTime: toLocalDateTimeString(defaultEndTime),
+                  });
+                  setLunchDialogOpen(true);
+                }}
+              >
+                <RestaurantIcon sx={{ mr: 1 }} /> Add Lunch
+              </MenuItem>
+            </Menu>
+          </Box>
         </Box>
       </Box>
 
@@ -562,6 +636,44 @@ export const Sessions = () => {
             } else {
               individualSessions.push(session);
             }
+          });
+
+          // Create a combined array of all session entries, sorted chronologically (most recent first)
+          interface SessionDisplayItem {
+            type: 'group' | 'individual';
+            groupSessionId?: string;
+            groupSessions?: Session[];
+            session?: Session;
+            date: string; // For sorting
+          }
+
+          const allSessionItems: SessionDisplayItem[] = [];
+
+          // Add group sessions (one entry per group)
+          groupedSessions.forEach((groupSessions, groupSessionId) => {
+            const firstSession = groupSessions[0];
+            allSessionItems.push({
+              type: 'group',
+              groupSessionId,
+              groupSessions,
+              date: firstSession.date,
+            });
+          });
+
+          // Add individual sessions
+          individualSessions.forEach((session) => {
+            allSessionItems.push({
+              type: 'individual',
+              session,
+              date: session.date,
+            });
+          });
+
+          // Sort all items by date (most recent first)
+          allSessionItems.sort((a, b) => {
+            const dateA = new Date(a.date).getTime();
+            const dateB = new Date(b.date).getTime();
+            return dateB - dateA; // Most recent first
           });
 
           // Helper function to render a single session
@@ -658,59 +770,63 @@ export const Sessions = () => {
 
           return (
             <>
-              {/* Grouped Sessions */}
-              {Array.from(groupedSessions.entries()).map(([groupSessionId, groupSessions]) => {
-                const firstSession = groupSessions[0];
-                const studentNames = groupSessions.map(s => getStudentName(s.studentId)).join(', ');
-                return (
-                  <Grid item xs={12} key={groupSessionId}>
-                    <Accordion defaultExpanded>
-                      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
-                          <GroupIcon color="primary" />
-                          <Box sx={{ flex: 1 }}>
-                            <Typography variant="h6">
-                              Group Session ({groupSessions.length} {groupSessions.length === 1 ? 'student' : 'students'})
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              {formatDateTime(firstSession.date)}
-                              {firstSession.endTime && ` - ${formatDateTime(firstSession.endTime)}`}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              Students: {studentNames}
-                            </Typography>
+              {/* All Sessions - Group and Individual intermingled chronologically */}
+              {allSessionItems.map((item) => {
+                if (item.type === 'group' && item.groupSessions && item.groupSessionId) {
+                  const groupSessions = item.groupSessions;
+                  const firstSession = groupSessions[0];
+                  const studentNames = groupSessions.map(s => getStudentName(s.studentId)).join(', ');
+                  return (
+                    <Grid item xs={12} key={item.groupSessionId}>
+                      <Accordion defaultExpanded>
+                        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                            <GroupIcon color="primary" />
+                            <Box sx={{ flex: 1 }}>
+                              <Typography variant="h6">
+                                Group Session ({groupSessions.length} {groupSessions.length === 1 ? 'student' : 'students'})
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                {formatDateTime(firstSession.date)}
+                                {firstSession.endTime && ` - ${formatDateTime(firstSession.endTime)}`}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                Students: {studentNames}
+                              </Typography>
+                            </Box>
+                            <Chip
+                              label={firstSession.isDirectServices === true ? 'Direct Services' : 'Indirect Services'}
+                              size="small"
+                              color={firstSession.isDirectServices === true ? 'primary' : 'secondary'}
+                              sx={{ mr: 1 }}
+                            />
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenDialog(undefined, item.groupSessionId);
+                              }}
+                              sx={{ mr: 1 }}
+                            >
+                              <EditIcon />
+                            </IconButton>
                           </Box>
-                          <Chip
-                            label={firstSession.isDirectServices === true ? 'Direct Services' : 'Indirect Services'}
-                            size="small"
-                            color={firstSession.isDirectServices === true ? 'primary' : 'secondary'}
-                            sx={{ mr: 1 }}
-                          />
-                          <IconButton
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenDialog(undefined, groupSessionId);
-                            }}
-                            sx={{ mr: 1 }}
-                          >
-                            <EditIcon />
-                          </IconButton>
-                        </Box>
-                      </AccordionSummary>
-                      <AccordionDetails>
-                        {groupSessions.map((session) => renderSession(session))}
-                      </AccordionDetails>
-                    </Accordion>
-                  </Grid>
-                );
+                        </AccordionSummary>
+                        <AccordionDetails>
+                          {groupSessions.map((session) => renderSession(session))}
+                        </AccordionDetails>
+                      </Accordion>
+                    </Grid>
+                  );
+                } else if (item.type === 'individual' && item.session) {
+                  return (
+                    <Grid item xs={12} key={item.session.id}>
+                      {renderSession(item.session)}
+                    </Grid>
+                  );
+                }
+                return null;
               })}
-              {/* Individual Sessions */}
-              {individualSessions.map((session) => (
-                <Grid item xs={12} key={session.id}>
-                  {renderSession(session)}
-                </Grid>
-              ))}
             </>
           );
         })()}
@@ -1097,6 +1213,58 @@ export const Sessions = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setSessionPlanDialogOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Lunch Dialog */}
+      <Dialog open={lunchDialogOpen} onClose={() => setLunchDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Add Lunch</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField
+                label="Start Time"
+                type="datetime-local"
+                fullWidth
+                value={lunchFormData.startTime}
+                onChange={(e) => setLunchFormData({ ...lunchFormData, startTime: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+              />
+              <Box sx={{ display: 'flex', gap: 1, flex: 1, alignItems: 'flex-end' }}>
+                <TextField
+                  label="End Time"
+                  type="datetime-local"
+                  fullWidth
+                  value={lunchFormData.endTime}
+                  onChange={(e) => setLunchFormData({ ...lunchFormData, endTime: e.target.value })}
+                  InputLabelProps={{ shrink: true }}
+                />
+                <Button
+                  variant="outlined"
+                  size="medium"
+                  startIcon={<AccessTimeIcon />}
+                  onClick={() => setLunchFormData({ ...lunchFormData, endTime: toLocalDateTimeString(new Date()) })}
+                  sx={{ 
+                    minWidth: 'auto',
+                    whiteSpace: 'nowrap',
+                    mb: 0.5,
+                  }}
+                  title="Set end time to current time"
+                >
+                  Now
+                </Button>
+              </Box>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLunchDialogOpen(false)}>Cancel</Button>
+          <Button
+            onClick={handleSaveLunch}
+            variant="contained"
+          >
+            Save
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

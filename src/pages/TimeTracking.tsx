@@ -26,12 +26,14 @@ import {
   Folder as FolderIcon,
   Delete as DeleteIcon,
   Info as InfoIcon,
+  Restaurant as RestaurantIcon,
 } from '@mui/icons-material';
-import type { Session, Evaluation, Student } from '../types';
+import type { Session, Evaluation, Student, Lunch } from '../types';
 import {
   getSessionsBySchool,
   getEvaluations,
   getStudents,
+  getLunches,
 } from '../utils/storage';
 import { formatDateTime, formatDate, generateId } from '../utils/helpers';
 import { useStorageSync } from '../hooks/useStorageSync';
@@ -40,9 +42,9 @@ import { getSchoolByName } from '../utils/storage';
 
 interface TimeTrackingItem {
   id: string;
-  type: 'session' | 'evaluation';
+  type: 'session' | 'evaluation' | 'lunch';
   date: string;
-  data: Session | Evaluation;
+  data: Session | Evaluation | Lunch;
 }
 
 interface TimesheetNote {
@@ -83,6 +85,7 @@ export const TimeTracking = () => {
   const { selectedSchool } = useSchool();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
+  const [lunches, setLunches] = useState<Lunch[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [timesheetDialogOpen, setTimesheetDialogOpen] = useState(false);
@@ -98,10 +101,12 @@ export const TimeTracking = () => {
   const loadData = () => {
     const schoolSessions = getSessionsBySchool(selectedSchool);
     const schoolEvaluations = getEvaluations(selectedSchool);
+    const schoolLunches = getLunches(selectedSchool);
     const schoolStudents = getStudents(selectedSchool);
     
     setSessions(schoolSessions);
     setEvaluations(schoolEvaluations);
+    setLunches(schoolLunches);
     setStudents(schoolStudents);
   };
 
@@ -121,24 +126,26 @@ export const TimeTracking = () => {
   };
 
   // Combine sessions and evaluations into a single chronological list
-  // For group sessions, only include one entry per group (the first one)
+  // For group sessions, only include one entry per group (using the session's date for sorting)
   const allItems: TimeTrackingItem[] = useMemo(() => {
     const items: TimeTrackingItem[] = [];
     const processedGroupIds = new Set<string>();
     
-    // Add sessions (skip duplicates for group sessions)
+    // Process all sessions - both individual and group
     sessions.forEach(session => {
       if (session.groupSessionId) {
+        // For group sessions, only add one entry per group
         if (!processedGroupIds.has(session.groupSessionId)) {
           processedGroupIds.add(session.groupSessionId);
           items.push({
-            id: session.groupSessionId, // Use group ID for grouping
+            id: session.groupSessionId,
             type: 'session' as const,
             date: session.date,
             data: session,
           });
         }
       } else {
+        // Individual sessions
         items.push({
           id: session.id,
           type: 'session' as const,
@@ -157,10 +164,31 @@ export const TimeTracking = () => {
         data: evaluation,
       });
     });
+    
+    // Add lunches
+    lunches.forEach(lunch => {
+      items.push({
+        id: lunch.id,
+        type: 'lunch' as const,
+        date: lunch.startTime,
+        data: lunch,
+      });
+    });
 
-    // Sort by date, most recent first
-    return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [sessions, evaluations]);
+    // Sort all items by date/time chronologically (most recent first)
+    // This ensures group sessions, individual sessions, evaluations, and lunches are all intermingled correctly
+    const sorted = items.sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      // Handle invalid dates
+      if (isNaN(dateA) || isNaN(dateB)) {
+        return 0;
+      }
+      return dateB - dateA; // Most recent first
+    });
+    
+    return sorted;
+  }, [sessions, evaluations, lunches]);
 
   // Filter items by selected date
   const filteredItems = useMemo(() => {
@@ -242,9 +270,9 @@ export const TimeTracking = () => {
       noteParts.push('Offsite');
     }
     
-    // Filter to only sessions (not evaluations) and sort chronologically
+    // Filter to only sessions and lunches (not evaluations) and sort chronologically
     const sessionItems = filteredItems
-      .filter(item => item.type === 'session')
+      .filter(item => item.type === 'session' || item.type === 'lunch')
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     
     // Separate direct and indirect services
@@ -345,6 +373,17 @@ export const TimeTracking = () => {
         noteParts.push(`Indirect services: ${indirectStudentEntries.join(', ')}`);
       }
     }
+    
+    // Process lunches - add them with time ranges
+    const lunchItems = filteredItems
+      .filter(item => item.type === 'lunch')
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+    lunchItems.forEach(item => {
+      const lunch = item.data as Lunch;
+      const timeRange = formatTimeRange(lunch.startTime, lunch.endTime);
+      noteParts.push(`${timeRange} Lunch`);
+    });
     
     setTimesheetNote(noteParts.join('\n'));
     setTimesheetDialogOpen(true);
@@ -539,6 +578,30 @@ export const TimeTracking = () => {
     );
   };
 
+  const renderLunchItem = (lunch: Lunch) => {
+    return (
+      <Card key={lunch.id} sx={{ mb: 2 }}>
+        <CardContent>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+            <Box sx={{ flex: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                <RestaurantIcon color="primary" />
+                <Typography variant="h6">
+                  Lunch
+                </Typography>
+              </Box>
+              <Typography color="text.secondary" variant="body2">
+                <AccessTimeIcon sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
+                {formatDateTime(lunch.startTime)}
+                {lunch.endTime && ` - ${formatDateTime(lunch.endTime)}`}
+              </Typography>
+            </Box>
+          </Box>
+        </CardContent>
+      </Card>
+    );
+  };
+
   return (
     <Box>
       <Typography variant="h4" component="h1" gutterBottom>
@@ -609,8 +672,10 @@ export const TimeTracking = () => {
           filteredItems.map(item => {
             if (item.type === 'session') {
               return renderSessionItem(item.data as Session);
-            } else {
+            } else if (item.type === 'evaluation') {
               return renderEvaluationItem(item.data as Evaluation);
+            } else {
+              return renderLunchItem(item.data as Lunch);
             }
           })
         )}
