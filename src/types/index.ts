@@ -65,6 +65,7 @@ export interface Session {
   isDirectServices?: boolean; // true for Direct Services, false for Indirect Services
   indirectServicesNotes?: string; // Notes for indirect services
   groupSessionId?: string; // ID to link related sessions (for group sessions)
+  missedSession?: boolean; // true if this was a missed session (only for Direct Services)
 }
 
 export interface Activity {

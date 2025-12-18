@@ -84,6 +84,7 @@ export const Sessions = () => {
     notes: '',
     isDirectServices: true, // Default to Direct Services
     indirectServicesNotes: '',
+    missedSession: false, // Whether this was a missed session (only for Direct Services)
   });
 
   useEffect(() => {
@@ -131,6 +132,7 @@ export const Sessions = () => {
         notes: session.notes,
         isDirectServices: session.isDirectServices === true, // Explicitly check for true
         indirectServicesNotes: session.indirectServicesNotes || '',
+        missedSession: session.missedSession || false,
       });
     } else {
       const now = new Date();
@@ -146,6 +148,7 @@ export const Sessions = () => {
         notes: '',
         isDirectServices: true,
         indirectServicesNotes: '',
+        missedSession: false,
       });
     }
     setDialogOpen(true);
@@ -276,6 +279,7 @@ export const Sessions = () => {
         isDirectServices: formData.isDirectServices === true, // Explicitly ensure boolean
         indirectServicesNotes: formData.indirectServicesNotes || undefined,
         groupSessionId: groupSessionId, // Link related sessions together
+        missedSession: formData.isDirectServices ? (formData.missedSession || false) : undefined, // Only set for Direct Services
       };
 
       if (isEditingSingleSession) {
@@ -675,6 +679,18 @@ export const Sessions = () => {
                 </Button>
               </Box>
             </Box>
+
+            {formData.isDirectServices && (
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={formData.missedSession}
+                    onChange={(e) => setFormData({ ...formData, missedSession: e.target.checked })}
+                  />
+                }
+                label="Missed Session"
+              />
+            )}
 
             {formData.isDirectServices ? (
               <>

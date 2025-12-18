@@ -250,7 +250,9 @@ export const TimeTracking = () => {
     // Process each session
     sessionItems.forEach(item => {
       const session = item.data as Session;
-      const serviceType = session.isDirectServices ? 'Direct services' : 'Indirect services';
+      const serviceType = session.isDirectServices 
+        ? (session.missedSession ? 'Missed Direct services' : 'Direct services')
+        : 'Indirect services';
       const timeRange = formatTimeRange(session.date, session.endTime);
       const isGroup = isGroupSession(session);
       
@@ -327,7 +329,9 @@ export const TimeTracking = () => {
 
   const renderSessionItem = (session: Session) => {
     const isGroup = isGroupSession(session);
-    const serviceType = session.isDirectServices ? 'Direct Services' : 'Indirect Services';
+    const serviceType = session.isDirectServices 
+      ? (session.missedSession ? 'Missed Direct Services' : 'Direct Services')
+      : 'Indirect Services';
     
     const directServicesInfo = "MN requires that specific start and end times are listed for any direct services provided remotely for each individual session. In the notes section of your entry for the school, list the specific start and end time of each direct telehealth session, with a separate line for each entry. If doing additional duties within a timeframe of billable services, you only need to include specific start/end times for the direct telehealth duties.";
     
