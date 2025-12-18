@@ -247,12 +247,40 @@ export const TimeTracking = () => {
       .filter(item => item.type === 'session')
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     
-    // Process each session
+    // Separate direct and indirect services
+    const directServices: Session[] = [];
+    const indirectServices: Session[] = [];
+    const processedDirectGroupIds = new Set<string>();
+    const processedIndirectGroupIds = new Set<string>();
+    
     sessionItems.forEach(item => {
       const session = item.data as Session;
-      const serviceType = session.isDirectServices 
-        ? (session.missedSession ? 'Missed Direct services' : 'Direct services')
-        : 'Indirect services';
+      if (session.isDirectServices) {
+        // For group sessions, only add once per group
+        if (session.groupSessionId) {
+          if (!processedDirectGroupIds.has(session.groupSessionId)) {
+            processedDirectGroupIds.add(session.groupSessionId);
+            directServices.push(session);
+          }
+        } else {
+          directServices.push(session);
+        }
+      } else {
+        // For group sessions, only add once per group
+        if (session.groupSessionId) {
+          if (!processedIndirectGroupIds.has(session.groupSessionId)) {
+            processedIndirectGroupIds.add(session.groupSessionId);
+            indirectServices.push(session);
+          }
+        } else {
+          indirectServices.push(session);
+        }
+      }
+    });
+    
+    // Process direct services with time ranges
+    directServices.forEach(session => {
+      const serviceType = session.missedSession ? 'Missed Direct services' : 'Direct services';
       const timeRange = formatTimeRange(session.date, session.endTime);
       const isGroup = isGroupSession(session);
       
@@ -279,6 +307,44 @@ export const TimeTracking = () => {
         noteParts.push(`${timeRange} ${serviceType}: ${initials}(${grade})`);
       }
     });
+    
+    // Process indirect services - group all together without time ranges
+    if (indirectServices.length > 0) {
+      const indirectStudentEntries: string[] = [];
+      const processedIndirectStudents = new Set<string>();
+      
+      indirectServices.forEach(session => {
+        const isGroup = isGroupSession(session);
+        
+        if (isGroup) {
+          const groupSessions = getGroupSessions(session.groupSessionId!);
+          groupSessions.forEach(s => {
+            if (!processedIndirectStudents.has(s.studentId)) {
+              processedIndirectStudents.add(s.studentId);
+              const student = getStudent(s.studentId);
+              const initials = getStudentInitials(s.studentId);
+              const grade = student?.grade || '';
+              indirectStudentEntries.push(`${initials} (${grade})`);
+            }
+          });
+        } else {
+          if (!processedIndirectStudents.has(session.studentId)) {
+            processedIndirectStudents.add(session.studentId);
+            const student = getStudent(session.studentId);
+            const initials = getStudentInitials(session.studentId);
+            const grade = student?.grade || '';
+            indirectStudentEntries.push(`${initials} (${grade})`);
+          }
+        }
+      });
+      
+      // Sort student entries alphabetically for consistency
+      indirectStudentEntries.sort();
+      
+      if (indirectStudentEntries.length > 0) {
+        noteParts.push(`Indirect services: ${indirectStudentEntries.join(', ')}`);
+      }
+    }
     
     setTimesheetNote(noteParts.join('\n'));
     setTimesheetDialogOpen(true);

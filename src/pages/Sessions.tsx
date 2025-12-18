@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -31,6 +31,7 @@ import {
   AccordionSummary,
   AccordionDetails,
   Tooltip,
+  InputAdornment,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -42,6 +43,8 @@ import {
   ExpandMore as ExpandMoreIcon,
   Group as GroupIcon,
   Info as InfoIcon,
+  Search as SearchIcon,
+  Clear as ClearIcon,
 } from '@mui/icons-material';
 import type { Session, Student, Goal } from '../types';
 import {
@@ -66,6 +69,7 @@ export const Sessions = () => {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSession, setEditingSession] = useState<Session | null>(null);
+  const [editingGroupSessionId, setEditingGroupSessionId] = useState<string | null>(null);
 
   // Session Planning State
   const [sessionPlanDialogOpen, setSessionPlanDialogOpen] = useState(false);
@@ -73,6 +77,10 @@ export const Sessions = () => {
   const [sessionPlan, setSessionPlan] = useState('');
   const [loadingSessionPlan, setLoadingSessionPlan] = useState(false);
   const [sessionPlanError, setSessionPlanError] = useState('');
+  
+  // Student search state
+  const [studentSearch, setStudentSearch] = useState('');
+  const studentSearchRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
     studentIds: [] as string[], // Changed to support multiple students
@@ -96,6 +104,16 @@ export const Sessions = () => {
     loadData();
   }, [selectedSchool]);
 
+  // Auto-focus student search when dialog opens for new activity
+  useEffect(() => {
+    if (dialogOpen && !editingSession && !editingGroupSessionId) {
+      // Small delay to ensure the dialog is fully rendered
+      setTimeout(() => {
+        studentSearchRef.current?.focus();
+      }, 100);
+    }
+  }, [dialogOpen, editingSession, editingGroupSessionId]);
+
   const loadData = () => {
     const schoolStudents = getStudents(selectedSchool);
     const studentIds = new Set(schoolStudents.map(s => s.id));
@@ -110,34 +128,91 @@ export const Sessions = () => {
     setGoals(allGoals.filter(g => studentIds.has(g.studentId)));
   };
 
-  const handleOpenDialog = (session?: Session) => {
-    if (session) {
-      setEditingSession(session);
-      const startDate = new Date(session.date);
-      const endDate = session.endTime ? new Date(session.endTime) : null;
-      setFormData({
-        studentIds: [session.studentId], // Convert single student to array for editing
-        date: toLocalDateTimeString(startDate),
-        endTime: endDate ? toLocalDateTimeString(endDate) : '',
-        goalsTargeted: session.goalsTargeted,
-        activitiesUsed: session.activitiesUsed,
-        performanceData: session.performanceData.map(p => ({
-          goalId: p.goalId,
-          studentId: session.studentId, // Add studentId to performance data
-          accuracy: p.accuracy?.toString() || '',
-          correctTrials: p.correctTrials || 0,
-          incorrectTrials: p.incorrectTrials || 0,
-          notes: p.notes || '',
-        })),
-        notes: session.notes,
-        isDirectServices: session.isDirectServices === true, // Explicitly check for true
-        indirectServicesNotes: session.indirectServicesNotes || '',
-        missedSession: session.missedSession || false,
-      });
+  const handleOpenDialog = (session?: Session, groupSessionId?: string) => {
+    if (session || groupSessionId) {
+      // If groupSessionId is provided, load all sessions in the group
+      if (groupSessionId) {
+        const allSessions = getSessions();
+        const groupSessions = allSessions.filter(s => s.groupSessionId === groupSessionId);
+        
+        if (groupSessions.length > 0) {
+          const firstSession = groupSessions[0];
+          setEditingSession(firstSession);
+          setEditingGroupSessionId(groupSessionId);
+          
+          // Collect all student IDs from the group
+          const allStudentIds = groupSessions.map(s => s.studentId);
+          
+          // Collect all goals targeted across all sessions
+          const allGoalsTargeted = new Set<string>();
+          groupSessions.forEach(s => {
+            s.goalsTargeted.forEach(gId => allGoalsTargeted.add(gId));
+          });
+          
+          // Collect all performance data from all sessions
+          const allPerformanceData: typeof formData.performanceData = [];
+          groupSessions.forEach(s => {
+            s.performanceData.forEach(p => {
+              allPerformanceData.push({
+                goalId: p.goalId,
+                studentId: s.studentId,
+                accuracy: p.accuracy?.toString() || '',
+                correctTrials: p.correctTrials || 0,
+                incorrectTrials: p.incorrectTrials || 0,
+                notes: p.notes || '',
+              });
+            });
+          });
+          
+          // Use the first session's common data (date, endTime, activities, notes, etc.)
+          const startDate = new Date(firstSession.date);
+          const endDate = firstSession.endTime ? new Date(firstSession.endTime) : null;
+          
+          setFormData({
+            studentIds: allStudentIds,
+            date: toLocalDateTimeString(startDate),
+            endTime: endDate ? toLocalDateTimeString(endDate) : '',
+            goalsTargeted: Array.from(allGoalsTargeted),
+            activitiesUsed: firstSession.activitiesUsed, // Use first session's activities (should be same for all)
+            performanceData: allPerformanceData,
+            notes: firstSession.notes, // Use first session's notes (should be same for all)
+            isDirectServices: firstSession.isDirectServices === true,
+            indirectServicesNotes: firstSession.indirectServicesNotes || '',
+            missedSession: firstSession.missedSession || false,
+          });
+        }
+      } else if (session) {
+        // Editing a single session
+        setEditingSession(session);
+        setEditingGroupSessionId(null);
+        const startDate = new Date(session.date);
+        const endDate = session.endTime ? new Date(session.endTime) : null;
+        setFormData({
+          studentIds: [session.studentId], // Convert single student to array for editing
+          date: toLocalDateTimeString(startDate),
+          endTime: endDate ? toLocalDateTimeString(endDate) : '',
+          goalsTargeted: session.goalsTargeted,
+          activitiesUsed: session.activitiesUsed,
+          performanceData: session.performanceData.map(p => ({
+            goalId: p.goalId,
+            studentId: session.studentId, // Add studentId to performance data
+            accuracy: p.accuracy?.toString() || '',
+            correctTrials: p.correctTrials || 0,
+            incorrectTrials: p.incorrectTrials || 0,
+            notes: p.notes || '',
+          })),
+          notes: session.notes,
+          isDirectServices: session.isDirectServices === true, // Explicitly check for true
+          indirectServicesNotes: session.indirectServicesNotes || '',
+          missedSession: session.missedSession || false,
+        });
+      }
     } else {
+      // Creating a new session
       const now = new Date();
       const defaultEndTime = new Date(now.getTime() + 30 * 60000); // Default to 30 minutes later
       setEditingSession(null);
+      setEditingGroupSessionId(null);
       setFormData({
         studentIds: [],
         date: toLocalDateTimeString(now),
@@ -157,6 +232,8 @@ export const Sessions = () => {
   const handleCloseDialog = () => {
     setDialogOpen(false);
     setEditingSession(null);
+    setEditingGroupSessionId(null);
+    setStudentSearch(''); // Reset search when dialog closes
   };
 
   const handleStudentToggle = (studentId: string) => {
@@ -239,55 +316,114 @@ export const Sessions = () => {
       return;
     }
 
-    // Determine groupSessionId:
-    // - If multiple students selected, generate a new one
-    // - If editing a single session, preserve existing groupSessionId if it exists
-    // - Otherwise, undefined (individual session)
-    const isEditingSingleSession = editingSession && formData.studentIds.length === 1 && formData.studentIds[0] === editingSession.studentId;
-    const groupSessionId = formData.studentIds.length > 1 
-      ? generateId() 
-      : (isEditingSingleSession && editingSession.groupSessionId) 
-        ? editingSession.groupSessionId 
-        : undefined;
+    // If editing a group session, update all sessions in the group
+    if (editingGroupSessionId) {
+      const allSessions = getSessions();
+      const existingGroupSessions = allSessions.filter(s => s.groupSessionId === editingGroupSessionId);
+      
+      // Determine the groupSessionId to use (preserve existing or generate new if multiple students)
+      const groupSessionId = formData.studentIds.length > 1 
+        ? editingGroupSessionId // Preserve existing group ID
+        : undefined; // Convert to individual session if only one student
+      
+      // Update or create sessions for each selected student
+      formData.studentIds.forEach((studentId) => {
+        // Find existing session for this student in the group
+        const existingSession = existingGroupSessions.find(s => s.studentId === studentId);
+        
+        // Filter goals and performance data for this student
+        const studentGoals = goals.filter(g => g.studentId === studentId).map(g => g.id);
+        const studentGoalsTargeted = formData.goalsTargeted.filter(gId => studentGoals.includes(gId));
+        const studentPerformanceData = formData.performanceData
+          .filter(p => p.studentId === studentId && studentGoalsTargeted.includes(p.goalId))
+          .map((p) => ({
+            goalId: p.goalId,
+            accuracy: p.accuracy ? parseFloat(p.accuracy) : undefined,
+            correctTrials: p.correctTrials,
+            incorrectTrials: p.incorrectTrials,
+            notes: p.notes,
+          }));
 
-    // Create a session for each selected student
-    formData.studentIds.forEach((studentId) => {
-      // Filter goals and performance data for this student
-      const studentGoals = goals.filter(g => g.studentId === studentId).map(g => g.id);
-      const studentGoalsTargeted = formData.goalsTargeted.filter(gId => studentGoals.includes(gId));
-      const studentPerformanceData = formData.performanceData
-        .filter(p => p.studentId === studentId && studentGoalsTargeted.includes(p.goalId))
-        .map((p) => ({
-          goalId: p.goalId,
-          accuracy: p.accuracy ? parseFloat(p.accuracy) : undefined,
-          correctTrials: p.correctTrials,
-          incorrectTrials: p.incorrectTrials,
-          notes: p.notes,
-        }));
+        const sessionData: Session = {
+          id: existingSession ? existingSession.id : generateId(),
+          studentId: studentId,
+          date: fromLocalDateTimeString(formData.date),
+          endTime: formData.endTime ? fromLocalDateTimeString(formData.endTime) : undefined,
+          goalsTargeted: studentGoalsTargeted,
+          activitiesUsed: formData.activitiesUsed,
+          performanceData: studentPerformanceData,
+          notes: formData.notes,
+          isDirectServices: formData.isDirectServices === true,
+          indirectServicesNotes: formData.indirectServicesNotes || undefined,
+          groupSessionId: groupSessionId,
+          missedSession: formData.isDirectServices ? (formData.missedSession || false) : undefined,
+        };
 
-      const sessionData: Session = {
-        id: isEditingSingleSession
-          ? editingSession.id
-          : generateId(),
-        studentId: studentId,
-        date: fromLocalDateTimeString(formData.date),
-        endTime: formData.endTime ? fromLocalDateTimeString(formData.endTime) : undefined,
-        goalsTargeted: studentGoalsTargeted,
-        activitiesUsed: formData.activitiesUsed,
-        performanceData: studentPerformanceData,
-        notes: formData.notes,
-        isDirectServices: formData.isDirectServices === true, // Explicitly ensure boolean
-        indirectServicesNotes: formData.indirectServicesNotes || undefined,
-        groupSessionId: groupSessionId, // Link related sessions together
-        missedSession: formData.isDirectServices ? (formData.missedSession || false) : undefined, // Only set for Direct Services
-      };
+        if (existingSession) {
+          updateSession(existingSession.id, sessionData);
+        } else {
+          addSession(sessionData);
+        }
+      });
+      
+      // Delete sessions for students that were removed from the group
+      existingGroupSessions.forEach(existingSession => {
+        if (!formData.studentIds.includes(existingSession.studentId)) {
+          deleteSession(existingSession.id);
+        }
+      });
+    } else {
+      // Editing a single session or creating new
+      // Determine groupSessionId:
+      // - If multiple students selected, generate a new one
+      // - If editing a single session, preserve existing groupSessionId if it exists
+      // - Otherwise, undefined (individual session)
+      const isEditingSingleSession = editingSession && formData.studentIds.length === 1 && formData.studentIds[0] === editingSession.studentId;
+      const groupSessionId = formData.studentIds.length > 1 
+        ? generateId() 
+        : (isEditingSingleSession && editingSession.groupSessionId) 
+          ? editingSession.groupSessionId 
+          : undefined;
 
-      if (isEditingSingleSession) {
-        updateSession(editingSession.id, sessionData);
-      } else {
-        addSession(sessionData);
-      }
-    });
+      // Create a session for each selected student
+      formData.studentIds.forEach((studentId) => {
+        // Filter goals and performance data for this student
+        const studentGoals = goals.filter(g => g.studentId === studentId).map(g => g.id);
+        const studentGoalsTargeted = formData.goalsTargeted.filter(gId => studentGoals.includes(gId));
+        const studentPerformanceData = formData.performanceData
+          .filter(p => p.studentId === studentId && studentGoalsTargeted.includes(p.goalId))
+          .map((p) => ({
+            goalId: p.goalId,
+            accuracy: p.accuracy ? parseFloat(p.accuracy) : undefined,
+            correctTrials: p.correctTrials,
+            incorrectTrials: p.incorrectTrials,
+            notes: p.notes,
+          }));
+
+        const sessionData: Session = {
+          id: isEditingSingleSession
+            ? editingSession.id
+            : generateId(),
+          studentId: studentId,
+          date: fromLocalDateTimeString(formData.date),
+          endTime: formData.endTime ? fromLocalDateTimeString(formData.endTime) : undefined,
+          goalsTargeted: studentGoalsTargeted,
+          activitiesUsed: formData.activitiesUsed,
+          performanceData: studentPerformanceData,
+          notes: formData.notes,
+          isDirectServices: formData.isDirectServices === true, // Explicitly ensure boolean
+          indirectServicesNotes: formData.indirectServicesNotes || undefined,
+          groupSessionId: groupSessionId, // Link related sessions together
+          missedSession: formData.isDirectServices ? (formData.missedSession || false) : undefined, // Only set for Direct Services
+        };
+
+        if (isEditingSingleSession) {
+          updateSession(editingSession.id, sessionData);
+        } else {
+          addSession(sessionData);
+        }
+      });
+    }
 
     loadData();
     handleCloseDialog();
@@ -550,6 +686,16 @@ export const Sessions = () => {
                             color={firstSession.isDirectServices === true ? 'primary' : 'secondary'}
                             sx={{ mr: 1 }}
                           />
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenDialog(undefined, groupSessionId);
+                            }}
+                            sx={{ mr: 1 }}
+                          >
+                            <EditIcon />
+                          </IconButton>
                         </Box>
                       </AccordionSummary>
                       <AccordionDetails>
@@ -572,7 +718,7 @@ export const Sessions = () => {
 
       <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="md" fullWidth>
         <DialogTitle>
-          {editingSession ? 'Edit Activity' : 'Log New Activity'}
+          {editingGroupSessionId ? 'Edit Group Session' : editingSession ? 'Edit Activity' : 'Log New Activity'}
         </DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
@@ -580,19 +726,69 @@ export const Sessions = () => {
               <Typography variant="subtitle2" gutterBottom>
                 Students (select one or more):
               </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 1, maxHeight: '200px', overflow: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1 }}>
-                {students.map((student) => (
-                  <FormControlLabel
-                    key={student.id}
-                    control={
-                      <Checkbox
-                        checked={formData.studentIds.includes(student.id)}
-                        onChange={() => handleStudentToggle(student.id)}
-                      />
+              <TextField
+                inputRef={studentSearchRef}
+                fullWidth
+                size="small"
+                placeholder="Search students..."
+                value={studentSearch}
+                onChange={(e) => setStudentSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const filteredStudents = students.filter((student) =>
+                      student.name.toLowerCase().includes(studentSearch.toLowerCase())
+                    );
+                    if (filteredStudents.length === 1 && !formData.studentIds.includes(filteredStudents[0].id)) {
+                      handleStudentToggle(filteredStudents[0].id);
+                      setStudentSearch('');
                     }
-                    label={student.name}
-                  />
-                ))}
+                  }
+                }}
+                sx={{ mt: 1, mb: 1 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                  endAdornment: studentSearch && (
+                    <InputAdornment position="end">
+                      <IconButton
+                        size="small"
+                        onClick={() => setStudentSearch('')}
+                        edge="end"
+                      >
+                        <ClearIcon fontSize="small" />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, maxHeight: '200px', overflow: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1 }}>
+                {students
+                  .filter((student) =>
+                    student.name.toLowerCase().includes(studentSearch.toLowerCase())
+                  )
+                  .map((student) => (
+                    <FormControlLabel
+                      key={student.id}
+                      control={
+                        <Checkbox
+                          checked={formData.studentIds.includes(student.id)}
+                          onChange={() => handleStudentToggle(student.id)}
+                        />
+                      }
+                      label={student.name}
+                    />
+                  ))}
+                {students.filter((student) =>
+                  student.name.toLowerCase().includes(studentSearch.toLowerCase())
+                ).length === 0 && (
+                  <Typography variant="body2" color="text.secondary" sx={{ p: 1, textAlign: 'center' }}>
+                    No students found
+                  </Typography>
+                )}
               </Box>
             </Box>
 
@@ -681,15 +877,13 @@ export const Sessions = () => {
             </Box>
 
             {formData.isDirectServices && (
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={formData.missedSession}
-                    onChange={(e) => setFormData({ ...formData, missedSession: e.target.checked })}
-                  />
-                }
-                label="Missed Session"
-              />
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Checkbox
+                  checked={formData.missedSession}
+                  onChange={(e) => setFormData({ ...formData, missedSession: e.target.checked })}
+                />
+                <Typography variant="body2">Missed Session</Typography>
+              </Box>
             )}
 
             {formData.isDirectServices ? (
