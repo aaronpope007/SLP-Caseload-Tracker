@@ -1,0 +1,2299 @@
+{
+  "students": [
+    {
+      "id": "1765567169773-8vlml3llk",
+      "name": "Jane Doe",
+      "age": 9,
+      "grade": "3",
+      "concerns": [
+        "Articulation /s",
+        "l",
+        "r/"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-12T19:19:29.773Z",
+      "archived": false,
+      "school": "Test School",
+      "exceptionality": [
+        "SLI"
+      ]
+    },
+    {
+      "id": "1765807421181-i53c9sjpw",
+      "name": "Mason Yang",
+      "age": 13,
+      "grade": "7",
+      "concerns": [
+        "articulation",
+        "specific language impairment"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-15T14:03:41.181Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765809199176-cog4cp7f2",
+      "name": "Charlie Vang",
+      "age": 12,
+      "grade": "6",
+      "concerns": [
+        "articulation",
+        "expressive and receptive",
+        "pragmatics",
+        "self-advocacy"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-15T14:33:19.176Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765809247581-heui4wuf1",
+      "name": "Richie Chang",
+      "age": 12,
+      "grade": "6",
+      "concerns": [
+        "Articulation",
+        "fluency",
+        "receptive language",
+        "expressive language"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-15T14:34:07.581Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765810680595-yt0lc558w",
+      "name": "Brian Yang",
+      "age": 11,
+      "grade": "5",
+      "concerns": [
+        "articulation",
+        "/l/",
+        "expressive",
+        "receptive"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-15T14:58:00.595Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765810771715-x54337hrr",
+      "name": "Jacob Yang",
+      "age": 11,
+      "grade": "5",
+      "concerns": [
+        "articulation",
+        "/s",
+        "z",
+        "l",
+        "r",
+        "th/"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-15T14:59:31.715Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765811792304-9dw0z5vy6",
+      "name": "Cheng Vang",
+      "age": 14,
+      "grade": "8",
+      "concerns": [
+        "autism",
+        "expressive and receptive language"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-15T15:16:32.304Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765812743225-qo5trwg51",
+      "name": "Nathan Xiong",
+      "age": 13,
+      "grade": "7",
+      "concerns": [
+        "expressive language",
+        "receptive language",
+        "fluency"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-15T15:32:23.225Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765815246475-xqe6xk8pa",
+      "name": "Adan Yang",
+      "age": 0,
+      "grade": "8",
+      "concerns": [],
+      "status": "active",
+      "dateAdded": "2025-12-15T16:14:06.475Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765815308128-tqhi2710h",
+      "name": "O'Marianna M",
+      "age": 8,
+      "grade": "1",
+      "concerns": [
+        "language",
+        "articulation",
+        "/sh",
+        "ch",
+        "l",
+        "l-blends",
+        "s",
+        "z/"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-15T16:15:08.128Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765815898029-z1kz8uhix",
+      "name": "Mugen Yang",
+      "age": 0,
+      "grade": "4",
+      "concerns": [
+        "pragmtics",
+        "articulation",
+        "/s",
+        "z",
+        "ng",
+        "y",
+        "t",
+        "v/",
+        "specific language delay"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-15T16:24:58.029Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765816099249-3z3alpnos",
+      "name": "Joey Vang",
+      "age": 0,
+      "grade": "4",
+      "concerns": [
+        "specific language impairment",
+        "articulation /s",
+        "z/",
+        "fluency"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-15T16:28:19.249Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765819334352-ps6asxwpp",
+      "name": "Richard Thao",
+      "age": 0,
+      "grade": "4",
+      "concerns": [],
+      "status": "active",
+      "dateAdded": "2025-12-15T17:22:14.352Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765819755726-4zfj6pvn8",
+      "name": "Dimitrius",
+      "age": 13,
+      "grade": "7",
+      "concerns": [
+        "selective mutism"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-15T17:29:15.726Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765823024252-yp9b5jmi9",
+      "name": "Leonardo Vang",
+      "age": 0,
+      "grade": "2",
+      "concerns": [
+        "Expressive language",
+        "receptive language",
+        "articulation"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-15T18:23:44.252Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765823251017-76y207lse",
+      "name": "Oumaru Sesay",
+      "age": 8,
+      "grade": "2",
+      "concerns": [
+        "Expressive Language",
+        "Receptive Language"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-15T18:27:31.017Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765823404394-dapts5y04",
+      "name": "Mikey Xiong",
+      "age": 0,
+      "grade": "8",
+      "concerns": [
+        "articulation /s",
+        "z/",
+        "expressive language"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-15T18:30:04.394Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765826085180-w4ibc8gvp",
+      "name": "Bilbo Baggins",
+      "age": 10,
+      "grade": "4",
+      "concerns": [
+        "language",
+        "expressive language",
+        "receptive language"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-15T19:14:45.180Z",
+      "school": "Test School",
+      "exceptionality": [
+        "DD"
+      ]
+    },
+    {
+      "id": "1765838843108-jze8f5gwr",
+      "name": "John Smith",
+      "age": 7,
+      "grade": "4",
+      "concerns": [
+        "Expressive Language",
+        "Receptive Language"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-15T22:47:23.108Z",
+      "school": "Test School",
+      "archived": false,
+      "exceptionality": [
+        "ASD"
+      ]
+    },
+    {
+      "id": "1765895087987-bn9480yzt",
+      "name": "Messi Yang",
+      "age": 0,
+      "grade": "7",
+      "concerns": [
+        "Expressive language",
+        "Receptive language",
+        "Articulation"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-16T14:24:47.987Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765895385160-mcrg8f8bt",
+      "name": "Talia Yang",
+      "age": 0,
+      "grade": "6",
+      "concerns": [
+        "Expressive language",
+        "Receptive Language"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-16T14:29:45.160Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765895424788-9j6rcy94y",
+      "name": "Kristy Vang",
+      "age": 0,
+      "grade": "5",
+      "concerns": [
+        "Receptive Language"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-16T14:30:24.788Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765895471191-5pnp7i9jn",
+      "name": "Chaa Lia Lee",
+      "age": 0,
+      "grade": "5",
+      "concerns": [
+        "Articulation /t",
+        "d",
+        "ch",
+        "sh",
+        "l",
+        "l-blends/",
+        "Expressive Language"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-16T14:31:11.191Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765895608792-axjbvhdml",
+      "name": "Zakou Lor",
+      "age": 0,
+      "grade": "8",
+      "concerns": [
+        "Pragmatics",
+        "Expressive Language",
+        "Receptive Language"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-16T14:33:28.792Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765895782888-tmax6tccs",
+      "name": "Rin Nag Xiong",
+      "age": 0,
+      "grade": "K",
+      "concerns": [
+        "Articulation",
+        "/f",
+        "k",
+        "l",
+        "n",
+        "t",
+        "v",
+        "ch",
+        "k/"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-16T14:36:22.888Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765895872864-wrpipfa7v",
+      "name": "James Kilikpo",
+      "age": 0,
+      "grade": "4",
+      "concerns": [
+        "Articulation /sh",
+        "f",
+        "j",
+        "l-blends",
+        "s-blends/"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-16T14:37:52.864Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765896627979-6ewwy8zhl",
+      "name": "Yousuf Sesay",
+      "age": 0,
+      "grade": "K",
+      "concerns": [
+        "Expressive language",
+        "receptive language"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-16T14:50:27.979Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765896675418-w9u6io3zq",
+      "name": "Emerie Lee",
+      "age": 0,
+      "grade": "1",
+      "concerns": [
+        "Expressive & Receptive Language",
+        "Self-Advocacy",
+        "Artic- /g",
+        "k",
+        "t/ and consonant clusters. (Recently dropping /s/ at the end) D/HH mentioned speech has regressed since summer."
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-16T14:51:15.418Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765896704602-to55yf2au",
+      "name": "Hayden Lee",
+      "age": 0,
+      "grade": "1",
+      "concerns": [
+        "Articulation /L",
+        "s",
+        "z",
+        "sh",
+        "ch/"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-16T14:51:44.602Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765896733006-p0r1k3zsk",
+      "name": "Abdullhamid Abdi",
+      "age": 0,
+      "grade": "5",
+      "concerns": [
+        "Artic- /s/",
+        "/r/"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-16T14:52:13.006Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765896785792-fkiqc7j3h",
+      "name": "Jose Moreno",
+      "age": 0,
+      "grade": "5",
+      "concerns": [
+        "Artic",
+        "/s",
+        "z",
+        "l/",
+        "\"r\"",
+        "\"th\""
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-16T14:53:05.792Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765896810811-8v70r27b1",
+      "name": "Damien Lee",
+      "age": 0,
+      "grade": "3",
+      "concerns": [
+        "Artic- /k",
+        "f",
+        "v/",
+        "Receptive Language"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-16T14:53:30.811Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765896843943-nvpl9a4ks",
+      "name": "Faithlynn Yang",
+      "age": 0,
+      "grade": "3",
+      "concerns": [
+        "Expressive & Receptive Language"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-16T14:54:03.943Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765896935381-7p6ihkvfa",
+      "name": "Royal Horton",
+      "age": 0,
+      "grade": "3",
+      "concerns": [
+        "Artic",
+        "/sh",
+        "ch",
+        "s",
+        "z",
+        "t/"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-16T14:55:35.381Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765896971472-igfl8qiqb",
+      "name": "Eleanor Yang",
+      "age": 0,
+      "grade": "2",
+      "concerns": [
+        "Artic- /v",
+        "l/"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-16T14:56:11.472Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765897062494-r6zdhx6u5",
+      "name": "Jaxsten Yang",
+      "age": 0,
+      "grade": "1",
+      "concerns": [
+        "Expressive & Receptive Language"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-16T14:57:42.494Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1765897368920-tfhl76hwo",
+      "name": "Benson Thao",
+      "age": 0,
+      "grade": "1",
+      "concerns": [
+        "Artic"
+      ],
+      "exceptionality": [
+        "SLI"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-16T15:02:48.920Z",
+      "school": "Noble Academy"
+    },
+    {
+      "id": "1766167726532-yoe7n85d6",
+      "name": "Santa Clause",
+      "age": 9,
+      "grade": "3",
+      "concerns": [
+        "articulation",
+        "language"
+      ],
+      "exceptionality": [
+        "ASD"
+      ],
+      "status": "active",
+      "dateAdded": "2025-12-19T18:08:46.532Z",
+      "school": "Test School"
+    }
+  ],
+  "goals": [
+    {
+      "id": "1765566955644-2pfnx91v5",
+      "studentId": "1765566831853-wt2yddu9l",
+      "description": "s-blends, phrase level",
+      "baseline": "60%",
+      "target": "75%",
+      "status": "in-progress",
+      "dateCreated": "2025-12-12T19:15:55.644Z"
+    },
+    {
+      "id": "1765566969622-p0arndt5h",
+      "studentId": "1765566831853-wt2yddu9l",
+      "description": "l-blends, phrase level",
+      "baseline": "50%",
+      "target": "75%",
+      "status": "in-progress",
+      "dateCreated": "2025-12-12T19:16:09.622Z"
+    },
+    {
+      "id": "1765733656773-h1yfss83z",
+      "studentId": "1765567169773-8vlml3llk",
+      "description": "Student will articulate /sh/ in phrases with 80% accuract",
+      "baseline": "10",
+      "target": "80",
+      "status": "in-progress",
+      "dateCreated": "2025-12-14T17:34:16.773Z",
+      "domain": "Articulation",
+      "priority": "medium"
+    },
+    {
+      "id": "1765738186873-d7jq9yjwk",
+      "studentId": "1765567169773-8vlml3llk",
+      "description": "/s/ at conversation level 75%",
+      "baseline": "10",
+      "target": "70",
+      "status": "in-progress",
+      "dateCreated": "2025-12-14T18:49:46.873Z"
+    },
+    {
+      "id": "1765811915376-3z1ernqmz",
+      "studentId": "1765811792304-9dw0z5vy6",
+      "description": "Expressive speech",
+      "baseline": "",
+      "target": "",
+      "status": "in-progress",
+      "dateCreated": "2025-12-15T15:18:35.376Z",
+      "domain": "Language",
+      "priority": "medium"
+    },
+    {
+      "id": "1765811927830-v9dgxopk0",
+      "studentId": "1765811792304-9dw0z5vy6",
+      "description": "receptive speech",
+      "baseline": "",
+      "target": "",
+      "status": "in-progress",
+      "dateCreated": "2025-12-15T15:18:47.830Z",
+      "domain": "Language",
+      "priority": "medium"
+    },
+    {
+      "id": "1765984266455-qa9p7nzub",
+      "studentId": "1765826085180-w4ibc8gvp",
+      "description": "Answer 'wh' questions with 80% accuracy in conversation level tasks.",
+      "baseline": "25",
+      "target": "80",
+      "status": "in-progress",
+      "dateCreated": "2025-12-17T15:11:06.455Z",
+      "priority": "medium"
+    },
+    {
+      "id": "1765984368356-7xg518usm",
+      "studentId": "1765838843108-jze8f5gwr",
+      "description": "student will articulate /s/ sound in words 90% accuracy",
+      "baseline": "20",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-17T15:12:48.356Z",
+      "domain": "Articulation",
+      "priority": "medium"
+    },
+    {
+      "id": "1766075529634-6sdcz7nhn",
+      "studentId": "1765896675418-w9u6io3zq",
+      "description": "Given minimal visual and verbal prompts, Emerie will correctly produce the G and K sounds in all positions at the level of words, phrases, and sentences with 80% accuracy as measured by her SLP. ",
+      "baseline": "",
+      "target": "",
+      "status": "in-progress",
+      "dateCreated": "2025-12-18T16:32:09.634Z",
+      "priority": "medium",
+      "subGoalIds": [
+        "1766075639333-r6cqut4ca"
+      ]
+    },
+    {
+      "id": "1766075544906-q1gw8i0v0",
+      "studentId": "1765896675418-w9u6io3zq",
+      "description": "Given minimal visual and verbal prompts, Emerie will correctly produce the T sound in all positions at the level of words, phrases, and sentences with 80% accuracy as measured by her SLP. ",
+      "baseline": "",
+      "target": "",
+      "status": "in-progress",
+      "dateCreated": "2025-12-18T16:32:24.906Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "subGoalIds": [
+        "1766075679866-12t6sqpob"
+      ]
+    },
+    {
+      "id": "1766075559454-j0ef7vvrc",
+      "studentId": "1765896675418-w9u6io3zq",
+      "description": "Given minimal visual and verbal prompts, Emerie will correctly produce age-appropriate consonant blends in all positions at the level of words, phrases, and sentences with 80% accuracy as measured by her SLP.",
+      "baseline": "",
+      "target": "",
+      "status": "in-progress",
+      "dateCreated": "2025-12-18T16:32:39.454Z",
+      "priority": "medium",
+      "subGoalIds": [
+        "1766075594762-kc0m59vk6"
+      ]
+    },
+    {
+      "id": "1766075594762-kc0m59vk6",
+      "studentId": "1765896675418-w9u6io3zq",
+      "description": "Consonant cluster phrase level",
+      "baseline": "75",
+      "target": "80",
+      "status": "in-progress",
+      "dateCreated": "2025-12-18T16:33:14.762Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "parentGoalId": "1766075559454-j0ef7vvrc"
+    },
+    {
+      "id": "1766075639333-r6cqut4ca",
+      "studentId": "1765896675418-w9u6io3zq",
+      "description": "/k/ phrase level",
+      "baseline": "80",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-18T16:33:59.333Z",
+      "priority": "medium",
+      "parentGoalId": "1766075529634-6sdcz7nhn"
+    },
+    {
+      "id": "1766075679866-12t6sqpob",
+      "studentId": "1765896675418-w9u6io3zq",
+      "description": "/t/ phrase level",
+      "baseline": "80",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-18T16:34:39.866Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "parentGoalId": "1766075544906-q1gw8i0v0"
+    },
+    {
+      "id": "1766155497670-efumz8pqz",
+      "studentId": "1765895471191-5pnp7i9jn",
+      "description": "/t/ conversation level",
+      "baseline": "",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T14:44:57.670Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "subGoalIds": [
+        "1766155523256-qyeolxfws",
+        "1766155540772-8drd1g34o"
+      ]
+    },
+    {
+      "id": "1766155523256-qyeolxfws",
+      "studentId": "1765895471191-5pnp7i9jn",
+      "description": "/t/ phrase level",
+      "baseline": "",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T14:45:23.256Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "parentGoalId": "1766155497670-efumz8pqz"
+    },
+    {
+      "id": "1766155540772-8drd1g34o",
+      "studentId": "1765895471191-5pnp7i9jn",
+      "description": "/t/ word level all positions",
+      "baseline": "",
+      "target": "",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T14:45:40.772Z",
+      "priority": "medium",
+      "parentGoalId": "1766155497670-efumz8pqz"
+    },
+    {
+      "id": "1766155561061-b31tv1pnp",
+      "studentId": "1765895471191-5pnp7i9jn",
+      "description": "/d/ conversation level",
+      "baseline": "",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T14:46:01.061Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "subGoalIds": [
+        "1766155580853-94go5ytb3",
+        "1766155593679-9niqfskls"
+      ]
+    },
+    {
+      "id": "1766155580853-94go5ytb3",
+      "studentId": "1765895471191-5pnp7i9jn",
+      "description": "/d/ phrase level",
+      "baseline": "",
+      "target": "",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T14:46:20.853Z",
+      "priority": "medium",
+      "parentGoalId": "1766155561061-b31tv1pnp"
+    },
+    {
+      "id": "1766155593679-9niqfskls",
+      "studentId": "1765895471191-5pnp7i9jn",
+      "description": "/d/ word level",
+      "baseline": "",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T14:46:33.679Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "parentGoalId": "1766155561061-b31tv1pnp"
+    },
+    {
+      "id": "1766155648038-wizuusr9x",
+      "studentId": "1765895471191-5pnp7i9jn",
+      "description": "/ch/ conversation level",
+      "baseline": "",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T14:47:28.038Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "subGoalIds": [
+        "1766155661694-9upcgl0y4",
+        "1766155675872-inkfog7pq"
+      ]
+    },
+    {
+      "id": "1766155661694-9upcgl0y4",
+      "studentId": "1765895471191-5pnp7i9jn",
+      "description": "/ch/ phrase level",
+      "baseline": "",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T14:47:41.694Z",
+      "priority": "medium",
+      "parentGoalId": "1766155648038-wizuusr9x"
+    },
+    {
+      "id": "1766155675872-inkfog7pq",
+      "studentId": "1765895471191-5pnp7i9jn",
+      "description": "/ch/ word level",
+      "baseline": "",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T14:47:55.872Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "parentGoalId": "1766155648038-wizuusr9x"
+    },
+    {
+      "id": "1766155717541-gye7z6g01",
+      "studentId": "1765895471191-5pnp7i9jn",
+      "description": "/sh/ conversation level",
+      "baseline": "",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T14:48:37.541Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "subGoalIds": [
+        "1766155731194-w0ugz10rf",
+        "1766155741488-1nhh2bunu"
+      ]
+    },
+    {
+      "id": "1766155731194-w0ugz10rf",
+      "studentId": "1765895471191-5pnp7i9jn",
+      "description": "/sh/ phrase level",
+      "baseline": "",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T14:48:51.194Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "parentGoalId": "1766155717541-gye7z6g01"
+    },
+    {
+      "id": "1766155741488-1nhh2bunu",
+      "studentId": "1765895471191-5pnp7i9jn",
+      "description": "/sh/ word level",
+      "baseline": "",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T14:49:01.488Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "parentGoalId": "1766155717541-gye7z6g01"
+    },
+    {
+      "id": "1766155771583-ux6e04g8d",
+      "studentId": "1765895471191-5pnp7i9jn",
+      "description": "/l/ conversation level",
+      "baseline": "",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T14:49:31.583Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "subGoalIds": [
+        "1766155807388-tql2i9q4y",
+        "1766155818633-3wm1yajml",
+        "1766155827783-ou83lvv33"
+      ]
+    },
+    {
+      "id": "1766155807388-tql2i9q4y",
+      "studentId": "1765895471191-5pnp7i9jn",
+      "description": "/l/ phrase level",
+      "baseline": "",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T14:50:07.388Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "parentGoalId": "1766155771583-ux6e04g8d"
+    },
+    {
+      "id": "1766155818633-3wm1yajml",
+      "studentId": "1765895471191-5pnp7i9jn",
+      "description": "/l/ word level",
+      "baseline": "",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T14:50:18.633Z",
+      "priority": "medium",
+      "parentGoalId": "1766155771583-ux6e04g8d"
+    },
+    {
+      "id": "1766155827783-ou83lvv33",
+      "studentId": "1765895471191-5pnp7i9jn",
+      "description": "/l/ in isolation",
+      "baseline": "",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T14:50:27.783Z",
+      "priority": "medium",
+      "parentGoalId": "1766155771583-ux6e04g8d"
+    },
+    {
+      "id": "1766155851392-45892p1gi",
+      "studentId": "1765895471191-5pnp7i9jn",
+      "description": "/l-blends/ in conversation",
+      "baseline": "",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T14:50:51.392Z",
+      "priority": "medium",
+      "subGoalIds": [
+        "1766155872597-wxi451b3o",
+        "1766155886566-vnddgw080"
+      ]
+    },
+    {
+      "id": "1766155872597-wxi451b3o",
+      "studentId": "1765895471191-5pnp7i9jn",
+      "description": "/l-blends/ word level",
+      "baseline": "",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T14:51:12.597Z",
+      "priority": "medium",
+      "parentGoalId": "1766155851392-45892p1gi"
+    },
+    {
+      "id": "1766155886566-vnddgw080",
+      "studentId": "1765895471191-5pnp7i9jn",
+      "description": "/l-blends/ sound isolation level",
+      "baseline": "",
+      "target": "",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T14:51:26.566Z",
+      "priority": "medium",
+      "parentGoalId": "1766155851392-45892p1gi"
+    },
+    {
+      "id": "1766160337164-djtp0eav9",
+      "studentId": "1765896704602-to55yf2au",
+      "description": "/l/ sentence level",
+      "baseline": "",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T16:05:37.164Z",
+      "priority": "medium",
+      "parentGoalId": "1766160297857-w1fbgm7iv"
+    },
+    {
+      "id": "1766160346228-8boy7pkpe",
+      "studentId": "1765896704602-to55yf2au",
+      "description": "/l/ word level",
+      "baseline": "",
+      "target": "",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T16:05:46.228Z",
+      "priority": "medium",
+      "parentGoalId": "1766160297857-w1fbgm7iv"
+    },
+    {
+      "id": "1766160376505-xrvxnv8zh",
+      "studentId": "1765896704602-to55yf2au",
+      "description": "/ch/ sentence level",
+      "baseline": "",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T16:06:16.505Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "parentGoalId": "1766160367587-4hw6p5jdx"
+    },
+    {
+      "id": "1766160408013-d58hvr826",
+      "studentId": "1765896704602-to55yf2au",
+      "description": "/ch/ word level",
+      "baseline": "",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T16:06:48.013Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "parentGoalId": "1766160367587-4hw6p5jdx"
+    },
+    {
+      "id": "1766162836068-nzvesdxgu",
+      "studentId": "1765896704602-to55yf2au",
+      "description": "Hayden will produce L and initial L-blends at phrase level with minimal cues in 80% of opportunities as measured by speech language pathologist. ",
+      "baseline": "",
+      "target": "80",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T16:47:16.068Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "subGoalIds": [
+        "1766162909872-b765jfnp0",
+        "1766162957112-kfli4u493"
+      ]
+    },
+    {
+      "id": "1766162909872-b765jfnp0",
+      "studentId": "1765896704602-to55yf2au",
+      "description": "l-blends word level",
+      "baseline": "",
+      "target": "80",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T16:48:29.872Z",
+      "priority": "medium",
+      "parentGoalId": "1766162836068-nzvesdxgu"
+    },
+    {
+      "id": "1766162957112-kfli4u493",
+      "studentId": "1765896704602-to55yf2au",
+      "description": "l-blends phrase level",
+      "baseline": "",
+      "target": "80",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T16:49:17.112Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "parentGoalId": "1766162836068-nzvesdxgu"
+    },
+    {
+      "id": "1766163042063-eue0h3vhw",
+      "studentId": "1765896704602-to55yf2au",
+      "description": "Hayden will produce SH and CH in all word positions at phrase level with minimal cues in 80% of opportunities as measured by speech language pathologist. ",
+      "baseline": "",
+      "target": "80",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T16:50:42.063Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "subGoalIds": [
+        "1766163071249-rohzgig1h",
+        "1766163159379-wuhzqwhns",
+        "1766163170444-jzeep16in",
+        "1766163181630-wl2ytt62p"
+      ]
+    },
+    {
+      "id": "1766163071249-rohzgig1h",
+      "studentId": "1765896704602-to55yf2au",
+      "description": "/sh/ isolation",
+      "baseline": "0",
+      "target": "80",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T16:51:11.249Z",
+      "priority": "medium",
+      "parentGoalId": "1766163042063-eue0h3vhw"
+    },
+    {
+      "id": "1766163159379-wuhzqwhns",
+      "studentId": "1765896704602-to55yf2au",
+      "description": "/ch/ initial at word level",
+      "baseline": "",
+      "target": "80",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T16:52:39.379Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "parentGoalId": "1766163042063-eue0h3vhw"
+    },
+    {
+      "id": "1766163170444-jzeep16in",
+      "studentId": "1765896704602-to55yf2au",
+      "description": "/ch/ medial at word level",
+      "baseline": "",
+      "target": "80",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T16:52:50.444Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "parentGoalId": "1766163042063-eue0h3vhw"
+    },
+    {
+      "id": "1766163181630-wl2ytt62p",
+      "studentId": "1765896704602-to55yf2au",
+      "description": "/ch/ final at word level",
+      "baseline": "",
+      "target": "80",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T16:53:01.630Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "parentGoalId": "1766163042063-eue0h3vhw"
+    },
+    {
+      "id": "1766163297902-wa1xbdmq2",
+      "studentId": "1765896704602-to55yf2au",
+      "description": "Hayden will produce S and Z in all word positions at phrase level with minimal cues in 80% of opportunities as measured by speech language pathologist. ",
+      "baseline": "",
+      "target": "80",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T16:54:57.902Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "subGoalIds": [
+        "1766163327882-edb58sodi",
+        "1766163344955-w3hpp2n2n",
+        "1766163588879-qazmhi2vd"
+      ]
+    },
+    {
+      "id": "1766163327882-edb58sodi",
+      "studentId": "1765896704602-to55yf2au",
+      "description": "/s/ at phrase level in initial position of words",
+      "baseline": "",
+      "target": "80",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T16:55:27.882Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "parentGoalId": "1766163297902-wa1xbdmq2"
+    },
+    {
+      "id": "1766163344955-w3hpp2n2n",
+      "studentId": "1765896704602-to55yf2au",
+      "description": "/s/ at phrase level in medial position of words",
+      "baseline": "",
+      "target": "80",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T16:55:44.955Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "parentGoalId": "1766163297902-wa1xbdmq2"
+    },
+    {
+      "id": "1766163588879-qazmhi2vd",
+      "studentId": "1765896704602-to55yf2au",
+      "description": "/s/ at phrase level in final position of words",
+      "baseline": "",
+      "target": "80",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T16:59:48.879Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "parentGoalId": "1766163297902-wa1xbdmq2"
+    },
+    {
+      "id": "1766164050264-d7ob738xa",
+      "studentId": "1765896810811-8v70r27b1",
+      "description": "Damien will produce /k, f, v/ in all positions at the sentence level with at least 80% accuracy across three consecutive sessions as measured by a speech-language pathologist by his annual IEP date.",
+      "baseline": "",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T17:07:30.264Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "subGoalIds": [
+        "1766164093562-wlmxz6w2o",
+        "1766164104568-8omval0aa",
+        "1766164126897-oi6zthw0m",
+        "1766164133997-at4vs9iei"
+      ]
+    },
+    {
+      "id": "1766164093562-wlmxz6w2o",
+      "studentId": "1765896810811-8v70r27b1",
+      "description": "/f/ sentence level all positions of words",
+      "baseline": "",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T17:08:13.562Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "parentGoalId": "1766164050264-d7ob738xa"
+    },
+    {
+      "id": "1766164104568-8omval0aa",
+      "studentId": "1765896810811-8v70r27b1",
+      "description": "/f/ conversation level all positions of words",
+      "baseline": "",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T17:08:24.568Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "parentGoalId": "1766164050264-d7ob738xa"
+    },
+    {
+      "id": "1766164126897-oi6zthw0m",
+      "studentId": "1765896810811-8v70r27b1",
+      "description": "/v/ sentence level all positions of words",
+      "baseline": "",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T17:08:46.897Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "parentGoalId": "1766164050264-d7ob738xa"
+    },
+    {
+      "id": "1766164133997-at4vs9iei",
+      "studentId": "1765896810811-8v70r27b1",
+      "description": "/v/ conversation level all positions of words",
+      "baseline": "",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T17:08:53.997Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "parentGoalId": "1766164050264-d7ob738xa"
+    },
+    {
+      "id": "1766164567568-l29m0wnwa",
+      "studentId": "1765896810811-8v70r27b1",
+      "description": "Damien will produce /k, f, v/ in all positions at the sentence level with at least 80% accuracy across three consecutive sessions as measured by a speech-language pathologist by his annual IEP date.",
+      "baseline": "",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T17:16:07.568Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "subGoalIds": [
+        "1766164608985-2dsij5csb",
+        "1766164617581-i4plovldq",
+        "1766164624596-7vzn1pl3t"
+      ]
+    },
+    {
+      "id": "1766164608985-2dsij5csb",
+      "studentId": "1765896810811-8v70r27b1",
+      "description": "/k/ initial position of words",
+      "baseline": "60",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T17:16:48.985Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "parentGoalId": "1766164567568-l29m0wnwa"
+    },
+    {
+      "id": "1766164617581-i4plovldq",
+      "studentId": "1765896810811-8v70r27b1",
+      "description": "/k/ medial position of words",
+      "baseline": "70",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T17:16:57.581Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "parentGoalId": "1766164567568-l29m0wnwa"
+    },
+    {
+      "id": "1766164624596-7vzn1pl3t",
+      "studentId": "1765896810811-8v70r27b1",
+      "description": "/k/ final position of words",
+      "baseline": "70",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T17:17:04.596Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "parentGoalId": "1766164567568-l29m0wnwa"
+    },
+    {
+      "id": "1766164704356-b32sc29tf",
+      "studentId": "1765896810811-8v70r27b1",
+      "description": "Damien will improve his language skills in the areas of answering questions and expressing attributes from a level of 60% accuracy to a level of 80% accuracy by the anniversary of his annual IEP.",
+      "baseline": "60",
+      "target": "80",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T17:18:24.356Z",
+      "domain": "Language",
+      "priority": "medium",
+      "subGoalIds": [
+        "1766164738605-sw2au5knh",
+        "1766164796966-sgbpxytyh"
+      ]
+    },
+    {
+      "id": "1766164738605-sw2au5knh",
+      "studentId": "1765896810811-8v70r27b1",
+      "description": "Damien will answer concrete ‘wh’ questions (who, what, where, when) with an average of 80% accuracy across three sessions by the anniversary of his annual IEP.",
+      "baseline": "65",
+      "target": "80",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T17:18:58.605Z",
+      "domain": "Language",
+      "priority": "medium",
+      "parentGoalId": "1766164704356-b32sc29tf"
+    },
+    {
+      "id": "1766164796966-sgbpxytyh",
+      "studentId": "1765896810811-8v70r27b1",
+      "description": "Damien will express attributes for a target object with an average of 80% accuracy across three sessions by the anniversary of his annual IEP.",
+      "baseline": "60",
+      "target": "80",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T17:19:56.966Z",
+      "domain": "Language",
+      "priority": "medium",
+      "parentGoalId": "1766164704356-b32sc29tf"
+    },
+    {
+      "id": "1766167766036-14qwbk9n4",
+      "studentId": "1766167726532-yoe7n85d6",
+      "description": "/s/ sound at word ",
+      "baseline": "30",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T18:09:26.036Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "subGoalIds": [
+        "1766167778175-epdrhfwae",
+        "1766167796255-dc2cdg0l3",
+        "1766167806084-8ewg64ia9"
+      ]
+    },
+    {
+      "id": "1766167778175-epdrhfwae",
+      "studentId": "1766167726532-yoe7n85d6",
+      "description": "/s/ sound",
+      "baseline": "30",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T18:09:38.175Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "parentGoalId": "1766167766036-14qwbk9n4"
+    },
+    {
+      "id": "1766167796255-dc2cdg0l3",
+      "studentId": "1766167726532-yoe7n85d6",
+      "description": "/s/ sound at word level inital pos",
+      "baseline": "30",
+      "target": "90",
+      "status": "in-progress",
+      "dateCreated": "2025-12-19T18:09:56.255Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "parentGoalId": "1766167766036-14qwbk9n4"
+    },
+    {
+      "id": "1766167806084-8ewg64ia9",
+      "studentId": "1766167726532-yoe7n85d6",
+      "description": "/s/ sound at word level medial pos",
+      "baseline": "30",
+      "target": "90",
+      "status": "achieved",
+      "dateCreated": "2025-12-19T18:10:06.084Z",
+      "domain": "Articulation",
+      "priority": "medium",
+      "parentGoalId": "1766167766036-14qwbk9n4",
+      "dateAchieved": "2025-12-19T18:54:09.634Z"
+    }
+  ],
+  "sessions": [
+    {
+      "id": "1765988150827-fq83zwdbb",
+      "studentId": "1765567169773-8vlml3llk",
+      "date": "2025-12-17T16:15:00.000Z",
+      "endTime": "2025-12-17T16:45:00.000Z",
+      "goalsTargeted": [
+        "1765733656773-h1yfss83z"
+      ],
+      "activitiesUsed": [
+        "towergame"
+      ],
+      "performanceData": [
+        {
+          "goalId": "1765733656773-h1yfss83z",
+          "accuracy": 67,
+          "correctTrials": 6,
+          "incorrectTrials": 3,
+          "notes": ""
+        }
+      ],
+      "notes": "students were active/involved. jane showed better placement and required fewer prompts",
+      "isDirectServices": true,
+      "groupSessionId": "1765988150827-6ji3rct4d"
+    },
+    {
+      "id": "1765988150828-gxn7dnsv3",
+      "studentId": "1765826085180-w4ibc8gvp",
+      "date": "2025-12-17T16:15:00.000Z",
+      "endTime": "2025-12-17T16:45:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [
+        "towergame"
+      ],
+      "performanceData": [],
+      "notes": "students were active/involved. jane showed better placement and required fewer prompts",
+      "isDirectServices": true,
+      "groupSessionId": "1765988150827-6ji3rct4d"
+    },
+    {
+      "id": "1765991975274-8ztz8vllj",
+      "studentId": "1765838843108-jze8f5gwr",
+      "date": "2025-12-17T17:19:00.000Z",
+      "endTime": "2025-12-17T17:49:00.000Z",
+      "goalsTargeted": [
+        "1765984368356-7xg518usm"
+      ],
+      "activitiesUsed": [],
+      "performanceData": [
+        {
+          "goalId": "1765984368356-7xg518usm",
+          "accuracy": 80,
+          "correctTrials": 8,
+          "incorrectTrials": 2,
+          "notes": "better placement today"
+        }
+      ],
+      "notes": "",
+      "isDirectServices": true
+    },
+    {
+      "id": "1765993267191-sdwfjz9wr",
+      "studentId": "1765567169773-8vlml3llk",
+      "date": "2025-12-17T13:40:00.000Z",
+      "endTime": "2025-12-17T14:10:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "",
+      "isDirectServices": false,
+      "indirectServicesNotes": "Plan session, treatment tasks, get set up with Ultimate SLP.com",
+      "groupSessionId": "1765993267191-2am7gzadv"
+    },
+    {
+      "id": "1765993267192-xc871q5lr",
+      "studentId": "1765826085180-w4ibc8gvp",
+      "date": "2025-12-17T13:40:00.000Z",
+      "endTime": "2025-12-17T14:10:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "",
+      "isDirectServices": false,
+      "indirectServicesNotes": "Plan session, treatment tasks, get set up with Ultimate SLP.com",
+      "groupSessionId": "1765993267191-2am7gzadv"
+    },
+    {
+      "id": "1765993267192-l8bqkqxgw",
+      "studentId": "1765838843108-jze8f5gwr",
+      "date": "2025-12-17T13:40:00.000Z",
+      "endTime": "2025-12-17T14:10:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "",
+      "isDirectServices": false,
+      "indirectServicesNotes": "Plan session, treatment tasks, get set up with Ultimate SLP.com",
+      "groupSessionId": "1765993267191-2am7gzadv"
+    },
+    {
+      "id": "1766064660666-nnf4nnc3e",
+      "studentId": "1765897062494-r6zdhx6u5",
+      "date": "2025-12-18T13:10:00.000Z",
+      "endTime": "2025-12-18T13:40:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "",
+      "isDirectServices": false,
+      "indirectServicesNotes": "Emailed teacher/SPED to rescehdule"
+    },
+    {
+      "id": "1766067511930-zb58t7fsy",
+      "studentId": "1765895087987-bn9480yzt",
+      "date": "2025-12-18T14:09:00.000Z",
+      "endTime": "2025-12-18T14:40:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "Student did not attend. Emailed teacher",
+      "isDirectServices": true,
+      "missedSession": true
+    },
+    {
+      "id": "1766067528260-bxsciljdh",
+      "studentId": "1765895087987-bn9480yzt",
+      "date": "2025-12-18T14:18:00.000Z",
+      "endTime": "2025-12-18T14:48:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "Planned for session",
+      "isDirectServices": false
+    },
+    {
+      "id": "1766068574024-vlm2wyptg",
+      "studentId": "1765809199176-cog4cp7f2",
+      "date": "2025-12-18T14:30:00.000Z",
+      "endTime": "2025-12-18T15:00:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [
+        "makeapizza"
+      ],
+      "performanceData": [],
+      "notes": "pizza following directions 5 steps\npizza tell me how to make the pizza verbally\nmissed session, emailed SPED teacher",
+      "isDirectServices": true,
+      "groupSessionId": "1766068574024-eizu7e50a",
+      "missedSession": true
+    },
+    {
+      "id": "1766068574024-r53qwzh40",
+      "studentId": "1765895385160-mcrg8f8bt",
+      "date": "2025-12-18T14:30:00.000Z",
+      "endTime": "2025-12-18T15:00:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [
+        "makeapizza"
+      ],
+      "performanceData": [],
+      "notes": "pizza following directions 5 steps\npizza tell me how to make the pizza verbally\nmissed session, emailed SPED teacher",
+      "isDirectServices": true,
+      "groupSessionId": "1766068574024-eizu7e50a",
+      "missedSession": true
+    },
+    {
+      "id": "1766069379122-qjx6ls8sn",
+      "studentId": "1765810680595-yt0lc558w",
+      "date": "2025-12-18T14:55:00.000Z",
+      "endTime": "2025-12-18T15:15:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "3 step directions making pizza\nexpressive and receptive goals \nhave brian and chaa tell each other how to make a pizza",
+      "isDirectServices": true,
+      "groupSessionId": "1766069379122-yg388o881",
+      "missedSession": false
+    },
+    {
+      "id": "1766069379122-gmkst1fkp",
+      "studentId": "1765895471191-5pnp7i9jn",
+      "date": "2025-12-18T14:55:00.000Z",
+      "endTime": "2025-12-18T15:15:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "3 step directions making pizza\nexpressive and receptive goals \nhave brian and chaa tell each other how to make a pizza",
+      "isDirectServices": true,
+      "groupSessionId": "1766069379122-yg388o881",
+      "missedSession": false
+    },
+    {
+      "id": "1766069470864-ql74ws18c",
+      "studentId": "1765895608792-axjbvhdml",
+      "date": "2025-12-18T12:00:00.000Z",
+      "endTime": "2025-12-18T14:00:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "",
+      "isDirectServices": false,
+      "indirectServicesNotes": "Prepare for SLP session today",
+      "groupSessionId": "1766069470864-fvqmvgcfv"
+    },
+    {
+      "id": "1766069470864-tn9jvjtid",
+      "studentId": "1765895782888-tmax6tccs",
+      "date": "2025-12-18T12:00:00.000Z",
+      "endTime": "2025-12-18T14:00:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "",
+      "isDirectServices": false,
+      "indirectServicesNotes": "Prepare for SLP session today",
+      "groupSessionId": "1766069470864-fvqmvgcfv"
+    },
+    {
+      "id": "1766069470864-p1kdm8yc5",
+      "studentId": "1765896627979-6ewwy8zhl",
+      "date": "2025-12-18T12:00:00.000Z",
+      "endTime": "2025-12-18T14:00:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "",
+      "isDirectServices": false,
+      "indirectServicesNotes": "Prepare for SLP session today",
+      "groupSessionId": "1766069470864-fvqmvgcfv"
+    },
+    {
+      "id": "1766069599520-w5kq8a6u3",
+      "studentId": "1765896675418-w9u6io3zq",
+      "date": "2025-12-18T12:00:00.000Z",
+      "endTime": "2025-12-18T14:00:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "",
+      "isDirectServices": false,
+      "indirectServicesNotes": "Prep for student sessions",
+      "groupSessionId": "1766069599520-fp6nwv38g"
+    },
+    {
+      "id": "1766069599520-yzlpacu8c",
+      "studentId": "1765897368920-tfhl76hwo",
+      "date": "2025-12-18T12:00:00.000Z",
+      "endTime": "2025-12-18T14:00:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "",
+      "isDirectServices": false,
+      "indirectServicesNotes": "Prep for student sessions",
+      "groupSessionId": "1766069599520-fp6nwv38g"
+    },
+    {
+      "id": "1766069599520-y0c1twgmd",
+      "studentId": "1765896733006-p0r1k3zsk",
+      "date": "2025-12-18T12:00:00.000Z",
+      "endTime": "2025-12-18T14:00:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "",
+      "isDirectServices": false,
+      "indirectServicesNotes": "Prep for student sessions",
+      "groupSessionId": "1766069599520-fp6nwv38g"
+    },
+    {
+      "id": "1766069599520-uak1ve1pl",
+      "studentId": "1765896785792-fkiqc7j3h",
+      "date": "2025-12-18T12:00:00.000Z",
+      "endTime": "2025-12-18T14:00:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "",
+      "isDirectServices": false,
+      "indirectServicesNotes": "Prep for student sessions",
+      "groupSessionId": "1766069599520-fp6nwv38g"
+    },
+    {
+      "id": "1766069599520-bx6e13byo",
+      "studentId": "1765819334352-ps6asxwpp",
+      "date": "2025-12-18T12:00:00.000Z",
+      "endTime": "2025-12-18T14:00:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "",
+      "isDirectServices": false,
+      "indirectServicesNotes": "Prep for student sessions",
+      "groupSessionId": "1766069599520-fp6nwv38g"
+    },
+    {
+      "id": "1766069599520-ysbw23b9e",
+      "studentId": "1765896810811-8v70r27b1",
+      "date": "2025-12-18T12:00:00.000Z",
+      "endTime": "2025-12-18T14:00:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "",
+      "isDirectServices": false,
+      "indirectServicesNotes": "Prep for student sessions",
+      "groupSessionId": "1766069599520-fp6nwv38g"
+    },
+    {
+      "id": "1766069599520-fy2kwgmeh",
+      "studentId": "1765896843943-nvpl9a4ks",
+      "date": "2025-12-18T12:00:00.000Z",
+      "endTime": "2025-12-18T14:00:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "",
+      "isDirectServices": false,
+      "indirectServicesNotes": "Prep for student sessions",
+      "groupSessionId": "1766069599520-fp6nwv38g"
+    },
+    {
+      "id": "1766072348165-i331fhkq1",
+      "studentId": "1765895608792-axjbvhdml",
+      "date": "2025-12-18T15:20:00.000Z",
+      "endTime": "2025-12-18T15:40:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "figurative language \nget to know you expressive and receptive",
+      "isDirectServices": true,
+      "missedSession": false
+    },
+    {
+      "id": "1766073580147-qi2qncb1h",
+      "studentId": "1765895782888-tmax6tccs",
+      "date": "2025-12-18T15:40:00.000Z",
+      "endTime": "2025-12-18T16:00:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "VC\nVCV\nmissing last sounds in words",
+      "isDirectServices": true,
+      "missedSession": true
+    },
+    {
+      "id": "1766075182558-dym5d0rsn",
+      "studentId": "1765896627979-6ewwy8zhl",
+      "date": "2025-12-18T16:20:00.000Z",
+      "endTime": "2025-12-18T16:40:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "Who \nWhat \nWhere\n",
+      "isDirectServices": true,
+      "missedSession": true
+    },
+    {
+      "id": "1766077165126-8zgglbr1j",
+      "studentId": "1765896675418-w9u6io3zq",
+      "date": "2025-12-18T16:39:00.000Z",
+      "endTime": "2025-12-18T17:09:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "emeriee is 7, 1st grade, benson is 6\n'ch' in all positions of phrases in snowman game",
+      "isDirectServices": true,
+      "groupSessionId": "1766077165126-gdhjmho5p",
+      "missedSession": false
+    },
+    {
+      "id": "1766077165126-4nljo03pg",
+      "studentId": "1765897368920-tfhl76hwo",
+      "date": "2025-12-18T16:39:00.000Z",
+      "endTime": "2025-12-18T17:09:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "emeriee is 7, 1st grade, benson is 6\n'ch' in all positions of phrases in snowman game",
+      "isDirectServices": true,
+      "groupSessionId": "1766077165126-gdhjmho5p",
+      "missedSession": false
+    },
+    {
+      "id": "1766078542216-lk7e3ah0x",
+      "studentId": "1765896733006-p0r1k3zsk",
+      "date": "2025-12-18T17:00:00.000Z",
+      "endTime": "2025-12-18T17:20:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "Abdull 5TH  grade -- games -- minecraft, fortnite and plants vs zombies. building a blue wool house\nJose playing and staying home - and all the same games, 3 sisters and 2 braothers\nabdull has six brother \njose speach /s/ sound\nabdull works on s sound too \n",
+      "isDirectServices": true,
+      "groupSessionId": "1766078542216-sjzk07mvl",
+      "missedSession": false
+    },
+    {
+      "id": "1766078542217-987g0eyw2",
+      "studentId": "1765896785792-fkiqc7j3h",
+      "date": "2025-12-18T17:00:00.000Z",
+      "endTime": "2025-12-18T17:20:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "Abdull 5TH  grade -- games -- minecraft, fortnite and plants vs zombies. building a blue wool house\nJose playing and staying home - and all the same games, 3 sisters and 2 braothers\nabdull has six brother \njose speach /s/ sound\nabdull works on s sound too \n",
+      "isDirectServices": true,
+      "groupSessionId": "1766078542216-sjzk07mvl",
+      "missedSession": false
+    },
+    {
+      "id": "1766080768808-1ewfrnjta",
+      "studentId": "1765819334352-ps6asxwpp",
+      "date": "2025-12-18T17:20:00.000Z",
+      "endTime": "2025-12-18T17:40:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "9 years old, fav food is noodles. for fun likes to play tag, 2 brothers and one sister. ",
+      "isDirectServices": true,
+      "missedSession": false
+    },
+    {
+      "id": "1766081711647-ouux1bthq",
+      "studentId": "1765897062494-r6zdhx6u5",
+      "date": "2025-12-18T18:00:00.000Z",
+      "endTime": "2025-12-18T18:20:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "wh questions - no show",
+      "isDirectServices": true,
+      "missedSession": true
+    },
+    {
+      "id": "1766084981337-zk3azgh63",
+      "studentId": "1765896810811-8v70r27b1",
+      "date": "2025-12-18T18:44:00.000Z",
+      "endTime": "2025-12-18T19:14:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "damian 9 years old, 1 brother 1 sister. play games, roblox, fortnite, fav food is burgers. fav color green. fav class is \nfaithlynn 1 brother, noodles, pink, likes art likes all the teachers they are nice ",
+      "isDirectServices": true,
+      "groupSessionId": "1766084981337-k4fdi67x0",
+      "missedSession": false
+    },
+    {
+      "id": "1766084981338-9qwak47b0",
+      "studentId": "1765896843943-nvpl9a4ks",
+      "date": "2025-12-18T18:44:00.000Z",
+      "endTime": "2025-12-18T19:14:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "damian 9 years old, 1 brother 1 sister. play games, roblox, fortnite, fav food is burgers. fav color green. fav class is \nfaithlynn 1 brother, noodles, pink, likes art likes all the teachers they are nice ",
+      "isDirectServices": true,
+      "groupSessionId": "1766084981337-k4fdi67x0",
+      "missedSession": false
+    },
+    {
+      "id": "1766087570193-478jlgszm",
+      "studentId": "1765807421181-i53c9sjpw",
+      "date": "2025-12-15T14:10:00.000Z",
+      "endTime": "2025-12-15T14:30:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "",
+      "isDirectServices": true,
+      "missedSession": false
+    },
+    {
+      "id": "1766087620554-3v9vorpk5",
+      "studentId": "1765809199176-cog4cp7f2",
+      "date": "2025-12-15T14:30:00.000Z",
+      "endTime": "2025-12-15T14:50:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "",
+      "isDirectServices": true,
+      "groupSessionId": "1766087620554-jzj74oeqp",
+      "missedSession": false
+    },
+    {
+      "id": "1766087620555-kwz7newah",
+      "studentId": "1765809247581-heui4wuf1",
+      "date": "2025-12-15T14:30:00.000Z",
+      "endTime": "2025-12-15T14:50:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "",
+      "isDirectServices": true,
+      "groupSessionId": "1766087620554-jzj74oeqp",
+      "missedSession": false
+    },
+    {
+      "id": "1766087665703-9svr32uho",
+      "studentId": "1765810680595-yt0lc558w",
+      "date": "2025-12-15T14:55:00.000Z",
+      "endTime": "2025-12-15T15:15:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "",
+      "isDirectServices": true,
+      "groupSessionId": "1766087665703-j41xjyme7",
+      "missedSession": false
+    },
+    {
+      "id": "1766087665703-ptyx202yr",
+      "studentId": "1765810771715-x54337hrr",
+      "date": "2025-12-15T14:55:00.000Z",
+      "endTime": "2025-12-15T15:15:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "",
+      "isDirectServices": true,
+      "groupSessionId": "1766087665703-j41xjyme7",
+      "missedSession": false
+    },
+    {
+      "id": "1766087715281-hpcpcklws",
+      "studentId": "1765811792304-9dw0z5vy6",
+      "date": "2025-12-15T15:20:00.000Z",
+      "endTime": "2025-12-18T15:40:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "",
+      "isDirectServices": true,
+      "missedSession": true
+    },
+    {
+      "id": "1766087753731-oesj1bwj0",
+      "studentId": "1765812743225-qo5trwg51",
+      "date": "2025-12-15T15:40:00.000Z",
+      "endTime": "2025-12-15T16:00:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "",
+      "isDirectServices": true,
+      "missedSession": false
+    },
+    {
+      "id": "1766087790440-bhwkimtc8",
+      "studentId": "1765815246475-xqe6xk8pa",
+      "date": "2025-12-15T16:00:00.000Z",
+      "endTime": "2025-12-15T16:20:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "",
+      "isDirectServices": true,
+      "missedSession": true
+    },
+    {
+      "id": "1766087827001-j5aw9iivu",
+      "studentId": "1765815308128-tqhi2710h",
+      "date": "2025-12-15T16:20:00.000Z",
+      "endTime": "2025-12-15T16:40:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "",
+      "isDirectServices": true,
+      "missedSession": true
+    },
+    {
+      "id": "1766090272319-wfok04eax",
+      "studentId": "1765815898029-z1kz8uhix",
+      "date": "2025-12-15T17:00:00.000Z",
+      "endTime": "2025-12-15T17:20:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "",
+      "isDirectServices": true,
+      "groupSessionId": "1766090272319-90o9pdhud",
+      "missedSession": false
+    },
+    {
+      "id": "1766090272319-tirws5mog",
+      "studentId": "1765816099249-3z3alpnos",
+      "date": "2025-12-15T17:00:00.000Z",
+      "endTime": "2025-12-15T17:20:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "",
+      "isDirectServices": true,
+      "groupSessionId": "1766090272319-90o9pdhud",
+      "missedSession": false
+    },
+    {
+      "id": "1766090472502-5e70vgj3c",
+      "studentId": "1765819755726-4zfj6pvn8",
+      "date": "2025-12-15T17:20:00.000Z",
+      "endTime": "2025-12-15T17:40:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "",
+      "isDirectServices": true,
+      "missedSession": true
+    },
+    {
+      "id": "1766090552023-nr5z3eyb5",
+      "studentId": "1765896935381-7p6ihkvfa",
+      "date": "2025-12-15T18:25:00.000Z",
+      "endTime": "2025-12-15T18:45:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "absent",
+      "isDirectServices": true,
+      "missedSession": true
+    },
+    {
+      "id": "1766090600425-snjbgxueq",
+      "studentId": "1765823024252-yp9b5jmi9",
+      "date": "2025-12-15T18:45:00.000Z",
+      "endTime": "2025-12-15T19:05:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "",
+      "isDirectServices": true,
+      "groupSessionId": "1766090600425-cvyg58hr4",
+      "missedSession": true
+    },
+    {
+      "id": "1766090600425-6z49zsb7l",
+      "studentId": "1765823251017-76y207lse",
+      "date": "2025-12-15T18:45:00.000Z",
+      "endTime": "2025-12-15T19:05:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "",
+      "isDirectServices": true,
+      "groupSessionId": "1766090600425-cvyg58hr4",
+      "missedSession": true
+    },
+    {
+      "id": "1766090683745-swvvx0k1d",
+      "studentId": "1765823404394-dapts5y04",
+      "date": "2025-12-15T19:05:00.000Z",
+      "endTime": "2025-12-15T19:25:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "",
+      "isDirectServices": true,
+      "missedSession": true
+    },
+    {
+      "id": "1766092597571-29zdw7rsr",
+      "studentId": "1765567169773-8vlml3llk",
+      "date": "2025-12-18T21:16:00.000Z",
+      "endTime": "2025-12-18T21:46:00.000Z",
+      "goalsTargeted": [
+        "1765738186873-d7jq9yjwk"
+      ],
+      "activitiesUsed": [],
+      "performanceData": [
+        {
+          "goalId": "1765738186873-d7jq9yjwk",
+          "accuracy": 50,
+          "correctTrials": 4,
+          "incorrectTrials": 4,
+          "notes": ""
+        }
+      ],
+      "notes": "",
+      "isDirectServices": true,
+      "groupSessionId": "1766092597570-tcoqbxqtm",
+      "missedSession": false
+    },
+    {
+      "id": "1766092597571-av64p1dm9",
+      "studentId": "1765826085180-w4ibc8gvp",
+      "date": "2025-12-18T21:16:00.000Z",
+      "endTime": "2025-12-18T21:46:00.000Z",
+      "goalsTargeted": [
+        "1765984266455-qa9p7nzub"
+      ],
+      "activitiesUsed": [],
+      "performanceData": [
+        {
+          "goalId": "1765984266455-qa9p7nzub",
+          "accuracy": 75,
+          "correctTrials": 6,
+          "incorrectTrials": 2,
+          "notes": ""
+        }
+      ],
+      "notes": "",
+      "isDirectServices": true,
+      "groupSessionId": "1766092597570-tcoqbxqtm",
+      "missedSession": false
+    },
+    {
+      "id": "1766153703411-kw9cnfm1p",
+      "studentId": "1765807421181-i53c9sjpw",
+      "date": "2025-12-19T14:10:00.000Z",
+      "endTime": "2025-12-19T14:38:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "started r in paragraphs and then moved to selecting word and phrase level. 10% accuracy at paragraph, 40% phrase, 60% word. given single words, visual prompts increases to 80% in initial position",
+      "isDirectServices": true,
+      "missedSession": false
+    },
+    {
+      "id": "1766157075481-s6o7jww9q",
+      "studentId": "1765895471191-5pnp7i9jn",
+      "date": "2025-12-19T14:55:00.000Z",
+      "endTime": "2025-12-19T15:15:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "SLP started therapy on time. Student was no show. Emailed Sue Welle and waited until 9:15",
+      "isDirectServices": true,
+      "missedSession": false
+    },
+    {
+      "id": "1766163696797-95i4thpgx",
+      "studentId": "1765896704602-to55yf2au",
+      "date": "2025-12-19T16:40:00.000Z",
+      "endTime": "2025-12-19T17:00:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "Hayden did not enter the zoom meeting. cooresponded with the teacher. teacher emailed back saying they are having holiday celebrations and will keep Hayden in class",
+      "isDirectServices": true,
+      "missedSession": true
+    },
+    {
+      "id": "1766167870159-omkhunxpy",
+      "studentId": "1766167726532-yoe7n85d6",
+      "date": "2025-12-19T18:10:00.000Z",
+      "endTime": "2025-12-19T18:40:00.000Z",
+      "goalsTargeted": [
+        "1766167778175-epdrhfwae"
+      ],
+      "activitiesUsed": [
+        "jenga"
+      ],
+      "performanceData": [
+        {
+          "goalId": "1766167778175-epdrhfwae",
+          "accuracy": 60,
+          "correctTrials": 9,
+          "incorrectTrials": 6,
+          "notes": ""
+        }
+      ],
+      "notes": "did really well with placement cues",
+      "isDirectServices": true,
+      "missedSession": false
+    },
+    {
+      "id": "1766167895655-hzadqb9gb",
+      "studentId": "1765567169773-8vlml3llk",
+      "date": "2025-12-19T18:11:00.000Z",
+      "endTime": "2025-12-19T18:41:00.000Z",
+      "goalsTargeted": [
+        "1765738186873-d7jq9yjwk"
+      ],
+      "activitiesUsed": [],
+      "performanceData": [
+        {
+          "goalId": "1765738186873-d7jq9yjwk",
+          "accuracy": 70,
+          "correctTrials": 7,
+          "incorrectTrials": 3,
+          "notes": ""
+        }
+      ],
+      "notes": "",
+      "isDirectServices": true,
+      "groupSessionId": "1766167895655-1nprvdzs5",
+      "missedSession": false
+    },
+    {
+      "id": "1766167895655-14v6tyugf",
+      "studentId": "1766167726532-yoe7n85d6",
+      "date": "2025-12-19T18:11:00.000Z",
+      "endTime": "2025-12-19T18:41:00.000Z",
+      "goalsTargeted": [
+        "1766167778175-epdrhfwae"
+      ],
+      "activitiesUsed": [],
+      "performanceData": [
+        {
+          "goalId": "1766167778175-epdrhfwae",
+          "accuracy": 67,
+          "correctTrials": 8,
+          "incorrectTrials": 4,
+          "notes": ""
+        }
+      ],
+      "notes": "",
+      "isDirectServices": true,
+      "groupSessionId": "1766167895655-1nprvdzs5",
+      "missedSession": false
+    },
+    {
+      "id": "1766168102984-wowwusyrn",
+      "studentId": "1765567169773-8vlml3llk",
+      "date": "2025-12-19T18:14:00.000Z",
+      "endTime": "2025-12-19T18:44:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "emailed teacher about student missing to reschedule ",
+      "isDirectServices": true,
+      "missedSession": true
+    },
+    {
+      "id": "1766170036960-4dgu0h70n",
+      "studentId": "1766167726532-yoe7n85d6",
+      "date": "2025-12-19T18:46:00.000Z",
+      "endTime": "2025-12-19T19:16:00.000Z",
+      "goalsTargeted": [
+        "1766167796255-dc2cdg0l3"
+      ],
+      "activitiesUsed": [],
+      "performanceData": [
+        {
+          "goalId": "1766167796255-dc2cdg0l3",
+          "accuracy": 92,
+          "correctTrials": 11,
+          "incorrectTrials": 1,
+          "notes": ""
+        }
+      ],
+      "notes": "",
+      "isDirectServices": true,
+      "missedSession": false
+    },
+    {
+      "id": "1766172535594-bsjyluc14",
+      "studentId": "1765823251017-76y207lse",
+      "date": "2025-12-19T18:45:00.000Z",
+      "endTime": "2025-12-19T19:05:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "Missed sesion, emailed sped contact",
+      "isDirectServices": true,
+      "groupSessionId": "1766172535593-rluzwjlg9",
+      "missedSession": true
+    },
+    {
+      "id": "1766172535594-cla2xli3h",
+      "studentId": "1765896810811-8v70r27b1",
+      "date": "2025-12-19T18:45:00.000Z",
+      "endTime": "2025-12-19T19:05:00.000Z",
+      "goalsTargeted": [],
+      "activitiesUsed": [],
+      "performanceData": [],
+      "notes": "Missed sesion, emailed sped contact",
+      "isDirectServices": true,
+      "groupSessionId": "1766172535593-rluzwjlg9",
+      "missedSession": true
+    }
+  ],
+  "activities": [
+    {
+      "id": "1765566689217-ufp4x9eqp",
+      "description": "As an expert Speech-Language Pathologist, I understand the importance of making teletherapy sessions dynamic and effective. For a 9-year-old working on the /sh/ sound, engagement is key! Here are 3 creative and engaging activity ideas, utilizing your available materials:\n\n---\n\n### Activity 1: The Sh-Sheriff's Sound Search\n\n*   **Brief Description:** The student becomes a \"Sh-Sheriff\" on ultimateslp.com, tracking down and \"capturing\" target /sh/ words by correctly producing them. We'll add a fun challenge with a timer or point system.\n\n*   **Materials Needed:**\n    *   ultimateslp.com (accessed via shared screen)\n    *   Pen\n    *   Paper (for keeping score, if desired)\n    *   Optional: Virtual timer or physical timer\n\n*   **Step-by-Step Instructions:**\n    1.  **Introduce the Theme:** Begin by telling the student, \"Today, you're the official Sh-Sheriff! Your mission is to find and 'capture' as many /sh/ words as you can in our Wild West of words.\"\n    2.  **Navigate ultimateslp.com:** As the SLP, share your screen and navigate to ultimateslp.com. Find the articulation section for the /sh/ sound (e.g., words, phrases, or sentences, depending on the student's current level).\n    3.  **Explain \"Capture\":** When a target word (or picture) appears, the student must say the word correctly to \"capture\" it. The SLP provides immediate feedback and modeling.\n    4.  **Set the Challenge:** Choose one of the following to add a game element:\n        *   **\"Speedy Sheriff\":** Set a timer for 1-2 minutes. How many /sh/ words can the student \"capture\" (say correctly) before the time runs out?\n        *   **\"Accuracy Ace\":** Challenge the student to capture 10 words with 100% accuracy, trying for zero \"misses.\"\n        *   **\"Sentence Sheriff\":** After capturing a word, the student must also use it correctly in a descriptive sentence to earn extra points or a \"badge.\"\n    5.  **Tally & Celebrate:** Keep a running tally on paper. At the end, celebrate their hard work and success as the \"Sh-Sheriff\"!\n\n*   **How it Targets the Goal Area:** This activity provides direct, repetitive practice of the /sh/ sound at the word and sentence level, using clear visual support from ultimateslp.com. The game-like structure and time/accuracy challenge maintain engagement and motivation for a 9-year-old, encouraging focused production.\n\n---\n\n### Activity 2: The Sh-Shenanigans Comic Strip\n\n*   **Brief Description:** The student will create a short, silly comic strip featuring characters and situations that naturally incorporate multiple /sh/ words. They'll draw scenes and write speech bubbles, then \"read\" their comic aloud.\n\n*   **Materials Needed:**\n    *   Pen\n    *   Paper\n    *   Optional: Shared digital whiteboard (if preferred over physical paper)\n    *   Optional: ultimateslp.com for initial brainstorming of /sh/ words\n\n*   **Step-by-Step Instructions:**\n    1.  **Introduce the Idea:** \"Get ready to unleash your creativity! Today, we're going to make a super silly 'Sh-Shenanigans' comic strip. It needs to have lots of /sh/ sounds in it!\"\n    2.  **Brainstorm /sh/ Words:** Together, brainstorm a list of /sh/ words. Write them down on the paper or shared document. (Examples: *sheep, shoe, show, crash, push, wish, fish, wash, brush, ship, ocean, splash, cashier, plush, chef, special, delicious, mansion*). You can also quickly refer to ultimateslp.com for ideas.\n    3.  **Plan the Panels:** Guide the student to fold their paper into 3-4 sections for comic panels. Discuss a simple plot: \"Who are the characters? What funny or unexpected thing happens that uses some of our /sh/ words? How does it resolve?\"\n    4.  **Draw and Write:** The student draws their comic scenes in each panel. As they draw, they write speech bubbles or captions, making sure to include their chosen /sh/ words naturally within the story. The SLP can draw along on their own paper, offering suggestions and encouraging creativity.\n    5.  **Perform the Comic:** Once the comic is complete, the student \"reads\" their comic aloud, paying special attention to clearly producing all the /sh/ words in the speech bubbles and captions. The SLP provides specific feedback and modeling as needed.\n\n*   **How it Targets the Goal Area:** This activity promotes spontaneous, functional use of the /sh/ sound within a meaningful and creative context. By generating their own story and sentences, the student takes ownership of the practice, making it highly engaging. It targets /sh/ at the word, phrase, and sentence levels, and can be extended to connected speech during the reading phase.\n\n---\n\n### Activity 3: Sh-Island Escape Adventure\n\n*   **Brief Description:** A collaborative game where the student must collect \"escape tools\" by correctly producing /sh/ words to get off a deserted \"Sh-Island.\" We'll use a simple drawn map and ultimateslp.com for word generation.\n\n*   **Materials Needed:**\n    *   Pen\n    *   Paper (to draw a simple island map/game board)\n    *   ultimateslp.com (accessed via shared screen for /sh/ word lists/pictures)\n    *   Virtual dice roller or SLP uses a physical die\n\n*   **Step-by-Step Instructions:**\n    1.  **Set the Scene:** \"Oh no! We've been shipwrecked on 'Sh-Island'! To build our escape ship and get home, we need to find 10 special /sh/ words hidden all over the island. Each word you say correctly helps us build a piece of our ship!\"\n    2.  **Draw the Island Map:** On their paper, have the student draw a simple \"Sh-Island\" with a starting point (e.g., \"The Wrecked Ship\") and a finish line (e.g., \"The Escape Raft\"). Draw 10 small \"collection spots\" or circles along a winding path on the island.\n    3.  **Explain the Game:** \"We'll take turns rolling the die and moving our 'explorer' (a small drawing, or even a finger) along the path. Each time you land on a collection spot, we'll go to ultimateslp.com to find one of our special /sh/ words!\"\n    4.  **Play the Game:**\n        *   Roll a virtual or physical die.\n        *   Move the explorer along the path.\n        *   When landing on a collection spot, the SLP navigates to ultimateslp.com's /sh/ word section.\n        *   The student chooses a word (or the SLP prompts one).\n        *   The student practices the word (then a phrase, then a sentence, depending on their level). If said correctly, they \"collect\" the word by marking off that spot on their paper.\n        *   The SLP provides clear feedback and models.\n    5.  **Escape!** Once all 10 spots are marked, the student has collected all the parts needed for their ship! Have them say a triumphant \"We escaped Sh-Island!\" with a clear /sh/ sound.\n\n*   **How it Targets the Goal Area:** This activity embeds /sh/ practice within an exciting, goal-directed game. The visual representation of the island and the tangible progress of collecting words provide strong motivation. It uses ultimateslp.com for targeted word practice and encourages repeated productions of /sh/ at various linguistic levels (word, phrase, sentence) in a highly engaging, interactive format.",
+      "goalArea": "sh sound",
+      "ageRange": "9",
+      "materials": [
+        "ultimateslp.com",
+        "pen",
+        "paper"
+      ],
+      "isFavorite": false,
+      "source": "AI",
+      "dateCreated": "2025-12-12T19:11:29.217Z"
+    },
+    {
+      "id": "1766167998588-kbwfpzdcb",
+      "description": "As an expert speech-language pathologist, I've designed three engaging teletherapy activities for an 8-year-old targeting fluency, utilizing ultimate-slp.com and pen/paper resources. Each activity focuses on making fluency practice fun and integrated into creative tasks.\n\n---\n\n### Activity 1: The Fluency Forecast!\n\n1.  **Activity Name:** The Fluency Forecast!\n2.  **Brief Description:** The student becomes a \"Speech Weather Reporter\" who predicts and demonstrates \"smooth speech\" weather. Using various prompts from ultimate-slp.com, they plan and execute their speech using fluency tools, then rate their \"forecast accuracy.\"\n3.  **Materials Needed:**\n    *   Computer/tablet with internet access for ultimate-slp.com (e.g., story prompts, picture scenes, word lists, or question cards).\n    *   Virtual whiteboard or shared document (optional, for therapist notes).\n    *   Pen and paper for the student (to draw \"weather\" icons or simple scorekeeping).\n4.  **Step-by-Step Instructions:**\n    *   **Step 1: Set the Scene:** Explain to the student that they are a special \"Fluency Forecaster\" today! Their job is to predict how smoothly they can say words or sentences and then demonstrate that smooth speech, just like a weather reporter predicts the weather.\n    *   **Step 2: Choose the \"Weather Event\":** The therapist navigates to ultimate-slp.com and selects a resource (e.g., a short story to read, a picture scene to describe, a list of target words, or a few open-ended questions). This will be their \"weather event\" (the speech target).\n    *   **Step 3: Predict the Smoothness:** Before speaking, the student \"predicts\" how they will use their fluency tools. For example, for a target word/sentence: \"I'll use a super soft start for the first sound,\" \"I'll make sure my lips touch lightly for the 'p' sound,\" or \"I'll use my slow, comfortable pace.\"\n    *   **Step 4: Deliver the Forecast:** The student then says the word, sentence, or describes the picture, actively focusing on applying the chosen fluency strategy/strategies.\n    *   **Step 5: Rate the \"Forecast Accuracy\":** On their paper, the student can draw a \"sun\" (very smooth), \"cloud with sun\" (mostly smooth), or \"cloud\" (a bit bumpy, let's try again). They can also jot down which strategy helped most. The therapist provides positive, specific feedback and gentle reminders.\n    *   **Step 6: New Forecast:** Repeat with new target words/sentences/scenes from ultimate-slp.com, gradually increasing complexity or focusing on different strategies.\n5.  **How it Targets the Goal Area:** This activity encourages **metacognition** and **pre-planning** of fluency strategies (e.g., easy onset, light contacts, rate control) by having the child \"predict\" their smooth speech. The playful \"weather report\" context makes self-monitoring engaging, helping the student consciously apply strategies *before* speaking and reflect on their effectiveness *after* speaking.\n\n---\n\n### Activity 2: Story Architect's Smooth Blueprint\n\n1.  **Activity Name:** Story Architect's Smooth Blueprint\n2.  **Brief Description:** The student acts as a \"story architect,\" building a story sentence by sentence. Each sentence is a \"brick\" in their story blueprint, and they must lay each brick smoothly using their fluency strategies before adding it to their design.\n3.  **Materials Needed:**\n    *   Computer/tablet with internet access for ultimate-slp.com (e.g., \"Describe a Scene\" pictures, \"Story Starters,\" or open-ended game boards).\n    *   Virtual whiteboard or shared document (optional, to type the story).\n    *   Pen and paper for the student (to draw a simple blueprint with blank \"bricks\" or boxes).\n4.  **Step-by-Step Instructions:**\n    *   **Step 1: Get Inspired:** Explain they are a \"Story Architect\" today! Their mission is to build an amazing story, one smooth sentence (\"brick\") at a time. The therapist goes to ultimate-slp.com and chooses a picture scene, a story starter, or an open-ended game board to spark ideas.\n    *   **Step 2: Design the Blueprint:** On their paper, the student draws a simple blueprint with 5-7 blank \"bricks\" or boxes in a row or stack. Each box represents a sentence they will add to their story.\n    *   **Step 3: Lay the First Smooth Brick:** The student thinks of their first sentence for the story. Before saying it, they mentally plan to use an easy onset and a comfortable speaking rate. They then say the sentence, focusing on smooth delivery.\n    *   **Step 4: Mark the Blueprint:** If the sentence was successfully spoken smoothly, the student draws a checkmark, colors in, or writes the first few words of that sentence into the first \"brick\" on their paper.\n    *   **Step 5: Build the Next Layer:** The student takes a brief, natural pause. They then plan their next sentence, focusing on another fluency strategy (e.g., light contacts for specific sounds, maintaining the comfortable rate). They say the sentence smoothly.\n    *   **Step 6: Continue Building:** This process continues, with the student adding \"bricks\" (sentences) to their blueprint. The therapist provides cues and positive reinforcement for fluency strategy use and story development. The story can be shared verbally or typed onto a shared document.\n5.  **How it Targets the Goal Area:** This activity breaks down story generation into manageable, sentence-level units (\"bricks\"), promoting **pausing** between utterances and encouraging **rate control** for each sentence. By focusing on laying each \"brick\" smoothly, it reinforces conscious application of strategies like easy onset and light contacts within connected speech, helping the child internalize fluency techniques in a constructive, sequential manner.\n\n---\n\n### Activity 3: The Fluency Field Trip\n\n1.  **Activity Name:** The Fluency Field Trip\n2.  **Brief Description:** The student embarks on a virtual \"field trip\" using various ultimate-slp.com scenes as their destinations. At each \"stop,\" a different fluency strategy is emphasized while they describe what they see, answer questions, or make up sentences.\n3.  **Materials Needed:**\n    *   Computer/tablet with internet access for ultimate-slp.com (e.g., \"Describe a Scene\" pictures, \"Vocabulary Cards,\" or \"Open-Ended Question Prompts\").\n    *   Pen and paper for the student (to draw a simple map or check off visited locations).\n    *   Virtual dice (optional, if using an open-ended game board to determine \"stops\").\n4.  **Step-by-Step Instructions:**\n    *   **Step 1: Plan the Trip:** Explain that they are going on a special \"Fluency Field Trip.\" On their paper, the student draws a simple map with 3-5 blank \"stops\" or squares. Explain that at each stop, we'll practice using a specific smooth speech tool.\n    *   **Step 2: Destination 1 - Easy Onset Island:** The therapist navigates to ultimate-slp.com and selects a vibrant picture scene or a few vocabulary cards. The task for this \"island\" is to describe 2-3 things they see or say 2-3 words, making sure to use a \"super soft and easy start\" for every word. Once completed smoothly, the student marks off their first stop on their map.\n    *   **Step 3: Destination 2 - Light Contacts Lagoon:** Move to a *new* ultimate-slp.com picture or set of cards. The task here is to describe 2-3 things or answer 2-3 questions about the picture, specifically focusing on \"light contacts\" for sounds that involve lips or tongue touching (e.g., /p, b, t, d, k, g/). Emphasize making the contacts gentle, not pressing hard. Mark off the second stop.\n    *   **Step 4: Destination 3 - Pacing Pathway:** Select another ultimate-slp.com scene or a short story. The goal here is to describe something in 2-3 sentences or read a short paragraph, focusing on a \"just right\" comfortable speaking rate and natural, strategic pauses. Mark off the third stop.\n    *   **Step 5: Continue the Journey:** Continue adding \"destinations,\" perhaps combining strategies, generating questions about the scenes, or making up short sentences related to the images. Each stop provides a dedicated opportunity to practice and reinforce a specific fluency tool.\n5.  **How it Targets the Goal Area:** This activity systematically targets individual fluency strategies (easy onset, light contacts, pacing, pausing) by assigning each to a distinct \"destination.\" The \"field trip\" format provides a motivating and varied context for practice, preventing monotony and allowing for focused repetition of specific techniques within different linguistic tasks (description, answering questions, reading). This focused practice helps the child understand and internalize each strategy before integrating them into more spontaneous speech.",
+      "goalArea": "fluency",
+      "ageRange": "8",
+      "materials": [
+        "ultimate slp.com and pen paper"
+      ],
+      "isFavorite": false,
+      "source": "AI",
+      "dateCreated": "2025-12-19T18:13:18.588Z"
+    }
+  ],
+  "evaluations": [],
+  "schools": [
+    {
+      "id": "1765989738201-x9jed6eyz",
+      "name": "Noble Academy",
+      "state": "MN",
+      "dateCreated": "2025-12-17T16:42:18.201Z",
+      "teletherapy": true
+    },
+    {
+      "id": "1765990356764-vlqj62qby",
+      "name": "Test School",
+      "state": "MN",
+      "teletherapy": true,
+      "dateCreated": "2025-12-17T16:52:36.764Z"
+    }
+  ],
+  "lunches": [
+    {
+      "id": "1766088474306-cdfrugyt7",
+      "school": "Noble Academy",
+      "startTime": "2025-12-15T16:40:00.000Z",
+      "endTime": "2025-12-15T17:00:00.000Z",
+      "dateCreated": "2025-12-18T20:07:54.306Z"
+    }
+  ],
+  "exportDate": "2025-12-19T20:07:54.218Z"
+}

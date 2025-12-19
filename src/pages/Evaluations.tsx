@@ -32,9 +32,8 @@ import {
   updateEvaluation,
   deleteEvaluation,
   getStudents,
-} from '../utils/storage';
+} from '../utils/storage-api';
 import { generateId, formatDate } from '../utils/helpers';
-import { useStorageSync } from '../hooks/useStorageSync';
 import { useSchool } from '../context/SchoolContext';
 import { useConfirm } from '../hooks/useConfirm';
 
@@ -72,9 +71,6 @@ export const Evaluations = () => {
     loadData();
   }, [loadData]);
 
-  useStorageSync(() => {
-    loadData();
-  }, [loadData]);
 
   const handleOpenDialog = (evaluation?: Evaluation) => {
     if (evaluation) {

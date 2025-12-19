@@ -10,7 +10,7 @@ import {
   TextField,
   Alert,
 } from '@mui/material';
-import { exportData, importData, getStudents, getGoals, getSessions } from '../utils/storage';
+import { exportData, importData, getStudents, getGoals, getSessions } from '../utils/storage-api';
 
 interface ExportDialogProps {
   open: boolean;
@@ -23,24 +23,30 @@ export const ExportDialog = ({ open, onClose, onImportSuccess }: ExportDialogPro
   const [importText, setImportText] = useState('');
   const [importError, setImportError] = useState('');
 
-  const handleExport = () => {
-    const data = exportData();
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `slp-caseload-backup-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const handleExport = async () => {
+    try {
+      const data = await exportData();
+      const blob = new Blob([data], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `slp-caseload-backup-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to export data:', error);
+      setImportError('Failed to export data. Please try again.');
+    }
   };
 
-  const handleExportCSV = () => {
-    // Simple CSV export for students
-    const students = getStudents();
-    const goals = getGoals();
-    const sessions = getSessions();
+  const handleExportCSV = async () => {
+    try {
+      // Simple CSV export for students
+      const students = await getStudents();
+      const goals = await getGoals();
+      const sessions = await getSessions();
 
     let csv = 'Type,ID,Name,Age,Grade,Status,Date\n';
     students.forEach((s) => {
@@ -61,12 +67,16 @@ export const ExportDialog = ({ open, onClose, onImportSuccess }: ExportDialogPro
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to export CSV:', error);
+      setImportError('Failed to export CSV. Please try again.');
+    }
   };
 
-  const handleImport = () => {
+  const handleImport = async () => {
     try {
-      importData(importText);
+      await importData(importText);
       setImportText('');
       setImportError('');
       if (onImportSuccess) {

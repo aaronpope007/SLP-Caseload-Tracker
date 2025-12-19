@@ -47,9 +47,8 @@ import {
   deleteGoal,
   getSessionsByStudent,
   getGoals,
-} from '../utils/storage';
+} from '../utils/storage-api';
 import { generateId, formatDate, getGoalProgressChipProps } from '../utils/helpers';
-import { useStorageSync } from '../hooks/useStorageSync';
 import { useSchool } from '../context/SchoolContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { useDirty } from '../hooks/useDirty';
@@ -72,6 +71,7 @@ export const StudentDetail = () => {
   const { selectedSchool } = useSchool();
   const [student, setStudent] = useState<Student | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [sessions, setSessions] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
 
@@ -141,39 +141,55 @@ export const StudentDetail = () => {
     if (id) {
       loadStudent();
       loadGoals();
+      loadSessions();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, selectedSchool]);
 
-  // Sync data across browser tabs
-  useStorageSync(() => {
-    if (id) {
-      loadStudent();
-      loadGoals();
-    }
-  }, [id, selectedSchool]);
 
-  const loadStudent = () => {
+  const loadStudent = async () => {
     if (id) {
-      const found = getStudents(selectedSchool).find((s) => s.id === id);
-      setStudent(found || null);
+      try {
+        const students = await getStudents(selectedSchool);
+        const found = students.find((s) => s.id === id);
+        setStudent(found || null);
+      } catch (error) {
+        console.error('Failed to load student:', error);
+      }
     }
   };
 
-  const loadGoals = () => {
+  const loadGoals = async () => {
     if (id) {
-      setGoals(getGoalsByStudent(id, selectedSchool));
+      try {
+        const goals = await getGoalsByStudent(id, selectedSchool);
+        setGoals(goals);
+      } catch (error) {
+        console.error('Failed to load goals:', error);
+      }
     }
   };
 
-  // Helper to get recent performance for a goal
+  const loadSessions = async () => {
+    if (id) {
+      try {
+        const studentSessions = await getSessionsByStudent(id, selectedSchool);
+        setSessions(studentSessions);
+      } catch (error) {
+        console.error('Failed to load sessions:', error);
+      }
+    }
+  };
+
+  // Helper to get recent performance for a goal (uses sessions from state)
   const getRecentPerformance = (goalId: string) => {
     if (!id) return { recentSessions: [], average: null };
-    const sessions = getSessionsByStudent(id, selectedSchool)
+    const goalSessions = sessions
       .filter(s => s.goalsTargeted.includes(goalId))
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 3);
     
-    const recentData = sessions.map(s => {
+    const recentData = goalSessions.map(s => {
       const perf = s.performanceData.find(p => p.goalId === goalId);
       return {
         date: s.date,
@@ -251,80 +267,88 @@ export const StudentDetail = () => {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!id) return;
 
-    const goalData: Partial<Goal> = {
-      description: formData.description,
-      baseline: formData.baseline,
-      target: formData.target,
-      status: formData.status,
-      domain: formData.domain || undefined,
-      priority: formData.priority,
-      parentGoalId: formData.parentGoalId || undefined,
-      templateId: selectedTemplate?.id || undefined,
-    };
-
-    // Set dateAchieved if status is 'achieved' and it wasn't already set
-    if (formData.status === 'achieved') {
-      if (editingGoal && !editingGoal.dateAchieved) {
-        // Goal is being marked as achieved for the first time
-        goalData.dateAchieved = new Date().toISOString();
-      } else if (!editingGoal) {
-        // New goal created as achieved
-        goalData.dateAchieved = new Date().toISOString();
-      } else {
-        // Goal already has dateAchieved, preserve it
-        goalData.dateAchieved = editingGoal.dateAchieved;
-      }
-    } else if (editingGoal && editingGoal.dateAchieved) {
-      // If status changed from achieved to something else, preserve the dateAchieved
-      goalData.dateAchieved = editingGoal.dateAchieved;
-    }
-
-    if (editingGoal) {
-      updateGoal(editingGoal.id, goalData);
-      
-      // If this goal now has a parent, update parent's subGoalIds
-      if (goalData.parentGoalId) {
-        const parent = getGoals().find(g => g.id === goalData.parentGoalId);
-        if (parent) {
-          const subGoalIds = parent.subGoalIds || [];
-          if (!subGoalIds.includes(editingGoal.id)) {
-            updateGoal(parent.id, { subGoalIds: [...subGoalIds, editingGoal.id] });
-          }
-        }
-      }
-    } else {
-      const newGoal: Goal = {
-        id: generateId(),
-        studentId: id,
+    try {
+      const goalData: Partial<Goal> = {
         description: formData.description,
         baseline: formData.baseline,
         target: formData.target,
         status: formData.status,
-        dateCreated: new Date().toISOString(),
-        dateAchieved: formData.status === 'achieved' ? new Date().toISOString() : undefined,
         domain: formData.domain || undefined,
         priority: formData.priority,
         parentGoalId: formData.parentGoalId || undefined,
         templateId: selectedTemplate?.id || undefined,
       };
-      addGoal(newGoal);
-      
-      // If this is a sub-goal, update parent's subGoalIds
-      if (newGoal.parentGoalId) {
-        const parent = getGoals().find(g => g.id === newGoal.parentGoalId);
-        if (parent) {
-          const subGoalIds = parent.subGoalIds || [];
-          updateGoal(parent.id, { subGoalIds: [...subGoalIds, newGoal.id] });
+
+      // Set dateAchieved if status is 'achieved' and it wasn't already set
+      if (formData.status === 'achieved') {
+        if (editingGoal && !editingGoal.dateAchieved) {
+          // Goal is being marked as achieved for the first time
+          goalData.dateAchieved = new Date().toISOString();
+        } else if (!editingGoal) {
+          // New goal created as achieved
+          goalData.dateAchieved = new Date().toISOString();
+        } else {
+          // Goal already has dateAchieved, preserve it
+          goalData.dateAchieved = editingGoal.dateAchieved;
+        }
+      } else if (editingGoal && editingGoal.dateAchieved) {
+        // If status changed from achieved to something else, preserve the dateAchieved
+        goalData.dateAchieved = editingGoal.dateAchieved;
+      }
+
+      if (editingGoal) {
+        await updateGoal(editingGoal.id, goalData);
+        
+        // If this goal now has a parent, update parent's subGoalIds
+        if (goalData.parentGoalId) {
+          const allGoals = await getGoals();
+          const parent = allGoals.find(g => g.id === goalData.parentGoalId);
+          if (parent) {
+            const subGoalIds = parent.subGoalIds || [];
+            if (!subGoalIds.includes(editingGoal.id)) {
+              await updateGoal(parent.id, { subGoalIds: [...subGoalIds, editingGoal.id] });
+            }
+          }
+        }
+      } else {
+        const newGoal: Goal = {
+          id: generateId(),
+          studentId: id,
+          description: formData.description,
+          baseline: formData.baseline,
+          target: formData.target,
+          status: formData.status,
+          dateCreated: new Date().toISOString(),
+          dateAchieved: formData.status === 'achieved' ? new Date().toISOString() : undefined,
+          domain: formData.domain || undefined,
+          priority: formData.priority,
+          parentGoalId: formData.parentGoalId || undefined,
+          templateId: selectedTemplate?.id || undefined,
+        };
+        await addGoal(newGoal);
+        
+        // If this is a sub-goal, update parent's subGoalIds
+        if (newGoal.parentGoalId) {
+          const allGoals = await getGoals();
+          const parent = allGoals.find(g => g.id === newGoal.parentGoalId);
+          if (parent) {
+            const subGoalIds = parent.subGoalIds || [];
+            await updateGoal(parent.id, { subGoalIds: [...subGoalIds, newGoal.id] });
+          }
         }
       }
+      await loadGoals();
+      await loadSessions(); // Reload sessions after goal changes
+      resetDirty();
+      setDialogOpen(false);
+      setEditingGoal(null);
+    } catch (error) {
+      console.error('Failed to save goal:', error);
+      alert('Failed to save goal. Please try again.');
     }
-    loadGoals();
-    resetDirty();
-    setDialogOpen(false);
-    setEditingGoal(null);
   };
 
   const handleUseTemplate = (template: typeof goalTemplates[0]) => {
@@ -339,10 +363,16 @@ export const StudentDetail = () => {
     setTemplateDialogOpen(false);
   };
 
-  const handleDelete = (goalId: string) => {
+  const handleDelete = async (goalId: string) => {
     if (window.confirm('Are you sure you want to delete this goal?')) {
-      deleteGoal(goalId);
-      loadGoals();
+      try {
+        await deleteGoal(goalId);
+        await loadGoals();
+        await loadSessions(); // Reload sessions after goal deletion
+      } catch (error) {
+        console.error('Failed to delete goal:', error);
+        alert('Failed to delete goal. Please try again.');
+      }
     }
   };
 
@@ -409,15 +439,15 @@ export const StudentDetail = () => {
 
     try {
       // Convert goals to GoalProgressData format
-      const sessions = id ? getSessionsByStudent(id, selectedSchool) : [];
+      const studentSessions = id ? await getSessionsByStudent(id, selectedSchool) : [];
       const goalProgressData: GoalProgressData[] = goals.map(goal => {
-        const goalSessions = sessions.filter(s => s.goalsTargeted.includes(goal.id));
+        const goalSessions = studentSessions.filter(s => s.goalsTargeted.includes(goal.id));
         const latestPerf = goalSessions
           .flatMap(s => s.performanceData.filter(p => p.goalId === goal.id))
           .filter(p => p.accuracy !== undefined)
           .sort((a, b) => {
-            const dateA = sessions.find(s => s.performanceData.includes(a))?.date || '';
-            const dateB = sessions.find(s => s.performanceData.includes(b))?.date || '';
+            const dateA = studentSessions.find(s => s.performanceData.includes(a))?.date || '';
+            const dateB = studentSessions.find(s => s.performanceData.includes(b))?.date || '';
             return dateB.localeCompare(dateA);
           })[0];
 
@@ -445,7 +475,7 @@ export const StudentDetail = () => {
         };
       });
 
-      const recentSessions = sessions.slice(0, 5).map(s => ({
+      const recentSessions = studentSessions.slice(0, 5).map(s => ({
         date: s.date,
         performanceData: s.performanceData,
         notes: s.notes,

@@ -19,9 +19,6 @@ import {
   MenuItem,
   Checkbox,
   FormControlLabel,
-  List,
-  ListItem,
-  ListItemText,
   IconButton,
   Alert,
   CircularProgress,
@@ -59,10 +56,9 @@ import {
   deleteSession,
   getSessionsByStudent,
   addLunch,
-} from '../utils/storage';
+} from '../utils/storage-api';
 import { generateId, formatDateTime, toLocalDateTimeString, fromLocalDateTimeString, getGoalProgressChipProps } from '../utils/helpers';
 import { generateSessionPlan } from '../utils/gemini';
-import { useStorageSync } from '../hooks/useStorageSync';
 import { useSchool } from '../context/SchoolContext';
 
 export const Sessions = () => {
@@ -112,12 +108,9 @@ export const Sessions = () => {
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSchool]);
 
-  // Sync data across browser tabs
-  useStorageSync(() => {
-    loadData();
-  }, [selectedSchool]);
 
   // Auto-focus student search when dialog opens for new activity
   useEffect(() => {
@@ -173,25 +166,29 @@ export const Sessions = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [menuOpen]);
 
-  const loadData = () => {
-    const schoolStudents = getStudents(selectedSchool);
-    const studentIds = new Set(schoolStudents.map(s => s.id));
-    const allSessions = getSessions();
-    const schoolSessions = allSessions
-      .filter(s => studentIds.has(s.studentId))
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    setSessions(schoolSessions);
-    // Filter out archived students (archived is optional for backward compatibility)
-    setStudents(schoolStudents.filter(s => s.archived !== true));
-    const allGoals = getGoals();
-    setGoals(allGoals.filter(g => studentIds.has(g.studentId)));
+  const loadData = async () => {
+    try {
+      const schoolStudents = await getStudents(selectedSchool);
+      const studentIds = new Set(schoolStudents.map(s => s.id));
+      const allSessions = await getSessions();
+      const schoolSessions = allSessions
+        .filter(s => studentIds.has(s.studentId))
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      setSessions(schoolSessions);
+      // Filter out archived students (archived is optional for backward compatibility)
+      setStudents(schoolStudents.filter(s => s.archived !== true));
+      const allGoals = await getGoals();
+      setGoals(allGoals.filter(g => studentIds.has(g.studentId)));
+    } catch (error) {
+      console.error('Failed to load data:', error);
+    }
   };
 
-  const handleOpenDialog = (session?: Session, groupSessionId?: string) => {
+  const handleOpenDialog = async (session?: Session, groupSessionId?: string) => {
     if (session || groupSessionId) {
       // If groupSessionId is provided, load all sessions in the group
       if (groupSessionId) {
-        const allSessions = getSessions();
+        const allSessions = await getSessions();
         const groupSessions = allSessions.filter(s => s.groupSessionId === groupSessionId);
         
         if (groupSessions.length > 0) {
@@ -369,15 +366,16 @@ export const Sessions = () => {
     });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (formData.studentIds.length === 0) {
       alert('Please select at least one student');
       return;
     }
 
-    // If editing a group session, update all sessions in the group
-    if (editingGroupSessionId) {
-      const allSessions = getSessions();
+    try {
+      // If editing a group session, update all sessions in the group
+      if (editingGroupSessionId) {
+        const allSessions = await getSessions();
       const existingGroupSessions = allSessions.filter(s => s.groupSessionId === editingGroupSessionId);
       
       // Determine the groupSessionId to use (preserve existing or generate new if multiple students)
@@ -386,7 +384,7 @@ export const Sessions = () => {
         : undefined; // Convert to individual session if only one student
       
       // Update or create sessions for each selected student
-      formData.studentIds.forEach((studentId) => {
+      for (const studentId of formData.studentIds) {
         // Find existing session for this student in the group
         const existingSession = existingGroupSessions.find(s => s.studentId === studentId);
         
@@ -419,18 +417,18 @@ export const Sessions = () => {
         };
 
         if (existingSession) {
-          updateSession(existingSession.id, sessionData);
+          await updateSession(existingSession.id, sessionData);
         } else {
-          addSession(sessionData);
+          await addSession(sessionData);
         }
-      });
+      }
       
       // Delete sessions for students that were removed from the group
-      existingGroupSessions.forEach(existingSession => {
+      for (const existingSession of existingGroupSessions) {
         if (!formData.studentIds.includes(existingSession.studentId)) {
-          deleteSession(existingSession.id);
+          await deleteSession(existingSession.id);
         }
-      });
+      }
     } else {
       // Editing a single session or creating new
       // Determine groupSessionId:
@@ -445,7 +443,7 @@ export const Sessions = () => {
           : undefined;
 
       // Create a session for each selected student
-      formData.studentIds.forEach((studentId) => {
+      for (const studentId of formData.studentIds) {
         // Filter goals and performance data for this student
         const studentGoals = goals.filter(g => g.studentId === studentId).map(g => g.id);
         const studentGoalsTargeted = formData.goalsTargeted.filter(gId => studentGoals.includes(gId));
@@ -477,21 +475,30 @@ export const Sessions = () => {
         };
 
         if (isEditingSingleSession) {
-          updateSession(editingSession.id, sessionData);
+          await updateSession(editingSession.id, sessionData);
         } else {
-          addSession(sessionData);
+          await addSession(sessionData);
         }
-      });
+      }
     }
 
-    loadData();
-    handleCloseDialog();
+      await loadData();
+      handleCloseDialog();
+    } catch (error) {
+      console.error('Failed to save session:', error);
+      alert('Failed to save session. Please try again.');
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this session?')) {
-      deleteSession(id);
-      loadData();
+      try {
+        await deleteSession(id);
+        await loadData();
+      } catch (error) {
+        console.error('Failed to delete session:', error);
+        alert('Failed to delete session. Please try again.');
+      }
     }
   };
 
@@ -523,10 +530,10 @@ export const Sessions = () => {
     return goals.find((g) => g.id === goalId)?.description || 'Unknown Goal';
   };
 
-  // Helper to get recent performance for a goal
+  // Helper to get recent performance for a goal (uses sessions from state)
   const getRecentPerformance = (goalId: string, studentId: string) => {
-    const goalSessions = getSessionsByStudent(studentId, selectedSchool)
-      .filter(s => s.goalsTargeted.includes(goalId))
+    const goalSessions = sessions
+      .filter(s => s.studentId === studentId && s.goalsTargeted.includes(goalId))
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 3);
     
@@ -579,7 +586,7 @@ export const Sessions = () => {
     setSessionPlanError('');
 
     try {
-      const recentSessions = getSessionsByStudent(planStudentId)
+      const recentSessions = (await getSessionsByStudent(planStudentId))
         .slice(0, 3)
         .map(s => ({
           date: formatDateTime(s.date),
@@ -1120,8 +1127,6 @@ export const Sessions = () => {
                                   const incorrectTrials = perfData?.incorrectTrials || 0;
                                   const totalTrials = correctTrials + incorrectTrials;
                                   const calculatedAccuracy = totalTrials > 0 ? Math.round((correctTrials / totalTrials) * 100) : 0;
-                                  // Use calculated accuracy if trials exist, otherwise use manually entered accuracy
-                                  const displayAccuracy = totalTrials > 0 ? calculatedAccuracy : (perfData?.accuracy ? parseFloat(perfData.accuracy) : 0);
                                   const displayText = totalTrials > 0 ? `${correctTrials}/${totalTrials} trials (${calculatedAccuracy}%)` : '0/0 trials (0%)';
                                   
                                   return (
@@ -1241,8 +1246,6 @@ export const Sessions = () => {
                                     const incorrectTrials = perfData?.incorrectTrials || 0;
                                     const totalTrials = correctTrials + incorrectTrials;
                                     const calculatedAccuracy = totalTrials > 0 ? Math.round((correctTrials / totalTrials) * 100) : 0;
-                                    // Use calculated accuracy if trials exist, otherwise use manually entered accuracy
-                                    const displayAccuracy = totalTrials > 0 ? calculatedAccuracy : (perfData?.accuracy ? parseFloat(perfData.accuracy) : 0);
                                     const displayText = totalTrials > 0 ? `${correctTrials}/${totalTrials} trials (${calculatedAccuracy}%)` : '0/0 trials (0%)';
                                     
                                     return (

@@ -34,11 +34,10 @@ import {
   getEvaluations,
   getStudents,
   getLunches,
-} from '../utils/storage';
+} from '../utils/storage-api';
 import { formatDateTime, formatDate, generateId } from '../utils/helpers';
-import { useStorageSync } from '../hooks/useStorageSync';
 import { useSchool } from '../context/SchoolContext';
-import { getSchoolByName } from '../utils/storage';
+import { getSchoolByName } from '../utils/storage-api';
 
 interface TimeTrackingItem {
   id: string;
@@ -124,10 +123,6 @@ export const TimeTracking = () => {
     loadSavedNotes();
   }, [selectedSchool]);
 
-  useStorageSync(() => {
-    loadData();
-    loadSavedNotes();
-  }, [selectedSchool]);
 
   const loadSavedNotes = () => {
     const notes = getTimesheetNotes(selectedSchool);

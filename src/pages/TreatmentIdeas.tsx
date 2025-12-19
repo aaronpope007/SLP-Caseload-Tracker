@@ -31,10 +31,9 @@ import {
   getActivities,
   addActivity,
   updateActivity,
-} from '../utils/storage';
+} from '../utils/storage-api';
 import { generateId } from '../utils/helpers';
 import { generateTreatmentIdeas } from '../utils/gemini';
-import { useStorageSync } from '../hooks/useStorageSync';
 
 export const TreatmentIdeas = () => {
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -53,15 +52,16 @@ export const TreatmentIdeas = () => {
     loadActivities();
   }, []);
 
-  // Sync data across browser tabs
-  useStorageSync(() => {
-    loadActivities();
-  });
 
-  const loadActivities = () => {
-    setActivities(getActivities().sort((a, b) => 
-      new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime()
-    ));
+  const loadActivities = async () => {
+    try {
+      const activities = await getActivities();
+      setActivities(activities.sort((a, b) => 
+        new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime()
+      ));
+    } catch (error) {
+      console.error('Failed to load activities:', error);
+    }
   };
 
   const handleGenerate = async () => {

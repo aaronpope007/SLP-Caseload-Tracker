@@ -30,10 +30,9 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { getStudents, getGoals, getSessions } from '../utils/storage';
+import { getStudents, getGoals, getSessions } from '../utils/storage-api';
 import { formatDate } from '../utils/helpers';
 import { generateProgressNote, type GoalProgressData } from '../utils/gemini';
-import { useStorageSync } from '../hooks/useStorageSync';
 import { useSchool } from '../context/SchoolContext';
 
 export const Progress = () => {
@@ -50,12 +49,20 @@ export const Progress = () => {
   const [error, setError] = useState<string>('');
 
   useEffect(() => {
-    // Filter out archived students (archived is optional for backward compatibility)
-    const allStudents = getStudents(selectedSchool).filter((s) => s.status === 'active' && s.archived !== true);
-    setStudents(allStudents);
-    if (allStudents.length > 0 && !selectedStudentId) {
-      setSelectedStudentId(allStudents[0].id);
-    }
+    const loadStudents = async () => {
+      try {
+        // Filter out archived students (archived is optional for backward compatibility)
+        const allStudents = (await getStudents(selectedSchool)).filter((s) => s.status === 'active' && s.archived !== true);
+        setStudents(allStudents);
+        if (allStudents.length > 0 && !selectedStudentId) {
+          setSelectedStudentId(allStudents[0].id);
+        }
+      } catch (error) {
+        console.error('Failed to load students:', error);
+      }
+    };
+    loadStudents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSchool]);
 
   useEffect(() => {
@@ -65,25 +72,13 @@ export const Progress = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStudentId]);
 
-  // Sync data across browser tabs
-  useStorageSync(() => {
-    if (selectedStudentId) {
-      loadProgressData();
-    }
-    // Reload students list when storage changes
-    const allStudents = getStudents(selectedSchool).filter((s) => s.status === 'active' && s.archived !== true);
-    setStudents(allStudents);
-    if (allStudents.length > 0 && !allStudents.find(s => s.id === selectedStudentId)) {
-      setSelectedStudentId(allStudents[0].id);
-    }
-  }, [selectedSchool, selectedStudentId]);
+  const loadProgressData = async () => {
+    try {
+      const sessions = (await getSessions())
+        .filter((s) => s.studentId === selectedStudentId)
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  const loadProgressData = () => {
-    const sessions = getSessions()
-      .filter((s) => s.studentId === selectedStudentId)
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    const goals = getGoals().filter((g) => g.studentId === selectedStudentId);
+      const goals = (await getGoals()).filter((g) => g.studentId === selectedStudentId);
 
     // Prepare session timeline data
     const timelineData = sessions.map((session) => ({
@@ -152,11 +147,14 @@ export const Progress = () => {
       };
     });
 
-    setGoalProgress(goalData);
-    // Reset notes and selections when data changes
-    setGoalNotes({});
-    setCombinedNote('');
-    setSelectedGoals(new Set());
+      setGoalProgress(goalData);
+      // Reset notes and selections when data changes
+      setGoalNotes({});
+      setCombinedNote('');
+      setSelectedGoals(new Set());
+    } catch (error) {
+      console.error('Failed to load progress data:', error);
+    }
   };
 
   const selectedStudent = students.find((s) => s.id === selectedStudentId);

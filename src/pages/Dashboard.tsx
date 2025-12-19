@@ -19,9 +19,8 @@ import {
   EventNote as EventNoteIcon,
   Add as AddIcon,
 } from '@mui/icons-material';
-import { getStudents, getGoals, getSessions } from '../utils/storage';
+import { getStudents, getGoals, getSessions } from '../utils/storage-api';
 import { formatDate } from '../utils/helpers';
-import { useStorageSync } from '../hooks/useStorageSync';
 import { useSchool } from '../context/SchoolContext';
 
 export const Dashboard = () => {
@@ -35,12 +34,15 @@ export const Dashboard = () => {
     recentSessions: 0,
   });
   const [recentStudents, setRecentStudents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const loadDashboardData = () => {
+  const loadDashboardData = async () => {
     console.log('Dashboard useEffect running');
-    const students = getStudents(selectedSchool);
-    const goals = getGoals();
-    const sessions = getSessions();
+    setLoading(true);
+    try {
+      const students = await getStudents(selectedSchool);
+      const goals = await getGoals();
+      const sessions = await getSessions();
     
     // Filter goals and sessions by school students
     const studentIds = new Set(students.map(s => s.id));
@@ -78,14 +80,14 @@ export const Dashboard = () => {
         }))
         .filter(s => s.student) // Only show sessions for non-archived students
     );
+    } catch (error) {
+      console.error('Failed to load dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    loadDashboardData();
-  }, [selectedSchool]);
-
-  // Sync data across browser tabs
-  useStorageSync(() => {
     loadDashboardData();
   }, [selectedSchool]);
 

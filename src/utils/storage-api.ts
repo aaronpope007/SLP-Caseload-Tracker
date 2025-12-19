@@ -1,0 +1,376 @@
+/**
+ * API-based storage implementation
+ * This replaces localStorage with API calls to the Express + SQLite backend
+ */
+
+import type { Student, Goal, Session, Activity, Evaluation, School, Lunch } from '../types';
+import { api } from './api';
+
+const DEFAULT_SCHOOL = 'Noble Academy';
+
+// Students
+export const getStudents = async (school?: string): Promise<Student[]> => {
+  try {
+    const students = await api.students.getAll(school);
+    return students;
+  } catch (error) {
+    console.error('Failed to fetch students:', error);
+    return [];
+  }
+};
+
+export const saveStudents = async (students: Student[]): Promise<void> => {
+  // Note: This is a bulk operation - you may want to implement a bulk endpoint
+  // For now, we'll update/create each student individually
+  for (const student of students) {
+    try {
+      await api.students.update(student.id, student);
+    } catch {
+      // If update fails, try creating
+      try {
+        await api.students.create(student);
+      } catch (error) {
+        console.error(`Failed to save student ${student.id}:`, error);
+      }
+    }
+  }
+};
+
+export const addStudent = async (student: Student): Promise<void> => {
+  await api.students.create(student);
+};
+
+export const updateStudent = async (id: string, updates: Partial<Student>): Promise<void> => {
+  await api.students.update(id, updates);
+};
+
+export const deleteStudent = async (id: string): Promise<void> => {
+  await api.students.delete(id);
+};
+
+// Goals
+export const getGoals = async (): Promise<Goal[]> => {
+  try {
+    return await api.goals.getAll();
+  } catch (error) {
+    console.error('Failed to fetch goals:', error);
+    return [];
+  }
+};
+
+export const getGoalsByStudent = async (studentId: string, school?: string): Promise<Goal[]> => {
+  try {
+    return await api.goals.getAll(studentId, school);
+  } catch (error) {
+    console.error('Failed to fetch goals:', error);
+    return [];
+  }
+};
+
+export const getGoalsBySchool = async (school: string): Promise<Goal[]> => {
+  try {
+    return await api.goals.getAll(undefined, school);
+  } catch (error) {
+    console.error('Failed to fetch goals:', error);
+    return [];
+  }
+};
+
+export const saveGoals = async (goals: Goal[]): Promise<void> => {
+  for (const goal of goals) {
+    try {
+      await api.goals.update(goal.id, goal);
+    } catch {
+      try {
+        await api.goals.create(goal);
+      } catch (error) {
+        console.error(`Failed to save goal ${goal.id}:`, error);
+      }
+    }
+  }
+};
+
+export const addGoal = async (goal: Goal): Promise<void> => {
+  await api.goals.create(goal);
+};
+
+export const updateGoal = async (id: string, updates: Partial<Goal>): Promise<void> => {
+  await api.goals.update(id, updates);
+};
+
+export const deleteGoal = async (id: string): Promise<void> => {
+  await api.goals.delete(id);
+};
+
+// Sessions
+export const getSessions = async (): Promise<Session[]> => {
+  try {
+    return await api.sessions.getAll();
+  } catch (error) {
+    console.error('Failed to fetch sessions:', error);
+    return [];
+  }
+};
+
+export const getSessionsByStudent = async (studentId: string, school?: string): Promise<Session[]> => {
+  try {
+    return await api.sessions.getAll(studentId, school);
+  } catch (error) {
+    console.error('Failed to fetch sessions:', error);
+    return [];
+  }
+};
+
+export const getSessionsBySchool = async (school: string): Promise<Session[]> => {
+  try {
+    return await api.sessions.getAll(undefined, school);
+  } catch (error) {
+    console.error('Failed to fetch sessions:', error);
+    return [];
+  }
+};
+
+export const saveSessions = async (sessions: Session[]): Promise<void> => {
+  for (const session of sessions) {
+    try {
+      await api.sessions.update(session.id, session);
+    } catch {
+      try {
+        await api.sessions.create(session);
+      } catch (error) {
+        console.error(`Failed to save session ${session.id}:`, error);
+      }
+    }
+  }
+};
+
+export const addSession = async (session: Session): Promise<void> => {
+  await api.sessions.create(session);
+};
+
+export const updateSession = async (id: string, updates: Partial<Session>): Promise<void> => {
+  await api.sessions.update(id, updates);
+};
+
+export const deleteSession = async (id: string): Promise<void> => {
+  await api.sessions.delete(id);
+};
+
+// Activities
+export const getActivities = async (): Promise<Activity[]> => {
+  try {
+    return await api.activities.getAll();
+  } catch (error) {
+    console.error('Failed to fetch activities:', error);
+    return [];
+  }
+};
+
+export const saveActivities = async (activities: Activity[]): Promise<void> => {
+  for (const activity of activities) {
+    try {
+      await api.activities.update(activity.id, activity);
+    } catch {
+      try {
+        await api.activities.create(activity);
+      } catch (error) {
+        console.error(`Failed to save activity ${activity.id}:`, error);
+      }
+    }
+  }
+};
+
+export const addActivity = async (activity: Activity): Promise<void> => {
+  await api.activities.create(activity);
+};
+
+export const updateActivity = async (id: string, updates: Partial<Activity>): Promise<void> => {
+  await api.activities.update(id, updates);
+};
+
+export const deleteActivity = async (id: string): Promise<void> => {
+  await api.activities.delete(id);
+};
+
+// Evaluations
+export const getEvaluations = async (school?: string): Promise<Evaluation[]> => {
+  try {
+    return await api.evaluations.getAll(undefined, school);
+  } catch (error) {
+    console.error('Failed to fetch evaluations:', error);
+    return [];
+  }
+};
+
+export const getEvaluationsByStudent = async (studentId: string): Promise<Evaluation[]> => {
+  try {
+    return await api.evaluations.getAll(studentId);
+  } catch (error) {
+    console.error('Failed to fetch evaluations:', error);
+    return [];
+  }
+};
+
+export const saveEvaluations = async (evaluations: Evaluation[]): Promise<void> => {
+  for (const evaluation of evaluations) {
+    try {
+      await api.evaluations.update(evaluation.id, evaluation);
+    } catch {
+      try {
+        await api.evaluations.create(evaluation);
+      } catch (error) {
+        console.error(`Failed to save evaluation ${evaluation.id}:`, error);
+      }
+    }
+  }
+};
+
+export const addEvaluation = async (evaluation: Evaluation): Promise<void> => {
+  await api.evaluations.create(evaluation);
+};
+
+export const updateEvaluation = async (id: string, updates: Partial<Evaluation>): Promise<void> => {
+  await api.evaluations.update(id, updates);
+};
+
+export const deleteEvaluation = async (id: string): Promise<void> => {
+  await api.evaluations.delete(id);
+};
+
+// Lunches
+export const getLunches = async (school?: string): Promise<Lunch[]> => {
+  try {
+    return await api.lunches.getAll(school);
+  } catch (error) {
+    console.error('Failed to fetch lunches:', error);
+    return [];
+  }
+};
+
+export const saveLunches = async (lunches: Lunch[]): Promise<void> => {
+  for (const lunch of lunches) {
+    try {
+      await api.lunches.update(lunch.id, lunch);
+    } catch {
+      try {
+        await api.lunches.create(lunch);
+      } catch (error) {
+        console.error(`Failed to save lunch ${lunch.id}:`, error);
+      }
+    }
+  }
+};
+
+export const addLunch = async (lunch: Lunch): Promise<void> => {
+  await api.lunches.create(lunch);
+};
+
+export const updateLunch = async (id: string, updates: Partial<Lunch>): Promise<void> => {
+  await api.lunches.update(id, updates);
+};
+
+export const deleteLunch = async (id: string): Promise<void> => {
+  await api.lunches.delete(id);
+};
+
+// Schools
+export const getSchools = async (): Promise<School[]> => {
+  try {
+    return await api.schools.getAll();
+  } catch (error) {
+    console.error('Failed to fetch schools:', error);
+    return [];
+  }
+};
+
+export const saveSchools = async (schools: School[]): Promise<void> => {
+  for (const school of schools) {
+    try {
+      await api.schools.update(school.id, school);
+    } catch {
+      try {
+        await api.schools.create(school);
+      } catch (error) {
+        console.error(`Failed to save school ${school.id}:`, error);
+      }
+    }
+  }
+};
+
+export const addSchool = async (school: School): Promise<void> => {
+  await api.schools.create(school);
+};
+
+export const updateSchool = async (id: string, updates: Partial<School>): Promise<void> => {
+  await api.schools.update(id, updates);
+};
+
+export const deleteSchool = async (id: string): Promise<void> => {
+  await api.schools.delete(id);
+};
+
+export const getSchoolByName = async (name: string): Promise<School | undefined> => {
+  try {
+    return await api.schools.getByName(name);
+  } catch {
+    return undefined;
+  }
+};
+
+// Export/Import
+export const exportData = async (): Promise<string> => {
+  try {
+    const data = await api.export.getAll();
+    return JSON.stringify(data, null, 2);
+  } catch (error) {
+    console.error('Failed to export data:', error);
+    throw error;
+  }
+};
+
+export const importData = async (jsonString: string): Promise<void> => {
+  // Note: You'll need to implement a bulk import endpoint for this
+  // For now, this is a placeholder
+  try {
+    const data = JSON.parse(jsonString);
+    
+    if (data.schools) {
+      for (const school of data.schools) {
+        await addSchool(school);
+      }
+    }
+    if (data.students) {
+      for (const student of data.students) {
+        await addStudent(student);
+      }
+    }
+    if (data.goals) {
+      for (const goal of data.goals) {
+        await addGoal(goal);
+      }
+    }
+    if (data.sessions) {
+      for (const session of data.sessions) {
+        await addSession(session);
+      }
+    }
+    if (data.activities) {
+      for (const activity of data.activities) {
+        await addActivity(activity);
+      }
+    }
+    if (data.evaluations) {
+      for (const evaluation of data.evaluations) {
+        await addEvaluation(evaluation);
+      }
+    }
+    if (data.lunches) {
+      for (const lunch of data.lunches) {
+        await addLunch(lunch);
+      }
+    }
+  } catch (error) {
+    throw new Error('Invalid JSON data');
+  }
+};
+

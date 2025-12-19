@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { onStorageChange } from '../utils/storageSync';
-import { getSchools, addSchool as addSchoolStorage, getSchoolByName, type School } from '../utils/storage';
+import { getSchools, addSchool as addSchoolStorage, getSchoolByName, type School, getStudents } from '../utils/storage-api';
 import { generateId } from '../utils/helpers';
 
 const SCHOOL_STORAGE_KEY = 'slp_selected_school';
@@ -23,12 +22,12 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
   const [schools, setSchools] = useState<School[]>([]);
 
   // Get available schools from School objects and students
-  const refreshAvailableSchools = useCallback(() => {
+  const refreshAvailableSchools = useCallback(async () => {
     try {
       const schoolNames = new Set<string>();
       
       // Add schools from School objects
-      const schoolObjects = getSchools();
+      const schoolObjects = await getSchools();
       schoolObjects.forEach((school) => {
         if (school.name && school.name.trim()) {
           schoolNames.add(school.name.trim());
@@ -37,7 +36,7 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
       setSchools(schoolObjects);
       
       // Add schools from students (for backward compatibility)
-      const students = JSON.parse(localStorage.getItem('slp_students') || '[]');
+      const students = await getStudents();
       students.forEach((student: any) => {
         if (student.school && student.school.trim()) {
           schoolNames.add(student.school.trim());
@@ -49,7 +48,7 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
       
       // Ensure default school exists as a School object if it doesn't
       if (!schoolObjects.find(s => s.name === DEFAULT_SCHOOL_NAME)) {
-        addSchoolStorage({
+        await addSchoolStorage({
           id: generateId(),
           name: DEFAULT_SCHOOL_NAME,
           state: '',
@@ -79,12 +78,12 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
     refreshAvailableSchools();
   }, [refreshAvailableSchools]);
 
-  // Listen for storage changes to refresh available schools
+  // Refresh schools periodically (since we don't have storage sync events with API)
   useEffect(() => {
-    const unsubscribe = onStorageChange(() => {
+    const interval = setInterval(() => {
       refreshAvailableSchools();
-    });
-    return unsubscribe;
+    }, 5000); // Refresh every 5 seconds
+    return () => clearInterval(interval);
   }, [refreshAvailableSchools]);
 
   const setSelectedSchool = (school: string) => {
@@ -92,17 +91,17 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem(SCHOOL_STORAGE_KEY, school);
   };
 
-  const addSchool = (name: string, state: string = '', teletherapy: boolean = false) => {
+  const addSchool = async (name: string, state: string = '', teletherapy: boolean = false) => {
     const trimmedName = name.trim();
     if (!trimmedName) return;
     
     try {
       // Check if school already exists
-      const existingSchool = getSchoolByName(trimmedName);
+      const existingSchool = await getSchoolByName(trimmedName);
       if (existingSchool) {
         // School already exists, just select it
         setSelectedSchool(trimmedName);
-        refreshAvailableSchools();
+        await refreshAvailableSchools();
         return;
       }
       
@@ -115,18 +114,18 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
         dateCreated: new Date().toISOString(),
       };
       
-      addSchoolStorage(newSchool);
+      await addSchoolStorage(newSchool);
       
       // Refresh available schools and select the new school
-      refreshAvailableSchools();
+      await refreshAvailableSchools();
       setSelectedSchool(trimmedName);
     } catch (error) {
       console.error('Error adding school:', error);
     }
   };
 
-  const getSchoolState = (schoolName: string): string | undefined => {
-    const school = getSchoolByName(schoolName);
+  const getSchoolState = async (schoolName: string): Promise<string | undefined> => {
+    const school = await getSchoolByName(schoolName);
     return school?.state;
   };
 

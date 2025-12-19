@@ -33,12 +33,11 @@ import {
   addSchool,
   updateSchool,
   deleteSchool,
-} from '../utils/storage';
+} from '../utils/storage-api';
 import { generateId } from '../utils/helpers';
-import { useStorageSync } from '../hooks/useStorageSync';
 import { useSchool } from '../context/SchoolContext';
 import { useConfirm } from '../hooks/useConfirm';
-import { getStudents } from '../utils/storage';
+import { getStudents } from '../utils/storage-api';
 
 // US State abbreviations
 const US_STATES = [
@@ -110,39 +109,43 @@ export const Schools = () => {
     teletherapy: false,
   });
 
-  const loadSchools = () => {
-    const allSchoolObjects = getSchools();
+  const loadSchools = async () => {
+    try {
+      const allSchoolObjects = await getSchools();
     const schoolNames = new Set(allSchoolObjects.map(s => s.name.toLowerCase()));
     
-    // Also check for schools that exist in students but not as School objects
-    // and create School objects for them
-    const students = getStudents();
-    students.forEach(student => {
-      if (student.school && student.school.trim()) {
-        const schoolName = student.school.trim();
-        if (!schoolNames.has(schoolName.toLowerCase())) {
-          // This school exists in students but not as a School object
-          // Create a School object for it
-          const newSchool: School = {
-            id: generateId(),
-            name: schoolName,
-            state: '',
-            teletherapy: false,
-            dateCreated: new Date().toISOString(),
-          };
-          addSchool(newSchool);
-          schoolNames.add(schoolName.toLowerCase());
+      // Also check for schools that exist in students but not as School objects
+      // and create School objects for them
+      const students = await getStudents();
+      for (const student of students) {
+        if (student.school && student.school.trim()) {
+          const schoolName = student.school.trim();
+          if (!schoolNames.has(schoolName.toLowerCase())) {
+            // This school exists in students but not as a School object
+            // Create a School object for it
+            const newSchool: School = {
+              id: generateId(),
+              name: schoolName,
+              state: '',
+              teletherapy: false,
+              dateCreated: new Date().toISOString(),
+            };
+            await addSchool(newSchool);
+            schoolNames.add(schoolName.toLowerCase());
+          }
         }
       }
-    });
-    
-    // Reload to get the newly created schools
-    const allSchools = getSchools();
-    // Sort alphabetically by name
-    const sorted = [...allSchools].sort((a, b) => 
-      a.name.localeCompare(b.name)
-    );
-    setSchools(sorted);
+      
+      // Reload to get the newly created schools
+      const allSchools = await getSchools();
+      // Sort alphabetically by name
+      const sorted = [...allSchools].sort((a, b) => 
+        a.name.localeCompare(b.name)
+      );
+      setSchools(sorted);
+    } catch (error) {
+      console.error('Failed to load schools:', error);
+    }
   };
 
   useEffect(() => {
@@ -169,10 +172,6 @@ export const Schools = () => {
     setFilteredSchools(filtered);
   };
 
-  // Sync data across browser tabs
-  useStorageSync(() => {
-    loadSchools();
-  });
 
   const handleOpenDialog = (school?: School) => {
     if (school) {

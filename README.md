@@ -89,7 +89,8 @@ A comprehensive web application designed to help Speech-Language Pathologists (S
 - **UI Library**: Material-UI (MUI) v6
 - **Charts**: Recharts for data visualization
 - **AI Integration**: Google Generative AI (Gemini API)
-- **Storage**: Browser localStorage
+- **Storage**: Browser localStorage (default) or SQLite backend (optional)
+- **Backend**: Express.js + SQLite (optional, see Backend Setup)
 - **Date Handling**: date-fns
 
 ## Getting Started
@@ -115,14 +116,25 @@ npm install
 pnpm install
 ```
 
-3. Start the development server:
+3. Install API dependencies (first time only):
 ```bash
-npm run dev
-# or
-pnpm dev
+cd api
+npm install
+cd ..
 ```
 
-4. Open your browser and navigate to `http://localhost:5173` (or the port shown in the terminal)
+4. Start the development servers (both frontend and API):
+```bash
+pnpm dev
+# or
+npm run dev
+```
+
+This will start both:
+- **Frontend** on `http://localhost:5173` (or the port shown in the terminal)
+- **API Server** on `http://localhost:3001`
+
+5. Open your browser and navigate to the frontend URL shown in the terminal
 
 ### Configuration
 
@@ -131,6 +143,35 @@ pnpm dev
    - Open Settings in the app
    - Enter your API key
    - The key is stored locally and never sent to any server except Google's Gemini API
+
+### Backend Setup (Optional)
+
+The app now supports an optional Express + SQLite backend for more robust data storage:
+
+1. **Set up the backend**:
+   ```bash
+   cd api
+   npm install
+   npm run dev
+   ```
+
+2. **Migrate your data** (if you have existing localStorage data):
+   - See [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md) for detailed instructions
+   - Export your localStorage data first
+   - Run the migration script to import into SQLite
+
+3. **Update frontend to use API**:
+   - Change imports from `'./utils/storage'` to `'./utils/storage-api'` in your components
+   - Or keep using localStorage if you prefer
+
+The backend provides:
+- ✅ More reliable data storage (SQLite database)
+- ✅ Better performance for large datasets
+- ✅ Easy backups (just copy the .db file)
+- ✅ Export/import endpoints
+- ✅ All CRUD operations via REST API
+
+See the [API README](./api/README.md) for more details.
 
 ## Usage
 

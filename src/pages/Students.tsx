@@ -40,9 +40,8 @@ import {
   addStudent,
   updateStudent,
   deleteStudent,
-} from '../utils/storage';
+} from '../utils/storage-api';
 import { generateId } from '../utils/helpers';
-import { useStorageSync } from '../hooks/useStorageSync';
 import { useSchool } from '../context/SchoolContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { useDirty } from '../hooks/useDirty';
@@ -128,7 +127,7 @@ export const Students = () => {
     setFilteredStudents(filtered);
   };
 
-  const loadStudents = () => {
+  const loadStudents = async () => {
     if (!selectedSchool) {
       console.warn('No school selected, cannot load students');
       setStudents([]);
@@ -136,28 +135,32 @@ export const Students = () => {
     }
     console.log('Loading students for school:', selectedSchool);
     
-    // First, check if ANY students exist (without school filter)
-    const allStudentsUnfiltered = getStudents();
-    console.log('Total students in storage (no filter):', allStudentsUnfiltered.length);
-    
-    // Then filter by school
-    const allStudents = getStudents(selectedSchool);
-    console.log('Found students:', allStudents.length, 'for school:', selectedSchool);
-    
-    // If no students found for this school but students exist, show a warning
-    if (allStudents.length === 0 && allStudentsUnfiltered.length > 0) {
-      console.warn('⚠️ Students exist but none match the selected school!');
-      console.log('Selected school:', selectedSchool);
-      console.log('Available school names in students:', [...new Set(allStudentsUnfiltered.map(s => s.school || 'NO SCHOOL'))]);
+    try {
+      // First, check if ANY students exist (without school filter)
+      const allStudentsUnfiltered = await getStudents();
+      console.log('Total students in storage (no filter):', allStudentsUnfiltered.length);
+      
+      // Then filter by school
+      const allStudents = await getStudents(selectedSchool);
+      console.log('Found students:', allStudents.length, 'for school:', selectedSchool);
+      
+      // If no students found for this school but students exist, show a warning
+      if (allStudents.length === 0 && allStudentsUnfiltered.length > 0) {
+        console.warn('⚠️ Students exist but none match the selected school!');
+        console.log('Selected school:', selectedSchool);
+        console.log('Available school names in students:', [...new Set(allStudentsUnfiltered.map(s => s.school || 'NO SCHOOL'))]);
+      }
+      
+      // Sort alphabetically by first name
+      const sortedStudents = [...allStudents].sort((a, b) => {
+        const firstNameA = a.name.split(' ')[0].toLowerCase();
+        const firstNameB = b.name.split(' ')[0].toLowerCase();
+        return firstNameA.localeCompare(firstNameB);
+      });
+      setStudents(sortedStudents);
+    } catch (error) {
+      console.error('Failed to load students:', error);
     }
-    
-    // Sort alphabetically by first name
-    const sortedStudents = [...allStudents].sort((a, b) => {
-      const firstNameA = a.name.split(' ')[0].toLowerCase();
-      const firstNameB = b.name.split(' ')[0].toLowerCase();
-      return firstNameA.localeCompare(firstNameB);
-    });
-    setStudents(sortedStudents);
   };
 
   useEffect(() => {
@@ -177,11 +180,6 @@ export const Students = () => {
       return new Set([...prev].filter((id) => visibleIds.has(id)));
     });
   }, [filteredStudents]);
-
-  // Sync data across browser tabs
-  useStorageSync(() => {
-    loadStudents();
-  });
 
   const handleOpenDialog = (student?: Student, prefillName?: string) => {
     let newFormData: typeof formData;
@@ -233,7 +231,7 @@ export const Students = () => {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // Age is optional - only validate if provided
     const ageValue = formData.age.trim() === '' ? undefined : parseInt(formData.age);
     if (ageValue !== undefined && (isNaN(ageValue) || ageValue < 1)) {
@@ -251,33 +249,39 @@ export const Students = () => {
       .map((e) => e.trim())
       .filter((e) => e.length > 0);
 
-    if (editingStudent) {
-      updateStudent(editingStudent.id, {
-        name: formData.name,
-        age: ageValue ?? 0,
-        grade: formData.grade,
-        concerns: concernsArray,
-        exceptionality: exceptionalityArray.length > 0 ? exceptionalityArray : undefined,
-        status: formData.status,
-        school: formData.school || selectedSchool,
-      });
-    } else {
-      addStudent({
-        id: generateId(),
-        name: formData.name,
-        age: ageValue ?? 0,
-        grade: formData.grade,
-        concerns: concernsArray,
-        exceptionality: exceptionalityArray.length > 0 ? exceptionalityArray : undefined,
-        status: formData.status,
-        dateAdded: new Date().toISOString(),
-        school: formData.school || selectedSchool,
-      });
+    try {
+      if (editingStudent) {
+        await updateStudent(editingStudent.id, {
+          name: formData.name,
+          age: ageValue ?? 0,
+          grade: formData.grade,
+          concerns: concernsArray,
+          exceptionality: exceptionalityArray.length > 0 ? exceptionalityArray : undefined,
+          status: formData.status,
+          school: formData.school || selectedSchool,
+        });
+      } else {
+        await addStudent({
+          id: generateId(),
+          name: formData.name,
+          age: ageValue ?? 0,
+          grade: formData.grade,
+          concerns: concernsArray,
+          exceptionality: exceptionalityArray.length > 0 ? exceptionalityArray : undefined,
+          status: formData.status,
+          dateAdded: new Date().toISOString(),
+          school: formData.school || selectedSchool,
+        });
+      }
+      await loadStudents();
+      resetDirty();
+      setDialogOpen(false);
+      setEditingStudent(null);
+    } catch (error: any) {
+      console.error('Failed to save student:', error);
+      const errorMessage = error?.message || 'Unknown error';
+      alert(`Failed to save student: ${errorMessage}\n\nMake sure the API server is running on http://localhost:3001`);
     }
-    loadStudents();
-    resetDirty();
-    setDialogOpen(false);
-    setEditingStudent(null);
   };
 
   const handleDelete = (id: string) => {
@@ -287,10 +291,15 @@ export const Students = () => {
       open: true,
       title: 'Delete Student',
       message: `Are you sure you want to delete ${student?.name || 'this student'}? This action cannot be undone.`,
-      onConfirm: () => {
-        deleteStudent(id);
-        loadStudents();
-        setConfirmDialog({ ...confirmDialog, open: false });
+      onConfirm: async () => {
+        try {
+          await deleteStudent(id);
+          await loadStudents();
+          setConfirmDialog({ ...confirmDialog, open: false });
+        } catch (error) {
+          console.error('Failed to delete student:', error);
+          alert('Failed to delete student. Please try again.');
+        }
       },
     });
   };
@@ -304,13 +313,18 @@ export const Students = () => {
       message: archive
         ? `Are you sure you want to archive ${student?.name || 'this student'}? Archived students can be viewed in the Archived view.`
         : `Are you sure you want to unarchive ${student?.name || 'this student'}?`,
-      onConfirm: () => {
-        updateStudent(id, {
-          archived: archive,
-          dateArchived: archive ? new Date().toISOString() : undefined,
-        });
-        loadStudents();
-        setConfirmDialog({ ...confirmDialog, open: false });
+      onConfirm: async () => {
+        try {
+          await updateStudent(id, {
+            archived: archive,
+            dateArchived: archive ? new Date().toISOString() : undefined,
+          });
+          await loadStudents();
+          setConfirmDialog({ ...confirmDialog, open: false });
+        } catch (error) {
+          console.error('Failed to archive student:', error);
+          alert('Failed to archive student. Please try again.');
+        }
       },
     });
   };
