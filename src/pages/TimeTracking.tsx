@@ -270,120 +270,97 @@ export const TimeTracking = () => {
       noteParts.push('Offsite');
     }
     
-    // Filter to only sessions and lunches (not evaluations) and sort chronologically
+    // Filter to only sessions (not evaluations or lunches)
     const sessionItems = filteredItems
-      .filter(item => item.type === 'session' || item.type === 'lunch')
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      .filter(item => item.type === 'session');
     
-    // Separate direct and indirect services
+    // Separate direct services and missed direct services
     const directServices: Session[] = [];
-    const indirectServices: Session[] = [];
+    const missedDirectServices: Session[] = [];
     const processedDirectGroupIds = new Set<string>();
-    const processedIndirectGroupIds = new Set<string>();
+    const processedMissedGroupIds = new Set<string>();
+    const processedDirectStudents = new Set<string>();
+    const processedMissedStudents = new Set<string>();
     
     sessionItems.forEach(item => {
       const session = item.data as Session;
       if (session.isDirectServices) {
-        // For group sessions, only add once per group
+        // For group sessions, collect all students from the group
         if (session.groupSessionId) {
-          if (!processedDirectGroupIds.has(session.groupSessionId)) {
-            processedDirectGroupIds.add(session.groupSessionId);
-            directServices.push(session);
+          if (session.missedSession) {
+            if (!processedMissedGroupIds.has(session.groupSessionId)) {
+              processedMissedGroupIds.add(session.groupSessionId);
+              const groupSessions = getGroupSessions(session.groupSessionId);
+              groupSessions.forEach(s => {
+                if (!processedMissedStudents.has(s.studentId)) {
+                  processedMissedStudents.add(s.studentId);
+                  missedDirectServices.push(s);
+                }
+              });
+            }
+          } else {
+            if (!processedDirectGroupIds.has(session.groupSessionId)) {
+              processedDirectGroupIds.add(session.groupSessionId);
+              const groupSessions = getGroupSessions(session.groupSessionId);
+              groupSessions.forEach(s => {
+                if (!processedDirectStudents.has(s.studentId)) {
+                  processedDirectStudents.add(s.studentId);
+                  directServices.push(s);
+                }
+              });
+            }
           }
         } else {
-          directServices.push(session);
-        }
-      } else {
-        // For group sessions, only add once per group
-        if (session.groupSessionId) {
-          if (!processedIndirectGroupIds.has(session.groupSessionId)) {
-            processedIndirectGroupIds.add(session.groupSessionId);
-            indirectServices.push(session);
+          if (session.missedSession) {
+            if (!processedMissedStudents.has(session.studentId)) {
+              processedMissedStudents.add(session.studentId);
+              missedDirectServices.push(session);
+            }
+          } else {
+            if (!processedDirectStudents.has(session.studentId)) {
+              processedDirectStudents.add(session.studentId);
+              directServices.push(session);
+            }
           }
-        } else {
-          indirectServices.push(session);
         }
       }
     });
     
-    // Process direct services with time ranges
-    directServices.forEach(session => {
-      const serviceType = session.missedSession ? 'Missed Direct services' : 'Direct services';
-      const timeRange = formatTimeRange(session.date, session.endTime);
-      const isGroup = isGroupSession(session);
-      
-      if (isGroup) {
-        const groupSessions = getGroupSessions(session.groupSessionId!);
-        // Sort group sessions by student name for consistency
-        const sortedGroupSessions = [...groupSessions].sort((a, b) => 
-          getStudentName(a.studentId).localeCompare(getStudentName(b.studentId))
-        );
-        
-        const studentEntries = sortedGroupSessions.map(s => {
-          const student = getStudent(s.studentId);
-          const initials = getStudentInitials(s.studentId);
-          const grade = student?.grade || '';
-          return `${initials} (${grade})`;
-        }).join(', ');
-        
-        noteParts.push(`${timeRange} ${serviceType}: ${studentEntries}`);
-      } else {
+    // Build direct services entry
+    if (directServices.length > 0) {
+      const directStudentEntries = directServices.map(session => {
         const student = getStudent(session.studentId);
         const initials = getStudentInitials(session.studentId);
         const grade = student?.grade || '';
-        
-        noteParts.push(`${timeRange} ${serviceType}: ${initials}(${grade})`);
-      }
-    });
-    
-    // Process indirect services - group all together without time ranges
-    if (indirectServices.length > 0) {
-      const indirectStudentEntries: string[] = [];
-      const processedIndirectStudents = new Set<string>();
-      
-      indirectServices.forEach(session => {
-        const isGroup = isGroupSession(session);
-        
-        if (isGroup) {
-          const groupSessions = getGroupSessions(session.groupSessionId!);
-          groupSessions.forEach(s => {
-            if (!processedIndirectStudents.has(s.studentId)) {
-              processedIndirectStudents.add(s.studentId);
-              const student = getStudent(s.studentId);
-              const initials = getStudentInitials(s.studentId);
-              const grade = student?.grade || '';
-              indirectStudentEntries.push(`${initials} (${grade})`);
-            }
-          });
-        } else {
-          if (!processedIndirectStudents.has(session.studentId)) {
-            processedIndirectStudents.add(session.studentId);
-            const student = getStudent(session.studentId);
-            const initials = getStudentInitials(session.studentId);
-            const grade = student?.grade || '';
-            indirectStudentEntries.push(`${initials} (${grade})`);
-          }
-        }
+        return `${initials} (${grade})`;
       });
       
-      // Sort student entries alphabetically for consistency
-      indirectStudentEntries.sort();
+      // Sort by initials for consistency
+      directStudentEntries.sort();
       
-      if (indirectStudentEntries.length > 0) {
-        noteParts.push(`Indirect services: ${indirectStudentEntries.join(', ')}`);
-      }
+      noteParts.push(`Direct services:`);
+      noteParts.push(directStudentEntries.join(', '));
     }
     
-    // Process lunches - add them with time ranges
-    const lunchItems = filteredItems
-      .filter(item => item.type === 'lunch')
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    // Build missed direct services entry
+    if (missedDirectServices.length > 0) {
+      const missedStudentEntries = missedDirectServices.map(session => {
+        const student = getStudent(session.studentId);
+        const initials = getStudentInitials(session.studentId);
+        const grade = student?.grade || '';
+        return `${initials} (${grade})`;
+      });
+      
+      // Sort by initials for consistency
+      missedStudentEntries.sort();
+      
+      noteParts.push(`Missed Direct services:`);
+      noteParts.push(missedStudentEntries.join(', '));
+    }
     
-    lunchItems.forEach(item => {
-      const lunch = item.data as Lunch;
-      const timeRange = formatTimeRange(lunch.startTime, lunch.endTime);
-      noteParts.push(`${timeRange} Lunch`);
-    });
+    // Always include indirect services with the standard items
+    noteParts.push(`Indirect services:`);
+    noteParts.push('Email Correspondence, Documentation, Lesson Planning');
     
     setTimesheetNote(noteParts.join('\n'));
     setTimesheetDialogOpen(true);
