@@ -832,7 +832,7 @@ export const Sessions = () => {
         })()}
       </Grid>
 
-      <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="md" fullWidth>
+      <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="lg" fullWidth>
         <DialogTitle>
           {editingGroupSessionId ? 'Edit Group Session' : editingSession ? 'Edit Activity' : 'Log New Activity'}
         </DialogTitle>
@@ -1013,7 +1013,8 @@ export const Sessions = () => {
                   <Typography color="text.secondary" variant="body2">
                     No students selected. Please select at least one student.
                   </Typography>
-                ) : (
+                ) : availableGoalsByStudent.length === 1 ? (
+                  // Single student layout (original column layout)
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
                     {availableGoalsByStudent.map(({ studentId, studentName, goals: studentGoals }) => (
                       <Box key={studentId} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
@@ -1108,6 +1109,116 @@ export const Sessions = () => {
                       </Box>
                     ))}
                   </Box>
+                ) : (
+                  // Multiple students layout (side-by-side)
+                  <Grid container spacing={2} sx={{ mt: 1 }}>
+                    {availableGoalsByStudent.map(({ studentId, studentName, goals: studentGoals }) => (
+                      <Grid item xs={12} sm={6} md={availableGoalsByStudent.length === 2 ? 6 : 4} key={studentId}>
+                        <Box sx={{ 
+                          border: '1px solid', 
+                          borderColor: 'divider', 
+                          borderRadius: 1, 
+                          p: 2,
+                          height: '100%',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          maxHeight: '600px',
+                          overflow: 'auto'
+                        }}>
+                          <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold', color: 'primary.main', position: 'sticky', top: 0, bgcolor: 'background.paper', pb: 1, zIndex: 1 }}>
+                            {studentName}
+                          </Typography>
+                          {studentGoals.length === 0 ? (
+                            <Typography color="text.secondary" variant="body2">
+                              No goals found for this student. Add goals in the student's detail page.
+                            </Typography>
+                          ) : (
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                              {studentGoals.map((goal) => (
+                                <Box key={goal.id}>
+                                  <FormControlLabel
+                                    control={
+                                      <Checkbox
+                                        checked={formData.goalsTargeted.includes(goal.id)}
+                                        onChange={() => handleGoalToggle(goal.id, studentId)}
+                                      />
+                                    }
+                                    label={<Typography variant="body2">{goal.description}</Typography>}
+                                  />
+                                  {formData.goalsTargeted.includes(goal.id) && (() => {
+                                    const perfData = formData.performanceData.find((p) => p.goalId === goal.id && p.studentId === studentId);
+                                    const correctTrials = perfData?.correctTrials || 0;
+                                    const incorrectTrials = perfData?.incorrectTrials || 0;
+                                    const totalTrials = correctTrials + incorrectTrials;
+                                    const calculatedAccuracy = totalTrials > 0 ? Math.round((correctTrials / totalTrials) * 100) : 0;
+                                    // Use calculated accuracy if trials exist, otherwise use manually entered accuracy
+                                    const displayAccuracy = totalTrials > 0 ? calculatedAccuracy : (perfData?.accuracy ? parseFloat(perfData.accuracy) : 0);
+                                    const displayText = totalTrials > 0 ? `${correctTrials}/${totalTrials} trials (${calculatedAccuracy}%)` : '0/0 trials (0%)';
+                                    
+                                    return (
+                                      <Box sx={{ ml: 3, display: 'flex', flexDirection: 'column', gap: 1, mt: 0.5 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                                          <IconButton
+                                            size="small"
+                                            onClick={() => handleTrialUpdate(goal.id, studentId, false)}
+                                            color="error"
+                                            sx={{ border: '1px solid', borderColor: 'error.main' }}
+                                          >
+                                            <RemoveIcon fontSize="small" />
+                                          </IconButton>
+                                          <IconButton
+                                            size="small"
+                                            onClick={() => handleTrialUpdate(goal.id, studentId, true)}
+                                            color="success"
+                                            sx={{ border: '1px solid', borderColor: 'success.main' }}
+                                          >
+                                            <AddIcon fontSize="small" />
+                                          </IconButton>
+                                          <Typography variant="body2" sx={{ ml: 1, minWidth: '120px', fontSize: '0.75rem' }}>
+                                            {displayText}
+                                          </Typography>
+                                        </Box>
+                                        <TextField
+                                          label="Accuracy %"
+                                          type="number"
+                                          size="small"
+                                          value={totalTrials > 0 ? calculatedAccuracy.toString() : (perfData?.accuracy || '')}
+                                          onChange={(e) => {
+                                            // When manually entering, clear trials to allow manual override
+                                            setFormData({
+                                              ...formData,
+                                              performanceData: formData.performanceData.map((p) =>
+                                                p.goalId === goal.id && p.studentId === studentId
+                                                  ? { ...p, accuracy: e.target.value, correctTrials: 0, incorrectTrials: 0 }
+                                                  : p
+                                              ),
+                                            });
+                                          }}
+                                          helperText={totalTrials > 0 ? 'Auto-calculated' : 'Manual entry'}
+                                          sx={{ width: '100%' }}
+                                        />
+                                        <TextField
+                                          label="Notes"
+                                          size="small"
+                                          fullWidth
+                                          multiline
+                                          rows={2}
+                                          value={perfData?.notes || ''}
+                                          onChange={(e) =>
+                                            handlePerformanceUpdate(goal.id, studentId, 'notes', e.target.value)
+                                          }
+                                        />
+                                      </Box>
+                                    );
+                                  })()}
+                                </Box>
+                              ))}
+                            </Box>
+                          )}
+                        </Box>
+                      </Grid>
+                    ))}
+                  </Grid>
                 )}
               </Box>
                 )}
