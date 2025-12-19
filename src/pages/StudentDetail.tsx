@@ -205,13 +205,23 @@ export const StudentDetail = () => {
       };
     } else {
       setEditingGoal(null);
+      // If creating a sub-goal, inherit domain and priority from parent
+      let inheritedDomain = '';
+      let inheritedPriority: 'high' | 'medium' | 'low' = 'medium';
+      if (parentGoalId) {
+        const parentGoal = goals.find(g => g.id === parentGoalId);
+        if (parentGoal) {
+          inheritedDomain = parentGoal.domain || '';
+          inheritedPriority = parentGoal.priority || 'medium';
+        }
+      }
       newFormData = {
         description: '',
         baseline: '',
         target: '',
         status: 'in-progress',
-        domain: '',
-        priority: 'medium',
+        domain: inheritedDomain,
+        priority: inheritedPriority,
         parentGoalId: parentGoalId || '',
       };
     }
@@ -705,6 +715,14 @@ export const StudentDetail = () => {
                                                 color="primary"
                                                 variant="outlined"
                                               />
+                                              {sub.priority && (
+                                                <Chip
+                                                  label={sub.priority}
+                                                  size="small"
+                                                  color={sub.priority === 'high' ? 'error' : sub.priority === 'medium' ? 'warning' : 'success'}
+                                                  variant="outlined"
+                                                />
+                                              )}
                                               <IconButton
                                                 size="small"
                                                 onClick={() => handleOpenDialog(sub)}
@@ -847,6 +865,14 @@ export const StudentDetail = () => {
                                               color="primary"
                                               variant="outlined"
                                             />
+                                            {sub.priority && (
+                                              <Chip
+                                                label={sub.priority}
+                                                size="small"
+                                                color={sub.priority === 'high' ? 'error' : sub.priority === 'medium' ? 'warning' : 'success'}
+                                                variant="outlined"
+                                              />
+                                            )}
                                             <IconButton
                                               size="small"
                                               onClick={() => handleOpenDialog(sub)}
