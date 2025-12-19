@@ -330,6 +330,12 @@ export const Students = () => {
     handleMenuClose();
   };
 
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && filteredStudents.length === 1) {
+      handleViewDetails(filteredStudents[0].id);
+    }
+  };
+
   const handleAccordionChange = (studentId: string) => {
     setExpandedStudents((prev) => {
       const newSet = new Set(prev);
@@ -397,6 +403,7 @@ export const Students = () => {
           placeholder={`Search ${showArchived ? 'archived ' : ''}students by name, grade, or concerns...`}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
+          onKeyDown={handleSearchKeyDown}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
