@@ -87,7 +87,16 @@ export const TimeTracking = () => {
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [lunches, setLunches] = useState<Lunch[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
-  const [selectedDate, setSelectedDate] = useState<string>('');
+  // Get current date in YYYY-MM-DD format for date input
+  const getCurrentDateString = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const [selectedDate, setSelectedDate] = useState<string>(getCurrentDateString());
   const [timesheetDialogOpen, setTimesheetDialogOpen] = useState(false);
   const [timesheetNote, setTimesheetNote] = useState('');
   const [savedNotesDialogOpen, setSavedNotesDialogOpen] = useState(false);
