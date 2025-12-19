@@ -36,6 +36,7 @@ import {
   Psychology as PsychologyIcon,
   Description as DescriptionIcon,
   School as SchoolIcon,
+  ContentCopy as ContentCopyIcon,
 } from '@mui/icons-material';
 import type { Student, Goal } from '../types';
 import {
@@ -315,6 +316,25 @@ export const StudentDetail = () => {
       deleteGoal(goalId);
       loadGoals();
     }
+  };
+
+  const handleDuplicateSubGoal = (subGoal: Goal) => {
+    // Duplicate the sub-goal by pre-filling the form with its data
+    // This opens the dialog as a new goal (not editing), so user can edit before saving
+    const newFormData = {
+      description: subGoal.description,
+      baseline: subGoal.baseline,
+      target: subGoal.target,
+      status: subGoal.status,
+      domain: subGoal.domain || '',
+      priority: subGoal.priority || 'medium',
+      parentGoalId: subGoal.parentGoalId || '', // Keep the same parent
+    };
+    setFormData(newFormData);
+    setInitialFormData(newFormData);
+    setEditingGoal(null); // Set to null so it's treated as a new goal
+    setSelectedTemplate(null);
+    setDialogOpen(true);
   };
 
   // AI Feature Handlers
@@ -620,6 +640,17 @@ export const StudentDetail = () => {
                                           : 'default'
                                       }
                                     />
+                                    {(() => {
+                                      const recent = getRecentPerformance(goal.id);
+                                      return (
+                                        <Chip
+                                          label={recent.average !== null ? `${Math.round(recent.average)}%` : 'not started'}
+                                          size="small"
+                                          color="primary"
+                                          variant="outlined"
+                                        />
+                                      );
+                                    })()}
                                     {goal.priority && (
                                       <Chip
                                         label={goal.priority}
@@ -661,20 +692,37 @@ export const StudentDetail = () => {
                                       <Typography variant="subtitle2" gutterBottom>
                                         Sub-goals ({subs.length}):
                                       </Typography>
-                                      {subs.map(sub => (
-                                        <Box key={sub.id} sx={{ mb: 1 }}>
-                                          <Typography variant="body2">{sub.description}</Typography>
-                                          <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
-                                            <Chip label={sub.status} size="small" />
-                                            <IconButton
-                                              size="small"
-                                              onClick={() => handleOpenDialog(sub)}
-                                            >
-                                              <EditIcon fontSize="small" />
-                                            </IconButton>
+                                      {subs.map(sub => {
+                                        const subRecent = getRecentPerformance(sub.id);
+                                        return (
+                                          <Box key={sub.id} sx={{ mb: 1 }}>
+                                            <Typography variant="body2">{sub.description}</Typography>
+                                            <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
+                                              <Chip label={sub.status} size="small" />
+                                              <Chip
+                                                label={subRecent.average !== null ? `${Math.round(subRecent.average)}%` : 'not started'}
+                                                size="small"
+                                                color="primary"
+                                                variant="outlined"
+                                              />
+                                              <IconButton
+                                                size="small"
+                                                onClick={() => handleOpenDialog(sub)}
+                                                title="Edit sub-goal"
+                                              >
+                                                <EditIcon fontSize="small" />
+                                              </IconButton>
+                                              <IconButton
+                                                size="small"
+                                                onClick={() => handleDuplicateSubGoal(sub)}
+                                                title="Duplicate sub-goal"
+                                              >
+                                                <ContentCopyIcon fontSize="small" />
+                                              </IconButton>
+                                            </Box>
                                           </Box>
-                                        </Box>
-                                      ))}
+                                        );
+                                      })}
                                     </Box>
                                   )}
                                   <Button
@@ -741,6 +789,17 @@ export const StudentDetail = () => {
                                         : 'default'
                                     }
                                   />
+                                  {(() => {
+                                    const recent = getRecentPerformance(goal.id);
+                                    return (
+                                      <Chip
+                                        label={recent.average !== null ? `${Math.round(recent.average)}%` : 'not started'}
+                                        size="small"
+                                        color="primary"
+                                        variant="outlined"
+                                      />
+                                    );
+                                  })()}
                                   {goal.priority && (
                                     <Chip
                                       label={goal.priority}
@@ -775,20 +834,37 @@ export const StudentDetail = () => {
                                     <Typography variant="subtitle2" gutterBottom>
                                       Sub-goals ({subs.length}):
                                     </Typography>
-                                    {subs.map(sub => (
-                                      <Box key={sub.id} sx={{ mb: 1 }}>
-                                        <Typography variant="body2">{sub.description}</Typography>
-                                        <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
-                                          <Chip label={sub.status} size="small" />
-                                          <IconButton
-                                            size="small"
-                                            onClick={() => handleOpenDialog(sub)}
-                                          >
-                                            <EditIcon fontSize="small" />
-                                          </IconButton>
+                                    {subs.map(sub => {
+                                      const subRecent = getRecentPerformance(sub.id);
+                                      return (
+                                        <Box key={sub.id} sx={{ mb: 1 }}>
+                                          <Typography variant="body2">{sub.description}</Typography>
+                                          <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
+                                            <Chip label={sub.status} size="small" />
+                                            <Chip
+                                              label={subRecent.average !== null ? `${Math.round(subRecent.average)}%` : 'not started'}
+                                              size="small"
+                                              color="primary"
+                                              variant="outlined"
+                                            />
+                                            <IconButton
+                                              size="small"
+                                              onClick={() => handleOpenDialog(sub)}
+                                              title="Edit sub-goal"
+                                            >
+                                              <EditIcon fontSize="small" />
+                                            </IconButton>
+                                            <IconButton
+                                              size="small"
+                                              onClick={() => handleDuplicateSubGoal(sub)}
+                                              title="Duplicate sub-goal"
+                                            >
+                                              <ContentCopyIcon fontSize="small" />
+                                            </IconButton>
+                                          </Box>
                                         </Box>
-                                      </Box>
-                                    ))}
+                                      );
+                                    })}
                                   </Box>
                                 )}
                                 <Button
