@@ -57,7 +57,7 @@ import {
   getSessionsByStudent,
   addLunch,
 } from '../utils/storage-api';
-import { generateId, formatDateTime, toLocalDateTimeString, fromLocalDateTimeString, getGoalProgressChipProps } from '../utils/helpers';
+import { generateId, formatDate, formatDateTime, toLocalDateTimeString, fromLocalDateTimeString, getGoalProgressChipProps } from '../utils/helpers';
 import { generateSessionPlan } from '../utils/gemini';
 import { useSchool } from '../context/SchoolContext';
 
@@ -199,24 +199,32 @@ export const Sessions = () => {
           // Collect all student IDs from the group
           const allStudentIds = groupSessions.map(s => s.studentId);
           
-          // Collect all goals targeted across all sessions
+          // Collect all goals targeted across all sessions (filter out achieved goals)
           const allGoalsTargeted = new Set<string>();
           groupSessions.forEach(s => {
-            s.goalsTargeted.forEach(gId => allGoalsTargeted.add(gId));
+            s.goalsTargeted.forEach(gId => {
+              const goal = goals.find(g => g.id === gId);
+              if (goal && !isGoalAchieved(goal)) {
+                allGoalsTargeted.add(gId);
+              }
+            });
           });
           
-          // Collect all performance data from all sessions
+          // Collect all performance data from all sessions (only for active goals)
+          const activeGoalsArray = Array.from(allGoalsTargeted);
           const allPerformanceData: typeof formData.performanceData = [];
           groupSessions.forEach(s => {
             s.performanceData.forEach(p => {
-              allPerformanceData.push({
-                goalId: p.goalId,
-                studentId: s.studentId,
-                accuracy: p.accuracy?.toString() || '',
-                correctTrials: p.correctTrials || 0,
-                incorrectTrials: p.incorrectTrials || 0,
-                notes: p.notes || '',
-              });
+              if (activeGoalsArray.includes(p.goalId)) {
+                allPerformanceData.push({
+                  goalId: p.goalId,
+                  studentId: s.studentId,
+                  accuracy: p.accuracy?.toString() || '',
+                  correctTrials: p.correctTrials || 0,
+                  incorrectTrials: p.incorrectTrials || 0,
+                  notes: p.notes || '',
+                });
+              }
             });
           });
           
@@ -228,7 +236,7 @@ export const Sessions = () => {
             studentIds: allStudentIds,
             date: toLocalDateTimeString(startDate),
             endTime: endDate ? toLocalDateTimeString(endDate) : '',
-            goalsTargeted: Array.from(allGoalsTargeted),
+            goalsTargeted: activeGoalsArray,
             activitiesUsed: firstSession.activitiesUsed, // Use first session's activities (should be same for all)
             performanceData: allPerformanceData,
             notes: firstSession.notes, // Use first session's notes (should be same for all)
@@ -243,20 +251,28 @@ export const Sessions = () => {
         setEditingGroupSessionId(null);
         const startDate = new Date(session.date);
         const endDate = session.endTime ? new Date(session.endTime) : null;
+        // Filter out achieved goals when editing
+        const activeGoalsTargeted = session.goalsTargeted.filter(gId => {
+          const goal = goals.find(g => g.id === gId);
+          return goal && !isGoalAchieved(goal);
+        });
+        
         setFormData({
           studentIds: [session.studentId], // Convert single student to array for editing
           date: toLocalDateTimeString(startDate),
           endTime: endDate ? toLocalDateTimeString(endDate) : '',
-          goalsTargeted: session.goalsTargeted,
+          goalsTargeted: activeGoalsTargeted,
           activitiesUsed: session.activitiesUsed,
-          performanceData: session.performanceData.map(p => ({
-            goalId: p.goalId,
-            studentId: session.studentId, // Add studentId to performance data
-            accuracy: p.accuracy?.toString() || '',
-            correctTrials: p.correctTrials || 0,
-            incorrectTrials: p.incorrectTrials || 0,
-            notes: p.notes || '',
-          })),
+          performanceData: session.performanceData
+            .filter(p => activeGoalsTargeted.includes(p.goalId))
+            .map(p => ({
+              goalId: p.goalId,
+              studentId: session.studentId, // Add studentId to performance data
+              accuracy: p.accuracy?.toString() || '',
+              correctTrials: p.correctTrials || 0,
+              incorrectTrials: p.incorrectTrials || 0,
+              notes: p.notes || '',
+            })),
           notes: session.notes,
           isDirectServices: session.isDirectServices === true, // Explicitly check for true
           indirectServicesNotes: session.indirectServicesNotes || '',
@@ -388,8 +404,8 @@ export const Sessions = () => {
         // Find existing session for this student in the group
         const existingSession = existingGroupSessions.find(s => s.studentId === studentId);
         
-        // Filter goals and performance data for this student
-        const studentGoals = goals.filter(g => g.studentId === studentId).map(g => g.id);
+        // Filter goals and performance data for this student (exclude achieved goals)
+        const studentGoals = goals.filter(g => g.studentId === studentId && !isGoalAchieved(g)).map(g => g.id);
         const studentGoalsTargeted = formData.goalsTargeted.filter(gId => studentGoals.includes(gId));
         const studentPerformanceData = formData.performanceData
           .filter(p => p.studentId === studentId && studentGoalsTargeted.includes(p.goalId))
@@ -444,8 +460,8 @@ export const Sessions = () => {
 
       // Create a session for each selected student
       for (const studentId of formData.studentIds) {
-        // Filter goals and performance data for this student
-        const studentGoals = goals.filter(g => g.studentId === studentId).map(g => g.id);
+        // Filter goals and performance data for this student (exclude achieved goals)
+        const studentGoals = goals.filter(g => g.studentId === studentId && !isGoalAchieved(g)).map(g => g.id);
         const studentGoalsTargeted = formData.goalsTargeted.filter(gId => studentGoals.includes(gId));
         const studentPerformanceData = formData.performanceData
           .filter(p => p.studentId === studentId && studentGoalsTargeted.includes(p.goalId))
@@ -549,13 +565,35 @@ export const Sessions = () => {
     return average;
   };
 
-  // Get goals for all selected students, grouped by student
+  // Helper function to check if a goal is achieved (either directly or if it's a subgoal with an achieved parent)
+  const isGoalAchieved = (goal: Goal): boolean => {
+    // Check if goal itself is achieved
+    if (goal.status === 'achieved') {
+      return true;
+    }
+    // Check if it's a subgoal with an achieved parent
+    if (goal.parentGoalId) {
+      const parentGoal = goals.find(g => g.id === goal.parentGoalId);
+      if (parentGoal && parentGoal.status === 'achieved') {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  // Get goals for all selected students, grouped by student, separated into active and completed
   const availableGoalsByStudent = formData.studentIds.length > 0
-    ? formData.studentIds.map(studentId => ({
-        studentId,
-        studentName: students.find(s => s.id === studentId)?.name || 'Unknown',
-        goals: goals.filter((g) => g.studentId === studentId)
-      }))
+    ? formData.studentIds.map(studentId => {
+        const studentGoals = goals.filter((g) => g.studentId === studentId);
+        const activeGoals = studentGoals.filter(g => !isGoalAchieved(g));
+        const completedGoals = studentGoals.filter(g => isGoalAchieved(g));
+        return {
+          studentId,
+          studentName: students.find(s => s.id === studentId)?.name || 'Unknown',
+          goals: activeGoals,
+          completedGoals: completedGoals,
+        };
+      })
     : [];
 
   const handleGenerateSessionPlan = async () => {
@@ -1086,107 +1124,134 @@ export const Sessions = () => {
                 ) : availableGoalsByStudent.length === 1 ? (
                   // Single student layout (original column layout)
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-                    {availableGoalsByStudent.map(({ studentId, studentName, goals: studentGoals }) => (
-                      <Box key={studentId} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
-                        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold', color: 'primary.main' }}>
-                          {studentName}
-                        </Typography>
-                        {studentGoals.length === 0 ? (
-                          <Typography color="text.secondary" variant="body2">
-                            No goals found for this student. Add goals in the student's detail page.
+                    {availableGoalsByStudent.map(({ studentId, studentName, goals: studentGoals, completedGoals }) => (
+                      <Box key={studentId}>
+                        <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
+                          <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold', color: 'primary.main' }}>
+                            {studentName}
                           </Typography>
-                        ) : (
-                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                            {studentGoals.map((goal) => {
-                              const recentAvg = getRecentPerformance(goal.id, studentId);
-                              const chipProps = getGoalProgressChipProps(recentAvg, goal.target);
-                              return (
-                              <Box key={goal.id}>
-                                <FormControlLabel
-                                  control={
-                                    <Checkbox
-                                      checked={formData.goalsTargeted.includes(goal.id)}
-                                      onChange={() => handleGoalToggle(goal.id, studentId)}
-                                    />
-                                  }
-                                  label={
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                                      <span>{goal.description}</span>
-                                      <Chip
-                                        label={recentAvg !== null ? `${Math.round(recentAvg)}%` : 'not started'}
-                                        size="small"
-                                        color={chipProps.color}
-                                        variant={chipProps.variant}
+                          {studentGoals.length === 0 ? (
+                            <Typography color="text.secondary" variant="body2">
+                              No active goals found for this student. Add goals in the student's detail page.
+                            </Typography>
+                          ) : (
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                              {studentGoals.map((goal) => {
+                                const recentAvg = getRecentPerformance(goal.id, studentId);
+                                const chipProps = getGoalProgressChipProps(recentAvg, goal.target);
+                                return (
+                                <Box key={goal.id}>
+                                  <FormControlLabel
+                                    control={
+                                      <Checkbox
+                                        checked={formData.goalsTargeted.includes(goal.id)}
+                                        onChange={() => handleGoalToggle(goal.id, studentId)}
                                       />
-                                    </Box>
-                                  }
-                                />
-                                {formData.goalsTargeted.includes(goal.id) && (() => {
-                                  const perfData = formData.performanceData.find((p) => p.goalId === goal.id && p.studentId === studentId);
-                                  const correctTrials = perfData?.correctTrials || 0;
-                                  const incorrectTrials = perfData?.incorrectTrials || 0;
-                                  const totalTrials = correctTrials + incorrectTrials;
-                                  const calculatedAccuracy = totalTrials > 0 ? Math.round((correctTrials / totalTrials) * 100) : 0;
-                                  const displayText = totalTrials > 0 ? `${correctTrials}/${totalTrials} trials (${calculatedAccuracy}%)` : '0/0 trials (0%)';
-                                  
-                                  return (
-                                    <Box sx={{ ml: 4, display: 'flex', gap: 1, mt: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
-                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                        <IconButton
+                                    }
+                                    label={
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                        <span>{goal.description}</span>
+                                        <Chip
+                                          label={recentAvg !== null ? `${Math.round(recentAvg)}%` : 'not started'}
                                           size="small"
-                                          onClick={() => handleTrialUpdate(goal.id, studentId, false)}
-                                          color="error"
-                                          sx={{ border: '1px solid', borderColor: 'error.main' }}
-                                        >
-                                          <RemoveIcon fontSize="small" />
-                                        </IconButton>
-                                        <IconButton
-                                          size="small"
-                                          onClick={() => handleTrialUpdate(goal.id, studentId, true)}
-                                          color="success"
-                                          sx={{ border: '1px solid', borderColor: 'success.main' }}
-                                        >
-                                          <AddIcon fontSize="small" />
-                                        </IconButton>
-                                        <Typography variant="body2" sx={{ ml: 1, minWidth: '140px' }}>
-                                          {displayText}
-                                        </Typography>
+                                          color={chipProps.color}
+                                          variant={chipProps.variant}
+                                        />
                                       </Box>
-                                      <TextField
-                                        label="Accuracy %"
-                                        type="number"
-                                        size="small"
-                                        value={totalTrials > 0 ? calculatedAccuracy.toString() : (perfData?.accuracy || '')}
-                                        onChange={(e) => {
-                                          // When manually entering, clear trials to allow manual override
-                                          setFormData({
-                                            ...formData,
-                                            performanceData: formData.performanceData.map((p) =>
-                                              p.goalId === goal.id && p.studentId === studentId
-                                                ? { ...p, accuracy: e.target.value, correctTrials: 0, incorrectTrials: 0 }
-                                                : p
-                                            ),
-                                          });
-                                        }}
-                                        helperText={totalTrials > 0 ? 'Auto-calculated from trials (clear to enter manually)' : 'Enter manually or use +/- buttons'}
-                                        sx={{ width: 140 }}
-                                      />
-                                      <TextField
-                                        label="Notes"
-                                        size="small"
-                                        fullWidth
-                                        value={perfData?.notes || ''}
-                                        onChange={(e) =>
-                                          handlePerformanceUpdate(goal.id, studentId, 'notes', e.target.value)
-                                        }
-                                      />
-                                    </Box>
-                                  );
-                                })()}
+                                    }
+                                  />
+                                  {formData.goalsTargeted.includes(goal.id) && (() => {
+                                    const perfData = formData.performanceData.find((p) => p.goalId === goal.id && p.studentId === studentId);
+                                    const correctTrials = perfData?.correctTrials || 0;
+                                    const incorrectTrials = perfData?.incorrectTrials || 0;
+                                    const totalTrials = correctTrials + incorrectTrials;
+                                    const calculatedAccuracy = totalTrials > 0 ? Math.round((correctTrials / totalTrials) * 100) : 0;
+                                    const displayText = totalTrials > 0 ? `${correctTrials}/${totalTrials} trials (${calculatedAccuracy}%)` : '0/0 trials (0%)';
+                                    
+                                    return (
+                                      <Box sx={{ ml: 4, display: 'flex', gap: 1, mt: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                          <IconButton
+                                            size="small"
+                                            onClick={() => handleTrialUpdate(goal.id, studentId, false)}
+                                            color="error"
+                                            sx={{ border: '1px solid', borderColor: 'error.main' }}
+                                          >
+                                            <RemoveIcon fontSize="small" />
+                                          </IconButton>
+                                          <IconButton
+                                            size="small"
+                                            onClick={() => handleTrialUpdate(goal.id, studentId, true)}
+                                            color="success"
+                                            sx={{ border: '1px solid', borderColor: 'success.main' }}
+                                          >
+                                            <AddIcon fontSize="small" />
+                                          </IconButton>
+                                          <Typography variant="body2" sx={{ ml: 1, minWidth: '140px' }}>
+                                            {displayText}
+                                          </Typography>
+                                        </Box>
+                                        <TextField
+                                          label="Accuracy %"
+                                          type="number"
+                                          size="small"
+                                          value={totalTrials > 0 ? calculatedAccuracy.toString() : (perfData?.accuracy || '')}
+                                          onChange={(e) => {
+                                            // When manually entering, clear trials to allow manual override
+                                            setFormData({
+                                              ...formData,
+                                              performanceData: formData.performanceData.map((p) =>
+                                                p.goalId === goal.id && p.studentId === studentId
+                                                  ? { ...p, accuracy: e.target.value, correctTrials: 0, incorrectTrials: 0 }
+                                                  : p
+                                              ),
+                                            });
+                                          }}
+                                          helperText={totalTrials > 0 ? 'Auto-calculated from trials (clear to enter manually)' : 'Enter manually or use +/- buttons'}
+                                          sx={{ width: 140 }}
+                                        />
+                                        <TextField
+                                          label="Notes"
+                                          size="small"
+                                          fullWidth
+                                          value={perfData?.notes || ''}
+                                          onChange={(e) =>
+                                            handlePerformanceUpdate(goal.id, studentId, 'notes', e.target.value)
+                                          }
+                                        />
+                                      </Box>
+                                    );
+                                  })()}
+                                </Box>
+                              );
+                              })}
+                            </Box>
+                          )}
+                        </Box>
+                        {completedGoals.length > 0 && (
+                          <Accordion sx={{ mt: 2 }}>
+                            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                              <Typography variant="subtitle2" color="text.secondary">
+                                Completed Goals ({completedGoals.length})
+                              </Typography>
+                            </AccordionSummary>
+                            <AccordionDetails>
+                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                {completedGoals.map((goal) => (
+                                  <Box key={goal.id} sx={{ p: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
+                                    <Typography variant="body2">
+                                      {goal.description}
+                                    </Typography>
+                                    {goal.dateAchieved && (
+                                      <Typography variant="caption" color="text.secondary">
+                                        Achieved: {formatDate(goal.dateAchieved)}
+                                      </Typography>
+                                    )}
+                                  </Box>
+                                ))}
                               </Box>
-                            );
-                            })}
-                          </Box>
+                            </AccordionDetails>
+                          </Accordion>
                         )}
                       </Box>
                     ))}
@@ -1194,7 +1259,7 @@ export const Sessions = () => {
                 ) : (
                   // Multiple students layout (side-by-side)
                   <Grid container spacing={2} sx={{ mt: 1 }}>
-                    {availableGoalsByStudent.map(({ studentId, studentName, goals: studentGoals }) => (
+                    {availableGoalsByStudent.map(({ studentId, studentName, goals: studentGoals, completedGoals }) => (
                       <Grid item xs={12} sm={6} md={availableGoalsByStudent.length === 2 ? 6 : 4} key={studentId}>
                         <Box sx={{ 
                           border: '1px solid', 
@@ -1212,7 +1277,7 @@ export const Sessions = () => {
                           </Typography>
                           {studentGoals.length === 0 ? (
                             <Typography color="text.secondary" variant="body2">
-                              No goals found for this student. Add goals in the student's detail page.
+                              No active goals found for this student. Add goals in the student's detail page.
                             </Typography>
                           ) : (
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -1308,6 +1373,31 @@ export const Sessions = () => {
                               );
                               })}
                             </Box>
+                          )}
+                          {completedGoals.length > 0 && (
+                            <Accordion sx={{ mt: 2 }}>
+                              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                <Typography variant="subtitle2" color="text.secondary">
+                                  Completed Goals ({completedGoals.length})
+                                </Typography>
+                              </AccordionSummary>
+                              <AccordionDetails>
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                  {completedGoals.map((goal) => (
+                                    <Box key={goal.id} sx={{ p: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
+                                      <Typography variant="body2">
+                                        {goal.description}
+                                      </Typography>
+                                      {goal.dateAchieved && (
+                                        <Typography variant="caption" color="text.secondary">
+                                          Achieved: {formatDate(goal.dateAchieved)}
+                                        </Typography>
+                                      )}
+                                    </Box>
+                                  ))}
+                                </Box>
+                              </AccordionDetails>
+                            </Accordion>
                           )}
                         </Box>
                       </Grid>
