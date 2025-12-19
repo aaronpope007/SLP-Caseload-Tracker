@@ -60,7 +60,7 @@ import {
   getSessionsByStudent,
   addLunch,
 } from '../utils/storage';
-import { generateId, formatDateTime, toLocalDateTimeString, fromLocalDateTimeString } from '../utils/helpers';
+import { generateId, formatDateTime, toLocalDateTimeString, fromLocalDateTimeString, getGoalProgressChipProps } from '../utils/helpers';
 import { generateSessionPlan } from '../utils/gemini';
 import { useStorageSync } from '../hooks/useStorageSync';
 import { useSchool } from '../context/SchoolContext';
@@ -128,6 +128,50 @@ export const Sessions = () => {
       }, 100);
     }
   }, [dialogOpen, editingSession, editingGroupSessionId]);
+
+  // Keyboard shortcuts for menu items
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Only handle if no input/textarea is focused
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      switch (event.key.toLowerCase()) {
+        case 's':
+          event.preventDefault();
+          setMenuAnchorEl(null);
+          handleOpenDialog();
+          break;
+        case 'e':
+          event.preventDefault();
+          setMenuAnchorEl(null);
+          navigate('/evaluations');
+          break;
+        case 'l': {
+          event.preventDefault();
+          setMenuAnchorEl(null);
+          const now = new Date();
+          const defaultEndTime = new Date(now.getTime() + 30 * 60000);
+          setLunchFormData({
+            startTime: toLocalDateTimeString(now),
+            endTime: toLocalDateTimeString(defaultEndTime),
+          });
+          setLunchDialogOpen(true);
+          break;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [menuOpen]);
 
   const loadData = () => {
     const schoolStudents = getStudents(selectedSchool);
@@ -479,6 +523,25 @@ export const Sessions = () => {
     return goals.find((g) => g.id === goalId)?.description || 'Unknown Goal';
   };
 
+  // Helper to get recent performance for a goal
+  const getRecentPerformance = (goalId: string, studentId: string) => {
+    const goalSessions = getSessionsByStudent(studentId, selectedSchool)
+      .filter(s => s.goalsTargeted.includes(goalId))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 3);
+    
+    const recentData = goalSessions.map(s => {
+      const perf = s.performanceData.find(p => p.goalId === goalId);
+      return perf?.accuracy;
+    }).filter((a): a is number => a !== undefined);
+
+    const average = recentData.length > 0
+      ? recentData.reduce((sum, a) => sum + a, 0) / recentData.length
+      : null;
+
+    return average;
+  };
+
   // Get goals for all selected students, grouped by student
   const availableGoalsByStudent = formData.studentIds.length > 0
     ? formData.studentIds.map(studentId => ({
@@ -582,7 +645,7 @@ export const Sessions = () => {
                   handleOpenDialog();
                 }}
               >
-                <AddIcon sx={{ mr: 1 }} /> Add Session
+                <AddIcon sx={{ mr: 1 }} /> Add <span style={{ textDecoration: 'underline' }}>S</span>ession
               </MenuItem>
               <MenuItem
                 onClick={() => {
@@ -590,7 +653,7 @@ export const Sessions = () => {
                   navigate('/evaluations');
                 }}
               >
-                <AddIcon sx={{ mr: 1 }} /> Add Evaluation
+                <AddIcon sx={{ mr: 1 }} /> Add <span style={{ textDecoration: 'underline' }}>E</span>valuation
               </MenuItem>
               <MenuItem
                 onClick={() => {
@@ -604,7 +667,7 @@ export const Sessions = () => {
                   setLunchDialogOpen(true);
                 }}
               >
-                <RestaurantIcon sx={{ mr: 1 }} /> Add Lunch
+                <RestaurantIcon sx={{ mr: 1 }} /> Add <span style={{ textDecoration: 'underline' }}>L</span>unch
               </MenuItem>
             </Menu>
           </Box>
@@ -1027,7 +1090,10 @@ export const Sessions = () => {
                           </Typography>
                         ) : (
                           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                            {studentGoals.map((goal) => (
+                            {studentGoals.map((goal) => {
+                              const recentAvg = getRecentPerformance(goal.id, studentId);
+                              const chipProps = getGoalProgressChipProps(recentAvg, goal.target);
+                              return (
                               <Box key={goal.id}>
                                 <FormControlLabel
                                   control={
@@ -1036,7 +1102,17 @@ export const Sessions = () => {
                                       onChange={() => handleGoalToggle(goal.id, studentId)}
                                     />
                                   }
-                                  label={goal.description}
+                                  label={
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                      <span>{goal.description}</span>
+                                      <Chip
+                                        label={recentAvg !== null ? `${Math.round(recentAvg)}%` : 'not started'}
+                                        size="small"
+                                        color={chipProps.color}
+                                        variant={chipProps.variant}
+                                      />
+                                    </Box>
+                                  }
                                 />
                                 {formData.goalsTargeted.includes(goal.id) && (() => {
                                   const perfData = formData.performanceData.find((p) => p.goalId === goal.id && p.studentId === studentId);
@@ -1103,7 +1179,8 @@ export const Sessions = () => {
                                   );
                                 })()}
                               </Box>
-                            ))}
+                            );
+                            })}
                           </Box>
                         )}
                       </Box>
@@ -1134,7 +1211,10 @@ export const Sessions = () => {
                             </Typography>
                           ) : (
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                              {studentGoals.map((goal) => (
+                              {studentGoals.map((goal) => {
+                                const recentAvg = getRecentPerformance(goal.id, studentId);
+                                const chipProps = getGoalProgressChipProps(recentAvg, goal.target);
+                                return (
                                 <Box key={goal.id}>
                                   <FormControlLabel
                                     control={
@@ -1143,7 +1223,17 @@ export const Sessions = () => {
                                         onChange={() => handleGoalToggle(goal.id, studentId)}
                                       />
                                     }
-                                    label={<Typography variant="body2">{goal.description}</Typography>}
+                                    label={
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                        <Typography variant="body2">{goal.description}</Typography>
+                                        <Chip
+                                          label={recentAvg !== null ? `${Math.round(recentAvg)}%` : 'not started'}
+                                          size="small"
+                                          color={chipProps.color}
+                                          variant={chipProps.variant}
+                                        />
+                                      </Box>
+                                    }
                                   />
                                   {formData.goalsTargeted.includes(goal.id) && (() => {
                                     const perfData = formData.performanceData.find((p) => p.goalId === goal.id && p.studentId === studentId);
@@ -1212,7 +1302,8 @@ export const Sessions = () => {
                                     );
                                   })()}
                                 </Box>
-                              ))}
+                              );
+                              })}
                             </Box>
                           )}
                         </Box>

@@ -28,6 +28,7 @@ export interface Goal {
   target: string;
   status: 'in-progress' | 'achieved' | 'modified';
   dateCreated: string;
+  dateAchieved?: string; // Date when goal was marked as achieved
   // Goal management enhancements
   parentGoalId?: string; // For sub-goals
   subGoalIds?: string[]; // IDs of sub-goals

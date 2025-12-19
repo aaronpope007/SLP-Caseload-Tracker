@@ -36,6 +36,36 @@ export const calculateProgress = (baseline: string, current: number, target: str
 };
 
 /**
+ * Determines the chip color for goal progress based on current performance vs target
+ * @param current - Current performance percentage (or null if not started)
+ * @param target - Target percentage as string
+ * @returns Object with color and variant for Material-UI Chip component
+ */
+export const getGoalProgressChipProps = (
+  current: number | null,
+  target: string
+): { color: 'success' | 'warning' | 'error' | 'primary' | 'default'; variant: 'filled' | 'outlined' } => {
+  if (current === null) {
+    // Not started: blue with outlined variant
+    return { color: 'primary', variant: 'outlined' };
+  }
+  
+  const targetNum = parseFloat(target) || 100;
+  const progressPercentOfGoal = (current / targetNum) * 100;
+  
+  if (progressPercentOfGoal >= 100) {
+    // Met or exceeded goal: green
+    return { color: 'success', variant: 'filled' };
+  } else if (progressPercentOfGoal >= 60) {
+    // 60-100% of goal: yellow
+    return { color: 'warning', variant: 'filled' };
+  } else {
+    // 0-60% of goal: red
+    return { color: 'error', variant: 'filled' };
+  }
+};
+
+/**
  * Converts a Date object to local datetime string in format YYYY-MM-DDTHH:mm
  * for use with datetime-local input fields (preserves local time, not UTC)
  */

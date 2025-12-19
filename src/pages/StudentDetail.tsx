@@ -48,7 +48,7 @@ import {
   getSessionsByStudent,
   getGoals,
 } from '../utils/storage';
-import { generateId, formatDate } from '../utils/helpers';
+import { generateId, formatDate, getGoalProgressChipProps } from '../utils/helpers';
 import { useStorageSync } from '../hooks/useStorageSync';
 import { useSchool } from '../context/SchoolContext';
 import { useConfirm } from '../hooks/useConfirm';
@@ -265,6 +265,23 @@ export const StudentDetail = () => {
       templateId: selectedTemplate?.id || undefined,
     };
 
+    // Set dateAchieved if status is 'achieved' and it wasn't already set
+    if (formData.status === 'achieved') {
+      if (editingGoal && !editingGoal.dateAchieved) {
+        // Goal is being marked as achieved for the first time
+        goalData.dateAchieved = new Date().toISOString();
+      } else if (!editingGoal) {
+        // New goal created as achieved
+        goalData.dateAchieved = new Date().toISOString();
+      } else {
+        // Goal already has dateAchieved, preserve it
+        goalData.dateAchieved = editingGoal.dateAchieved;
+      }
+    } else if (editingGoal && editingGoal.dateAchieved) {
+      // If status changed from achieved to something else, preserve the dateAchieved
+      goalData.dateAchieved = editingGoal.dateAchieved;
+    }
+
     if (editingGoal) {
       updateGoal(editingGoal.id, goalData);
       
@@ -287,6 +304,7 @@ export const StudentDetail = () => {
         target: formData.target,
         status: formData.status,
         dateCreated: new Date().toISOString(),
+        dateAchieved: formData.status === 'achieved' ? new Date().toISOString() : undefined,
         domain: formData.domain || undefined,
         priority: formData.priority,
         parentGoalId: formData.parentGoalId || undefined,
@@ -645,19 +663,20 @@ export const StudentDetail = () => {
                                       color={
                                         goal.status === 'achieved'
                                           ? 'success'
-                                          : goal.status === 'modified'
+                                          : goal.status === 'modified' || goal.status === 'in-progress'
                                           ? 'warning'
                                           : 'default'
                                       }
                                     />
                                     {(() => {
                                       const recent = getRecentPerformance(goal.id);
+                                      const chipProps = getGoalProgressChipProps(recent.average, goal.target);
                                       return (
                                         <Chip
                                           label={recent.average !== null ? `${Math.round(recent.average)}%` : 'not started'}
                                           size="small"
-                                          color="primary"
-                                          variant="outlined"
+                                          color={chipProps.color}
+                                          variant={chipProps.variant}
                                         />
                                       );
                                     })()}
@@ -708,13 +727,28 @@ export const StudentDetail = () => {
                                           <Box key={sub.id} sx={{ mb: 1 }}>
                                             <Typography variant="body2">{sub.description}</Typography>
                                             <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
-                                              <Chip label={sub.status} size="small" />
-                                              <Chip
-                                                label={subRecent.average !== null ? `${Math.round(subRecent.average)}%` : 'not started'}
+                                              <Chip 
+                                                label={sub.status} 
                                                 size="small"
-                                                color="primary"
-                                                variant="outlined"
+                                                color={
+                                                  sub.status === 'achieved'
+                                                    ? 'success'
+                                                    : sub.status === 'modified' || sub.status === 'in-progress'
+                                                    ? 'warning'
+                                                    : 'default'
+                                                }
                                               />
+                                              {(() => {
+                                                const subChipProps = getGoalProgressChipProps(subRecent.average, sub.target);
+                                                return (
+                                                  <Chip
+                                                    label={subRecent.average !== null ? `${Math.round(subRecent.average)}%` : 'not started'}
+                                                    size="small"
+                                                    color={subChipProps.color}
+                                                    variant={subChipProps.variant}
+                                                  />
+                                                );
+                                              })()}
                                               {sub.priority && (
                                                 <Chip
                                                   label={sub.priority}
@@ -738,6 +772,15 @@ export const StudentDetail = () => {
                                                 <ContentCopyIcon fontSize="small" />
                                               </IconButton>
                                             </Box>
+                                            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                                              Created: {formatDate(sub.dateCreated)}
+                                              {sub.status === 'achieved' && sub.dateAchieved && (
+                                                <>
+                                                  <br />
+                                                  Achieved: {formatDate(sub.dateAchieved)}
+                                                </>
+                                              )}
+                                            </Typography>
                                           </Box>
                                         );
                                       })}
@@ -753,6 +796,12 @@ export const StudentDetail = () => {
                                   </Button>
                                   <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
                                     Created: {formatDate(goal.dateCreated)}
+                                    {goal.status === 'achieved' && goal.dateAchieved && (
+                                      <>
+                                        <br />
+                                        Achieved: {formatDate(goal.dateAchieved)}
+                                      </>
+                                    )}
                                   </Typography>
                                 </CardContent>
                               </Card>
@@ -809,12 +858,13 @@ export const StudentDetail = () => {
                                   />
                                   {(() => {
                                     const recent = getRecentPerformance(goal.id);
+                                    const chipProps = getGoalProgressChipProps(recent.average, goal.target);
                                     return (
                                       <Chip
                                         label={recent.average !== null ? `${Math.round(recent.average)}%` : 'not started'}
                                         size="small"
-                                        color="primary"
-                                        variant="outlined"
+                                        color={chipProps.color}
+                                        variant={chipProps.variant}
                                       />
                                     );
                                   })()}
@@ -858,13 +908,28 @@ export const StudentDetail = () => {
                                         <Box key={sub.id} sx={{ mb: 1 }}>
                                           <Typography variant="body2">{sub.description}</Typography>
                                           <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
-                                            <Chip label={sub.status} size="small" />
-                                            <Chip
-                                              label={subRecent.average !== null ? `${Math.round(subRecent.average)}%` : 'not started'}
+                                            <Chip 
+                                              label={sub.status} 
                                               size="small"
-                                              color="primary"
-                                              variant="outlined"
+                                              color={
+                                                sub.status === 'achieved'
+                                                  ? 'success'
+                                                  : sub.status === 'modified' || sub.status === 'in-progress'
+                                                  ? 'warning'
+                                                  : 'default'
+                                              }
                                             />
+                                            {(() => {
+                                              const subChipProps = getGoalProgressChipProps(subRecent.average, sub.target);
+                                              return (
+                                                <Chip
+                                                  label={subRecent.average !== null ? `${Math.round(subRecent.average)}%` : 'not started'}
+                                                  size="small"
+                                                  color={subChipProps.color}
+                                                  variant={subChipProps.variant}
+                                                />
+                                              );
+                                            })()}
                                             {sub.priority && (
                                               <Chip
                                                 label={sub.priority}
@@ -888,6 +953,15 @@ export const StudentDetail = () => {
                                               <ContentCopyIcon fontSize="small" />
                                             </IconButton>
                                           </Box>
+                                          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                                            Created: {formatDate(sub.dateCreated)}
+                                            {sub.status === 'achieved' && sub.dateAchieved && (
+                                              <>
+                                                <br />
+                                                Achieved: {formatDate(sub.dateAchieved)}
+                                              </>
+                                            )}
+                                          </Typography>
                                         </Box>
                                       );
                                     })}
@@ -903,6 +977,12 @@ export const StudentDetail = () => {
                                 </Button>
                                 <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
                                   Created: {formatDate(goal.dateCreated)}
+                                  {goal.status === 'achieved' && goal.dateAchieved && (
+                                    <>
+                                      <br />
+                                      Achieved: {formatDate(goal.dateAchieved)}
+                                    </>
+                                  )}
                                 </Typography>
                               </CardContent>
                             </Card>
