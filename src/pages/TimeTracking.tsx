@@ -106,11 +106,11 @@ export const TimeTracking = () => {
     severity: 'success',
   });
 
-  const loadData = () => {
-    const schoolSessions = getSessionsBySchool(selectedSchool);
-    const schoolEvaluations = getEvaluations(selectedSchool);
-    const schoolLunches = getLunches(selectedSchool);
-    const schoolStudents = getStudents(selectedSchool);
+  const loadData = async () => {
+    const schoolSessions = await getSessionsBySchool(selectedSchool);
+    const schoolEvaluations = await getEvaluations(selectedSchool);
+    const schoolLunches = await getLunches(selectedSchool);
+    const schoolStudents = await getStudents(selectedSchool);
     
     setSessions(schoolSessions);
     setEvaluations(schoolEvaluations);
@@ -263,8 +263,8 @@ export const TimeTracking = () => {
     return sessions.filter(s => s.groupSessionId === groupSessionId);
   };
 
-  const handleGenerateTimesheetNote = () => {
-    const school = getSchoolByName(selectedSchool);
+  const handleGenerateTimesheetNote = async () => {
+    const school = await getSchoolByName(selectedSchool);
     const isTeletherapy = school?.teletherapy || false;
     
     // Build timesheet note from filtered items
