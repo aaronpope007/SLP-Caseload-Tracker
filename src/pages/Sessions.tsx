@@ -14,14 +14,10 @@ import {
   TextField,
   Typography,
   FormControl,
-  InputLabel,
-  Select,
   MenuItem,
   Checkbox,
   FormControlLabel,
   IconButton,
-  Alert,
-  CircularProgress,
   Radio,
   RadioGroup,
   Accordion,
@@ -33,9 +29,7 @@ import {
 } from '@mui/material';
 import {
   Add as AddIcon,
-  Delete as DeleteIcon,
   Edit as EditIcon,
-  Remove as RemoveIcon,
   Psychology as PsychologyIcon,
   AccessTime as AccessTimeIcon,
   ExpandMore as ExpandMoreIcon,
@@ -57,9 +51,14 @@ import {
   getSessionsByStudent,
   addLunch,
 } from '../utils/storage-api';
-import { generateId, formatDate, formatDateTime, toLocalDateTimeString, fromLocalDateTimeString, getGoalProgressChipProps } from '../utils/helpers';
+import { generateId, formatDate, formatDateTime, toLocalDateTimeString, fromLocalDateTimeString } from '../utils/helpers';
 import { generateSessionPlan } from '../utils/gemini';
 import { useSchool } from '../context/SchoolContext';
+import { SessionCard } from '../components/SessionCard';
+import { SessionPlanDialog } from '../components/SessionPlanDialog';
+import { LunchDialog } from '../components/LunchDialog';
+import { GoalHierarchy } from '../components/GoalHierarchy';
+import { organizeGoalsHierarchy } from '../utils/goalHierarchy';
 
 export const Sessions = () => {
   const navigate = useNavigate();
@@ -581,20 +580,24 @@ export const Sessions = () => {
     return false;
   };
 
+
   // Get goals for all selected students, grouped by student, separated into active and completed
   const availableGoalsByStudent = formData.studentIds.length > 0
     ? formData.studentIds.map(studentId => {
         const studentGoals = goals.filter((g) => g.studentId === studentId);
         const activeGoals = studentGoals.filter(g => !isGoalAchieved(g));
         const completedGoals = studentGoals.filter(g => isGoalAchieved(g));
+        const hierarchy = organizeGoalsHierarchy(activeGoals);
         return {
           studentId,
           studentName: students.find(s => s.id === studentId)?.name || 'Unknown',
           goals: activeGoals,
           completedGoals: completedGoals,
+          hierarchy,
         };
       })
     : [];
+
 
   const handleGenerateSessionPlan = async () => {
     if (!planStudentId) {
@@ -786,94 +789,14 @@ export const Sessions = () => {
 
           // Helper function to render a single session
           const renderSession = (session: Session) => (
-            <Card key={session.id} sx={{ mb: 1 }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                      <Typography variant="h6">
-                        {getStudentName(session.studentId)}
-                      </Typography>
-                      <Chip
-                        label={session.isDirectServices === true ? 'Direct Services' : 'Indirect Services'}
-                        size="small"
-                        color={session.isDirectServices === true ? 'primary' : 'secondary'}
-                      />
-                    </Box>
-                    <Typography color="text.secondary">
-                      {formatDateTime(session.date)}
-                      {session.endTime && ` - ${formatDateTime(session.endTime)}`}
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleOpenDialog(session)}
-                    >
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleDelete(session.id)}
-                      color="error"
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </Box>
-                </Box>
-                {session.isDirectServices === true ? (
-                  <>
-                    {session.goalsTargeted.length > 0 && (
-                      <Box sx={{ mb: 1 }}>
-                        <Typography variant="subtitle2" gutterBottom>
-                          Goals Targeted:
-                        </Typography>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                          {session.goalsTargeted.map((goalId) => (
-                            <Chip
-                              key={goalId}
-                              label={getGoalDescription(goalId)}
-                              size="small"
-                            />
-                          ))}
-                        </Box>
-                      </Box>
-                    )}
-                    {session.activitiesUsed.length > 0 && (
-                      <Box sx={{ mb: 1 }}>
-                        <Typography variant="subtitle2" gutterBottom>
-                          Activities:
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {session.activitiesUsed.join(', ')}
-                        </Typography>
-                      </Box>
-                    )}
-                    {session.notes && (
-                      <Box sx={{ mt: 1 }}>
-                        <Typography variant="subtitle2" gutterBottom>
-                          Notes:
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {session.notes}
-                        </Typography>
-                      </Box>
-                    )}
-                  </>
-                ) : (
-                  session.indirectServicesNotes && (
-                    <Box sx={{ mt: 1 }}>
-                      <Typography variant="subtitle2" gutterBottom>
-                        Indirect Services Notes:
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {session.indirectServicesNotes}
-                      </Typography>
-                    </Box>
-                  )
-                )}
-              </CardContent>
-            </Card>
+            <SessionCard
+              key={session.id}
+              session={session}
+              getStudentName={getStudentName}
+              getGoalDescription={getGoalDescription}
+              onEdit={handleOpenDialog}
+              onDelete={handleDelete}
+            />
           );
 
           return (
@@ -1124,7 +1047,7 @@ export const Sessions = () => {
                 ) : availableGoalsByStudent.length === 1 ? (
                   // Single student layout (original column layout)
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-                    {availableGoalsByStudent.map(({ studentId, studentName, goals: studentGoals, completedGoals }) => (
+                    {availableGoalsByStudent.map(({ studentId, studentName, goals: studentGoals, completedGoals, hierarchy }) => (
                       <Box key={studentId}>
                         <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
                           <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold', color: 'primary.main' }}>
@@ -1135,97 +1058,18 @@ export const Sessions = () => {
                               No active goals found for this student. Add goals in the student's detail page.
                             </Typography>
                           ) : (
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                              {studentGoals.map((goal) => {
-                                const recentAvg = getRecentPerformance(goal.id, studentId);
-                                const chipProps = getGoalProgressChipProps(recentAvg, goal.target);
-                                return (
-                                <Box key={goal.id}>
-                                  <FormControlLabel
-                                    control={
-                                      <Checkbox
-                                        checked={formData.goalsTargeted.includes(goal.id)}
-                                        onChange={() => handleGoalToggle(goal.id, studentId)}
-                                      />
-                                    }
-                                    label={
-                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                                        <span>{goal.description}</span>
-                                        <Chip
-                                          label={recentAvg !== null ? `${Math.round(recentAvg)}%` : 'not started'}
-                                          size="small"
-                                          color={chipProps.color}
-                                          variant={chipProps.variant}
-                                        />
-                                      </Box>
-                                    }
-                                  />
-                                  {formData.goalsTargeted.includes(goal.id) && (() => {
-                                    const perfData = formData.performanceData.find((p) => p.goalId === goal.id && p.studentId === studentId);
-                                    const correctTrials = perfData?.correctTrials || 0;
-                                    const incorrectTrials = perfData?.incorrectTrials || 0;
-                                    const totalTrials = correctTrials + incorrectTrials;
-                                    const calculatedAccuracy = totalTrials > 0 ? Math.round((correctTrials / totalTrials) * 100) : 0;
-                                    const displayText = totalTrials > 0 ? `${correctTrials}/${totalTrials} trials (${calculatedAccuracy}%)` : '0/0 trials (0%)';
-                                    
-                                    return (
-                                      <Box sx={{ ml: 4, display: 'flex', gap: 1, mt: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                          <IconButton
-                                            size="small"
-                                            onClick={() => handleTrialUpdate(goal.id, studentId, false)}
-                                            color="error"
-                                            sx={{ border: '1px solid', borderColor: 'error.main' }}
-                                          >
-                                            <RemoveIcon fontSize="small" />
-                                          </IconButton>
-                                          <IconButton
-                                            size="small"
-                                            onClick={() => handleTrialUpdate(goal.id, studentId, true)}
-                                            color="success"
-                                            sx={{ border: '1px solid', borderColor: 'success.main' }}
-                                          >
-                                            <AddIcon fontSize="small" />
-                                          </IconButton>
-                                          <Typography variant="body2" sx={{ ml: 1, minWidth: '140px' }}>
-                                            {displayText}
-                                          </Typography>
-                                        </Box>
-                                        <TextField
-                                          label="Accuracy %"
-                                          type="number"
-                                          size="small"
-                                          value={totalTrials > 0 ? calculatedAccuracy.toString() : (perfData?.accuracy || '')}
-                                          onChange={(e) => {
-                                            // When manually entering, clear trials to allow manual override
-                                            setFormData({
-                                              ...formData,
-                                              performanceData: formData.performanceData.map((p) =>
-                                                p.goalId === goal.id && p.studentId === studentId
-                                                  ? { ...p, accuracy: e.target.value, correctTrials: 0, incorrectTrials: 0 }
-                                                  : p
-                                              ),
-                                            });
-                                          }}
-                                          helperText={totalTrials > 0 ? 'Auto-calculated from trials (clear to enter manually)' : 'Enter manually or use +/- buttons'}
-                                          sx={{ width: 140 }}
-                                        />
-                                        <TextField
-                                          label="Notes"
-                                          size="small"
-                                          fullWidth
-                                          value={perfData?.notes || ''}
-                                          onChange={(e) =>
-                                            handlePerformanceUpdate(goal.id, studentId, 'notes', e.target.value)
-                                          }
-                                        />
-                                      </Box>
-                                    );
-                                  })()}
-                                </Box>
-                              );
-                              })}
-                            </Box>
+                            <GoalHierarchy
+                              hierarchy={hierarchy}
+                              studentId={studentId}
+                              goalsTargeted={formData.goalsTargeted}
+                              performanceData={formData.performanceData}
+                              isCompact={false}
+                              getRecentPerformance={getRecentPerformance}
+                              onGoalToggle={handleGoalToggle}
+                              onTrialUpdate={handleTrialUpdate}
+                              onPerformanceUpdate={handlePerformanceUpdate}
+                              onFormDataChange={setFormData}
+                            />
                           )}
                         </Box>
                         {completedGoals.length > 0 && (
@@ -1259,7 +1103,7 @@ export const Sessions = () => {
                 ) : (
                   // Multiple students layout (side-by-side)
                   <Grid container spacing={2} sx={{ mt: 1 }}>
-                    {availableGoalsByStudent.map(({ studentId, studentName, goals: studentGoals, completedGoals }) => (
+                    {availableGoalsByStudent.map(({ studentId, studentName, goals: studentGoals, completedGoals, hierarchy }) => (
                       <Grid item xs={12} sm={6} md={availableGoalsByStudent.length === 2 ? 6 : 4} key={studentId}>
                         <Box sx={{ 
                           border: '1px solid', 
@@ -1280,99 +1124,18 @@ export const Sessions = () => {
                               No active goals found for this student. Add goals in the student's detail page.
                             </Typography>
                           ) : (
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                              {studentGoals.map((goal) => {
-                                const recentAvg = getRecentPerformance(goal.id, studentId);
-                                const chipProps = getGoalProgressChipProps(recentAvg, goal.target);
-                                return (
-                                <Box key={goal.id}>
-                                  <FormControlLabel
-                                    control={
-                                      <Checkbox
-                                        checked={formData.goalsTargeted.includes(goal.id)}
-                                        onChange={() => handleGoalToggle(goal.id, studentId)}
-                                      />
-                                    }
-                                    label={
-                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                                        <Typography variant="body2">{goal.description}</Typography>
-                                        <Chip
-                                          label={recentAvg !== null ? `${Math.round(recentAvg)}%` : 'not started'}
-                                          size="small"
-                                          color={chipProps.color}
-                                          variant={chipProps.variant}
-                                        />
-                                      </Box>
-                                    }
-                                  />
-                                  {formData.goalsTargeted.includes(goal.id) && (() => {
-                                    const perfData = formData.performanceData.find((p) => p.goalId === goal.id && p.studentId === studentId);
-                                    const correctTrials = perfData?.correctTrials || 0;
-                                    const incorrectTrials = perfData?.incorrectTrials || 0;
-                                    const totalTrials = correctTrials + incorrectTrials;
-                                    const calculatedAccuracy = totalTrials > 0 ? Math.round((correctTrials / totalTrials) * 100) : 0;
-                                    const displayText = totalTrials > 0 ? `${correctTrials}/${totalTrials} trials (${calculatedAccuracy}%)` : '0/0 trials (0%)';
-                                    
-                                    return (
-                                      <Box sx={{ ml: 3, display: 'flex', flexDirection: 'column', gap: 1, mt: 0.5 }}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-                                          <IconButton
-                                            size="small"
-                                            onClick={() => handleTrialUpdate(goal.id, studentId, false)}
-                                            color="error"
-                                            sx={{ border: '1px solid', borderColor: 'error.main' }}
-                                          >
-                                            <RemoveIcon fontSize="small" />
-                                          </IconButton>
-                                          <IconButton
-                                            size="small"
-                                            onClick={() => handleTrialUpdate(goal.id, studentId, true)}
-                                            color="success"
-                                            sx={{ border: '1px solid', borderColor: 'success.main' }}
-                                          >
-                                            <AddIcon fontSize="small" />
-                                          </IconButton>
-                                          <Typography variant="body2" sx={{ ml: 1, minWidth: '120px', fontSize: '0.75rem' }}>
-                                            {displayText}
-                                          </Typography>
-                                        </Box>
-                                        <TextField
-                                          label="Accuracy %"
-                                          type="number"
-                                          size="small"
-                                          value={totalTrials > 0 ? calculatedAccuracy.toString() : (perfData?.accuracy || '')}
-                                          onChange={(e) => {
-                                            // When manually entering, clear trials to allow manual override
-                                            setFormData({
-                                              ...formData,
-                                              performanceData: formData.performanceData.map((p) =>
-                                                p.goalId === goal.id && p.studentId === studentId
-                                                  ? { ...p, accuracy: e.target.value, correctTrials: 0, incorrectTrials: 0 }
-                                                  : p
-                                              ),
-                                            });
-                                          }}
-                                          helperText={totalTrials > 0 ? 'Auto-calculated' : 'Manual entry'}
-                                          sx={{ width: '100%' }}
-                                        />
-                                        <TextField
-                                          label="Notes"
-                                          size="small"
-                                          fullWidth
-                                          multiline
-                                          rows={2}
-                                          value={perfData?.notes || ''}
-                                          onChange={(e) =>
-                                            handlePerformanceUpdate(goal.id, studentId, 'notes', e.target.value)
-                                          }
-                                        />
-                                      </Box>
-                                    );
-                                  })()}
-                                </Box>
-                              );
-                              })}
-                            </Box>
+                            <GoalHierarchy
+                              hierarchy={hierarchy}
+                              studentId={studentId}
+                              goalsTargeted={formData.goalsTargeted}
+                              performanceData={formData.performanceData}
+                              isCompact={true}
+                              getRecentPerformance={getRecentPerformance}
+                              onGoalToggle={handleGoalToggle}
+                              onTrialUpdate={handleTrialUpdate}
+                              onPerformanceUpdate={handlePerformanceUpdate}
+                              onFormDataChange={setFormData}
+                            />
                           )}
                           {completedGoals.length > 0 && (
                             <Accordion sx={{ mt: 2 }}>
@@ -1456,112 +1219,27 @@ export const Sessions = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Session Plan Dialog */}
-      <Dialog open={sessionPlanDialogOpen} onClose={() => setSessionPlanDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>AI Session Planning</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-            <FormControl fullWidth>
-              <InputLabel>Student</InputLabel>
-              <Select
-                value={planStudentId}
-                onChange={(e) => setPlanStudentId(e.target.value)}
-                label="Student"
-              >
-                {students.map((student) => (
-                  <MenuItem key={student.id} value={student.id}>
-                    {student.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            {sessionPlanError && (
-              <Alert severity="error">{sessionPlanError}</Alert>
-            )}
-            <Button
-              variant="contained"
-              onClick={handleGenerateSessionPlan}
-              disabled={loadingSessionPlan || !planStudentId}
-              startIcon={loadingSessionPlan ? <CircularProgress size={20} /> : <PsychologyIcon />}
-            >
-              Generate Session Plan
-            </Button>
-            {sessionPlan && (
-              <Box>
-                <Typography variant="subtitle2" gutterBottom>Generated Session Plan:</Typography>
-                <Typography
-                  component="div"
-                  sx={{
-                    whiteSpace: 'pre-wrap',
-                    p: 2,
-                    bgcolor: 'background.paper',
-                    borderRadius: 1,
-                    maxHeight: '500px',
-                    overflow: 'auto',
-                  }}
-                >
-                  {sessionPlan}
-                </Typography>
-              </Box>
-            )}
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setSessionPlanDialogOpen(false)}>Close</Button>
-        </DialogActions>
-      </Dialog>
+      <SessionPlanDialog
+        open={sessionPlanDialogOpen}
+        onClose={() => setSessionPlanDialogOpen(false)}
+        students={students}
+        planStudentId={planStudentId}
+        sessionPlan={sessionPlan}
+        sessionPlanError={sessionPlanError}
+        loadingSessionPlan={loadingSessionPlan}
+        onStudentChange={setPlanStudentId}
+        onGenerate={handleGenerateSessionPlan}
+      />
 
-      {/* Lunch Dialog */}
-      <Dialog open={lunchDialogOpen} onClose={() => setLunchDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Add Lunch</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <TextField
-                label="Start Time"
-                type="datetime-local"
-                fullWidth
-                value={lunchFormData.startTime}
-                onChange={(e) => setLunchFormData({ ...lunchFormData, startTime: e.target.value })}
-                InputLabelProps={{ shrink: true }}
-              />
-              <Box sx={{ display: 'flex', gap: 1, flex: 1, alignItems: 'flex-end' }}>
-                <TextField
-                  label="End Time"
-                  type="datetime-local"
-                  fullWidth
-                  value={lunchFormData.endTime}
-                  onChange={(e) => setLunchFormData({ ...lunchFormData, endTime: e.target.value })}
-                  InputLabelProps={{ shrink: true }}
-                />
-                <Button
-                  variant="outlined"
-                  size="medium"
-                  startIcon={<AccessTimeIcon />}
-                  onClick={() => setLunchFormData({ ...lunchFormData, endTime: toLocalDateTimeString(new Date()) })}
-                  sx={{ 
-                    minWidth: 'auto',
-                    whiteSpace: 'nowrap',
-                    mb: 0.5,
-                  }}
-                  title="Set end time to current time"
-                >
-                  Now
-                </Button>
-              </Box>
-            </Box>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setLunchDialogOpen(false)}>Cancel</Button>
-          <Button
-            onClick={handleSaveLunch}
-            variant="contained"
-          >
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <LunchDialog
+        open={lunchDialogOpen}
+        onClose={() => setLunchDialogOpen(false)}
+        startTime={lunchFormData.startTime}
+        endTime={lunchFormData.endTime}
+        onStartTimeChange={(value) => setLunchFormData({ ...lunchFormData, startTime: value })}
+        onEndTimeChange={(value) => setLunchFormData({ ...lunchFormData, endTime: value })}
+        onSave={handleSaveLunch}
+      />
     </Box>
   );
 };
