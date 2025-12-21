@@ -11,13 +11,9 @@ import {
   DialogContent,
   DialogActions,
   Grid,
-  LinearProgress,
   TextField,
   Typography,
   IconButton,
-  List,
-  ListItem,
-  ListItemText,
   Alert,
   CircularProgress,
   Divider,
@@ -26,6 +22,7 @@ import {
   Select,
   MenuItem,
   CardActions,
+  Tooltip,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -34,11 +31,10 @@ import {
   Delete as DeleteIcon,
   AutoAwesome as AutoAwesomeIcon,
   Psychology as PsychologyIcon,
-  Description as DescriptionIcon,
   School as SchoolIcon,
   ContentCopy as ContentCopyIcon,
 } from '@mui/icons-material';
-import type { Student, Goal } from '../types';
+import type { Student, Goal, Session } from '../types';
 import {
   getStudents,
   getGoalsByStudent,
@@ -71,7 +67,7 @@ export const StudentDetail = () => {
   const { selectedSchool } = useSchool();
   const [student, setStudent] = useState<Student | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
-  const [sessions, setSessions] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
 
@@ -190,7 +186,7 @@ export const StudentDetail = () => {
       .slice(0, 3);
     
     const recentData = goalSessions.map(s => {
-      const perf = s.performanceData.find(p => p.goalId === goalId);
+      const perf = s.performanceData.find((p: { goalId: string }) => p.goalId === goalId);
       return {
         date: s.date,
         accuracy: perf?.accuracy,
@@ -207,7 +203,15 @@ export const StudentDetail = () => {
   };
 
   const handleOpenDialog = (goal?: Goal, parentGoalId?: string) => {
-    let newFormData;
+    let newFormData: {
+      description: string;
+      baseline: string;
+      target: string;
+      status: 'in-progress' | 'achieved' | 'modified';
+      domain: string;
+      priority: 'high' | 'medium' | 'low';
+      parentGoalId: string;
+    };
     if (goal) {
       setEditingGoal(goal);
       newFormData = {
@@ -383,10 +387,29 @@ export const StudentDetail = () => {
       description: subGoal.description,
       baseline: subGoal.baseline,
       target: subGoal.target,
-      status: subGoal.status,
+      status: subGoal.status as 'in-progress' | 'achieved' | 'modified',
       domain: subGoal.domain || '',
       priority: subGoal.priority || 'medium',
       parentGoalId: subGoal.parentGoalId || '', // Keep the same parent
+    };
+    setFormData(newFormData);
+    setInitialFormData(newFormData);
+    setEditingGoal(null); // Set to null so it's treated as a new goal
+    setSelectedTemplate(null);
+    setDialogOpen(true);
+  };
+
+  const handleCopyMainGoalToSubGoal = (mainGoal: Goal) => {
+    // Copy the main goal by pre-filling the form with its data
+    // This opens the dialog as a new sub-goal (with the main goal as parent)
+    const newFormData = {
+      description: mainGoal.description,
+      baseline: mainGoal.baseline,
+      target: mainGoal.target,
+      status: mainGoal.status as 'in-progress' | 'achieved' | 'modified',
+      domain: mainGoal.domain || '',
+      priority: mainGoal.priority || 'medium',
+      parentGoalId: mainGoal.id, // Set the main goal as the parent
     };
     setFormData(newFormData);
     setInitialFormData(newFormData);
@@ -677,6 +700,14 @@ export const StudentDetail = () => {
                                       >
                                         <EditIcon fontSize="small" />
                                       </IconButton>
+                                      <Tooltip title="Copy to sub goal">
+                                        <IconButton
+                                          size="small"
+                                          onClick={() => handleCopyMainGoalToSubGoal(goal)}
+                                        >
+                                          <ContentCopyIcon fontSize="small" />
+                                        </IconButton>
+                                      </Tooltip>
                                       <IconButton
                                         size="small"
                                         onClick={() => handleDelete(goal.id)}
@@ -865,6 +896,14 @@ export const StudentDetail = () => {
                                     >
                                       <EditIcon fontSize="small" />
                                     </IconButton>
+                                    <Tooltip title="Copy to sub goal">
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleCopyMainGoalToSubGoal(goal)}
+                                      >
+                                        <ContentCopyIcon fontSize="small" />
+                                      </IconButton>
+                                    </Tooltip>
                                     <IconButton
                                       size="small"
                                       onClick={() => handleDelete(goal.id)}
@@ -1029,7 +1068,13 @@ export const StudentDetail = () => {
       </Grid>
 
       <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>{editingGoal ? 'Edit Goal' : 'Add New Goal'}</DialogTitle>
+        <DialogTitle>
+          {editingGoal 
+            ? 'Edit Goal' 
+            : formData.parentGoalId 
+            ? 'Adding New Subgoal' 
+            : 'Add New Goal'}
+        </DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
@@ -1097,25 +1142,28 @@ export const StudentDetail = () => {
                 <option value="low">Low</option>
               </TextField>
             </Box>
-            {!editingGoal && (
-              <TextField
-                label="Parent Goal"
-                fullWidth
-                select
-                value={formData.parentGoalId}
-                onChange={(e) => setFormData({ ...formData, parentGoalId: e.target.value })}
-                helperText="Optional - for sub-goals"
-                InputLabelProps={{
-                  shrink: true,
-                }}
-                SelectProps={{ native: true }}
-              >
-                <option value="">None (Main Goal)</option>
-                {goals.filter(g => !g.parentGoalId && (!editingGoal || g.id !== editingGoal.id)).map(goal => (
-                  <option key={goal.id} value={goal.id}>{goal.description}</option>
-                ))}
-              </TextField>
-            )}
+            {!editingGoal && (() => {
+              const mainGoals = goals.filter(g => !g.parentGoalId) as Goal[];
+              return (
+                <TextField
+                  label="Parent Goal"
+                  fullWidth
+                  select
+                  value={formData.parentGoalId}
+                  onChange={(e) => setFormData({ ...formData, parentGoalId: e.target.value })}
+                  helperText="Optional - for sub-goals"
+                  InputLabelProps={{
+                    shrink: true,
+                  }}
+                  SelectProps={{ native: true }}
+                >
+                  <option value="">None (Main Goal)</option>
+                  {mainGoals.map(goal => (
+                    <option key={goal.id} value={goal.id}>{goal.description}</option>
+                  ))}
+                </TextField>
+              );
+            })()}
             <TextField
               label="Baseline"
               fullWidth
@@ -1322,7 +1370,7 @@ export const StudentDetail = () => {
             {showRecommendedTemplates && student && student.concerns.length > 0 && getRecommendedTemplates().length > 0 && (
               <Box>
                 <Typography variant="h6" gutterBottom>
-                  Recommended for {student.name} ({student.concerns.join(', ')})
+                  Recommended for {student?.name} ({student?.concerns.join(', ')})
                 </Typography>
                 <Grid container spacing={2} sx={{ mb: 2 }}>
                   {getRecommendedTemplates().slice(0, 4).map((template) => (
