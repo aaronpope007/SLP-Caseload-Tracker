@@ -270,21 +270,20 @@ export const TimeTracking = () => {
     // Build timesheet note from filtered items
     const noteParts: string[] = [];
     
-    if (isTeletherapy) {
-      noteParts.push('Offsite');
-    }
-    
     // Filter to only sessions (not evaluations or lunches)
     const sessionItems = filteredItems
       .filter(item => item.type === 'session');
     
-    // Separate direct services and missed direct services
+    // Separate direct services, missed direct services, and indirect services
     const directServices: Session[] = [];
     const missedDirectServices: Session[] = [];
+    const indirectServices: Session[] = [];
     const processedDirectGroupIds = new Set<string>();
     const processedMissedGroupIds = new Set<string>();
+    const processedIndirectGroupIds = new Set<string>();
     const processedDirectStudents = new Set<string>();
     const processedMissedStudents = new Set<string>();
+    const processedIndirectStudents = new Set<string>();
     
     sessionItems.forEach(item => {
       const session = item.data as Session;
@@ -327,6 +326,25 @@ export const TimeTracking = () => {
             }
           }
         }
+      } else {
+        // Indirect services
+        if (session.groupSessionId) {
+          if (!processedIndirectGroupIds.has(session.groupSessionId)) {
+            processedIndirectGroupIds.add(session.groupSessionId);
+            const groupSessions = getGroupSessions(session.groupSessionId);
+            groupSessions.forEach(s => {
+              if (!processedIndirectStudents.has(s.studentId)) {
+                processedIndirectStudents.add(s.studentId);
+                indirectServices.push(s);
+              }
+            });
+          }
+        } else {
+          if (!processedIndirectStudents.has(session.studentId)) {
+            processedIndirectStudents.add(session.studentId);
+            indirectServices.push(session);
+          }
+        }
       }
     });
     
@@ -342,8 +360,10 @@ export const TimeTracking = () => {
       // Sort by initials for consistency
       directStudentEntries.sort();
       
-      noteParts.push(`Direct services:`);
+      const serviceLabel = isTeletherapy ? 'Offsite Direct services:' : 'Direct services:';
+      noteParts.push(serviceLabel);
       noteParts.push(directStudentEntries.join(', '));
+      noteParts.push(''); // Empty line after service
     }
     
     // Build missed direct services entry
@@ -358,13 +378,66 @@ export const TimeTracking = () => {
       // Sort by initials for consistency
       missedStudentEntries.sort();
       
-      noteParts.push(`Missed Direct services:`);
+      const serviceLabel = isTeletherapy ? 'Offsite Missed Direct services:' : 'Missed Direct services:';
+      noteParts.push(serviceLabel);
       noteParts.push(missedStudentEntries.join(', '));
+      noteParts.push(''); // Empty line after service
     }
     
-    // Always include indirect services with the standard items
-    noteParts.push(`Indirect services:`);
-    noteParts.push('Email Correspondence, Documentation, Lesson Planning');
+    // Build indirect services entry - include ALL students from direct, missed, and indirect services
+    // Collect all unique student IDs from all service types
+    const allStudentIds = new Set<string>();
+    directServices.forEach(session => {
+      allStudentIds.add(session.studentId);
+    });
+    missedDirectServices.forEach(session => {
+      allStudentIds.add(session.studentId);
+    });
+    indirectServices.forEach(session => {
+      allStudentIds.add(session.studentId);
+    });
+    
+    // Build student entries list from all students
+    const studentEntries = Array.from(allStudentIds).map(studentId => {
+      const student = getStudent(studentId);
+      const initials = getStudentInitials(studentId);
+      const grade = student?.grade || '';
+      return `${initials} (${grade})`;
+    });
+    
+    // Sort by initials for consistency
+    studentEntries.sort();
+    
+    // Collect all unique activities from indirect services sessions
+    const allActivities = new Set<string>();
+    indirectServices.forEach(session => {
+      session.activitiesUsed?.forEach(activity => {
+        if (activity.trim()) {
+          allActivities.add(activity.trim());
+        }
+      });
+    });
+    
+    // Always include the default 3 activities
+    allActivities.add('Email Correspondence');
+    allActivities.add('Documentation');
+    allActivities.add('Lesson Planning');
+    
+    // Convert to array and sort
+    const activitiesArray = Array.from(allActivities).sort();
+    
+    const indirectServiceLabel = isTeletherapy ? 'Offsite Indirect services:' : 'Indirect services:';
+    noteParts.push(indirectServiceLabel);
+    noteParts.push(studentEntries.join(', '));
+    activitiesArray.forEach(activity => {
+      noteParts.push(activity);
+    });
+    noteParts.push(''); // Empty line after service
+    
+    // Remove trailing empty line if present
+    if (noteParts.length > 0 && noteParts[noteParts.length - 1] === '') {
+      noteParts.pop();
+    }
     
     setTimesheetNote(noteParts.join('\n'));
     setTimesheetDialogOpen(true);
