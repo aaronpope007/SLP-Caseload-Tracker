@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -11,28 +11,13 @@ import {
   DialogContent,
   DialogActions,
   Grid,
-  TextField,
   Typography,
-  IconButton,
-  Alert,
-  CircularProgress,
-  Divider,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  CardActions,
-  Tooltip,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
   Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  AutoAwesome as AutoAwesomeIcon,
   Psychology as PsychologyIcon,
   School as SchoolIcon,
-  ContentCopy as ContentCopyIcon,
 } from '@mui/icons-material';
 import type { Student, Goal, Session } from '../types';
 import {
@@ -44,7 +29,7 @@ import {
   getSessionsByStudent,
   getGoals,
 } from '../utils/storage-api';
-import { generateId, formatDate, getGoalProgressChipProps } from '../utils/helpers';
+import { generateId } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { useDirty } from '../hooks/useDirty';
@@ -54,12 +39,13 @@ import {
   generateIEPGoals,
   type GoalProgressData,
 } from '../utils/gemini';
-import {
-  goalTemplates,
-  getGoalTemplatesByDomain,
-  getGoalTemplatesByKeywords,
-  getUniqueDomains,
-} from '../utils/goalTemplates';
+import { goalTemplates } from '../utils/goalTemplates';
+import { GoalCard } from '../components/GoalCard';
+import { GoalFormDialog } from '../components/GoalFormDialog';
+import { GoalSuggestionsDialog } from '../components/GoalSuggestionsDialog';
+import { TreatmentRecommendationsDialog } from '../components/TreatmentRecommendationsDialog';
+import { IEPGoalsDialog } from '../components/IEPGoalsDialog';
+import { GoalTemplateDialog } from '../components/GoalTemplateDialog';
 
 export const StudentDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -108,12 +94,6 @@ export const StudentDetail = () => {
   const [selectedTemplate, setSelectedTemplate] = useState<typeof goalTemplates[0] | null>(null);
   const [templateFilterDomain, setTemplateFilterDomain] = useState<string>('');
   const [showRecommendedTemplates, setShowRecommendedTemplates] = useState(true);
-  
-  // Get recommended templates based on student concerns
-  const getRecommendedTemplates = (): typeof goalTemplates => {
-    if (!student || !showRecommendedTemplates) return [];
-    return getGoalTemplatesByKeywords(student.concerns);
-  };
 
   // AI Features State
   const [goalSuggestionsDialogOpen, setGoalSuggestionsDialogOpen] = useState(false);
@@ -687,187 +667,19 @@ export const StudentDetail = () => {
                       {domainGoals.map((goal) => {
                         const subs = subGoalsByParent.get(goal.id) || [];
                         return (
-                          <React.Fragment key={goal.id}>
-                            <Grid item xs={12} md={6}>
-                              <Card sx={{ borderLeft: `4px solid ${goal.priority === 'high' ? '#f44336' : goal.priority === 'medium' ? '#ff9800' : '#4caf50'}` }}>
-                                <CardContent>
-                                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                    <Typography variant="h6">{goal.description}</Typography>
-                                    <Box>
-                                      <IconButton
-                                        size="small"
-                                        onClick={() => handleOpenDialog(goal)}
-                                      >
-                                        <EditIcon fontSize="small" />
-                                      </IconButton>
-                                      <Tooltip title="Copy to sub goal">
-                                        <IconButton
-                                          size="small"
-                                          onClick={() => handleCopyMainGoalToSubGoal(goal)}
-                                        >
-                                          <ContentCopyIcon fontSize="small" />
-                                        </IconButton>
-                                      </Tooltip>
-                                      <IconButton
-                                        size="small"
-                                        onClick={() => handleDelete(goal.id)}
-                                        color="error"
-                                      >
-                                        <DeleteIcon fontSize="small" />
-                                      </IconButton>
-                                    </Box>
-                                  </Box>
-                                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>
-                                    <Chip
-                                      label={goal.status}
-                                      size="small"
-                                      color={
-                                        goal.status === 'achieved'
-                                          ? 'success'
-                                          : goal.status === 'modified' || goal.status === 'in-progress'
-                                          ? 'warning'
-                                          : 'default'
-                                      }
-                                    />
-                                    {(() => {
-                                      const recent = getRecentPerformance(goal.id);
-                                      const chipProps = getGoalProgressChipProps(recent.average, goal.target);
-                                      return (
-                                        <Chip
-                                          label={recent.average !== null ? `${Math.round(recent.average)}%` : 'not started'}
-                                          size="small"
-                                          color={chipProps.color}
-                                          variant={chipProps.variant}
-                                        />
-                                      );
-                                    })()}
-                                    {goal.priority && (
-                                      <Chip
-                                        label={goal.priority}
-                                        size="small"
-                                        color={goal.priority === 'high' ? 'error' : goal.priority === 'medium' ? 'warning' : 'success'}
-                                        variant="outlined"
-                                      />
-                                    )}
-                                    {goal.domain && (
-                                      <Chip
-                                        label={goal.domain}
-                                        size="small"
-                                        variant="outlined"
-                                      />
-                                    )}
-                                  </Box>
-                                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                                    Baseline: {goal.baseline}
-                                  </Typography>
-                                  {(() => {
-                                    const recent = getRecentPerformance(goal.id);
-                                    if (recent.recentSessions.length > 0) {
-                                      return (
-                                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                                          Recent: {recent.average !== null 
-                                            ? `${Math.round(recent.average)}% (avg of ${recent.recentSessions.length} sessions)`
-                                            : recent.recentSessions.map(s => `${Math.round(s.accuracy || 0)}%`).join(', ')
-                                          }
-                                        </Typography>
-                                      );
-                                    }
-                                    return null;
-                                  })()}
-                                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                                    Target: {goal.target}
-                                  </Typography>
-                                  {subs.length > 0 && (
-                                    <Box sx={{ mt: 2, pl: 2, borderLeft: '2px solid #e0e0e0' }}>
-                                      <Typography variant="subtitle2" gutterBottom>
-                                        Sub-goals ({subs.length}):
-                                      </Typography>
-                                      {subs.map(sub => {
-                                        const subRecent = getRecentPerformance(sub.id);
-                                        return (
-                                          <Box key={sub.id} sx={{ mb: 1 }}>
-                                            <Typography variant="body2">{sub.description}</Typography>
-                                            <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
-                                              <Chip 
-                                                label={sub.status} 
-                                                size="small"
-                                                color={
-                                                  sub.status === 'achieved'
-                                                    ? 'success'
-                                                    : sub.status === 'modified' || sub.status === 'in-progress'
-                                                    ? 'warning'
-                                                    : 'default'
-                                                }
-                                              />
-                                              {(() => {
-                                                const subChipProps = getGoalProgressChipProps(subRecent.average, sub.target);
-                                                return (
-                                                  <Chip
-                                                    label={subRecent.average !== null ? `${Math.round(subRecent.average)}%` : 'not started'}
-                                                    size="small"
-                                                    color={subChipProps.color}
-                                                    variant={subChipProps.variant}
-                                                  />
-                                                );
-                                              })()}
-                                              {sub.priority && (
-                                                <Chip
-                                                  label={sub.priority}
-                                                  size="small"
-                                                  color={sub.priority === 'high' ? 'error' : sub.priority === 'medium' ? 'warning' : 'success'}
-                                                  variant="outlined"
-                                                />
-                                              )}
-                                              <IconButton
-                                                size="small"
-                                                onClick={() => handleOpenDialog(sub)}
-                                                title="Edit sub-goal"
-                                              >
-                                                <EditIcon fontSize="small" />
-                                              </IconButton>
-                                              <IconButton
-                                                size="small"
-                                                onClick={() => handleDuplicateSubGoal(sub)}
-                                                title="Duplicate sub-goal"
-                                              >
-                                                <ContentCopyIcon fontSize="small" />
-                                              </IconButton>
-                                            </Box>
-                                            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                                              Created: {formatDate(sub.dateCreated)}
-                                              {sub.status === 'achieved' && sub.dateAchieved && (
-                                                <>
-                                                  <br />
-                                                  Achieved: {formatDate(sub.dateAchieved)}
-                                                </>
-                                              )}
-                                            </Typography>
-                                          </Box>
-                                        );
-                                      })}
-                                    </Box>
-                                  )}
-                                  <Button
-                                    size="small"
-                                    startIcon={<AddIcon />}
-                                    onClick={() => handleOpenDialog(undefined, goal.id)}
-                                    sx={{ mt: 1 }}
-                                  >
-                                    Add Sub-goal
-                                  </Button>
-                                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                                    Created: {formatDate(goal.dateCreated)}
-                                    {goal.status === 'achieved' && goal.dateAchieved && (
-                                      <>
-                                        <br />
-                                        Achieved: {formatDate(goal.dateAchieved)}
-                                      </>
-                                    )}
-                                  </Typography>
-                                </CardContent>
-                              </Card>
-                            </Grid>
-                          </React.Fragment>
+                          <Grid item xs={12} md={6} key={goal.id}>
+                            <GoalCard
+                              goal={goal}
+                              subGoals={subs}
+                              getRecentPerformance={getRecentPerformance}
+                              onEdit={handleOpenDialog}
+                              onDelete={handleDelete}
+                              onCopyToSubGoal={handleCopyMainGoalToSubGoal}
+                              onAddSubGoal={(parentId) => handleOpenDialog(undefined, parentId)}
+                              onEditSubGoal={handleOpenDialog}
+                              onDuplicateSubGoal={handleDuplicateSubGoal}
+                            />
+                          </Grid>
                         );
                       })}
                     </Grid>
@@ -885,176 +697,17 @@ export const StudentDetail = () => {
                         const subs = subGoalsByParent.get(goal.id) || [];
                         return (
                           <Grid item xs={12} md={6} key={goal.id}>
-                            <Card sx={{ borderLeft: `4px solid ${goal.priority === 'high' ? '#f44336' : goal.priority === 'medium' ? '#ff9800' : '#4caf50'}` }}>
-                              <CardContent>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                  <Typography variant="h6">{goal.description}</Typography>
-                                  <Box>
-                                    <IconButton
-                                      size="small"
-                                      onClick={() => handleOpenDialog(goal)}
-                                    >
-                                      <EditIcon fontSize="small" />
-                                    </IconButton>
-                                    <Tooltip title="Copy to sub goal">
-                                      <IconButton
-                                        size="small"
-                                        onClick={() => handleCopyMainGoalToSubGoal(goal)}
-                                      >
-                                        <ContentCopyIcon fontSize="small" />
-                                      </IconButton>
-                                    </Tooltip>
-                                    <IconButton
-                                      size="small"
-                                      onClick={() => handleDelete(goal.id)}
-                                      color="error"
-                                    >
-                                      <DeleteIcon fontSize="small" />
-                                    </IconButton>
-                                  </Box>
-                                </Box>
-                                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>
-                                  <Chip
-                                    label={goal.status}
-                                    size="small"
-                                    color={
-                                      goal.status === 'achieved'
-                                        ? 'success'
-                                        : goal.status === 'modified'
-                                        ? 'warning'
-                                        : 'default'
-                                    }
-                                  />
-                                  {(() => {
-                                    const recent = getRecentPerformance(goal.id);
-                                    const chipProps = getGoalProgressChipProps(recent.average, goal.target);
-                                    return (
-                                      <Chip
-                                        label={recent.average !== null ? `${Math.round(recent.average)}%` : 'not started'}
-                                        size="small"
-                                        color={chipProps.color}
-                                        variant={chipProps.variant}
-                                      />
-                                    );
-                                  })()}
-                                  {goal.priority && (
-                                    <Chip
-                                      label={goal.priority}
-                                      size="small"
-                                      color={goal.priority === 'high' ? 'error' : goal.priority === 'medium' ? 'warning' : 'success'}
-                                      variant="outlined"
-                                    />
-                                  )}
-                                </Box>
-                                <Typography variant="body2" color="text.secondary" gutterBottom>
-                                  Baseline: {goal.baseline}
-                                </Typography>
-                                {(() => {
-                                  const recent = getRecentPerformance(goal.id);
-                                  if (recent.recentSessions.length > 0) {
-                                    return (
-                                      <Typography variant="body2" color="text.secondary" gutterBottom>
-                                        Recent: {recent.average !== null 
-                                          ? `${Math.round(recent.average)}% (avg of ${recent.recentSessions.length} sessions)`
-                                          : recent.recentSessions.map(s => `${Math.round(s.accuracy || 0)}%`).join(', ')
-                                        }
-                                      </Typography>
-                                    );
-                                  }
-                                  return null;
-                                })()}
-                                <Typography variant="body2" color="text.secondary" gutterBottom>
-                                  Target: {goal.target}
-                                </Typography>
-                                {subs.length > 0 && (
-                                  <Box sx={{ mt: 2, pl: 2, borderLeft: '2px solid #e0e0e0' }}>
-                                    <Typography variant="subtitle2" gutterBottom>
-                                      Sub-goals ({subs.length}):
-                                    </Typography>
-                                    {subs.map(sub => {
-                                      const subRecent = getRecentPerformance(sub.id);
-                                      return (
-                                        <Box key={sub.id} sx={{ mb: 1 }}>
-                                          <Typography variant="body2">{sub.description}</Typography>
-                                          <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
-                                            <Chip 
-                                              label={sub.status} 
-                                              size="small"
-                                              color={
-                                                sub.status === 'achieved'
-                                                  ? 'success'
-                                                  : sub.status === 'modified' || sub.status === 'in-progress'
-                                                  ? 'warning'
-                                                  : 'default'
-                                              }
-                                            />
-                                            {(() => {
-                                              const subChipProps = getGoalProgressChipProps(subRecent.average, sub.target);
-                                              return (
-                                                <Chip
-                                                  label={subRecent.average !== null ? `${Math.round(subRecent.average)}%` : 'not started'}
-                                                  size="small"
-                                                  color={subChipProps.color}
-                                                  variant={subChipProps.variant}
-                                                />
-                                              );
-                                            })()}
-                                            {sub.priority && (
-                                              <Chip
-                                                label={sub.priority}
-                                                size="small"
-                                                color={sub.priority === 'high' ? 'error' : sub.priority === 'medium' ? 'warning' : 'success'}
-                                                variant="outlined"
-                                              />
-                                            )}
-                                            <IconButton
-                                              size="small"
-                                              onClick={() => handleOpenDialog(sub)}
-                                              title="Edit sub-goal"
-                                            >
-                                              <EditIcon fontSize="small" />
-                                            </IconButton>
-                                            <IconButton
-                                              size="small"
-                                              onClick={() => handleDuplicateSubGoal(sub)}
-                                              title="Duplicate sub-goal"
-                                            >
-                                              <ContentCopyIcon fontSize="small" />
-                                            </IconButton>
-                                          </Box>
-                                          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                                            Created: {formatDate(sub.dateCreated)}
-                                            {sub.status === 'achieved' && sub.dateAchieved && (
-                                              <>
-                                                <br />
-                                                Achieved: {formatDate(sub.dateAchieved)}
-                                              </>
-                                            )}
-                                          </Typography>
-                                        </Box>
-                                      );
-                                    })}
-                                  </Box>
-                                )}
-                                <Button
-                                  size="small"
-                                  startIcon={<AddIcon />}
-                                  onClick={() => handleOpenDialog(undefined, goal.id)}
-                                  sx={{ mt: 1 }}
-                                >
-                                  Add Sub-goal
-                                </Button>
-                                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                                  Created: {formatDate(goal.dateCreated)}
-                                  {goal.status === 'achieved' && goal.dateAchieved && (
-                                    <>
-                                      <br />
-                                      Achieved: {formatDate(goal.dateAchieved)}
-                                    </>
-                                  )}
-                                </Typography>
-                              </CardContent>
-                            </Card>
+                            <GoalCard
+                              goal={goal}
+                              subGoals={subs}
+                              getRecentPerformance={getRecentPerformance}
+                              onEdit={handleOpenDialog}
+                              onDelete={handleDelete}
+                              onCopyToSubGoal={handleCopyMainGoalToSubGoal}
+                              onAddSubGoal={(parentId) => handleOpenDialog(undefined, parentId)}
+                              onEditSubGoal={handleOpenDialog}
+                              onDuplicateSubGoal={handleDuplicateSubGoal}
+                            />
                           </Grid>
                         );
                       })}
@@ -1067,390 +720,63 @@ export const StudentDetail = () => {
         )}
       </Grid>
 
-      <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          {editingGoal 
-            ? 'Edit Goal' 
-            : formData.parentGoalId 
-            ? 'Adding New Subgoal' 
-            : 'Add New Goal'}
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-              <TextField
-                label="Goal Description"
-                fullWidth
-                multiline
-                rows={3}
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                required
-              />
-              <Button
-                variant="outlined"
-                startIcon={<AutoAwesomeIcon />}
-                onClick={() => {
-                  setGoalArea(formData.description || '');
-                  setGoalSuggestions('');
-                  setGoalSuggestionsError('');
-                  setGoalSuggestionsDialogOpen(true);
-                }}
-                sx={{ mt: 1 }}
-                title="Get AI suggestions for this goal"
-              >
-                AI
-              </Button>
-            </Box>
-            {selectedTemplate && (
-              <Alert severity="info">
-                Using template: <strong>{selectedTemplate.title}</strong>
-              </Alert>
-            )}
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <TextField
-                label="Domain"
-                fullWidth
-                select
-                value={formData.domain}
-                onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
-                InputLabelProps={{
-                  shrink: true,
-                }}
-                SelectProps={{ native: true }}
-              >
-                <option value="">None</option>
-                {getUniqueDomains().map(domain => (
-                  <option key={domain} value={domain}>{domain}</option>
-                ))}
-              </TextField>
-              <TextField
-                label="Priority"
-                fullWidth
-                select
-                value={formData.priority}
-                onChange={(e) => setFormData({ ...formData, priority: e.target.value as 'high' | 'medium' | 'low' })}
-                InputLabelProps={{
-                  shrink: true,
-                }}
-                SelectProps={{ native: true }}
-              >
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-              </TextField>
-            </Box>
-            {!editingGoal && (() => {
-              const mainGoals = goals.filter(g => !g.parentGoalId) as Goal[];
-              return (
-                <TextField
-                  label="Parent Goal"
-                  fullWidth
-                  select
-                  value={formData.parentGoalId}
-                  onChange={(e) => setFormData({ ...formData, parentGoalId: e.target.value })}
-                  helperText="Optional - for sub-goals"
-                  InputLabelProps={{
-                    shrink: true,
-                  }}
-                  SelectProps={{ native: true }}
-                >
-                  <option value="">None (Main Goal)</option>
-                  {mainGoals.map(goal => (
-                    <option key={goal.id} value={goal.id}>{goal.description}</option>
-                  ))}
-                </TextField>
-              );
-            })()}
-            <TextField
-              label="Baseline"
-              fullWidth
-              value={formData.baseline}
-              onChange={(e) => setFormData({ ...formData, baseline: e.target.value })}
-              helperText="Initial performance level"
-            />
-            <TextField
-              label="Target"
-              fullWidth
-              value={formData.target}
-              onChange={(e) => setFormData({ ...formData, target: e.target.value })}
-              helperText="Desired performance level"
-            />
-            <TextField
-              select
-              label="Status"
-              fullWidth
-              value={formData.status}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  status: e.target.value as 'in-progress' | 'achieved' | 'modified',
-                })
-              }
-              SelectProps={{
-                native: true,
-              }}
-            >
-              <option value="in-progress">In Progress</option>
-              <option value="achieved">Achieved</option>
-              <option value="modified">Modified</option>
-            </TextField>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
-          <Button
-            onClick={handleSave}
-            variant="contained"
-            disabled={!formData.description}
-          >
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <GoalFormDialog
+        open={dialogOpen}
+        editingGoal={editingGoal}
+        formData={formData}
+        mainGoals={goals.filter(g => !g.parentGoalId)}
+        selectedTemplate={selectedTemplate}
+        onClose={handleCloseDialog}
+        onSave={handleSave}
+        onFormDataChange={(data) => setFormData({ ...formData, ...data })}
+        onOpenGoalSuggestions={() => {
+          setGoalArea(formData.description || '');
+          setGoalSuggestions('');
+          setGoalSuggestionsError('');
+          setGoalSuggestionsDialogOpen(true);
+        }}
+      />
 
-      {/* Goal Suggestions Dialog */}
-      <Dialog open={goalSuggestionsDialogOpen} onClose={() => setGoalSuggestionsDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>AI Goal Writing Assistant</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-            <TextField
-              label="Goal Area"
-              fullWidth
-              value={goalArea}
-              onChange={(e) => setGoalArea(e.target.value)}
-              placeholder="e.g., Articulation, Language, Fluency, Pragmatics"
-              helperText="Enter the area you'd like to write goals for"
-            />
-            {goalSuggestionsError && (
-              <Alert severity="error">{goalSuggestionsError}</Alert>
-            )}
-            <Button
-              variant="contained"
-              onClick={handleGenerateGoalSuggestions}
-              disabled={loadingGoalSuggestions || !goalArea.trim()}
-              startIcon={loadingGoalSuggestions ? <CircularProgress size={20} /> : <AutoAwesomeIcon />}
-            >
-              Generate Goal Suggestions
-            </Button>
-            {goalSuggestions && (
-              <Box>
-                <Typography variant="subtitle2" gutterBottom>Suggestions:</Typography>
-                <Typography
-                  component="div"
-                  sx={{
-                    whiteSpace: 'pre-wrap',
-                    p: 2,
-                    bgcolor: 'background.paper',
-                    borderRadius: 1,
-                    maxHeight: '400px',
-                    overflow: 'auto',
-                  }}
-                >
-                  {goalSuggestions}
-                </Typography>
-              </Box>
-            )}
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setGoalSuggestionsDialogOpen(false)}>Close</Button>
-        </DialogActions>
-      </Dialog>
+      <GoalSuggestionsDialog
+        open={goalSuggestionsDialogOpen}
+        goalArea={goalArea}
+        goalSuggestions={goalSuggestions}
+        loading={loadingGoalSuggestions}
+        error={goalSuggestionsError}
+        onClose={() => setGoalSuggestionsDialogOpen(false)}
+        onGoalAreaChange={setGoalArea}
+        onGenerate={handleGenerateGoalSuggestions}
+      />
 
-      {/* Treatment Recommendations Dialog */}
-      <Dialog open={treatmentRecsDialogOpen} onClose={() => setTreatmentRecsDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Treatment Recommendations</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-            {treatmentRecsError && (
-              <Alert severity="error">{treatmentRecsError}</Alert>
-            )}
-            {loadingTreatmentRecs && (
-              <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-                <CircularProgress />
-              </Box>
-            )}
-            {treatmentRecommendations && (
-              <Typography
-                component="div"
-                sx={{
-                  whiteSpace: 'pre-wrap',
-                  p: 2,
-                  bgcolor: 'grey.50',
-                  borderRadius: 1,
-                  maxHeight: '500px',
-                  overflow: 'auto',
-                }}
-              >
-                {treatmentRecommendations}
-              </Typography>
-            )}
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setTreatmentRecsDialogOpen(false)}>Close</Button>
-        </DialogActions>
-      </Dialog>
+      <TreatmentRecommendationsDialog
+        open={treatmentRecsDialogOpen}
+        recommendations={treatmentRecommendations}
+        loading={loadingTreatmentRecs}
+        error={treatmentRecsError}
+        onClose={() => setTreatmentRecsDialogOpen(false)}
+      />
 
-      {/* IEP Goals Dialog */}
-      <Dialog open={iepGoalsDialogOpen} onClose={() => setIepGoalsDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Generate IEP Goals from Assessment Data</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-            <TextField
-              label="Assessment Data"
-              fullWidth
-              multiline
-              rows={8}
-              value={assessmentData}
-              onChange={(e) => setAssessmentData(e.target.value)}
-              placeholder="Enter assessment results, observations, test scores, areas of need, etc."
-              helperText="Provide comprehensive assessment data to generate appropriate IEP goals"
-            />
-            {iepGoalsError && (
-              <Alert severity="error">{iepGoalsError}</Alert>
-            )}
-            <Button
-              variant="contained"
-              onClick={handleGenerateIEPGoals}
-              disabled={loadingIepGoals || !assessmentData.trim()}
-              startIcon={loadingIepGoals ? <CircularProgress size={20} /> : <SchoolIcon />}
-            >
-              Generate IEP Goals
-            </Button>
-            {iepGoals && (
-              <Box>
-                <Typography variant="subtitle2" gutterBottom>Generated IEP Goals:</Typography>
-                <Typography
-                  component="div"
-                  sx={{
-                    whiteSpace: 'pre-wrap',
-                    p: 2,
-                    bgcolor: 'background.paper',
-                    borderRadius: 1,
-                    maxHeight: '500px',
-                    overflow: 'auto',
-                  }}
-                >
-                  {iepGoals}
-                </Typography>
-              </Box>
-            )}
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setIepGoalsDialogOpen(false)}>Close</Button>
-          </DialogActions>
-        </Dialog>
+      <IEPGoalsDialog
+        open={iepGoalsDialogOpen}
+        assessmentData={assessmentData}
+        iepGoals={iepGoals}
+        loading={loadingIepGoals}
+        error={iepGoalsError}
+        onClose={() => setIepGoalsDialogOpen(false)}
+        onAssessmentDataChange={setAssessmentData}
+        onGenerate={handleGenerateIEPGoals}
+      />
 
-      {/* Goal Template Selection Dialog */}
-      <Dialog open={templateDialogOpen} onClose={() => setTemplateDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Goal Templates</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-            <FormControl fullWidth>
-              <InputLabel>Filter by Domain</InputLabel>
-              <Select
-                value={templateFilterDomain}
-                onChange={(e) => {
-                  setTemplateFilterDomain(e.target.value);
-                  setShowRecommendedTemplates(false);
-                }}
-                label="Filter by Domain"
-              >
-                <MenuItem value="">All Domains</MenuItem>
-                {getUniqueDomains().map(domain => (
-                  <MenuItem key={domain} value={domain}>{domain}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            {showRecommendedTemplates && student && student.concerns.length > 0 && getRecommendedTemplates().length > 0 && (
-              <Box>
-                <Typography variant="h6" gutterBottom>
-                  Recommended for {student?.name} ({student?.concerns.join(', ')})
-                </Typography>
-                <Grid container spacing={2} sx={{ mb: 2 }}>
-                  {getRecommendedTemplates().slice(0, 4).map((template) => (
-                    <Grid item xs={12} sm={6} key={template.id}>
-                      <Card variant="outlined" sx={{ bgcolor: 'action.hover' }}>
-                        <CardContent>
-                          <Typography variant="h6" gutterBottom>
-                            {template.title}
-                          </Typography>
-                          <Chip label={template.domain} size="small" sx={{ mb: 1 }} />
-                          <Typography variant="body2" color="text.secondary" paragraph>
-                            {template.description}
-                          </Typography>
-                          {template.suggestedBaseline && (
-                            <Typography variant="caption" display="block">
-                              Baseline: {template.suggestedBaseline}
-                            </Typography>
-                          )}
-                          {template.suggestedTarget && (
-                            <Typography variant="caption" display="block">
-                              Target: {template.suggestedTarget}
-                            </Typography>
-                          )}
-                        </CardContent>
-                        <CardActions>
-                          <Button size="small" onClick={() => handleUseTemplate(template)}>
-                            Use Template
-                          </Button>
-                        </CardActions>
-                      </Card>
-                    </Grid>
-                  ))}
-                </Grid>
-                <Divider sx={{ my: 2 }} />
-              </Box>
-            )}
-            <Typography variant="h6" gutterBottom>
-              {templateFilterDomain ? `${templateFilterDomain} Templates` : 'All Templates'}
-            </Typography>
-            <Grid container spacing={2}>
-              {(templateFilterDomain
-                ? getGoalTemplatesByDomain(templateFilterDomain)
-                : goalTemplates
-              ).map((template) => (
-                <Grid item xs={12} sm={6} key={template.id}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>
-                        {template.title}
-                      </Typography>
-                      <Chip label={template.domain} size="small" sx={{ mb: 1 }} />
-                      <Typography variant="body2" color="text.secondary" paragraph>
-                        {template.description}
-                      </Typography>
-                      {template.suggestedBaseline && (
-                        <Typography variant="caption" display="block">
-                          Baseline: {template.suggestedBaseline}
-                        </Typography>
-                      )}
-                      {template.suggestedTarget && (
-                        <Typography variant="caption" display="block">
-                          Target: {template.suggestedTarget}
-                        </Typography>
-                      )}
-                    </CardContent>
-                    <CardActions>
-                      <Button size="small" onClick={() => handleUseTemplate(template)}>
-                        Use Template
-                      </Button>
-                    </CardActions>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setTemplateDialogOpen(false)}>Close</Button>
-        </DialogActions>
-      </Dialog>
+      <GoalTemplateDialog
+        open={templateDialogOpen}
+        student={student}
+        filterDomain={templateFilterDomain}
+        showRecommendedTemplates={showRecommendedTemplates}
+        onClose={() => setTemplateDialogOpen(false)}
+        onFilterDomainChange={setTemplateFilterDomain}
+        onShowRecommendedTemplatesChange={setShowRecommendedTemplates}
+        onUseTemplate={handleUseTemplate}
+      />
 
       {/* Confirmation dialog for unsaved changes */}
       <ConfirmDialog />
