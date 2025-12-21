@@ -10,8 +10,8 @@ interface SchoolContextType {
   setSelectedSchool: (school: string) => void;
   availableSchools: string[];
   schools: School[];
-  addSchool: (name: string, state?: string, teletherapy?: boolean) => void;
-  getSchoolState: (schoolName: string) => string | undefined;
+  addSchool: (name: string, state?: string, teletherapy?: boolean) => Promise<void>;
+  getSchoolState: (schoolName: string) => Promise<string | undefined>;
 }
 
 const SchoolContext = createContext<SchoolContextType | undefined>(undefined);

@@ -103,7 +103,7 @@ export const TreatmentIdeas = () => {
     }
   };
 
-  const handleSaveIdea = () => {
+  const handleSaveIdea = async () => {
     if (!generatedIdeas || !formData.goalArea || !formData.ageRange) return;
 
     const materialsArray = formData.materials
@@ -122,16 +122,16 @@ export const TreatmentIdeas = () => {
       dateCreated: new Date().toISOString(),
     };
 
-    addActivity(activity);
+    await addActivity(activity);
     loadActivities();
     setDialogOpen(false);
     setGeneratedIdeas('');
   };
 
-  const handleToggleFavorite = (id: string) => {
+  const handleToggleFavorite = async (id: string) => {
     const activity = activities.find((a) => a.id === id);
     if (activity) {
-      updateActivity(id, { isFavorite: !activity.isFavorite });
+      await updateActivity(id, { isFavorite: !activity.isFavorite });
       loadActivities();
     }
   };

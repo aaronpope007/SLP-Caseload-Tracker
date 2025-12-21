@@ -60,10 +60,10 @@ export const Evaluations = () => {
     meetingDate: '',
   });
 
-  const loadData = useCallback(() => {
-    const schoolStudents = getStudents(selectedSchool);
+  const loadData = useCallback(async () => {
+    const schoolStudents = await getStudents(selectedSchool);
     setStudents(schoolStudents);
-    const schoolEvaluations = getEvaluations(selectedSchool);
+    const schoolEvaluations = await getEvaluations(selectedSchool);
     setEvaluations(schoolEvaluations);
   }, [selectedSchool]);
 
@@ -114,14 +114,14 @@ export const Evaluations = () => {
     setEditingEvaluation(null);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.studentId || !formData.grade || !formData.evaluationType) {
       alert('Please fill in Student, Grade, and Evaluation Type');
       return;
     }
 
     if (editingEvaluation) {
-      updateEvaluation(editingEvaluation.id, {
+      await updateEvaluation(editingEvaluation.id, {
         studentId: formData.studentId,
         grade: formData.grade,
         evaluationType: formData.evaluationType,
@@ -136,7 +136,7 @@ export const Evaluations = () => {
         meetingDate: formData.meetingDate || undefined,
       });
     } else {
-      addEvaluation({
+      await addEvaluation({
         id: generateId(),
         studentId: formData.studentId,
         grade: formData.grade,
@@ -165,8 +165,8 @@ export const Evaluations = () => {
       message: `Are you sure you want to delete this evaluation${evaluation ? ` for ${students.find(s => s.id === evaluation.studentId)?.name || 'student'}` : ''}?`,
       confirmText: 'Delete',
       cancelText: 'Cancel',
-      onConfirm: () => {
-        deleteEvaluation(id);
+      onConfirm: async () => {
+        await deleteEvaluation(id);
         loadData();
       },
     });
@@ -312,13 +312,13 @@ export const Evaluations = () => {
               paginationModel: { pageSize: 25 },
             },
           }}
-          processRowUpdate={(newRow, oldRow) => {
+          processRowUpdate={async (newRow, oldRow) => {
             // Find which field changed
             const changedField = Object.keys(newRow).find(
               key => newRow[key] !== oldRow[key] && key !== 'id' && key !== 'studentId'
             );
             if (changedField) {
-              updateEvaluation(newRow.id as string, {
+              await updateEvaluation(newRow.id as string, {
                 [changedField]: newRow[changedField] || undefined,
               });
               loadData();

@@ -518,7 +518,7 @@ export const Sessions = () => {
     }
   };
 
-  const handleSaveLunch = () => {
+  const handleSaveLunch = async () => {
     const lunch: Lunch = {
       id: generateId(),
       school: selectedSchool,
@@ -527,7 +527,7 @@ export const Sessions = () => {
       dateCreated: new Date().toISOString(),
     };
     
-    addLunch(lunch);
+    await addLunch(lunch);
     setLunchDialogOpen(false);
     // Reset form
     const now = new Date();

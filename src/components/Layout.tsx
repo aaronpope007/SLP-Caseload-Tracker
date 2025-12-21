@@ -146,9 +146,9 @@ export const Layout = ({ children }: LayoutProps) => {
     setNewSchoolTeletherapy(false);
   };
 
-  const handleSaveNewSchool = () => {
+  const handleSaveNewSchool = async () => {
     if (newSchoolName.trim()) {
-      addSchool(newSchoolName.trim(), newSchoolState, newSchoolTeletherapy);
+      await addSchool(newSchoolName.trim(), newSchoolState, newSchoolTeletherapy);
       handleCloseAddSchool();
     }
   };

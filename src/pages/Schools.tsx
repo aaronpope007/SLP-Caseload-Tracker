@@ -202,19 +202,19 @@ export const Schools = () => {
     });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.name.trim()) {
       return;
     }
 
     if (editingSchool) {
-      updateSchool(editingSchool.id, {
+      await updateSchool(editingSchool.id, {
         name: formData.name.trim(),
         state: formData.state,
         teletherapy: formData.teletherapy,
       });
     } else {
-      addSchool({
+      await addSchool({
         id: generateId(),
         name: formData.name.trim(),
         state: formData.state,
@@ -233,8 +233,8 @@ export const Schools = () => {
       message: `Are you sure you want to delete ${school?.name || 'this school'}? This will not delete students associated with this school.`,
       confirmText: 'Delete',
       cancelText: 'Cancel',
-      onConfirm: () => {
-        deleteSchool(id);
+      onConfirm: async () => {
+        await deleteSchool(id);
         loadSchools();
       },
     });
