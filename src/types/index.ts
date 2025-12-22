@@ -69,6 +69,7 @@ export interface Session {
   groupSessionId?: string; // ID to link related sessions (for group sessions)
   missedSession?: boolean; // true if this was a missed session (only for Direct Services)
   selectedSubjectiveStatements?: string[]; // Selected subjective statements for SOAP notes
+  customSubjective?: string; // Custom subjective statement for SOAP notes
 }
 
 export interface Activity {

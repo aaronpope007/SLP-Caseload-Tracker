@@ -53,7 +53,7 @@ export const SOAPNoteDialog = ({
           student,
           goals,
           session.selectedSubjectiveStatements || [],
-          ''
+          session.customSubjective || ''
         );
         setSubjective(generated.subjective);
         setObjective(generated.objective);

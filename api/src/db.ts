@@ -81,9 +81,29 @@ export function initDatabase() {
       indirectServicesNotes TEXT,
       groupSessionId TEXT,
       missedSession INTEGER DEFAULT 0,
+      selectedSubjectiveStatements TEXT,
+      customSubjective TEXT,
       FOREIGN KEY (studentId) REFERENCES students(id) ON DELETE CASCADE
     )
   `);
+
+  // Add new columns if they don't exist (for existing databases)
+  // SQLite doesn't support IF NOT EXISTS for ALTER TABLE, so we check pragma first
+  try {
+    const tableInfo = db.prepare('PRAGMA table_info(sessions)').all() as Array<{ name: string }>;
+    const columnNames = tableInfo.map(col => col.name);
+    
+    if (!columnNames.includes('selectedSubjectiveStatements')) {
+      db.exec(`ALTER TABLE sessions ADD COLUMN selectedSubjectiveStatements TEXT`);
+    }
+    
+    if (!columnNames.includes('customSubjective')) {
+      db.exec(`ALTER TABLE sessions ADD COLUMN customSubjective TEXT`);
+    }
+  } catch (e: any) {
+    // If table doesn't exist yet, columns will be added via CREATE TABLE above
+    console.warn('Could not add columns to sessions table:', e.message);
+  }
 
   // Activities table
   db.exec(`

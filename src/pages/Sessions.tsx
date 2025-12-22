@@ -34,6 +34,7 @@ import { SessionFormDialog } from '../components/SessionFormDialog';
 import { SOAPNoteDialog } from '../components/SOAPNoteDialog';
 import type { SOAPNote } from '../types';
 import { getSOAPNotesBySession, addSOAPNote, updateSOAPNote } from '../utils/storage-api';
+import { api } from '../utils/api';
 
 export const Sessions = () => {
   const { selectedSchool } = useSchool();
@@ -80,6 +81,7 @@ export const Sessions = () => {
     indirectServicesNotes: '',
     missedSession: false, // Whether this was a missed session (only for Direct Services)
     selectedSubjectiveStatements: [] as string[],
+    customSubjective: '',
   });
 
   useEffect(() => {
@@ -204,6 +206,7 @@ export const Sessions = () => {
           indirectServicesNotes: session.indirectServicesNotes || '',
           missedSession: session.missedSession || false,
           selectedSubjectiveStatements: session.selectedSubjectiveStatements || [],
+          customSubjective: session.customSubjective || '',
         };
         setFormData(newFormData);
         initialFormDataRef.current = JSON.parse(JSON.stringify(newFormData));
@@ -226,6 +229,7 @@ export const Sessions = () => {
         indirectServicesNotes: '',
         missedSession: false,
         selectedSubjectiveStatements: [],
+        customSubjective: '',
       };
       setFormData(newFormData);
       initialFormDataRef.current = JSON.parse(JSON.stringify(newFormData));
@@ -249,6 +253,7 @@ export const Sessions = () => {
       formData.indirectServicesNotes !== initial.indirectServicesNotes ||
       formData.missedSession !== initial.missedSession ||
       JSON.stringify(formData.selectedSubjectiveStatements.sort()) !== JSON.stringify(initial.selectedSubjectiveStatements.sort()) ||
+      formData.customSubjective !== initial.customSubjective ||
       JSON.stringify(formData.performanceData) !== JSON.stringify(initial.performanceData);
     
     return hasChanges;
@@ -418,6 +423,7 @@ export const Sessions = () => {
           groupSessionId: groupSessionId,
           missedSession: formData.isDirectServices ? (formData.missedSession || false) : undefined,
           selectedSubjectiveStatements: formData.selectedSubjectiveStatements.length > 0 ? formData.selectedSubjectiveStatements : undefined,
+          customSubjective: formData.customSubjective.trim() || undefined,
         };
 
         if (existingSession) {
@@ -478,6 +484,7 @@ export const Sessions = () => {
           groupSessionId: groupSessionId, // Link related sessions together
           missedSession: formData.isDirectServices ? (formData.missedSession || false) : undefined, // Only set for Direct Services
           selectedSubjectiveStatements: formData.selectedSubjectiveStatements.length > 0 ? formData.selectedSubjectiveStatements : undefined,
+          customSubjective: formData.customSubjective.trim() || undefined,
         };
 
         if (isEditingSingleSession) {
@@ -575,15 +582,31 @@ export const Sessions = () => {
 
 
   const handleGenerateSOAP = async (session: Session) => {
-    setSelectedSessionForSOAP(session);
-    // Check if SOAP note already exists for this session
-    const existingNotes = await getSOAPNotesBySession(session.id);
-    if (existingNotes.length > 0) {
-      setExistingSOAPNote(existingNotes[0]); // Use the first one if multiple exist
-    } else {
-      setExistingSOAPNote(undefined);
+    try {
+      // Fetch the latest session from the API to ensure we have the most recent data including customSubjective
+      const latestSession = await api.sessions.getById(session.id);
+      setSelectedSessionForSOAP(latestSession);
+      // Check if SOAP note already exists for this session
+      const existingNotes = await getSOAPNotesBySession(latestSession.id);
+      if (existingNotes.length > 0) {
+        setExistingSOAPNote(existingNotes[0]); // Use the first one if multiple exist
+      } else {
+        setExistingSOAPNote(undefined);
+      }
+      setSoapNoteDialogOpen(true);
+    } catch (error) {
+      console.error('Failed to fetch latest session:', error);
+      // Fallback to using the session from state or parameter
+      const latestSession = sessions.find(s => s.id === session.id) || session;
+      setSelectedSessionForSOAP(latestSession);
+      const existingNotes = await getSOAPNotesBySession(latestSession.id);
+      if (existingNotes.length > 0) {
+        setExistingSOAPNote(existingNotes[0]);
+      } else {
+        setExistingSOAPNote(undefined);
+      }
+      setSoapNoteDialogOpen(true);
     }
-    setSoapNoteDialogOpen(true);
   };
 
   const handleSaveSOAPNote = async (soapNote: SOAPNote) => {

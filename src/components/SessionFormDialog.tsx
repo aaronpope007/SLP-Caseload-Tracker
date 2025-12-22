@@ -48,6 +48,7 @@ interface SessionFormData {
   indirectServicesNotes: string;
   missedSession: boolean;
   selectedSubjectiveStatements: string[];
+  customSubjective: string;
 }
 
 interface SessionFormDialogProps {
@@ -356,39 +357,52 @@ export const SessionFormDialog = ({
               )}
 
               {formData.isDirectServices && (
-                <Paper sx={{ p: 2, bgcolor: 'background.default' }}>
-                  <Typography variant="subtitle2" gutterBottom>
-                    Subjective Statements (for SOAP notes):
-                  </Typography>
-                  <FormGroup>
-                    <Grid container spacing={1}>
-                      {COMMON_SUBJECTIVE_STATEMENTS.map((statement) => (
-                        <Grid item xs={12} sm={6} key={statement}>
-                          <FormControlLabel
-                            control={
-                              <Checkbox
-                                checked={formData.selectedSubjectiveStatements.includes(statement)}
-                                onChange={(e) => {
-                                  const current = formData.selectedSubjectiveStatements;
-                                  const updated = e.target.checked
-                                    ? [...current, statement]
-                                    : current.filter(s => s !== statement);
-                                  handleFormDataChange({ selectedSubjectiveStatements: updated });
-                                }}
-                                size="small"
+                <Accordion>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Typography variant="subtitle2">
+                      Subjective Statements (for SOAP notes):
+                    </Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <FormGroup>
+                        <Grid container spacing={1}>
+                          {COMMON_SUBJECTIVE_STATEMENTS.map((statement) => (
+                            <Grid item xs={12} sm={6} key={statement}>
+                              <FormControlLabel
+                                control={
+                                  <Checkbox
+                                    checked={formData.selectedSubjectiveStatements.includes(statement)}
+                                    onChange={(e) => {
+                                      const current = formData.selectedSubjectiveStatements;
+                                      const updated = e.target.checked
+                                        ? [...current, statement]
+                                        : current.filter(s => s !== statement);
+                                      handleFormDataChange({ selectedSubjectiveStatements: updated });
+                                    }}
+                                    size="small"
+                                  />
+                                }
+                                label={
+                                  <Typography variant="body2">
+                                    {statement}
+                                  </Typography>
+                                }
                               />
-                            }
-                            label={
-                              <Typography variant="body2">
-                                {statement}
-                              </Typography>
-                            }
-                          />
+                            </Grid>
+                          ))}
                         </Grid>
-                      ))}
-                    </Grid>
-                  </FormGroup>
-                </Paper>
+                      </FormGroup>
+                      <TextField
+                        label="Custom Subjective Statement"
+                        fullWidth
+                        value={formData.customSubjective}
+                        onChange={(e) => handleFormDataChange({ customSubjective: e.target.value })}
+                        placeholder="Enter your own subjective statement..."
+                      />
+                    </Box>
+                  </AccordionDetails>
+                </Accordion>
               )}
 
               <TextField
