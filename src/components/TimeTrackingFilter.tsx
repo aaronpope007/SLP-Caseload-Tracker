@@ -1,6 +1,8 @@
 import {
   Box,
   Button,
+  Checkbox,
+  FormControlLabel,
   Grid,
   Paper,
   TextField,
@@ -16,6 +18,8 @@ interface TimeTrackingFilterProps {
   onGenerateTimesheet: () => void;
   onOpenSavedNotes: () => void;
   hasItems: boolean;
+  useSpecificTimes: boolean;
+  onUseSpecificTimesChange: (value: boolean) => void;
 }
 
 export const TimeTrackingFilter = ({
@@ -24,6 +28,8 @@ export const TimeTrackingFilter = ({
   onGenerateTimesheet,
   onOpenSavedNotes,
   hasItems,
+  useSpecificTimes,
+  onUseSpecificTimesChange,
 }: TimeTrackingFilterProps) => {
   return (
     <Paper sx={{ p: 2, mb: 3 }}>
@@ -57,6 +63,17 @@ export const TimeTrackingFilter = ({
               Saved Notes
             </Button>
           </Box>
+        </Grid>
+        <Grid item xs={12} sm={6} md={4}>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={useSpecificTimes}
+                onChange={(e) => onUseSpecificTimesChange(e.target.checked)}
+              />
+            }
+            label="Use specific times"
+          />
         </Grid>
         {selectedDate && (
           <Grid item xs={12}>

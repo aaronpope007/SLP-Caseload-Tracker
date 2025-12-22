@@ -14,6 +14,9 @@ interface GenerateTimesheetNoteParams {
   getStudentInitials: (studentId: string) => string;
   getGroupSessions: (groupSessionId: string) => Session[];
   isTeletherapy: boolean;
+  useSpecificTimes: boolean;
+  formatTime12Hour: (dateString: string) => string;
+  formatTimeRange: (startDate: string, endDate?: string) => string;
 }
 
 export const generateTimesheetNote = ({
@@ -23,6 +26,9 @@ export const generateTimesheetNote = ({
   getStudentInitials,
   getGroupSessions,
   isTeletherapy,
+  useSpecificTimes,
+  formatTime12Hour,
+  formatTimeRange,
 }: GenerateTimesheetNoteParams): string => {
   const noteParts: string[] = [];
 
@@ -105,15 +111,55 @@ export const generateTimesheetNote = ({
 
   // Build direct services entry
   if (directServices.length > 0) {
-    const directStudentEntries = directServices.map(session => {
-      const student = getStudent(session.studentId);
-      const initials = getStudentInitials(session.studentId);
-      const grade = student?.grade || '';
-      return `${initials} (${grade})`;
-    });
-
-    // Sort by initials for consistency
-    directStudentEntries.sort();
+    let directStudentEntries: string[];
+    
+    if (useSpecificTimes) {
+      // Group sessions by time range and create entries with times
+      const timeRangeMap = new Map<string, Array<{ session: Session; timeRange: string }>>();
+      
+      directServices.forEach(session => {
+        const timeRange = formatTimeRange(session.date, session.endTime);
+        const key = timeRange;
+        
+        if (!timeRangeMap.has(key)) {
+          timeRangeMap.set(key, []);
+        }
+        timeRangeMap.get(key)!.push({ session, timeRange });
+      });
+      
+      // Build entries: "FG (5) 8:10am-8:30am, AS (2) 8:30am-8:50am"
+      const entries: string[] = [];
+      const sortedTimeRanges = Array.from(timeRangeMap.entries()).sort((a, b) => {
+        // Sort by start time
+        const timeA = new Date(a[1][0].session.date).getTime();
+        const timeB = new Date(b[1][0].session.date).getTime();
+        return timeA - timeB;
+      });
+      
+      sortedTimeRanges.forEach(([timeRange, sessionData]) => {
+        const studentEntries = sessionData.map(({ session }) => {
+          const student = getStudent(session.studentId);
+          const initials = getStudentInitials(session.studentId);
+          const grade = student?.grade || '';
+          return { entry: `${initials} (${grade}) ${timeRange}`, initials };
+        });
+        // Sort by initials within each time range group
+        studentEntries.sort((a, b) => a.initials.localeCompare(b.initials));
+        entries.push(...studentEntries.map(e => e.entry));
+      });
+      
+      directStudentEntries = entries;
+    } else {
+      // Original format without times
+      directStudentEntries = directServices.map(session => {
+        const student = getStudent(session.studentId);
+        const initials = getStudentInitials(session.studentId);
+        const grade = student?.grade || '';
+        return `${initials} (${grade})`;
+      });
+      // Sort by initials for consistency
+      directStudentEntries.sort();
+    }
 
     const serviceLabel = isTeletherapy ? 'Offsite Direct services:' : 'Direct services:';
     noteParts.push(serviceLabel);
@@ -123,15 +169,55 @@ export const generateTimesheetNote = ({
 
   // Build missed direct services entry
   if (missedDirectServices.length > 0) {
-    const missedStudentEntries = missedDirectServices.map(session => {
-      const student = getStudent(session.studentId);
-      const initials = getStudentInitials(session.studentId);
-      const grade = student?.grade || '';
-      return `${initials} (${grade})`;
-    });
-
-    // Sort by initials for consistency
-    missedStudentEntries.sort();
+    let missedStudentEntries: string[];
+    
+    if (useSpecificTimes) {
+      // Group sessions by time range and create entries with times
+      const timeRangeMap = new Map<string, Array<{ session: Session; timeRange: string }>>();
+      
+      missedDirectServices.forEach(session => {
+        const timeRange = formatTimeRange(session.date, session.endTime);
+        const key = timeRange;
+        
+        if (!timeRangeMap.has(key)) {
+          timeRangeMap.set(key, []);
+        }
+        timeRangeMap.get(key)!.push({ session, timeRange });
+      });
+      
+      // Build entries: "FG (5) 8:10am-8:30am, AS (2) 8:30am-8:50am"
+      const entries: string[] = [];
+      const sortedTimeRanges = Array.from(timeRangeMap.entries()).sort((a, b) => {
+        // Sort by start time
+        const timeA = new Date(a[1][0].session.date).getTime();
+        const timeB = new Date(b[1][0].session.date).getTime();
+        return timeA - timeB;
+      });
+      
+      sortedTimeRanges.forEach(([timeRange, sessionData]) => {
+        const studentEntries = sessionData.map(({ session }) => {
+          const student = getStudent(session.studentId);
+          const initials = getStudentInitials(session.studentId);
+          const grade = student?.grade || '';
+          return { entry: `${initials} (${grade}) ${timeRange}`, initials };
+        });
+        // Sort by initials within each time range group
+        studentEntries.sort((a, b) => a.initials.localeCompare(b.initials));
+        entries.push(...studentEntries.map(e => e.entry));
+      });
+      
+      missedStudentEntries = entries;
+    } else {
+      // Original format without times
+      missedStudentEntries = missedDirectServices.map(session => {
+        const student = getStudent(session.studentId);
+        const initials = getStudentInitials(session.studentId);
+        const grade = student?.grade || '';
+        return `${initials} (${grade})`;
+      });
+      // Sort by initials for consistency
+      missedStudentEntries.sort();
+    }
 
     const serviceLabel = isTeletherapy ? 'Offsite Missed Direct services:' : 'Missed Direct services:';
     noteParts.push(serviceLabel);

@@ -74,6 +74,7 @@ export const TimeTracking = () => {
   };
 
   const [selectedDate, setSelectedDate] = useState<string>(getCurrentDateString());
+  const [useSpecificTimes, setUseSpecificTimes] = useState(false);
   const [timesheetDialogOpen, setTimesheetDialogOpen] = useState(false);
   const [timesheetNote, setTimesheetNote] = useState('');
   const [savedNotesDialogOpen, setSavedNotesDialogOpen] = useState(false);
@@ -252,6 +253,9 @@ export const TimeTracking = () => {
       getStudentInitials,
       getGroupSessions,
       isTeletherapy,
+      useSpecificTimes,
+      formatTime12Hour,
+      formatTimeRange,
     });
     
     setTimesheetNote(note);
@@ -317,6 +321,8 @@ export const TimeTracking = () => {
         onGenerateTimesheet={handleGenerateTimesheetNote}
         onOpenSavedNotes={() => setSavedNotesDialogOpen(true)}
         hasItems={filteredItems.length > 0}
+        useSpecificTimes={useSpecificTimes}
+        onUseSpecificTimesChange={setUseSpecificTimes}
       />
 
       <Box>
