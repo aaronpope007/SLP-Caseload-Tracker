@@ -38,6 +38,9 @@ import { generateId } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { getStudents } from '../utils/storage-api';
+import { SchoolCard } from '../components/SchoolCard';
+import { SchoolFormDialog } from '../components/SchoolFormDialog';
+import { SchoolSearchBar } from '../components/SchoolSearchBar';
 
 // US State abbreviations
 const US_STATES = [
@@ -260,33 +263,10 @@ export const Schools = () => {
         </Button>
       </Box>
 
-      <Box sx={{ mb: 3 }}>
-        <TextField
-          fullWidth
-          placeholder="Search schools by name or state..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon sx={{ color: 'text.secondary' }} />
-              </InputAdornment>
-            ),
-            endAdornment: searchTerm && (
-              <InputAdornment position="end">
-                <IconButton
-                  edge="end"
-                  onClick={() => setSearchTerm('')}
-                  size="small"
-                  aria-label="clear search"
-                >
-                  <ClearIcon />
-                </IconButton>
-              </InputAdornment>
-            ),
-          }}
-        />
-      </Box>
+      <SchoolSearchBar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+      />
 
       <Grid container spacing={2}>
         {filteredSchools.length === 0 ? (
@@ -306,120 +286,26 @@ export const Schools = () => {
         ) : (
           filteredSchools.map((school) => (
             <Grid item xs={12} sm={6} md={4} key={school.id}>
-              <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
-                      <SchoolIcon color="primary" />
-                      <Typography variant="h6" component="div">
-                        {school.name}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 0.5 }}>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleOpenDialog(school)}
-                        aria-label="edit school"
-                      >
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleDelete(school.id)}
-                        aria-label="delete school"
-                        color="error"
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  </Box>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
-                    {school.state && (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <LocationOnIcon fontSize="small" color="action" />
-                        <Chip
-                          label={getStateLabel(school.state)}
-                          size="small"
-                          variant="outlined"
-                          color="primary"
-                        />
-                      </Box>
-                    )}
-                    {school.teletherapy && (
-                      <Chip
-                        icon={<VideocamIcon />}
-                        label="Teletherapy"
-                        size="small"
-                        variant="outlined"
-                        color="success"
-                      />
-                    )}
-                  </Box>
-                </CardContent>
-              </Card>
+              <SchoolCard
+                school={school}
+                getStateLabel={getStateLabel}
+                onEdit={handleOpenDialog}
+                onDelete={handleDelete}
+              />
             </Grid>
           ))
         )}
       </Grid>
 
-      <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          {editingSchool ? 'Edit School' : 'Add New School'}
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-            <TextField
-              label="School Name"
-              fullWidth
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              required
-              autoFocus
-              margin="normal"
-            />
-            <TextField
-              select
-              label="State"
-              fullWidth
-              value={formData.state}
-              onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-              SelectProps={{
-                native: true,
-              }}
-              margin="normal"
-              InputLabelProps={{
-                shrink: true,
-              }}
-            >
-              {US_STATES.map((state) => (
-                <option key={state.value} value={state.value}>
-                  {state.label}
-                </option>
-              ))}
-            </TextField>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={formData.teletherapy}
-                  onChange={(e) => setFormData({ ...formData, teletherapy: e.target.checked })}
-                />
-              }
-              label="Teletherapy"
-              sx={{ mt: 1 }}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
-          <Button
-            onClick={handleSave}
-            variant="contained"
-            disabled={!formData.name.trim()}
-          >
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <SchoolFormDialog
+        open={dialogOpen}
+        editingSchool={editingSchool}
+        formData={formData}
+        states={US_STATES}
+        onClose={handleCloseDialog}
+        onSave={handleSave}
+        onFormDataChange={(updates) => setFormData({ ...formData, ...updates })}
+      />
 
       <ConfirmDialog />
     </Box>

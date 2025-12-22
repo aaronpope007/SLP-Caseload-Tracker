@@ -46,6 +46,9 @@ import { GoalSuggestionsDialog } from '../components/GoalSuggestionsDialog';
 import { TreatmentRecommendationsDialog } from '../components/TreatmentRecommendationsDialog';
 import { IEPGoalsDialog } from '../components/IEPGoalsDialog';
 import { GoalTemplateDialog } from '../components/GoalTemplateDialog';
+import { StudentInfoCard } from '../components/StudentInfoCard';
+import { GoalActionsBar } from '../components/GoalActionsBar';
+import { GoalsList } from '../components/GoalsList';
 
 export const StudentDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -552,172 +555,40 @@ export const StudentDetail = () => {
         Back to Students
       </Button>
 
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-            <Box>
-              <Typography variant="h4">{student.name}</Typography>
-              <Typography color="text.secondary">
-                Age: {student.age} | Grade: {student.grade}
-              </Typography>
-            </Box>
-            <Chip
-              label={student.status}
-              color={student.status === 'active' ? 'primary' : 'default'}
-            />
-          </Box>
-          {student.concerns.length > 0 && (
-            <Box>
-              <Typography variant="subtitle2" gutterBottom>
-                Concerns:
-              </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {student.concerns.map((concern, idx) => (
-                  <Chip key={idx} label={concern} size="small" variant="outlined" />
-                ))}
-              </Box>
-            </Box>
-          )}
-        </CardContent>
-      </Card>
+      <StudentInfoCard
+        name={student.name}
+        age={student.age}
+        grade={student.grade}
+        status={student.status}
+        concerns={student.concerns}
+      />
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
-        <Typography variant="h5">Goals</Typography>
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          <Button
-            variant="outlined"
-            startIcon={<SchoolIcon />}
-            onClick={() => {
-              setAssessmentData('');
-              setIepGoals('');
-              setIepGoalsDialogOpen(true);
-            }}
-          >
-            Generate IEP Goals
-          </Button>
-          <Button
-            variant="outlined"
-            startIcon={<PsychologyIcon />}
-            onClick={() => {
-              setTreatmentRecommendations('');
-              handleGenerateTreatmentRecommendations();
-              setTreatmentRecsDialogOpen(true);
-            }}
-            disabled={goals.length === 0}
-          >
-            Treatment Recommendations
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => handleOpenDialog()}
-          >
-            Add Goal
-          </Button>
-        </Box>
-      </Box>
+      <GoalActionsBar
+        onAddGoal={() => handleOpenDialog()}
+        onGenerateIEPGoals={() => {
+          setAssessmentData('');
+          setIepGoals('');
+          setIepGoalsDialogOpen(true);
+        }}
+        onGenerateTreatmentRecommendations={() => {
+          setTreatmentRecommendations('');
+          handleGenerateTreatmentRecommendations();
+          setTreatmentRecsDialogOpen(true);
+        }}
+        hasGoals={goals.length > 0}
+      />
 
       <Grid container spacing={2}>
-        {goals.length === 0 ? (
-          <Grid item xs={12}>
-            <Card>
-              <CardContent>
-                <Typography color="text.secondary" align="center">
-                  No goals added yet. Click "Add Goal" to create one.
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        ) : (
-          (() => {
-            // Organize goals: main goals first, then sub-goals grouped under parents
-            const mainGoals = goals.filter(g => !g.parentGoalId);
-            const subGoals = goals.filter(g => g.parentGoalId);
-            const subGoalsByParent = new Map<string, Goal[]>();
-            subGoals.forEach(sub => {
-              const parentId = sub.parentGoalId!;
-              if (!subGoalsByParent.has(parentId)) {
-                subGoalsByParent.set(parentId, []);
-              }
-              subGoalsByParent.get(parentId)!.push(sub);
-            });
-
-            // Group main goals by domain for better organization
-            const goalsByDomain = new Map<string, Goal[]>();
-            const goalsWithoutDomain: Goal[] = [];
-            mainGoals.forEach(goal => {
-              if (goal.domain) {
-                if (!goalsByDomain.has(goal.domain)) {
-                  goalsByDomain.set(goal.domain, []);
-                }
-                goalsByDomain.get(goal.domain)!.push(goal);
-              } else {
-                goalsWithoutDomain.push(goal);
-              }
-            });
-
-            return (
-              <>
-                {Array.from(goalsByDomain.entries()).map(([domain, domainGoals]) => (
-                  <Grid item xs={12} key={domain}>
-                    <Typography variant="h6" sx={{ mb: 1, mt: 1 }}>
-                      {domain}
-                    </Typography>
-                    <Grid container spacing={2}>
-                      {domainGoals.map((goal) => {
-                        const subs = subGoalsByParent.get(goal.id) || [];
-                        return (
-                          <Grid item xs={12} md={6} key={goal.id}>
-                            <GoalCard
-                              goal={goal}
-                              subGoals={subs}
-                              getRecentPerformance={getRecentPerformance}
-                              onEdit={handleOpenDialog}
-                              onDelete={handleDelete}
-                              onCopyToSubGoal={handleCopyMainGoalToSubGoal}
-                              onAddSubGoal={(parentId) => handleOpenDialog(undefined, parentId)}
-                              onEditSubGoal={handleOpenDialog}
-                              onDuplicateSubGoal={handleDuplicateSubGoal}
-                            />
-                          </Grid>
-                        );
-                      })}
-                    </Grid>
-                  </Grid>
-                ))}
-                {goalsWithoutDomain.length > 0 && (
-                  <Grid item xs={12}>
-                    {goalsByDomain.size > 0 && (
-                      <Typography variant="h6" sx={{ mb: 1, mt: 1 }}>
-                        Other Goals
-                      </Typography>
-                    )}
-                    <Grid container spacing={2}>
-                      {goalsWithoutDomain.map((goal) => {
-                        const subs = subGoalsByParent.get(goal.id) || [];
-                        return (
-                          <Grid item xs={12} md={6} key={goal.id}>
-                            <GoalCard
-                              goal={goal}
-                              subGoals={subs}
-                              getRecentPerformance={getRecentPerformance}
-                              onEdit={handleOpenDialog}
-                              onDelete={handleDelete}
-                              onCopyToSubGoal={handleCopyMainGoalToSubGoal}
-                              onAddSubGoal={(parentId) => handleOpenDialog(undefined, parentId)}
-                              onEditSubGoal={handleOpenDialog}
-                              onDuplicateSubGoal={handleDuplicateSubGoal}
-                            />
-                          </Grid>
-                        );
-                      })}
-                    </Grid>
-                  </Grid>
-                )}
-              </>
-            );
-          })()
-        )}
+        <GoalsList
+          goals={goals}
+          getRecentPerformance={getRecentPerformance}
+          onEdit={handleOpenDialog}
+          onDelete={handleDelete}
+          onCopyToSubGoal={handleCopyMainGoalToSubGoal}
+          onAddSubGoal={(parentId) => handleOpenDialog(undefined, parentId)}
+          onEditSubGoal={handleOpenDialog}
+          onDuplicateSubGoal={handleDuplicateSubGoal}
+        />
       </Grid>
 
       <GoalFormDialog

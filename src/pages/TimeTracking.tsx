@@ -1,33 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   Box,
-  Button,
   Card,
   CardContent,
-  Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Typography,
-  Grid,
-  Paper,
   Snackbar,
   Alert,
-  Tooltip,
+  Typography,
 } from '@mui/material';
-import {
-  AccessTime as AccessTimeIcon,
-  Description as DescriptionIcon,
-  Group as GroupIcon,
-  Person as PersonIcon,
-  Save as SaveIcon,
-  Folder as FolderIcon,
-  Delete as DeleteIcon,
-  Info as InfoIcon,
-  Restaurant as RestaurantIcon,
-} from '@mui/icons-material';
 import type { Session, Evaluation, Student, Lunch } from '../types';
 import {
   getSessionsBySchool,
@@ -35,23 +14,22 @@ import {
   getStudents,
   getLunches,
 } from '../utils/storage-api';
-import { formatDateTime, formatDate, generateId } from '../utils/helpers';
+import { formatDate, generateId } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
 import { getSchoolByName } from '../utils/storage-api';
+import { SessionTimeItem } from '../components/SessionTimeItem';
+import { EvaluationTimeItem } from '../components/EvaluationTimeItem';
+import { LunchTimeItem } from '../components/LunchTimeItem';
+import { TimesheetNoteDialog } from '../components/TimesheetNoteDialog';
+import { SavedNotesDialog, type TimesheetNote } from '../components/SavedNotesDialog';
+import { TimeTrackingFilter } from '../components/TimeTrackingFilter';
+import { generateTimesheetNote } from '../utils/timesheetNoteGenerator';
 
 interface TimeTrackingItem {
   id: string;
   type: 'session' | 'evaluation' | 'lunch';
   date: string;
   data: Session | Evaluation | Lunch;
-}
-
-interface TimesheetNote {
-  id: string;
-  content: string;
-  dateCreated: string;
-  dateFor?: string; // The date filter that was used
-  school: string;
 }
 
 const TIMESHEET_NOTES_STORAGE_KEY = 'slp_timesheet_notes';
@@ -267,179 +245,16 @@ export const TimeTracking = () => {
     const school = await getSchoolByName(selectedSchool);
     const isTeletherapy = school?.teletherapy || false;
     
-    // Build timesheet note from filtered items
-    const noteParts: string[] = [];
-    
-    // Filter to only sessions (not evaluations or lunches)
-    const sessionItems = filteredItems
-      .filter(item => item.type === 'session');
-    
-    // Separate direct services, missed direct services, and indirect services
-    const directServices: Session[] = [];
-    const missedDirectServices: Session[] = [];
-    const indirectServices: Session[] = [];
-    const processedDirectGroupIds = new Set<string>();
-    const processedMissedGroupIds = new Set<string>();
-    const processedIndirectGroupIds = new Set<string>();
-    const processedDirectStudents = new Set<string>();
-    const processedMissedStudents = new Set<string>();
-    const processedIndirectStudents = new Set<string>();
-    
-    sessionItems.forEach(item => {
-      const session = item.data as Session;
-      if (session.isDirectServices) {
-        // For group sessions, collect all students from the group
-        if (session.groupSessionId) {
-          if (session.missedSession) {
-            if (!processedMissedGroupIds.has(session.groupSessionId)) {
-              processedMissedGroupIds.add(session.groupSessionId);
-              const groupSessions = getGroupSessions(session.groupSessionId);
-              groupSessions.forEach(s => {
-                if (!processedMissedStudents.has(s.studentId)) {
-                  processedMissedStudents.add(s.studentId);
-                  missedDirectServices.push(s);
-                }
-              });
-            }
-          } else {
-            if (!processedDirectGroupIds.has(session.groupSessionId)) {
-              processedDirectGroupIds.add(session.groupSessionId);
-              const groupSessions = getGroupSessions(session.groupSessionId);
-              groupSessions.forEach(s => {
-                if (!processedDirectStudents.has(s.studentId)) {
-                  processedDirectStudents.add(s.studentId);
-                  directServices.push(s);
-                }
-              });
-            }
-          }
-        } else {
-          if (session.missedSession) {
-            if (!processedMissedStudents.has(session.studentId)) {
-              processedMissedStudents.add(session.studentId);
-              missedDirectServices.push(session);
-            }
-          } else {
-            if (!processedDirectStudents.has(session.studentId)) {
-              processedDirectStudents.add(session.studentId);
-              directServices.push(session);
-            }
-          }
-        }
-      } else {
-        // Indirect services
-        if (session.groupSessionId) {
-          if (!processedIndirectGroupIds.has(session.groupSessionId)) {
-            processedIndirectGroupIds.add(session.groupSessionId);
-            const groupSessions = getGroupSessions(session.groupSessionId);
-            groupSessions.forEach(s => {
-              if (!processedIndirectStudents.has(s.studentId)) {
-                processedIndirectStudents.add(s.studentId);
-                indirectServices.push(s);
-              }
-            });
-          }
-        } else {
-          if (!processedIndirectStudents.has(session.studentId)) {
-            processedIndirectStudents.add(session.studentId);
-            indirectServices.push(session);
-          }
-        }
-      }
+    const note = generateTimesheetNote({
+      filteredItems,
+      sessions,
+      getStudent,
+      getStudentInitials,
+      getGroupSessions,
+      isTeletherapy,
     });
     
-    // Build direct services entry
-    if (directServices.length > 0) {
-      const directStudentEntries = directServices.map(session => {
-        const student = getStudent(session.studentId);
-        const initials = getStudentInitials(session.studentId);
-        const grade = student?.grade || '';
-        return `${initials} (${grade})`;
-      });
-      
-      // Sort by initials for consistency
-      directStudentEntries.sort();
-      
-      const serviceLabel = isTeletherapy ? 'Offsite Direct services:' : 'Direct services:';
-      noteParts.push(serviceLabel);
-      noteParts.push(directStudentEntries.join(', '));
-      noteParts.push(''); // Empty line after service
-    }
-    
-    // Build missed direct services entry
-    if (missedDirectServices.length > 0) {
-      const missedStudentEntries = missedDirectServices.map(session => {
-        const student = getStudent(session.studentId);
-        const initials = getStudentInitials(session.studentId);
-        const grade = student?.grade || '';
-        return `${initials} (${grade})`;
-      });
-      
-      // Sort by initials for consistency
-      missedStudentEntries.sort();
-      
-      const serviceLabel = isTeletherapy ? 'Offsite Missed Direct services:' : 'Missed Direct services:';
-      noteParts.push(serviceLabel);
-      noteParts.push(missedStudentEntries.join(', '));
-      noteParts.push(''); // Empty line after service
-    }
-    
-    // Build indirect services entry - include ALL students from direct, missed, and indirect services
-    // Collect all unique student IDs from all service types
-    const allStudentIds = new Set<string>();
-    directServices.forEach(session => {
-      allStudentIds.add(session.studentId);
-    });
-    missedDirectServices.forEach(session => {
-      allStudentIds.add(session.studentId);
-    });
-    indirectServices.forEach(session => {
-      allStudentIds.add(session.studentId);
-    });
-    
-    // Build student entries list from all students
-    const studentEntries = Array.from(allStudentIds).map(studentId => {
-      const student = getStudent(studentId);
-      const initials = getStudentInitials(studentId);
-      const grade = student?.grade || '';
-      return `${initials} (${grade})`;
-    });
-    
-    // Sort by initials for consistency
-    studentEntries.sort();
-    
-    // Collect all unique activities from indirect services sessions
-    const allActivities = new Set<string>();
-    indirectServices.forEach(session => {
-      session.activitiesUsed?.forEach(activity => {
-        if (activity.trim()) {
-          allActivities.add(activity.trim());
-        }
-      });
-    });
-    
-    // Always include the default 3 activities
-    allActivities.add('Email Correspondence');
-    allActivities.add('Documentation');
-    allActivities.add('Lesson Planning');
-    
-    // Convert to array and sort
-    const activitiesArray = Array.from(allActivities).sort();
-    
-    const indirectServiceLabel = isTeletherapy ? 'Offsite Indirect services:' : 'Indirect services:';
-    noteParts.push(indirectServiceLabel);
-    noteParts.push(studentEntries.join(', '));
-    activitiesArray.forEach(activity => {
-      noteParts.push(activity);
-    });
-    noteParts.push(''); // Empty line after service
-    
-    // Remove trailing empty line if present
-    if (noteParts.length > 0 && noteParts[noteParts.length - 1] === '') {
-      noteParts.pop();
-    }
-    
-    setTimesheetNote(noteParts.join('\n'));
+    setTimesheetNote(note);
     setTimesheetDialogOpen(true);
   };
 
@@ -486,175 +301,6 @@ export const TimeTracking = () => {
     }
   };
 
-  const renderSessionItem = (session: Session) => {
-    const isGroup = isGroupSession(session);
-    const serviceType = session.isDirectServices 
-      ? (session.missedSession ? 'Missed Direct Services' : 'Direct Services')
-      : 'Indirect Services';
-    
-    const directServicesInfo = "MN requires that specific start and end times are listed for any direct services provided remotely for each individual session. In the notes section of your entry for the school, list the specific start and end time of each direct telehealth session, with a separate line for each entry. If doing additional duties within a timeframe of billable services, you only need to include specific start/end times for the direct telehealth duties.";
-    
-    const indirectServicesInfo = "Any of the following activities: collaboration with teachers/staff, direct contact with the student to monitor and observe, modifying environment/items, preparation for sessions, or ordering/creation of materials for the student to support their IEP goals, setting up a therapeutic OT space for students, etc. It also includes performing documentation/record-keeping duties, including updating daily notes, scheduling, and updating caseload lists for Indigo sped director group schools. If you see a student for direct services and document \"Direct/indirect services,\" since you did preparation and documentation, you do not need to write \"Indirect services\" as well. You will only write this if you do other indirect services beyond the preparation and documentation of direct services, such as fulfilling monthly minutes.";
-    
-    if (isGroup) {
-      const groupSessions = getGroupSessions(session.groupSessionId!);
-      const studentNames = groupSessions.map(s => getStudentName(s.studentId)).join(', ');
-      
-      return (
-        <Card key={session.groupSessionId} sx={{ mb: 2 }}>
-          <CardContent>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-              <Box sx={{ flex: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
-                  <GroupIcon color="primary" />
-                  <Typography variant="h6">
-                    Group Session ({groupSessions.length} {groupSessions.length === 1 ? 'student' : 'students'})
-                  </Typography>
-                  <Chip
-                    label="Group"
-                    size="small"
-                    color="primary"
-                    variant="outlined"
-                  />
-                  <Tooltip
-                    title={session.isDirectServices ? directServicesInfo : indirectServicesInfo}
-                    arrow
-                    placement="top"
-                  >
-                    <Chip
-                      label={serviceType}
-                      size="small"
-                      color={session.isDirectServices ? 'primary' : 'secondary'}
-                      icon={<InfoIcon sx={{ fontSize: 16 }} />}
-                    />
-                  </Tooltip>
-                </Box>
-                <Typography color="text.secondary" variant="body2" sx={{ mb: 1 }}>
-                  <AccessTimeIcon sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
-                  {formatDateTime(session.date)}
-                  {session.endTime && ` - ${formatDateTime(session.endTime)}`}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  <strong>Students:</strong> {studentNames}
-                </Typography>
-              </Box>
-            </Box>
-            {session.notes && (
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                {session.notes}
-              </Typography>
-            )}
-          </CardContent>
-        </Card>
-      );
-    } else {
-      const studentName = getStudentName(session.studentId);
-      
-      return (
-        <Card key={session.id} sx={{ mb: 2 }}>
-          <CardContent>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-              <Box sx={{ flex: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                  <PersonIcon color="primary" />
-                  <Typography variant="h6">
-                    {studentName}
-                  </Typography>
-                  <Chip
-                    label="Individual"
-                    size="small"
-                    color="primary"
-                    variant="outlined"
-                  />
-                  <Tooltip
-                    title={session.isDirectServices ? directServicesInfo : indirectServicesInfo}
-                    arrow
-                    placement="top"
-                  >
-                    <Chip
-                      label={serviceType}
-                      size="small"
-                      color={session.isDirectServices ? 'primary' : 'secondary'}
-                      icon={<InfoIcon sx={{ fontSize: 16 }} />}
-                    />
-                  </Tooltip>
-                </Box>
-                <Typography color="text.secondary" variant="body2">
-                  <AccessTimeIcon sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
-                  {formatDateTime(session.date)}
-                  {session.endTime && ` - ${formatDateTime(session.endTime)}`}
-                </Typography>
-              </Box>
-            </Box>
-            {session.notes && (
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                {session.notes}
-              </Typography>
-            )}
-          </CardContent>
-        </Card>
-      );
-    }
-  };
-
-  const renderEvaluationItem = (evaluation: Evaluation) => {
-    const studentName = getStudentName(evaluation.studentId);
-    
-    return (
-      <Card key={evaluation.id} sx={{ mb: 2 }}>
-        <CardContent>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-            <Box sx={{ flex: 1 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                <DescriptionIcon color="primary" />
-                <Typography variant="h6">
-                  {studentName} - Evaluation
-                </Typography>
-                <Chip
-                  label={evaluation.evaluationType}
-                  size="small"
-                  color="info"
-                />
-              </Box>
-              <Typography color="text.secondary" variant="body2">
-                <AccessTimeIcon sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
-                {formatDateTime(evaluation.dateCreated)}
-              </Typography>
-              {evaluation.areasOfConcern && (
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                  Areas of Concern: {evaluation.areasOfConcern}
-                </Typography>
-              )}
-            </Box>
-          </Box>
-        </CardContent>
-      </Card>
-    );
-  };
-
-  const renderLunchItem = (lunch: Lunch) => {
-    return (
-      <Card key={lunch.id} sx={{ mb: 2 }}>
-        <CardContent>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-            <Box sx={{ flex: 1 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                <RestaurantIcon color="primary" />
-                <Typography variant="h6">
-                  Lunch
-                </Typography>
-              </Box>
-              <Typography color="text.secondary" variant="body2">
-                <AccessTimeIcon sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
-                {formatDateTime(lunch.startTime)}
-                {lunch.endTime && ` - ${formatDateTime(lunch.endTime)}`}
-              </Typography>
-            </Box>
-          </Box>
-        </CardContent>
-      </Card>
-    );
-  };
 
   return (
     <Box>
@@ -665,51 +311,13 @@ export const TimeTracking = () => {
         View all activities and evaluations in chronological order.
       </Typography>
 
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} sm={6} md={4}>
-            <TextField
-              label="Filter by Date"
-              type="date"
-              fullWidth
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button
-                variant="contained"
-                startIcon={<DescriptionIcon />}
-                onClick={handleGenerateTimesheetNote}
-                disabled={filteredItems.length === 0}
-                sx={{ flex: 1 }}
-              >
-                Generate Timesheet Note
-              </Button>
-              <Button
-                variant="outlined"
-                startIcon={<FolderIcon />}
-                onClick={() => setSavedNotesDialogOpen(true)}
-              >
-                Saved Notes
-              </Button>
-            </Box>
-          </Grid>
-          {selectedDate && (
-            <Grid item xs={12}>
-              <Button
-                variant="text"
-                size="small"
-                onClick={() => setSelectedDate('')}
-              >
-                Clear Date Filter
-              </Button>
-            </Grid>
-          )}
-        </Grid>
-      </Paper>
+      <TimeTrackingFilter
+        selectedDate={selectedDate}
+        onDateChange={setSelectedDate}
+        onGenerateTimesheet={handleGenerateTimesheetNote}
+        onOpenSavedNotes={() => setSavedNotesDialogOpen(true)}
+        hasItems={filteredItems.length > 0}
+      />
 
       <Box>
         {filteredItems.length === 0 ? (
@@ -725,124 +333,52 @@ export const TimeTracking = () => {
         ) : (
           filteredItems.map(item => {
             if (item.type === 'session') {
-              return renderSessionItem(item.data as Session);
+              const session = item.data as Session;
+              const isGroup = isGroupSession(session);
+              return (
+                <SessionTimeItem
+                  key={session.id}
+                  session={session}
+                  isGroup={isGroup}
+                  groupSessions={isGroup ? getGroupSessions(session.groupSessionId!) : undefined}
+                  getStudentName={getStudentName}
+                />
+              );
             } else if (item.type === 'evaluation') {
-              return renderEvaluationItem(item.data as Evaluation);
+              return (
+                <EvaluationTimeItem
+                  key={item.id}
+                  evaluation={item.data as Evaluation}
+                  getStudentName={getStudentName}
+                />
+              );
             } else {
-              return renderLunchItem(item.data as Lunch);
+              return (
+                <LunchTimeItem
+                  key={item.id}
+                  lunch={item.data as Lunch}
+                />
+              );
             }
           })
         )}
       </Box>
 
-      <Dialog 
-        open={timesheetDialogOpen} 
-        onClose={() => setTimesheetDialogOpen(false)} 
-        maxWidth="md" 
-        fullWidth
-      >
-        <DialogTitle>Timesheet Note</DialogTitle>
-        <DialogContent>
-          <TextField
-            fullWidth
-            multiline
-            rows={15}
-            value={timesheetNote}
-            onChange={(e) => setTimesheetNote(e.target.value)}
-            sx={{ mt: 1 }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => {
-            navigator.clipboard.writeText(timesheetNote);
-          }}>
-            Copy to Clipboard
-          </Button>
-          <Button
-            onClick={handleSaveNote}
-            startIcon={<SaveIcon />}
-            variant="outlined"
-          >
-            Save Note
-          </Button>
-          <Button onClick={() => setTimesheetDialogOpen(false)} variant="contained">
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <TimesheetNoteDialog
+        open={timesheetDialogOpen}
+        note={timesheetNote}
+        onClose={() => setTimesheetDialogOpen(false)}
+        onSave={handleSaveNote}
+        onNoteChange={setTimesheetNote}
+      />
 
-      <Dialog
+      <SavedNotesDialog
         open={savedNotesDialogOpen}
+        notes={savedNotes}
         onClose={() => setSavedNotesDialogOpen(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>Saved Timesheet Notes</DialogTitle>
-        <DialogContent>
-          {savedNotes.length === 0 ? (
-            <Typography color="text.secondary" align="center" sx={{ py: 3 }}>
-              No saved notes yet.
-            </Typography>
-          ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-              {savedNotes.map((note) => (
-                <Card key={note.id}>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                      <Box sx={{ flex: 1 }}>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          {formatDateTime(note.dateCreated)}
-                          {note.dateFor && ` • For: ${formatDate(note.dateFor)}`}
-                        </Typography>
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            mt: 1,
-                            whiteSpace: 'pre-wrap',
-                            maxHeight: '150px',
-                            overflow: 'auto',
-                            fontFamily: 'monospace',
-                            fontSize: '0.875rem',
-                            bgcolor: 'background.default',
-                            p: 1,
-                            borderRadius: 1,
-                          }}
-                        >
-                          {note.content}
-                        </Typography>
-                      </Box>
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
-                      <Button
-                        size="small"
-                        variant="contained"
-                        onClick={() => handleLoadNote(note)}
-                        startIcon={<DescriptionIcon />}
-                      >
-                        Load
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        color="error"
-                        onClick={() => handleDeleteNote(note.id)}
-                        startIcon={<DeleteIcon />}
-                      >
-                        Delete
-                      </Button>
-                    </Box>
-                  </CardContent>
-                </Card>
-              ))}
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setSavedNotesDialogOpen(false)} variant="contained">
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onLoadNote={handleLoadNote}
+        onDeleteNote={handleDeleteNote}
+      />
 
       <Snackbar
         open={snackbar.open}

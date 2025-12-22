@@ -1,44 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Button,
   Card,
   CardContent,
-  Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Grid,
-  TextField,
   Typography,
-  FormControl,
-  MenuItem,
-  Checkbox,
-  FormControlLabel,
-  IconButton,
-  Radio,
-  RadioGroup,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  Tooltip,
-  InputAdornment,
-  Menu,
 } from '@mui/material';
 import {
-  Add as AddIcon,
-  Edit as EditIcon,
   Psychology as PsychologyIcon,
-  AccessTime as AccessTimeIcon,
-  ExpandMore as ExpandMoreIcon,
-  Group as GroupIcon,
-  Info as InfoIcon,
-  Search as SearchIcon,
-  Clear as ClearIcon,
-  ArrowDropDown as ArrowDropDownIcon,
-  Restaurant as RestaurantIcon,
 } from '@mui/icons-material';
 import type { Session, Student, Goal, Lunch } from '../types';
 import {
@@ -51,17 +21,17 @@ import {
   getSessionsByStudent,
   addLunch,
 } from '../utils/storage-api';
-import { generateId, formatDate, formatDateTime, toLocalDateTimeString, fromLocalDateTimeString } from '../utils/helpers';
+import { generateId, formatDateTime, toLocalDateTimeString, fromLocalDateTimeString } from '../utils/helpers';
 import { generateSessionPlan } from '../utils/gemini';
 import { useSchool } from '../context/SchoolContext';
 import { SessionCard } from '../components/SessionCard';
 import { SessionPlanDialog } from '../components/SessionPlanDialog';
 import { LunchDialog } from '../components/LunchDialog';
-import { GoalHierarchy } from '../components/GoalHierarchy';
-import { organizeGoalsHierarchy } from '../utils/goalHierarchy';
+import { GroupSessionAccordion } from '../components/GroupSessionAccordion';
+import { LogActivityMenu } from '../components/LogActivityMenu';
+import { SessionFormDialog } from '../components/SessionFormDialog';
 
 export const Sessions = () => {
-  const navigate = useNavigate();
   const { selectedSchool } = useSchool();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -79,11 +49,6 @@ export const Sessions = () => {
   
   // Student search state
   const [studentSearch, setStudentSearch] = useState('');
-  const studentSearchRef = useRef<HTMLInputElement>(null);
-  
-  // Menu state
-  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
-  const menuOpen = Boolean(menuAnchorEl);
   
   // Lunch dialog state
   const [lunchDialogOpen, setLunchDialogOpen] = useState(false);
@@ -109,61 +74,6 @@ export const Sessions = () => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSchool]);
-
-
-  // Auto-focus student search when dialog opens for new activity
-  useEffect(() => {
-    if (dialogOpen && !editingSession && !editingGroupSessionId) {
-      // Small delay to ensure the dialog is fully rendered
-      setTimeout(() => {
-        studentSearchRef.current?.focus();
-      }, 100);
-    }
-  }, [dialogOpen, editingSession, editingGroupSessionId]);
-
-  // Keyboard shortcuts for menu items
-  useEffect(() => {
-    if (!menuOpen) return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      // Only handle if no input/textarea is focused
-      const target = event.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
-        return;
-      }
-
-      switch (event.key.toLowerCase()) {
-        case 's':
-          event.preventDefault();
-          setMenuAnchorEl(null);
-          handleOpenDialog();
-          break;
-        case 'e':
-          event.preventDefault();
-          setMenuAnchorEl(null);
-          navigate('/evaluations');
-          break;
-        case 'l': {
-          event.preventDefault();
-          setMenuAnchorEl(null);
-          const now = new Date();
-          const defaultEndTime = new Date(now.getTime() + 30 * 60000);
-          setLunchFormData({
-            startTime: toLocalDateTimeString(now),
-            endTime: toLocalDateTimeString(defaultEndTime),
-          });
-          setLunchDialogOpen(true);
-          break;
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [menuOpen]);
 
   const loadData = async () => {
     try {
@@ -304,7 +214,7 @@ export const Sessions = () => {
     setDialogOpen(false);
     setEditingSession(null);
     setEditingGroupSessionId(null);
-    setStudentSearch(''); // Reset search when dialog closes
+    setStudentSearch('');
   };
 
   const handleStudentToggle = (studentId: string) => {
@@ -581,22 +491,6 @@ export const Sessions = () => {
   };
 
 
-  // Get goals for all selected students, grouped by student, separated into active and completed
-  const availableGoalsByStudent = formData.studentIds.length > 0
-    ? formData.studentIds.map(studentId => {
-        const studentGoals = goals.filter((g) => g.studentId === studentId);
-        const activeGoals = studentGoals.filter(g => !isGoalAchieved(g));
-        const completedGoals = studentGoals.filter(g => isGoalAchieved(g));
-        const hierarchy = organizeGoalsHierarchy(activeGoals);
-        return {
-          studentId,
-          studentName: students.find(s => s.id === studentId)?.name || 'Unknown',
-          goals: activeGoals,
-          completedGoals: completedGoals,
-          hierarchy,
-        };
-      })
-    : [];
 
 
   const handleGenerateSessionPlan = async () => {
@@ -673,52 +567,13 @@ export const Sessions = () => {
           >
             Generate Session Plan
           </Button>
-          <Box>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              endIcon={<ArrowDropDownIcon />}
-              onClick={(e) => setMenuAnchorEl(e.currentTarget)}
-            >
-              Log Activity
-            </Button>
-            <Menu
-              anchorEl={menuAnchorEl}
-              open={menuOpen}
-              onClose={() => setMenuAnchorEl(null)}
-            >
-              <MenuItem
-                onClick={() => {
-                  setMenuAnchorEl(null);
-                  handleOpenDialog();
-                }}
-              >
-                <AddIcon sx={{ mr: 1 }} /> Add <span style={{ textDecoration: 'underline' }}>S</span>ession
-              </MenuItem>
-              <MenuItem
-                onClick={() => {
-                  setMenuAnchorEl(null);
-                  navigate('/evaluations');
-                }}
-              >
-                <AddIcon sx={{ mr: 1 }} /> Add <span style={{ textDecoration: 'underline' }}>E</span>valuation
-              </MenuItem>
-              <MenuItem
-                onClick={() => {
-                  setMenuAnchorEl(null);
-                  const now = new Date();
-                  const defaultEndTime = new Date(now.getTime() + 30 * 60000);
-                  setLunchFormData({
-                    startTime: toLocalDateTimeString(now),
-                    endTime: toLocalDateTimeString(defaultEndTime),
-                  });
-                  setLunchDialogOpen(true);
-                }}
-              >
-                <RestaurantIcon sx={{ mr: 1 }} /> Add <span style={{ textDecoration: 'underline' }}>L</span>unch
-              </MenuItem>
-            </Menu>
-          </Box>
+          <LogActivityMenu
+            onAddSession={handleOpenDialog}
+            onAddLunch={(startTime, endTime) => {
+              setLunchFormData({ startTime, endTime });
+              setLunchDialogOpen(true);
+            }}
+          />
         </Box>
       </Box>
 
@@ -804,49 +659,15 @@ export const Sessions = () => {
               {/* All Sessions - Group and Individual intermingled chronologically */}
               {allSessionItems.map((item) => {
                 if (item.type === 'group' && item.groupSessions && item.groupSessionId) {
-                  const groupSessions = item.groupSessions;
-                  const firstSession = groupSessions[0];
-                  const studentNames = groupSessions.map(s => getStudentName(s.studentId)).join(', ');
                   return (
                     <Grid item xs={12} key={item.groupSessionId}>
-                      <Accordion defaultExpanded>
-                        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
-                            <GroupIcon color="primary" />
-                            <Box sx={{ flex: 1 }}>
-                              <Typography variant="h6">
-                                Group Session ({groupSessions.length} {groupSessions.length === 1 ? 'student' : 'students'})
-                              </Typography>
-                              <Typography variant="body2" color="text.secondary">
-                                {formatDateTime(firstSession.date)}
-                                {firstSession.endTime && ` - ${formatDateTime(firstSession.endTime)}`}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                Students: {studentNames}
-                              </Typography>
-                            </Box>
-                            <Chip
-                              label={firstSession.isDirectServices === true ? 'Direct Services' : 'Indirect Services'}
-                              size="small"
-                              color={firstSession.isDirectServices === true ? 'primary' : 'secondary'}
-                              sx={{ mr: 1 }}
-                            />
-                            <IconButton
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenDialog(undefined, item.groupSessionId);
-                              }}
-                              sx={{ mr: 1 }}
-                            >
-                              <EditIcon />
-                            </IconButton>
-                          </Box>
-                        </AccordionSummary>
-                        <AccordionDetails>
-                          {groupSessions.map((session) => renderSession(session))}
-                        </AccordionDetails>
-                      </Accordion>
+                      <GroupSessionAccordion
+                        groupSessionId={item.groupSessionId}
+                        groupSessions={item.groupSessions}
+                        getStudentName={getStudentName}
+                        renderSession={renderSession}
+                        onEdit={(groupSessionId) => handleOpenDialog(undefined, groupSessionId)}
+                      />
                     </Grid>
                   );
                 } else if (item.type === 'individual' && item.session) {
@@ -863,361 +684,26 @@ export const Sessions = () => {
         })()}
       </Grid>
 
-      <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="lg" fullWidth>
-        <DialogTitle>
-          {editingGroupSessionId ? 'Edit Group Session' : editingSession ? 'Edit Activity' : 'Log New Activity'}
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-            <Box>
-              <Typography variant="subtitle2" gutterBottom>
-                Students (select one or more):
-              </Typography>
-              <TextField
-                inputRef={studentSearchRef}
-                fullWidth
-                size="small"
-                placeholder="Search students..."
-                value={studentSearch}
-                onChange={(e) => setStudentSearch(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    const filteredStudents = students.filter((student) =>
-                      student.name.toLowerCase().includes(studentSearch.toLowerCase())
-                    );
-                    if (filteredStudents.length === 1 && !formData.studentIds.includes(filteredStudents[0].id)) {
-                      handleStudentToggle(filteredStudents[0].id);
-                      setStudentSearch('');
-                    }
-                  }
-                }}
-                sx={{ mt: 1, mb: 1 }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                  endAdornment: studentSearch && (
-                    <InputAdornment position="end">
-                      <IconButton
-                        size="small"
-                        onClick={() => setStudentSearch('')}
-                        edge="end"
-                      >
-                        <ClearIcon fontSize="small" />
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-              />
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, maxHeight: '200px', overflow: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1 }}>
-                {students
-                  .filter((student) =>
-                    student.name.toLowerCase().includes(studentSearch.toLowerCase())
-                  )
-                  .map((student) => (
-                    <FormControlLabel
-                      key={student.id}
-                      control={
-                        <Checkbox
-                          checked={formData.studentIds.includes(student.id)}
-                          onChange={() => handleStudentToggle(student.id)}
-                        />
-                      }
-                      label={student.name}
-                    />
-                  ))}
-                {students.filter((student) =>
-                  student.name.toLowerCase().includes(studentSearch.toLowerCase())
-                ).length === 0 && (
-                  <Typography variant="body2" color="text.secondary" sx={{ p: 1, textAlign: 'center' }}>
-                    No students found
-                  </Typography>
-                )}
-              </Box>
-            </Box>
-
-            <FormControl component="fieldset">
-              <Typography variant="subtitle2" gutterBottom>
-                Service Type:
-              </Typography>
-              <RadioGroup
-                row
-                value={formData.isDirectServices ? 'direct' : 'indirect'}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    isDirectServices: e.target.value === 'direct',
-                  })
-                }
-              >
-                <Tooltip
-                  title="MN requires that specific start and end times are listed for any direct services provided remotely for each individual session. In the notes section of your entry for the school, list the specific start and end time of each direct telehealth session, with a separate line for each entry. If doing additional duties within a timeframe of billable services, you only need to include specific start/end times for the direct telehealth duties."
-                  arrow
-                  placement="top"
-                >
-                  <FormControlLabel 
-                    value="direct" 
-                    control={<Radio />} 
-                    label={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <span>Direct Services</span>
-                        <InfoIcon sx={{ fontSize: 16, color: 'action.active' }} />
-                      </Box>
-                    } 
-                  />
-                </Tooltip>
-                <Tooltip
-                  title={'Any of the following activities: collaboration with teachers/staff, direct contact with the student to monitor and observe, modifying environment/items, preparation for sessions, or ordering/creation of materials for the student to support their IEP goals, setting up a therapeutic OT space for students, etc. It also includes performing documentation/record-keeping duties, including updating daily notes, scheduling, and updating caseload lists for Indigo sped director group schools. If you see a student for direct services and document "Direct/indirect services," since you did preparation and documentation, you do not need to write "Indirect services" as well. You will only write this if you do other indirect services beyond the preparation and documentation of direct services, such as fulfilling monthly minutes.'}
-                  arrow
-                  placement="top"
-                >
-                  <FormControlLabel 
-                    value="indirect" 
-                    control={<Radio />} 
-                    label={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <span>Indirect Services</span>
-                        <InfoIcon sx={{ fontSize: 16, color: 'action.active' }} />
-                      </Box>
-                    } 
-                  />
-                </Tooltip>
-              </RadioGroup>
-            </FormControl>
-
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <TextField
-                label="Start Time"
-                type="datetime-local"
-                fullWidth
-                value={formData.date}
-                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                InputLabelProps={{ shrink: true }}
-              />
-              <Box sx={{ display: 'flex', gap: 1, flex: 1, alignItems: 'flex-end' }}>
-                <TextField
-                  label="End Time"
-                  type="datetime-local"
-                  fullWidth
-                  value={formData.endTime}
-                  onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                  InputLabelProps={{ shrink: true }}
-                />
-                <Button
-                  variant="outlined"
-                  size="medium"
-                  startIcon={<AccessTimeIcon />}
-                  onClick={() => setFormData({ ...formData, endTime: toLocalDateTimeString(new Date()) })}
-                  sx={{ 
-                    minWidth: 'auto',
-                    whiteSpace: 'nowrap',
-                    mb: 0.5, // Slight bottom margin to align with input baseline
-                  }}
-                  title="Set end time to current time"
-                >
-                  Now
-                </Button>
-              </Box>
-            </Box>
-
-            {formData.isDirectServices && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Checkbox
-                  checked={formData.missedSession}
-                  onChange={(e) => setFormData({ ...formData, missedSession: e.target.checked })}
-                />
-                <Typography variant="body2">Missed Session</Typography>
-              </Box>
-            )}
-
-            {formData.isDirectServices ? (
-              <>
-                {formData.studentIds.length > 0 && (
-              <Box>
-                <Typography variant="subtitle2" gutterBottom>
-                  Goals Targeted (by student):
-                </Typography>
-                {availableGoalsByStudent.length === 0 ? (
-                  <Typography color="text.secondary" variant="body2">
-                    No students selected. Please select at least one student.
-                  </Typography>
-                ) : availableGoalsByStudent.length === 1 ? (
-                  // Single student layout (original column layout)
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-                    {availableGoalsByStudent.map(({ studentId, studentName, goals: studentGoals, completedGoals, hierarchy }) => (
-                      <Box key={studentId}>
-                        <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
-                          <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold', color: 'primary.main' }}>
-                            {studentName}
-                          </Typography>
-                          {studentGoals.length === 0 ? (
-                            <Typography color="text.secondary" variant="body2">
-                              No active goals found for this student. Add goals in the student's detail page.
-                            </Typography>
-                          ) : (
-                            <GoalHierarchy
-                              hierarchy={hierarchy}
-                              studentId={studentId}
-                              goalsTargeted={formData.goalsTargeted}
-                              performanceData={formData.performanceData}
-                              isCompact={false}
-                              getRecentPerformance={getRecentPerformance}
-                              onGoalToggle={handleGoalToggle}
-                              onTrialUpdate={handleTrialUpdate}
-                              onPerformanceUpdate={handlePerformanceUpdate}
-                              onFormDataChange={setFormData}
-                            />
-                          )}
-                        </Box>
-                        {completedGoals.length > 0 && (
-                          <Accordion sx={{ mt: 2 }}>
-                            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                              <Typography variant="subtitle2" color="text.secondary">
-                                Completed Goals ({completedGoals.length})
-                              </Typography>
-                            </AccordionSummary>
-                            <AccordionDetails>
-                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                                {completedGoals.map((goal) => (
-                                  <Box key={goal.id} sx={{ p: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
-                                    <Typography variant="body2">
-                                      {goal.description}
-                                    </Typography>
-                                    {goal.dateAchieved && (
-                                      <Typography variant="caption" color="text.secondary">
-                                        Achieved: {formatDate(goal.dateAchieved)}
-                                      </Typography>
-                                    )}
-                                  </Box>
-                                ))}
-                              </Box>
-                            </AccordionDetails>
-                          </Accordion>
-                        )}
-                      </Box>
-                    ))}
-                  </Box>
-                ) : (
-                  // Multiple students layout (side-by-side)
-                  <Grid container spacing={2} sx={{ mt: 1 }}>
-                    {availableGoalsByStudent.map(({ studentId, studentName, goals: studentGoals, completedGoals, hierarchy }) => (
-                      <Grid item xs={12} sm={6} md={availableGoalsByStudent.length === 2 ? 6 : 4} key={studentId}>
-                        <Box sx={{ 
-                          border: '1px solid', 
-                          borderColor: 'divider', 
-                          borderRadius: 1, 
-                          p: 2,
-                          height: '100%',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          maxHeight: '600px',
-                          overflow: 'auto'
-                        }}>
-                          <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold', color: 'primary.main', position: 'sticky', top: 0, bgcolor: 'background.paper', pb: 1, zIndex: 1 }}>
-                            {studentName}
-                          </Typography>
-                          {studentGoals.length === 0 ? (
-                            <Typography color="text.secondary" variant="body2">
-                              No active goals found for this student. Add goals in the student's detail page.
-                            </Typography>
-                          ) : (
-                            <GoalHierarchy
-                              hierarchy={hierarchy}
-                              studentId={studentId}
-                              goalsTargeted={formData.goalsTargeted}
-                              performanceData={formData.performanceData}
-                              isCompact={true}
-                              getRecentPerformance={getRecentPerformance}
-                              onGoalToggle={handleGoalToggle}
-                              onTrialUpdate={handleTrialUpdate}
-                              onPerformanceUpdate={handlePerformanceUpdate}
-                              onFormDataChange={setFormData}
-                            />
-                          )}
-                          {completedGoals.length > 0 && (
-                            <Accordion sx={{ mt: 2 }}>
-                              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                                <Typography variant="subtitle2" color="text.secondary">
-                                  Completed Goals ({completedGoals.length})
-                                </Typography>
-                              </AccordionSummary>
-                              <AccordionDetails>
-                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                                  {completedGoals.map((goal) => (
-                                    <Box key={goal.id} sx={{ p: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
-                                      <Typography variant="body2">
-                                        {goal.description}
-                                      </Typography>
-                                      {goal.dateAchieved && (
-                                        <Typography variant="caption" color="text.secondary">
-                                          Achieved: {formatDate(goal.dateAchieved)}
-                                        </Typography>
-                                      )}
-                                    </Box>
-                                  ))}
-                                </Box>
-                              </AccordionDetails>
-                            </Accordion>
-                          )}
-                        </Box>
-                      </Grid>
-                    ))}
-                  </Grid>
-                )}
-              </Box>
-                )}
-
-                <TextField
-                  label="Activities Used (comma-separated)"
-                  fullWidth
-                  value={formData.activitiesUsed.join(', ')}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      activitiesUsed: e.target.value
-                        .split(',')
-                        .map((a) => a.trim())
-                        .filter((a) => a.length > 0),
-                    })
-                  }
-                />
-
-                <TextField
-                  label="Session Notes"
-                  fullWidth
-                  multiline
-                  rows={4}
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                />
-              </>
-            ) : (
-              <TextField
-                label="Indirect Services Notes"
-                fullWidth
-                multiline
-                rows={6}
-                value={formData.indirectServicesNotes}
-                onChange={(e) => setFormData({ ...formData, indirectServicesNotes: e.target.value })}
-                placeholder="Enter notes about indirect services provided..."
-              />
-            )}
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
-          <Button
-            onClick={handleSave}
-            variant="contained"
-            disabled={formData.studentIds.length === 0}
-          >
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <SessionFormDialog
+        open={dialogOpen}
+        editingSession={editingSession}
+        editingGroupSessionId={editingGroupSessionId}
+        students={students}
+        goals={goals}
+        sessions={sessions}
+        formData={formData}
+        studentSearch={studentSearch}
+        onClose={handleCloseDialog}
+        onSave={handleSave}
+        onFormDataChange={(updates) => setFormData({ ...formData, ...updates })}
+        onStudentSearchChange={setStudentSearch}
+        onStudentToggle={handleStudentToggle}
+        onGoalToggle={handleGoalToggle}
+        onPerformanceUpdate={handlePerformanceUpdate}
+        onTrialUpdate={handleTrialUpdate}
+        getRecentPerformance={getRecentPerformance}
+        isGoalAchieved={isGoalAchieved}
+      />
 
       <SessionPlanDialog
         open={sessionPlanDialogOpen}
