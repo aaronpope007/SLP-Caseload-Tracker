@@ -33,12 +33,14 @@ interface GoalHierarchyProps {
     correctTrials?: number;
     incorrectTrials?: number;
     notes?: string;
+    cuingLevels?: ('independent' | 'verbal' | 'visual' | 'tactile' | 'physical')[];
   }>;
   isCompact?: boolean;
   getRecentPerformance: (goalId: string, studentId: string) => number | null;
   onGoalToggle: (goalId: string, studentId: string) => void;
   onTrialUpdate: (goalId: string, studentId: string, isCorrect: boolean) => void;
   onPerformanceUpdate: (goalId: string, studentId: string, field: 'accuracy' | 'notes', value: string) => void;
+  onCuingLevelToggle: (goalId: string, studentId: string, cuingLevel: 'independent' | 'verbal' | 'visual' | 'tactile' | 'physical') => void;
   onFormDataChange: (updater: (prev: any) => any) => void;
 }
 
@@ -52,6 +54,7 @@ export const GoalHierarchy = ({
   onGoalToggle,
   onTrialUpdate,
   onPerformanceUpdate,
+  onCuingLevelToggle,
   onFormDataChange,
 }: GoalHierarchyProps) => {
   const { parentGoals, subGoalsByParent, orphanGoals } = hierarchy;
@@ -130,6 +133,30 @@ export const GoalHierarchy = ({
                 helperText={totalTrials > 0 ? (isCompact ? 'Auto-calculated' : 'Auto-calculated from trials (clear to enter manually)') : (isCompact ? 'Manual entry' : 'Enter manually or use +/- buttons')}
                 sx={{ width: isCompact ? '100%' : 140 }}
               />
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: isCompact ? '100%' : 'auto' }}>
+                <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
+                  Cuing Levels:
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {(['independent', 'verbal', 'visual', 'tactile', 'physical'] as const).map((level) => {
+                    const cuingLevels = perfData?.cuingLevels || [];
+                    const isChecked = cuingLevels.includes(level);
+                    return (
+                      <FormControlLabel
+                        key={level}
+                        control={
+                          <Checkbox
+                            size="small"
+                            checked={isChecked}
+                            onChange={() => onCuingLevelToggle(goal.id, studentId, level)}
+                          />
+                        }
+                        label={level.charAt(0).toUpperCase() + level.slice(1)}
+                      />
+                    );
+                  })}
+                </Box>
+              </Box>
               <TextField
                 label="Notes"
                 size="small"
@@ -199,6 +226,30 @@ export const GoalHierarchy = ({
           helperText={totalTrials > 0 ? (isCompact ? 'Auto-calculated' : 'Auto-calculated from trials (clear to enter manually)') : (isCompact ? 'Manual entry' : 'Enter manually or use +/- buttons')}
           sx={{ width: isCompact ? '100%' : 140 }}
         />
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: isCompact ? '100%' : 'auto' }}>
+          <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
+            Cuing Levels:
+          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+            {(['independent', 'verbal', 'visual', 'tactile', 'physical'] as const).map((level) => {
+              const cuingLevels = perfData?.cuingLevels || [];
+              const isChecked = cuingLevels.includes(level);
+              return (
+                <FormControlLabel
+                  key={level}
+                  control={
+                    <Checkbox
+                      size="small"
+                      checked={isChecked}
+                      onChange={() => onCuingLevelToggle(goal.id, studentId, level)}
+                    />
+                  }
+                  label={level.charAt(0).toUpperCase() + level.slice(1)}
+                />
+              );
+            })}
+          </Box>
+        </Box>
         <TextField
           label="Notes"
           size="small"

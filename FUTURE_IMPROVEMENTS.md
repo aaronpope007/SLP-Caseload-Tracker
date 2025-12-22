@@ -57,7 +57,7 @@ This document tracks potential improvements and feature ideas for the SLP Caselo
 
 ## 💼 Session Enhancement
 
-- [ ] **Cuing/Prompting Levels**
+- [x] **Cuing/Prompting Levels**
   - Track cuing levels (independent, verbal, visual, tactile, physical)
   - Cuing level progression over time
   - Analysis of cuing reduction as measure of progress

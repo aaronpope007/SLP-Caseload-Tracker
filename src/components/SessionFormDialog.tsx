@@ -37,6 +37,7 @@ interface SessionFormData {
     correctTrials?: number;
     incorrectTrials?: number;
     notes?: string;
+    cuingLevels?: ('independent' | 'verbal' | 'visual' | 'tactile' | 'physical')[];
   }[];
   notes: string;
   isDirectServices: boolean;
@@ -60,6 +61,7 @@ interface SessionFormDialogProps {
   onStudentToggle: (studentId: string) => void;
   onGoalToggle: (goalId: string, studentId: string) => void;
   onPerformanceUpdate: (goalId: string, studentId: string, field: 'accuracy' | 'notes', value: string) => void;
+  onCuingLevelToggle: (goalId: string, studentId: string, cuingLevel: 'independent' | 'verbal' | 'visual' | 'tactile' | 'physical') => void;
   onTrialUpdate: (goalId: string, studentId: string, isCorrect: boolean) => void;
   getRecentPerformance: (goalId: string, studentId: string) => number | null;
   isGoalAchieved: (goal: Goal) => boolean;
@@ -81,6 +83,7 @@ export const SessionFormDialog = ({
   onStudentToggle,
   onGoalToggle,
   onPerformanceUpdate,
+  onCuingLevelToggle,
   onTrialUpdate,
   getRecentPerformance,
   isGoalAchieved,
@@ -107,7 +110,17 @@ export const SessionFormDialog = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
+    <Dialog 
+      open={open} 
+      onClose={(event, reason) => {
+        // Prevent closing on backdrop click or escape key - let the onClose handler decide
+        if (reason === 'backdropClick' || reason === 'escapeKeyDown') {
+          onClose();
+        }
+      }} 
+      maxWidth="lg" 
+      fullWidth
+    >
       <DialogTitle>
         {editingGroupSessionId ? 'Edit Group Session' : editingSession ? 'Edit Activity' : 'Log New Activity'}
       </DialogTitle>
@@ -207,6 +220,7 @@ export const SessionFormDialog = ({
                                 onGoalToggle={onGoalToggle}
                                 onTrialUpdate={onTrialUpdate}
                                 onPerformanceUpdate={onPerformanceUpdate}
+                                onCuingLevelToggle={onCuingLevelToggle}
                                 onFormDataChange={handleFormDataChange}
                               />
                             )}
@@ -287,6 +301,7 @@ export const SessionFormDialog = ({
                                 onGoalToggle={onGoalToggle}
                                 onTrialUpdate={onTrialUpdate}
                                 onPerformanceUpdate={onPerformanceUpdate}
+                                onCuingLevelToggle={onCuingLevelToggle}
                                 onFormDataChange={handleFormDataChange}
                               />
                             )}

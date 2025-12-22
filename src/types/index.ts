@@ -61,6 +61,7 @@ export interface Session {
     correctTrials?: number;
     incorrectTrials?: number;
     notes?: string;
+    cuingLevels?: ('independent' | 'verbal' | 'visual' | 'tactile' | 'physical')[];
   }[];
   notes: string;
   isDirectServices?: boolean; // true for Direct Services, false for Indirect Services

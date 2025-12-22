@@ -71,14 +71,39 @@ export const SessionCard = ({
                 <Typography variant="subtitle2" gutterBottom>
                   Goals Targeted:
                 </Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                  {session.goalsTargeted.map((goalId) => (
-                    <Chip
-                      key={goalId}
-                      label={getGoalDescription(goalId)}
-                      size="small"
-                    />
-                  ))}
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                  {session.goalsTargeted.map((goalId) => {
+                    const perfData = session.performanceData.find(p => p.goalId === goalId);
+                    const cuingLevels = perfData?.cuingLevels || [];
+                    const cuingLevelLabels: Record<string, string> = {
+                      independent: 'Ind',
+                      verbal: 'Verb',
+                      visual: 'Vis',
+                      tactile: 'Tac',
+                      physical: 'Phys',
+                    };
+                    return (
+                      <Box key={goalId} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                        <Chip
+                          label={getGoalDescription(goalId)}
+                          size="small"
+                        />
+                        {cuingLevels.length > 0 && (
+                          <Chip
+                            label={`Cuing: ${cuingLevels.map(l => cuingLevelLabels[l] || l).join(', ')}`}
+                            size="small"
+                            variant="outlined"
+                            color="secondary"
+                          />
+                        )}
+                        {perfData?.accuracy !== undefined && (
+                          <Typography variant="caption" color="text.secondary">
+                            {perfData.accuracy}%
+                          </Typography>
+                        )}
+                      </Box>
+                    );
+                  })}
                 </Box>
               </Box>
             )}

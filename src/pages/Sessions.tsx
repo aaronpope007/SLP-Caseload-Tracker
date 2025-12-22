@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Button,
@@ -24,6 +24,7 @@ import {
 import { generateId, formatDateTime, toLocalDateTimeString, fromLocalDateTimeString } from '../utils/helpers';
 import { generateSessionPlan } from '../utils/gemini';
 import { useSchool } from '../context/SchoolContext';
+import { useConfirm } from '../hooks/useConfirm';
 import { SessionCard } from '../components/SessionCard';
 import { SessionPlanDialog } from '../components/SessionPlanDialog';
 import { LunchDialog } from '../components/LunchDialog';
@@ -33,12 +34,14 @@ import { SessionFormDialog } from '../components/SessionFormDialog';
 
 export const Sessions = () => {
   const { selectedSchool } = useSchool();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSession, setEditingSession] = useState<Session | null>(null);
   const [editingGroupSessionId, setEditingGroupSessionId] = useState<string | null>(null);
+  const initialFormDataRef = useRef<typeof formData | null>(null);
 
   // Session Planning State
   const [sessionPlanDialogOpen, setSessionPlanDialogOpen] = useState(false);
@@ -63,7 +66,7 @@ export const Sessions = () => {
     endTime: '',
     goalsTargeted: [] as string[],
     activitiesUsed: [] as string[],
-    performanceData: [] as { goalId: string; studentId: string; accuracy?: string; correctTrials?: number; incorrectTrials?: number; notes?: string }[], // Added studentId to track which student's goal
+    performanceData: [] as { goalId: string; studentId: string; accuracy?: string; correctTrials?: number; incorrectTrials?: number; notes?: string; cuingLevels?: ('independent' | 'verbal' | 'visual' | 'tactile' | 'physical')[] }[], // Added studentId to track which student's goal
     notes: '',
     isDirectServices: true, // Default to Direct Services
     indirectServicesNotes: '',
@@ -132,6 +135,7 @@ export const Sessions = () => {
                   correctTrials: p.correctTrials || 0,
                   incorrectTrials: p.incorrectTrials || 0,
                   notes: p.notes || '',
+                  cuingLevels: p.cuingLevels,
                 });
               }
             });
@@ -141,7 +145,7 @@ export const Sessions = () => {
           const startDate = new Date(firstSession.date);
           const endDate = firstSession.endTime ? new Date(firstSession.endTime) : null;
           
-          setFormData({
+          const newFormData = {
             studentIds: allStudentIds,
             date: toLocalDateTimeString(startDate),
             endTime: endDate ? toLocalDateTimeString(endDate) : '',
@@ -152,7 +156,9 @@ export const Sessions = () => {
             isDirectServices: firstSession.isDirectServices === true,
             indirectServicesNotes: firstSession.indirectServicesNotes || '',
             missedSession: firstSession.missedSession || false,
-          });
+          };
+          setFormData(newFormData);
+          initialFormDataRef.current = JSON.parse(JSON.stringify(newFormData));
         }
       } else if (session) {
         // Editing a single session
@@ -166,7 +172,7 @@ export const Sessions = () => {
           return goal && !isGoalAchieved(goal);
         });
         
-        setFormData({
+        const newFormData = {
           studentIds: [session.studentId], // Convert single student to array for editing
           date: toLocalDateTimeString(startDate),
           endTime: endDate ? toLocalDateTimeString(endDate) : '',
@@ -181,12 +187,15 @@ export const Sessions = () => {
               correctTrials: p.correctTrials || 0,
               incorrectTrials: p.incorrectTrials || 0,
               notes: p.notes || '',
+              cuingLevels: p.cuingLevels,
             })),
           notes: session.notes,
           isDirectServices: session.isDirectServices === true, // Explicitly check for true
           indirectServicesNotes: session.indirectServicesNotes || '',
           missedSession: session.missedSession || false,
-        });
+        };
+        setFormData(newFormData);
+        initialFormDataRef.current = JSON.parse(JSON.stringify(newFormData));
       }
     } else {
       // Creating a new session
@@ -194,7 +203,7 @@ export const Sessions = () => {
       const defaultEndTime = new Date(now.getTime() + 30 * 60000); // Default to 30 minutes later
       setEditingSession(null);
       setEditingGroupSessionId(null);
-      setFormData({
+      const newFormData = {
         studentIds: [],
         date: toLocalDateTimeString(now),
         endTime: toLocalDateTimeString(defaultEndTime),
@@ -205,16 +214,55 @@ export const Sessions = () => {
         isDirectServices: true,
         indirectServicesNotes: '',
         missedSession: false,
-      });
+      };
+      setFormData(newFormData);
+      initialFormDataRef.current = JSON.parse(JSON.stringify(newFormData));
     }
     setDialogOpen(true);
   };
 
-  const handleCloseDialog = () => {
+  const isFormDirty = () => {
+    if (!initialFormDataRef.current) return false;
+    const initial = initialFormDataRef.current;
+    
+    // Compare form data with initial state
+    const hasChanges = 
+      JSON.stringify(formData.studentIds.sort()) !== JSON.stringify(initial.studentIds.sort()) ||
+      formData.date !== initial.date ||
+      formData.endTime !== initial.endTime ||
+      JSON.stringify(formData.goalsTargeted.sort()) !== JSON.stringify(initial.goalsTargeted.sort()) ||
+      JSON.stringify(formData.activitiesUsed.sort()) !== JSON.stringify(initial.activitiesUsed.sort()) ||
+      formData.notes !== initial.notes ||
+      formData.isDirectServices !== initial.isDirectServices ||
+      formData.indirectServicesNotes !== initial.indirectServicesNotes ||
+      formData.missedSession !== initial.missedSession ||
+      JSON.stringify(formData.performanceData) !== JSON.stringify(initial.performanceData);
+    
+    return hasChanges;
+  };
+
+  const handleCloseDialog = (forceClose = false) => {
+    if (!forceClose && isFormDirty()) {
+      confirm({
+        title: 'Unsaved Changes',
+        message: 'You have unsaved changes. Are you sure you want to close without saving?',
+        confirmText: 'Discard Changes',
+        cancelText: 'Cancel',
+        onConfirm: () => {
+          doCloseDialog();
+        },
+      });
+    } else {
+      doCloseDialog();
+    }
+  };
+
+  const doCloseDialog = () => {
     setDialogOpen(false);
     setEditingSession(null);
     setEditingGroupSessionId(null);
     setStudentSearch('');
+    initialFormDataRef.current = null;
   };
 
   const handleStudentToggle = (studentId: string) => {
@@ -253,7 +301,7 @@ export const Sessions = () => {
       newPerformanceData = newPerformanceData.filter((p) => p.goalId !== goalId || p.studentId !== studentId);
     } else {
       newGoalsTargeted = [...formData.goalsTargeted, goalId];
-      newPerformanceData.push({ goalId, studentId, accuracy: '', notes: '' });
+      newPerformanceData.push({ goalId, studentId, notes: '', cuingLevels: [] }); // Don't initialize accuracy - let it be undefined so calculated shows
     }
 
     setFormData({
@@ -269,6 +317,20 @@ export const Sessions = () => {
       performanceData: formData.performanceData.map((p) =>
         p.goalId === goalId && p.studentId === studentId ? { ...p, [field]: value } : p
       ),
+    });
+  };
+
+  const handleCuingLevelToggle = (goalId: string, studentId: string, cuingLevel: 'independent' | 'verbal' | 'visual' | 'tactile' | 'physical') => {
+    setFormData({
+      ...formData,
+      performanceData: formData.performanceData.map((p) => {
+        if (p.goalId !== goalId || p.studentId !== studentId) return p;
+        const currentLevels = p.cuingLevels || [];
+        const newLevels = currentLevels.includes(cuingLevel)
+          ? currentLevels.filter(l => l !== cuingLevel)
+          : [...currentLevels, cuingLevel];
+        return { ...p, cuingLevels: newLevels };
+      }),
     });
   };
 
@@ -296,6 +358,9 @@ export const Sessions = () => {
       alert('Please select at least one student');
       return;
     }
+
+    // Reset initial form data before saving to prevent dirty check from triggering
+    initialFormDataRef.current = null;
 
     try {
       // If editing a group session, update all sessions in the group
@@ -380,6 +445,7 @@ export const Sessions = () => {
             correctTrials: p.correctTrials,
             incorrectTrials: p.incorrectTrials,
             notes: p.notes,
+            cuingLevels: p.cuingLevels,
           }));
 
         const sessionData: Session = {
@@ -408,7 +474,7 @@ export const Sessions = () => {
     }
 
       await loadData();
-      handleCloseDialog();
+      doCloseDialog(); // Use doCloseDialog directly since we've already saved
     } catch (error) {
       console.error('Failed to save session:', error);
       alert('Failed to save session. Please try again.');
@@ -700,6 +766,7 @@ export const Sessions = () => {
         onStudentToggle={handleStudentToggle}
         onGoalToggle={handleGoalToggle}
         onPerformanceUpdate={handlePerformanceUpdate}
+        onCuingLevelToggle={handleCuingLevelToggle}
         onTrialUpdate={handleTrialUpdate}
         getRecentPerformance={getRecentPerformance}
         isGoalAchieved={isGoalAchieved}
@@ -726,6 +793,7 @@ export const Sessions = () => {
         onEndTimeChange={(value) => setLunchFormData({ ...lunchFormData, endTime: value })}
         onSave={handleSaveLunch}
       />
+      <ConfirmDialog />
     </Box>
   );
 };

@@ -116,6 +116,7 @@ export const Progress = () => {
           correctTrials: perf?.correctTrials,
           incorrectTrials: perf?.incorrectTrials,
           notes: perf?.notes,
+          cuingLevels: perf?.cuingLevels,
         };
       }).filter((p) => p.accuracy > 0 || p.correctTrials !== undefined);
       
@@ -394,6 +395,89 @@ export const Progress = () => {
                       <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
                         Sessions: {goal.sessions} | Status: {goal.status}
                       </Typography>
+                      
+                      {/* Cuing Level Progression Chart */}
+                      {goal.performanceHistory.some(p => p.cuingLevels && p.cuingLevels.length > 0) && (
+                        <Box sx={{ mt: 3, mb: 2 }}>
+                          <Typography variant="subtitle2" gutterBottom>
+                            Cuing Level Progression:
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                            Shows the most intensive cuing level needed (lower = more independent). Multiple cues may have been used.
+                          </Typography>
+                          <ResponsiveContainer width="100%" height={150}>
+                            <LineChart data={goal.performanceHistory
+                              .filter(p => p.cuingLevels && p.cuingLevels.length > 0)
+                              .map(p => {
+                                const cuingLevelMap: Record<string, number> = {
+                                  independent: 0,
+                                  verbal: 1,
+                                  visual: 2,
+                                  tactile: 3,
+                                  physical: 4,
+                                };
+                                // Use the highest (most intensive) cuing level if multiple were used
+                                const maxLevel = p.cuingLevels && p.cuingLevels.length > 0
+                                  ? Math.max(...p.cuingLevels.map(l => cuingLevelMap[l] || 0))
+                                  : 0;
+                                const labels: Record<number, string> = {
+                                  0: 'Independent',
+                                  1: 'Verbal',
+                                  2: 'Visual',
+                                  3: 'Tactile',
+                                  4: 'Physical',
+                                };
+                                return {
+                                  date: p.date,
+                                  cuingLevel: maxLevel,
+                                  label: labels[maxLevel] || 'Unknown',
+                                  cuingLevelsText: p.cuingLevels?.join(', ') || '',
+                                };
+                              })}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="date" />
+                              <YAxis 
+                                domain={[0, 4]}
+                                ticks={[0, 1, 2, 3, 4]}
+                                tickFormatter={(value) => {
+                                  const labels: Record<number, string> = {
+                                    0: 'Ind',
+                                    1: 'Verb',
+                                    2: 'Vis',
+                                    3: 'Tac',
+                                    4: 'Phys',
+                                  };
+                                  return labels[value] || '';
+                                }}
+                              />
+                              <Tooltip 
+                                formatter={(value: number, payload: any) => {
+                                  const labels: Record<number, string> = {
+                                    0: 'Independent',
+                                    1: 'Verbal',
+                                    2: 'Visual',
+                                    3: 'Tactile',
+                                    4: 'Physical',
+                                  };
+                                  const text = labels[value] || 'Unknown';
+                                  const multiple = payload?.[0]?.payload?.cuingLevelsText;
+                                  return multiple && multiple.split(', ').length > 1 
+                                    ? `${text} (Used: ${multiple})`
+                                    : text;
+                                }}
+                              />
+                              <Line
+                                type="monotone"
+                                dataKey="cuingLevel"
+                                stroke="#9c27b0"
+                                strokeWidth={2}
+                                dot={{ r: 4 }}
+                                name="Max Cuing Level"
+                              />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </Box>
+                      )}
                       
                       <Divider sx={{ my: 2 }} />
                       
