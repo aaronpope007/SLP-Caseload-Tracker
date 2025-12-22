@@ -12,6 +12,9 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  FormGroup,
+  FormControlLabel,
+  Paper,
 } from '@mui/material';
 import {
   AccessTime as AccessTimeIcon,
@@ -23,6 +26,7 @@ import { StudentSelector } from './StudentSelector';
 import { ServiceTypeSelector } from './ServiceTypeSelector';
 import { GoalHierarchy } from './GoalHierarchy';
 import { organizeGoalsHierarchy } from '../utils/goalHierarchy';
+import { COMMON_SUBJECTIVE_STATEMENTS } from '../utils/soapNoteGenerator';
 
 interface SessionFormData {
   studentIds: string[];
@@ -43,6 +47,7 @@ interface SessionFormData {
   isDirectServices: boolean;
   indirectServicesNotes: string;
   missedSession: boolean;
+  selectedSubjectiveStatements: string[];
 }
 
 interface SessionFormDialogProps {
@@ -348,6 +353,42 @@ export const SessionFormDialog = ({
                     </Grid>
                   )}
                 </Box>
+              )}
+
+              {formData.isDirectServices && (
+                <Paper sx={{ p: 2, bgcolor: 'background.default' }}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Subjective Statements (for SOAP notes):
+                  </Typography>
+                  <FormGroup>
+                    <Grid container spacing={1}>
+                      {COMMON_SUBJECTIVE_STATEMENTS.map((statement) => (
+                        <Grid item xs={12} sm={6} key={statement}>
+                          <FormControlLabel
+                            control={
+                              <Checkbox
+                                checked={formData.selectedSubjectiveStatements.includes(statement)}
+                                onChange={(e) => {
+                                  const current = formData.selectedSubjectiveStatements;
+                                  const updated = e.target.checked
+                                    ? [...current, statement]
+                                    : current.filter(s => s !== statement);
+                                  handleFormDataChange({ selectedSubjectiveStatements: updated });
+                                }}
+                                size="small"
+                              />
+                            }
+                            label={
+                              <Typography variant="body2">
+                                {statement}
+                              </Typography>
+                            }
+                          />
+                        </Grid>
+                      ))}
+                    </Grid>
+                  </FormGroup>
+                </Paper>
               )}
 
               <TextField

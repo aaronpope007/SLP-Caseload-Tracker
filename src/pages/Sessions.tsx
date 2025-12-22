@@ -31,6 +31,9 @@ import { LunchDialog } from '../components/LunchDialog';
 import { GroupSessionAccordion } from '../components/GroupSessionAccordion';
 import { LogActivityMenu } from '../components/LogActivityMenu';
 import { SessionFormDialog } from '../components/SessionFormDialog';
+import { SOAPNoteDialog } from '../components/SOAPNoteDialog';
+import type { SOAPNote } from '../types';
+import { getSOAPNotesBySession, addSOAPNote, updateSOAPNote } from '../utils/storage-api';
 
 export const Sessions = () => {
   const { selectedSchool } = useSchool();
@@ -60,6 +63,11 @@ export const Sessions = () => {
     endTime: toLocalDateTimeString(new Date(Date.now() + 30 * 60000)), // Default 30 minutes
   });
 
+  // SOAP Note dialog state
+  const [soapNoteDialogOpen, setSoapNoteDialogOpen] = useState(false);
+  const [selectedSessionForSOAP, setSelectedSessionForSOAP] = useState<Session | null>(null);
+  const [existingSOAPNote, setExistingSOAPNote] = useState<SOAPNote | undefined>(undefined);
+
   const [formData, setFormData] = useState({
     studentIds: [] as string[], // Changed to support multiple students
     date: toLocalDateTimeString(new Date()),
@@ -71,6 +79,7 @@ export const Sessions = () => {
     isDirectServices: true, // Default to Direct Services
     indirectServicesNotes: '',
     missedSession: false, // Whether this was a missed session (only for Direct Services)
+    selectedSubjectiveStatements: [] as string[],
   });
 
   useEffect(() => {
@@ -156,6 +165,7 @@ export const Sessions = () => {
             isDirectServices: firstSession.isDirectServices === true,
             indirectServicesNotes: firstSession.indirectServicesNotes || '',
             missedSession: firstSession.missedSession || false,
+            selectedSubjectiveStatements: firstSession.selectedSubjectiveStatements || [],
           };
           setFormData(newFormData);
           initialFormDataRef.current = JSON.parse(JSON.stringify(newFormData));
@@ -193,6 +203,7 @@ export const Sessions = () => {
           isDirectServices: session.isDirectServices === true, // Explicitly check for true
           indirectServicesNotes: session.indirectServicesNotes || '',
           missedSession: session.missedSession || false,
+          selectedSubjectiveStatements: session.selectedSubjectiveStatements || [],
         };
         setFormData(newFormData);
         initialFormDataRef.current = JSON.parse(JSON.stringify(newFormData));
@@ -214,6 +225,7 @@ export const Sessions = () => {
         isDirectServices: true,
         indirectServicesNotes: '',
         missedSession: false,
+        selectedSubjectiveStatements: [],
       };
       setFormData(newFormData);
       initialFormDataRef.current = JSON.parse(JSON.stringify(newFormData));
@@ -236,6 +248,7 @@ export const Sessions = () => {
       formData.isDirectServices !== initial.isDirectServices ||
       formData.indirectServicesNotes !== initial.indirectServicesNotes ||
       formData.missedSession !== initial.missedSession ||
+      JSON.stringify(formData.selectedSubjectiveStatements.sort()) !== JSON.stringify(initial.selectedSubjectiveStatements.sort()) ||
       JSON.stringify(formData.performanceData) !== JSON.stringify(initial.performanceData);
     
     return hasChanges;
@@ -404,6 +417,7 @@ export const Sessions = () => {
           indirectServicesNotes: formData.indirectServicesNotes || undefined,
           groupSessionId: groupSessionId,
           missedSession: formData.isDirectServices ? (formData.missedSession || false) : undefined,
+          selectedSubjectiveStatements: formData.selectedSubjectiveStatements.length > 0 ? formData.selectedSubjectiveStatements : undefined,
         };
 
         if (existingSession) {
@@ -463,6 +477,7 @@ export const Sessions = () => {
           indirectServicesNotes: formData.indirectServicesNotes || undefined,
           groupSessionId: groupSessionId, // Link related sessions together
           missedSession: formData.isDirectServices ? (formData.missedSession || false) : undefined, // Only set for Direct Services
+          selectedSubjectiveStatements: formData.selectedSubjectiveStatements.length > 0 ? formData.selectedSubjectiveStatements : undefined,
         };
 
         if (isEditingSingleSession) {
@@ -558,6 +573,34 @@ export const Sessions = () => {
 
 
 
+
+  const handleGenerateSOAP = async (session: Session) => {
+    setSelectedSessionForSOAP(session);
+    // Check if SOAP note already exists for this session
+    const existingNotes = await getSOAPNotesBySession(session.id);
+    if (existingNotes.length > 0) {
+      setExistingSOAPNote(existingNotes[0]); // Use the first one if multiple exist
+    } else {
+      setExistingSOAPNote(undefined);
+    }
+    setSoapNoteDialogOpen(true);
+  };
+
+  const handleSaveSOAPNote = async (soapNote: SOAPNote) => {
+    try {
+      if (existingSOAPNote) {
+        await updateSOAPNote(soapNote.id, soapNote);
+      } else {
+        await addSOAPNote(soapNote);
+      }
+      setSoapNoteDialogOpen(false);
+      setSelectedSessionForSOAP(null);
+      setExistingSOAPNote(undefined);
+    } catch (error) {
+      console.error('Failed to save SOAP note:', error);
+      alert('Failed to save SOAP note. Please try again.');
+    }
+  };
 
   const handleGenerateSessionPlan = async () => {
     if (!planStudentId) {
@@ -717,6 +760,7 @@ export const Sessions = () => {
               getGoalDescription={getGoalDescription}
               onEdit={handleOpenDialog}
               onDelete={handleDelete}
+              onGenerateSOAP={handleGenerateSOAP}
             />
           );
 
@@ -793,6 +837,27 @@ export const Sessions = () => {
         onEndTimeChange={(value) => setLunchFormData({ ...lunchFormData, endTime: value })}
         onSave={handleSaveLunch}
       />
+      {selectedSessionForSOAP && (() => {
+        const student = students.find(s => s.id === selectedSessionForSOAP.studentId);
+        if (!student) {
+          return null; // Don't render if student not found
+        }
+        return (
+          <SOAPNoteDialog
+            open={soapNoteDialogOpen}
+            session={selectedSessionForSOAP}
+            student={student}
+            goals={goals.filter(g => g.studentId === selectedSessionForSOAP.studentId)}
+            existingSOAPNote={existingSOAPNote}
+            onClose={() => {
+              setSoapNoteDialogOpen(false);
+              setSelectedSessionForSOAP(null);
+              setExistingSOAPNote(undefined);
+            }}
+            onSave={handleSaveSOAPNote}
+          />
+        );
+      })()}
       <ConfirmDialog />
     </Box>
   );

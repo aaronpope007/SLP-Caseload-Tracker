@@ -5,7 +5,7 @@
  * Set VITE_API_URL in your .env file or it defaults to http://localhost:3001
  */
 
-import type { Student, Goal, Session, Activity, Evaluation, School, Lunch } from '../types';
+import type { Student, Goal, Session, Activity, Evaluation, School, Lunch, SOAPNote } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
@@ -204,6 +204,32 @@ export const api = {
       }),
     delete: (id: string) => 
       request<{ message: string }>(`/lunches/${id}`, {
+        method: 'DELETE',
+      }),
+  },
+
+  // SOAP Notes
+  soapNotes: {
+    getAll: (studentId?: string, sessionId?: string) => {
+      const params = new URLSearchParams();
+      if (studentId) params.append('studentId', studentId);
+      if (sessionId) params.append('sessionId', sessionId);
+      return request<SOAPNote[]>(`/soap-notes${params.toString() ? `?${params}` : ''}`);
+    },
+    getById: (id: string) => 
+      request<SOAPNote>(`/soap-notes/${id}`),
+    create: (soapNote: SOAPNote) => 
+      request<{ id: string; message: string }>('/soap-notes', {
+        method: 'POST',
+        body: JSON.stringify(soapNote),
+      }),
+    update: (id: string, updates: Partial<SOAPNote>) => 
+      request<{ message: string }>(`/soap-notes/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      }),
+    delete: (id: string) => 
+      request<{ message: string }>(`/soap-notes/${id}`, {
         method: 'DELETE',
       }),
   },

@@ -41,6 +41,7 @@ import {
   Add as AddIcon,
   Assessment as AssessmentIcon,
   AccessTime as AccessTimeIcon,
+  Note as NoteIcon,
 } from '@mui/icons-material';
 import { SettingsDialog } from './SettingsDialog';
 import { useSchool } from '../context/SchoolContext';
@@ -52,6 +53,7 @@ const menuItems = [
   { text: 'Students', icon: <PeopleIcon />, path: '/students' },
   { text: 'Schools', icon: <SchoolIcon />, path: '/schools' },
   { text: 'Sessions', icon: <EventNoteIcon />, path: '/sessions' },
+  { text: 'SOAP Notes', icon: <NoteIcon />, path: '/soap-notes' },
   { text: 'Progress', icon: <TrendingUpIcon />, path: '/progress' },
   { text: 'Evaluations', icon: <AssessmentIcon />, path: '/evaluations' },
   { text: 'Treatment Ideas', icon: <LightbulbIcon />, path: '/ideas' },

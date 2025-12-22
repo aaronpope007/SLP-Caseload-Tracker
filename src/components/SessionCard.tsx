@@ -5,10 +5,12 @@ import {
   Chip,
   IconButton,
   Typography,
+  Button,
 } from '@mui/material';
 import {
   Edit as EditIcon,
   Delete as DeleteIcon,
+  Description as DescriptionIcon,
 } from '@mui/icons-material';
 import type { Session } from '../types';
 import { formatDateTime } from '../utils/helpers';
@@ -19,6 +21,7 @@ interface SessionCardProps {
   getGoalDescription: (goalId: string) => string;
   onEdit: (session: Session) => void;
   onDelete: (sessionId: string) => void;
+  onGenerateSOAP?: (session: Session) => void;
 }
 
 export const SessionCard = ({
@@ -27,6 +30,7 @@ export const SessionCard = ({
   getGoalDescription,
   onEdit,
   onDelete,
+  onGenerateSOAP,
 }: SessionCardProps) => {
   return (
     <Card sx={{ mb: 1 }}>
@@ -48,7 +52,18 @@ export const SessionCard = ({
               {session.endTime && ` - ${formatDateTime(session.endTime)}`}
             </Typography>
           </Box>
-          <Box>
+          <Box sx={{ display: 'flex', gap: 0.5 }}>
+            {session.isDirectServices && onGenerateSOAP && (
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<DescriptionIcon />}
+                onClick={() => onGenerateSOAP(session)}
+                sx={{ minWidth: 'auto' }}
+              >
+                SOAP
+              </Button>
+            )}
             <IconButton
               size="small"
               onClick={() => onEdit(session)}

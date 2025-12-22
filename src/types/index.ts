@@ -68,6 +68,7 @@ export interface Session {
   indirectServicesNotes?: string; // Notes for indirect services
   groupSessionId?: string; // ID to link related sessions (for group sessions)
   missedSession?: boolean; // true if this was a missed session (only for Direct Services)
+  selectedSubjectiveStatements?: string[]; // Selected subjective statements for SOAP notes
 }
 
 export interface Activity {
@@ -105,4 +106,18 @@ export interface Lunch {
   startTime: string; // Start date/time
   endTime: string; // End date/time
   dateCreated: string;
+}
+
+export interface SOAPNote {
+  id: string;
+  sessionId: string; // Link to session
+  studentId: string;
+  date: string; // Date of the session
+  templateId?: string; // Which template was used
+  subjective: string;
+  objective: string;
+  assessment: string;
+  plan: string;
+  dateCreated: string;
+  dateUpdated: string;
 }

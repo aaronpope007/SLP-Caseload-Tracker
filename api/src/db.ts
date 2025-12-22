@@ -133,6 +133,25 @@ export function initDatabase() {
     )
   `);
 
+  // SOAP Notes table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS soap_notes (
+      id TEXT PRIMARY KEY,
+      sessionId TEXT NOT NULL,
+      studentId TEXT NOT NULL,
+      date TEXT NOT NULL,
+      templateId TEXT,
+      subjective TEXT NOT NULL,
+      objective TEXT NOT NULL,
+      assessment TEXT NOT NULL,
+      plan TEXT NOT NULL,
+      dateCreated TEXT NOT NULL,
+      dateUpdated TEXT NOT NULL,
+      FOREIGN KEY (sessionId) REFERENCES sessions(id) ON DELETE CASCADE,
+      FOREIGN KEY (studentId) REFERENCES students(id) ON DELETE CASCADE
+    )
+  `);
+
   // Create indexes for better query performance
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_students_school ON students(school);
@@ -142,6 +161,9 @@ export function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_sessions_date ON sessions(date);
     CREATE INDEX IF NOT EXISTS idx_evaluations_studentId ON evaluations(studentId);
     CREATE INDEX IF NOT EXISTS idx_lunches_school ON lunches(school);
+    CREATE INDEX IF NOT EXISTS idx_soap_notes_sessionId ON soap_notes(sessionId);
+    CREATE INDEX IF NOT EXISTS idx_soap_notes_studentId ON soap_notes(studentId);
+    CREATE INDEX IF NOT EXISTS idx_soap_notes_date ON soap_notes(date);
   `);
 
   console.log('Database initialized successfully');

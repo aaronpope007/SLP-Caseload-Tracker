@@ -13,6 +13,7 @@ import { DocumentationTemplates } from './pages/DocumentationTemplates';
 import { Evaluations } from './pages/Evaluations';
 import { Schools } from './pages/Schools';
 import { TimeTracking } from './pages/TimeTracking';
+import { SOAPNotes } from './pages/SOAPNotes';
 import { SchoolProvider } from './context/SchoolContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 
@@ -94,6 +95,14 @@ const router = createBrowserRouter([
     element: (
       <Layout>
         <Schools />
+      </Layout>
+    ),
+  },
+  {
+    path: '/soap-notes',
+    element: (
+      <Layout>
+        <SOAPNotes />
       </Layout>
     ),
   },

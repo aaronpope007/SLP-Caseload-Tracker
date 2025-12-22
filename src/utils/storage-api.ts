@@ -3,7 +3,7 @@
  * This replaces localStorage with API calls to the Express + SQLite backend
  */
 
-import type { Student, Goal, Session, Activity, Evaluation, School, Lunch } from '../types';
+import type { Student, Goal, Session, Activity, Evaluation, School, Lunch, SOAPNote } from '../types';
 import { api } from './api';
 
 const DEFAULT_SCHOOL = 'Noble Academy';
@@ -372,5 +372,54 @@ export const importData = async (jsonString: string): Promise<void> => {
   } catch (error) {
     throw new Error('Invalid JSON data');
   }
+};
+
+// SOAP Notes
+export const getSOAPNotes = async (): Promise<SOAPNote[]> => {
+  try {
+    return await api.soapNotes.getAll();
+  } catch (error) {
+    console.error('Failed to fetch SOAP notes:', error);
+    return [];
+  }
+};
+
+export const getSOAPNotesBySession = async (sessionId: string): Promise<SOAPNote[]> => {
+  try {
+    return await api.soapNotes.getAll(undefined, sessionId);
+  } catch (error) {
+    console.error('Failed to fetch SOAP notes by session:', error);
+    return [];
+  }
+};
+
+export const getSOAPNotesByStudent = async (studentId: string): Promise<SOAPNote[]> => {
+  try {
+    return await api.soapNotes.getAll(studentId);
+  } catch (error) {
+    console.error('Failed to fetch SOAP notes by student:', error);
+    return [];
+  }
+};
+
+export const getSOAPNote = async (id: string): Promise<SOAPNote | undefined> => {
+  try {
+    return await api.soapNotes.getById(id);
+  } catch (error) {
+    console.error('Failed to fetch SOAP note:', error);
+    return undefined;
+  }
+};
+
+export const addSOAPNote = async (soapNote: SOAPNote): Promise<void> => {
+  await api.soapNotes.create(soapNote);
+};
+
+export const updateSOAPNote = async (id: string, updates: Partial<SOAPNote>): Promise<void> => {
+  await api.soapNotes.update(id, updates);
+};
+
+export const deleteSOAPNote = async (id: string): Promise<void> => {
+  await api.soapNotes.delete(id);
 };
 
