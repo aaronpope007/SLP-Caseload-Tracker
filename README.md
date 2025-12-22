@@ -219,6 +219,8 @@ SLP Caseload Tracker/
 
 ## Future Ideas and Roadmap
 
+> **📝 Detailed Tracking**: For a comprehensive list of potential improvements with checkboxes for progress tracking, see [FUTURE_IMPROVEMENTS.md](./FUTURE_IMPROVEMENTS.md)
+
 ### 📱 Mobile Experience
 - **Progressive Web App (PWA)**: Make the app installable on mobile devices for use during therapy sessions
 - **Mobile-Optimized UI**: Improve touch interactions and layout for smaller screens
