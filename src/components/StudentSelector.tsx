@@ -90,8 +90,13 @@ export const StudentSelector = ({
       />
       <Box
         sx={{
-          display: 'flex',
-          flexDirection: 'column',
+          display: 'grid',
+          gridTemplateColumns: {
+            xs: '1fr',
+            sm: 'repeat(2, 1fr)',
+            md: 'repeat(3, 1fr)',
+            lg: 'repeat(4, 1fr)',
+          },
           gap: 0.5,
           maxHeight: '200px',
           overflow: 'auto',
@@ -102,7 +107,15 @@ export const StudentSelector = ({
         }}
       >
         {filteredStudents.length === 0 ? (
-          <Typography variant="body2" color="text.secondary" sx={{ p: 1, textAlign: 'center' }}>
+          <Typography 
+            variant="body2" 
+            color="text.secondary" 
+            sx={{ 
+              p: 1, 
+              textAlign: 'center',
+              gridColumn: '1 / -1',
+            }}
+          >
             No students found
           </Typography>
         ) : (
@@ -116,6 +129,12 @@ export const StudentSelector = ({
                 />
               }
               label={student.name}
+              sx={{
+                margin: 0,
+                '& .MuiFormControlLabel-label': {
+                  fontSize: '0.875rem',
+                },
+              }}
             />
           ))
         )}
