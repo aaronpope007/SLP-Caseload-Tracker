@@ -44,24 +44,28 @@ async function initApp() {
         StrictMode ? <StrictMode><App /></StrictMode> : <App />
       );
       console.log('=== APP RENDERED SUCCESSFULLY ===');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('=== ERROR RENDERING APP ===', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : '';
       rootElement.innerHTML = `
         <div style="padding: 20px; font-family: monospace; color: red;">
           <h1>Error Rendering App</h1>
-          <pre>${error?.message || 'Unknown error'}\n${error?.stack || ''}</pre>
+          <pre>${errorMessage}\n${errorStack}</pre>
         </div>
       `;
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('=== ERROR IN INIT APP ===', error);
     const root = document.getElementById('root');
     if (root) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : '';
       root.innerHTML = `
         <div style="padding: 20px; font-family: monospace; color: red;">
           <h1>Import Error</h1>
-          <p><strong>Error:</strong> ${error?.message || 'Unknown error'}</p>
-          <pre>${error?.stack || ''}</pre>
+          <p><strong>Error:</strong> ${errorMessage}</p>
+          <pre>${errorStack}</pre>
         </div>
       `;
     }

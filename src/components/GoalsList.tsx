@@ -7,9 +7,16 @@ import {
 import type { Goal } from '../types';
 import { GoalCard } from './GoalCard';
 
+interface RecentSessionData {
+  date: string;
+  accuracy?: number;
+  correctTrials?: number;
+  incorrectTrials?: number;
+}
+
 interface GoalsListProps {
   goals: Goal[];
-  getRecentPerformance: (goalId: string) => { recentSessions: any[]; average: number | null };
+  getRecentPerformance: (goalId: string) => { recentSessions: RecentSessionData[]; average: number | null };
   onEdit: (goal: Goal) => void;
   onDelete: (goalId: string) => void;
   onCopyToSubGoal: (goal: Goal) => void;

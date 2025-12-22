@@ -37,7 +37,7 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
       
       // Add schools from students (for backward compatibility)
       const students = await getStudents();
-      students.forEach((student: any) => {
+      students.forEach((student) => {
         if (student.school && student.school.trim()) {
           schoolNames.add(student.school.trim());
         }

@@ -34,13 +34,41 @@ import { getStudents, getGoals, getSessions } from '../utils/storage-api';
 import { formatDate } from '../utils/helpers';
 import { generateProgressNote, type GoalProgressData } from '../utils/gemini';
 import { useSchool } from '../context/SchoolContext';
+import type { Student } from '../types';
+
+interface TimelineDataItem {
+  date: string;
+  sessionCount: number;
+  goalsTargeted: number;
+}
+
+interface PerformanceHistoryItem {
+  date: string;
+  accuracy: number;
+  correctTrials?: number;
+  incorrectTrials?: number;
+  notes?: string;
+  cuingLevels?: ('independent' | 'verbal' | 'visual' | 'tactile' | 'physical')[];
+}
+
+interface GoalProgressItem {
+  goalId: string;
+  goal: string;
+  goalShort: string;
+  baseline: number;
+  target: number;
+  current: number;
+  sessions: number;
+  status: 'in-progress' | 'achieved' | 'modified';
+  performanceHistory: PerformanceHistoryItem[];
+}
 
 export const Progress = () => {
   const { selectedSchool } = useSchool();
-  const [students, setStudents] = useState<any[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
-  const [progressData, setProgressData] = useState<any[]>([]);
-  const [goalProgress, setGoalProgress] = useState<any[]>([]);
+  const [progressData, setProgressData] = useState<TimelineDataItem[]>([]);
+  const [goalProgress, setGoalProgress] = useState<GoalProgressItem[]>([]);
   const [goalNotes, setGoalNotes] = useState<Record<string, string>>({});
   const [combinedNote, setCombinedNote] = useState<string>('');
   const [selectedGoals, setSelectedGoals] = useState<Set<string>>(new Set());
@@ -88,8 +116,8 @@ export const Progress = () => {
     }));
 
     // Aggregate by date
-    const aggregatedData = timelineData.reduce((acc: any, curr) => {
-      const existing = acc.find((item: any) => item.date === curr.date);
+    const aggregatedData = timelineData.reduce((acc: TimelineDataItem[], curr) => {
+      const existing = acc.find((item) => item.date === curr.date);
       if (existing) {
         existing.sessionCount += curr.sessionCount;
         existing.goalsTargeted += curr.goalsTargeted;
@@ -186,8 +214,9 @@ export const Progress = () => {
 
       const note = await generateProgressNote(selectedStudent.name, [goalData], apiKey);
       setGoalNotes({ ...goalNotes, [goal.goalId]: note });
-    } catch (err: any) {
-      setError(err.message || 'Failed to generate note');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to generate note';
+      setError(errorMessage);
     } finally {
       setLoadingNotes({ ...loadingNotes, [goal.goalId]: false });
     }
@@ -248,8 +277,9 @@ export const Progress = () => {
 
       const note = await generateProgressNote(selectedStudent.name, goalsData, apiKey);
       setCombinedNote(note);
-    } catch (err: any) {
-      setError(err.message || 'Failed to generate note');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to generate note';
+      setError(errorMessage);
     } finally {
       setLoadingCombined(false);
     }

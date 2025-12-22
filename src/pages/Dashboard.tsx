@@ -22,6 +22,7 @@ import {
 import { getStudents, getGoals, getSessions } from '../utils/storage-api';
 import { formatDate } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
+import type { Session, Student } from '../types';
 
 export const Dashboard = () => {
   console.log('Dashboard component rendering');
@@ -33,7 +34,7 @@ export const Dashboard = () => {
     totalGoals: 0,
     recentSessions: 0,
   });
-  const [recentStudents, setRecentStudents] = useState<any[]>([]);
+  const [recentStudents, setRecentStudents] = useState<(Session & { student: Student })[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadDashboardData = async () => {

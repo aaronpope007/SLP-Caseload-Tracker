@@ -4,9 +4,16 @@ import { Edit as EditIcon, ContentCopy as ContentCopyIcon } from '@mui/icons-mat
 import type { Goal } from '../types';
 import { formatDate, getGoalProgressChipProps } from '../utils/helpers';
 
+interface RecentSessionData {
+  date: string;
+  accuracy?: number;
+  correctTrials?: number;
+  incorrectTrials?: number;
+}
+
 interface SubGoalListProps {
   subGoals: Goal[];
-  getRecentPerformance: (goalId: string) => { recentSessions: any[]; average: number | null };
+  getRecentPerformance: (goalId: string) => { recentSessions: RecentSessionData[]; average: number | null };
   onEdit: (goal: Goal) => void;
   onDuplicate: (goal: Goal) => void;
 }

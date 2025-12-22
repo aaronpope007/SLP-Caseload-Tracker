@@ -18,6 +18,21 @@ import {
 import type { Goal } from '../types';
 import { getGoalProgressChipProps } from '../utils/helpers';
 
+interface PerformanceDataItem {
+  goalId: string;
+  studentId: string;
+  accuracy?: string;
+  correctTrials?: number;
+  incorrectTrials?: number;
+  notes?: string;
+  cuingLevels?: ('independent' | 'verbal' | 'visual' | 'tactile' | 'physical')[];
+}
+
+interface SessionFormData {
+  performanceData: PerformanceDataItem[];
+  [key: string]: unknown; // Allow other fields in the form data
+}
+
 interface GoalHierarchyProps {
   hierarchy: {
     parentGoals: Goal[];
@@ -26,22 +41,14 @@ interface GoalHierarchyProps {
   };
   studentId: string;
   goalsTargeted: string[];
-  performanceData: Array<{
-    goalId: string;
-    studentId: string;
-    accuracy?: string;
-    correctTrials?: number;
-    incorrectTrials?: number;
-    notes?: string;
-    cuingLevels?: ('independent' | 'verbal' | 'visual' | 'tactile' | 'physical')[];
-  }>;
+  performanceData: PerformanceDataItem[];
   isCompact?: boolean;
   getRecentPerformance: (goalId: string, studentId: string) => number | null;
   onGoalToggle: (goalId: string, studentId: string) => void;
   onTrialUpdate: (goalId: string, studentId: string, isCorrect: boolean) => void;
   onPerformanceUpdate: (goalId: string, studentId: string, field: 'accuracy' | 'notes', value: string) => void;
   onCuingLevelToggle: (goalId: string, studentId: string, cuingLevel: 'independent' | 'verbal' | 'visual' | 'tactile' | 'physical') => void;
-  onFormDataChange: (updater: (prev: any) => any) => void;
+  onFormDataChange: (updater: (prev: SessionFormData) => SessionFormData) => void;
 }
 
 export const GoalHierarchy = ({
@@ -121,9 +128,9 @@ export const GoalHierarchy = ({
                 size="small"
                 value={totalTrials > 0 ? calculatedAccuracy.toString() : (perfData?.accuracy || '')}
                 onChange={(e) => {
-                  onFormDataChange((prev: any) => ({
+                  onFormDataChange((prev) => ({
                     ...prev,
-                    performanceData: prev.performanceData.map((p: any) =>
+                    performanceData: prev.performanceData.map((p) =>
                       p.goalId === goal.id && p.studentId === studentId
                         ? { ...p, accuracy: e.target.value, correctTrials: 0, incorrectTrials: 0 }
                         : p
@@ -214,9 +221,9 @@ export const GoalHierarchy = ({
           size="small"
           value={totalTrials > 0 ? calculatedAccuracy.toString() : (perfData?.accuracy || '')}
           onChange={(e) => {
-            onFormDataChange((prev: any) => ({
+            onFormDataChange((prev) => ({
               ...prev,
-              performanceData: prev.performanceData.map((p: any) =>
+              performanceData: prev.performanceData.map((p) =>
                 p.goalId === goal.id && p.studentId === studentId
                   ? { ...p, accuracy: e.target.value, correctTrials: 0, incorrectTrials: 0 }
                   : p

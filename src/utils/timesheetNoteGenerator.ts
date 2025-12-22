@@ -1,10 +1,10 @@
-import type { Session, Student, School } from '../types';
+import type { Session, Student, School, Evaluation, Lunch } from '../types';
 
 interface TimeTrackingItem {
   id: string;
   type: 'session' | 'evaluation' | 'lunch';
   date: string;
-  data: Session | any;
+  data: Session | Evaluation | Lunch;
 }
 
 interface GenerateTimesheetNoteParams {

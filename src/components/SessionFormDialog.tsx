@@ -105,8 +105,20 @@ export const SessionFormDialog = ({
       })
     : [];
 
-  const handleFormDataChange = (updates: Partial<SessionFormData>) => {
-    onFormDataChange(updates);
+  const handleFormDataChange = (
+    updatesOrUpdater: Partial<SessionFormData> | ((prev: SessionFormData) => SessionFormData)
+  ) => {
+    if (typeof updatesOrUpdater === 'function') {
+      // If it's an updater function, we need to get the current formData and apply the updater
+      const updated = updatesOrUpdater(formData);
+      // Convert the full updated object to a partial update by extracting only changed fields
+      // Since we're updating performanceData, we'll pass the entire updated object
+      // The parent component will merge it properly
+      onFormDataChange(updated);
+    } else {
+      // If it's a partial update, pass it through
+      onFormDataChange(updatesOrUpdater);
+    }
   };
 
   return (

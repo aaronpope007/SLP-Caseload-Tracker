@@ -5,6 +5,8 @@
  * Set VITE_API_URL in your .env file or it defaults to http://localhost:3001
  */
 
+import type { Student, Goal, Session, Activity, Evaluation, School, Lunch } from '../types';
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
@@ -25,10 +27,11 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
     }
 
     return response.json();
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error(`API request failed: ${endpoint}`, error);
     // Provide more helpful error messages
-    if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
       throw new Error('Cannot connect to API server. Make sure the server is running on http://localhost:3001');
     }
     throw error;
@@ -40,15 +43,15 @@ export const api = {
   // Students
   students: {
     getAll: (school?: string) => 
-      request<any[]>(`/students${school ? `?school=${encodeURIComponent(school)}` : ''}`),
+      request<Student[]>(`/students${school ? `?school=${encodeURIComponent(school)}` : ''}`),
     getById: (id: string) => 
-      request<any>(`/students/${id}`),
-    create: (student: any) => 
+      request<Student>(`/students/${id}`),
+    create: (student: Omit<Student, 'id' | 'dateAdded'>) => 
       request<{ id: string; message: string }>('/students', {
         method: 'POST',
         body: JSON.stringify(student),
       }),
-    update: (id: string, updates: any) => 
+    update: (id: string, updates: Partial<Student>) => 
       request<{ message: string }>(`/students/${id}`, {
         method: 'PUT',
         body: JSON.stringify(updates),
@@ -65,16 +68,16 @@ export const api = {
       const params = new URLSearchParams();
       if (studentId) params.append('studentId', studentId);
       if (school) params.append('school', school);
-      return request<any[]>(`/goals${params.toString() ? `?${params}` : ''}`);
+      return request<Goal[]>(`/goals${params.toString() ? `?${params}` : ''}`);
     },
     getById: (id: string) => 
-      request<any>(`/goals/${id}`),
-    create: (goal: any) => 
+      request<Goal>(`/goals/${id}`),
+    create: (goal: Omit<Goal, 'id' | 'dateCreated'>) => 
       request<{ id: string; message: string }>('/goals', {
         method: 'POST',
         body: JSON.stringify(goal),
       }),
-    update: (id: string, updates: any) => 
+    update: (id: string, updates: Partial<Goal>) => 
       request<{ message: string }>(`/goals/${id}`, {
         method: 'PUT',
         body: JSON.stringify(updates),
@@ -91,16 +94,16 @@ export const api = {
       const params = new URLSearchParams();
       if (studentId) params.append('studentId', studentId);
       if (school) params.append('school', school);
-      return request<any[]>(`/sessions${params.toString() ? `?${params}` : ''}`);
+      return request<Session[]>(`/sessions${params.toString() ? `?${params}` : ''}`);
     },
     getById: (id: string) => 
-      request<any>(`/sessions/${id}`),
-    create: (session: any) => 
+      request<Session>(`/sessions/${id}`),
+    create: (session: Omit<Session, 'id'>) => 
       request<{ id: string; message: string }>('/sessions', {
         method: 'POST',
         body: JSON.stringify(session),
       }),
-    update: (id: string, updates: any) => 
+    update: (id: string, updates: Partial<Session>) => 
       request<{ message: string }>(`/sessions/${id}`, {
         method: 'PUT',
         body: JSON.stringify(updates),
@@ -114,15 +117,15 @@ export const api = {
   // Activities
   activities: {
     getAll: () => 
-      request<any[]>('/activities'),
+      request<Activity[]>('/activities'),
     getById: (id: string) => 
-      request<any>(`/activities/${id}`),
-    create: (activity: any) => 
+      request<Activity>(`/activities/${id}`),
+    create: (activity: Omit<Activity, 'id' | 'dateCreated'>) => 
       request<{ id: string; message: string }>('/activities', {
         method: 'POST',
         body: JSON.stringify(activity),
       }),
-    update: (id: string, updates: any) => 
+    update: (id: string, updates: Partial<Activity>) => 
       request<{ message: string }>(`/activities/${id}`, {
         method: 'PUT',
         body: JSON.stringify(updates),
@@ -139,16 +142,16 @@ export const api = {
       const params = new URLSearchParams();
       if (studentId) params.append('studentId', studentId);
       if (school) params.append('school', school);
-      return request<any[]>(`/evaluations${params.toString() ? `?${params}` : ''}`);
+      return request<Evaluation[]>(`/evaluations${params.toString() ? `?${params}` : ''}`);
     },
     getById: (id: string) => 
-      request<any>(`/evaluations/${id}`),
-    create: (evaluation: any) => 
+      request<Evaluation>(`/evaluations/${id}`),
+    create: (evaluation: Omit<Evaluation, 'id' | 'dateCreated' | 'dateUpdated'>) => 
       request<{ id: string; message: string }>('/evaluations', {
         method: 'POST',
         body: JSON.stringify(evaluation),
       }),
-    update: (id: string, updates: any) => 
+    update: (id: string, updates: Partial<Evaluation>) => 
       request<{ message: string }>(`/evaluations/${id}`, {
         method: 'PUT',
         body: JSON.stringify(updates),
@@ -162,17 +165,17 @@ export const api = {
   // Schools
   schools: {
     getAll: () => 
-      request<any[]>('/schools'),
+      request<School[]>('/schools'),
     getById: (id: string) => 
-      request<any>(`/schools/${id}`),
+      request<School>(`/schools/${id}`),
     getByName: (name: string) => 
-      request<any>(`/schools/name/${encodeURIComponent(name)}`),
-    create: (school: any) => 
+      request<School>(`/schools/name/${encodeURIComponent(name)}`),
+    create: (school: Omit<School, 'id' | 'dateCreated'>) => 
       request<{ id: string; message: string }>('/schools', {
         method: 'POST',
         body: JSON.stringify(school),
       }),
-    update: (id: string, updates: any) => 
+    update: (id: string, updates: Partial<School>) => 
       request<{ message: string }>(`/schools/${id}`, {
         method: 'PUT',
         body: JSON.stringify(updates),
@@ -186,15 +189,15 @@ export const api = {
   // Lunches
   lunches: {
     getAll: (school?: string) => 
-      request<any[]>(`/lunches${school ? `?school=${encodeURIComponent(school)}` : ''}`),
+      request<Lunch[]>(`/lunches${school ? `?school=${encodeURIComponent(school)}` : ''}`),
     getById: (id: string) => 
-      request<any>(`/lunches/${id}`),
-    create: (lunch: any) => 
+      request<Lunch>(`/lunches/${id}`),
+    create: (lunch: Omit<Lunch, 'id' | 'dateCreated'>) => 
       request<{ id: string; message: string }>('/lunches', {
         method: 'POST',
         body: JSON.stringify(lunch),
       }),
-    update: (id: string, updates: any) => 
+    update: (id: string, updates: Partial<Lunch>) => 
       request<{ message: string }>(`/lunches/${id}`, {
         method: 'PUT',
         body: JSON.stringify(updates),
