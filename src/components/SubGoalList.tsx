@@ -1,6 +1,6 @@
 import React from 'react';
-import { Box, Typography, Chip, IconButton, Button } from '@mui/material';
-import { Edit as EditIcon, ContentCopy as ContentCopyIcon, Add as AddIcon } from '@mui/icons-material';
+import { Box, Typography, Chip, IconButton, Button, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
+import { Edit as EditIcon, ContentCopy as ContentCopyIcon, Add as AddIcon, ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
 import type { Goal } from '../types';
 import { formatDate, getGoalProgressChipProps } from '../utils/helpers';
 import { organizeGoalsHierarchy } from '../utils/goalHierarchy';
@@ -44,9 +44,8 @@ export const SubGoalList: React.FC<SubGoalListProps> = ({
         const subSubGoals = hierarchy.subGoalsByParent.get(sub.id) || [];
         const hasSubSubGoals = subSubGoals.length > 0;
         
-        return (
-          <Box key={sub.id} sx={{ mb: 2 }}>
-            <Typography variant="body2">{sub.description}</Typography>
+        const subGoalContent = (
+          <>
             <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
               <Chip 
                 label={sub.status} 
@@ -107,13 +106,15 @@ export const SubGoalList: React.FC<SubGoalListProps> = ({
             {hasSubSubGoals && (
               <Box sx={{ mt: 1, pl: 2, borderLeft: '2px solid #e0e0e0' }}>
                 <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
-                  Sub-sub-goals ({subSubGoals.length}):
+                  Breakdown-sub-goals ({subSubGoals.length}):
                 </Typography>
                 {subSubGoals.map(subSub => {
                   const subSubRecent = getRecentPerformance(subSub.id);
-                  return (
-                    <Box key={subSub.id} sx={{ mb: 1 }}>
-                      <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>{subSub.description}</Typography>
+                  const subSubSubGoals = hierarchy.subGoalsByParent.get(subSub.id) || [];
+                  const hasSubSubSubGoals = subSubSubGoals.length > 0;
+                  
+                  const subSubGoalContent = (
+                    <>
                       <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
                         <Chip 
                           label={subSub.status} 
@@ -169,6 +170,43 @@ export const SubGoalList: React.FC<SubGoalListProps> = ({
                           </>
                         )}
                       </Typography>
+                    </>
+                  );
+
+                  return (
+                    <Box key={subSub.id} sx={{ mb: 1 }}>
+                      {hasSubSubSubGoals ? (
+                        <Accordion defaultExpanded={false}>
+                          <AccordionSummary
+                            expandIcon={
+                              <Box
+                                sx={{
+                                  border: '1px solid',
+                                  borderColor: 'divider',
+                                  borderRadius: '50%',
+                                  p: 0.5,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  backgroundColor: 'action.hover',
+                                }}
+                              >
+                                <ExpandMoreIcon sx={{ fontSize: '1.2rem' }} />
+                              </Box>
+                            }
+                          >
+                            <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>{subSub.description}</Typography>
+                          </AccordionSummary>
+                          <AccordionDetails>
+                            {subSubGoalContent}
+                          </AccordionDetails>
+                        </Accordion>
+                      ) : (
+                        <>
+                          <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>{subSub.description}</Typography>
+                          {subSubGoalContent}
+                        </>
+                      )}
                     </Box>
                   );
                 })}
@@ -185,6 +223,43 @@ export const SubGoalList: React.FC<SubGoalListProps> = ({
             >
               Add breakdown-sub-goal
             </Button>
+          </>
+        );
+
+        return (
+          <Box key={sub.id} sx={{ mb: 2 }}>
+            {hasSubSubGoals ? (
+              <Accordion defaultExpanded={true}>
+                <AccordionSummary
+                  expandIcon={
+                    <Box
+                      sx={{
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        borderRadius: '50%',
+                        p: 0.5,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: 'action.hover',
+                      }}
+                    >
+                      <ExpandMoreIcon sx={{ fontSize: '1.2rem' }} />
+                    </Box>
+                  }
+                >
+                  <Typography variant="body2">{sub.description}</Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  {subGoalContent}
+                </AccordionDetails>
+              </Accordion>
+            ) : (
+              <>
+                <Typography variant="body2">{sub.description}</Typography>
+                {subGoalContent}
+              </>
+            )}
           </Box>
         );
       })}
