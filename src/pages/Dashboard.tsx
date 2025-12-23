@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSessionDialog } from '../context/SessionDialogContext';
 import {
   Box,
   Grid,
@@ -36,15 +35,10 @@ export const Dashboard = () => {
   const navigate = useNavigate();
   const theme = useTheme();
   const { selectedSchool } = useSchool();
-  const { openAddSession } = useSessionDialog();
 
   const handleDocumentSession = () => {
-    // Try to open the dialog, if handler isn't registered, navigate to sessions page
-    const opened = openAddSession();
-    if (!opened) {
-      // Handler not registered (Sessions page not mounted), navigate to sessions page
-      navigate('/sessions?add=true');
-    }
+    // Always navigate to sessions page to log activity
+    navigate('/sessions?add=true');
   };
   const [stats, setStats] = useState({
     activeStudents: 0,

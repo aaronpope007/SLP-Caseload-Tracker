@@ -94,6 +94,7 @@ export interface ScheduledSession {
   dateCreated: string;
   dateUpdated: string;
   active?: boolean; // Whether this scheduled session is active
+  cancelledDates?: string[]; // ISO date strings for dates that have been cancelled (YYYY-MM-DD format)
 }
 
 export interface Activity {

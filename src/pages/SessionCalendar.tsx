@@ -29,6 +29,7 @@ import {
   Add as AddIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import {
   startOfMonth,
@@ -78,6 +79,8 @@ interface CalendarEvent {
   endTime?: string;
   title: string;
   hasConflict: boolean;
+  isLogged: boolean;
+  isMissed: boolean;
 }
 
 export const SessionCalendar = () => {
@@ -99,6 +102,7 @@ export const SessionCalendar = () => {
   const [editingSession, setEditingSession] = useState<Session | null>(null);
   const [editingGroupSessionId, setEditingGroupSessionId] = useState<string | null>(null);
   const [studentSearch, setStudentSearch] = useState('');
+  const [currentEvent, setCurrentEvent] = useState<CalendarEvent | null>(null);
   const [sessionFormData, setSessionFormData] = useState({
     studentIds: [] as string[],
     date: toLocalDateTimeString(new Date()),
@@ -187,16 +191,22 @@ export const SessionCalendar = () => {
         let date = start;
         while (isBefore(date, end) || isSameDay(date, end)) {
           if (scheduled.dayOfWeek.includes(date.getDay())) {
-            events.push({
-              id: `${scheduled.id}-${format(date, 'yyyy-MM-dd')}`,
-              scheduledSessionId: scheduled.id,
-              studentIds: scheduled.studentIds,
-              date: date,
-              startTime: scheduled.startTime,
-              endTime: scheduled.endTime || endTimeStr,
-              title: scheduled.studentIds.map(id => students.find(s => s.id === id)?.name || 'Unknown').join(', '),
-              hasConflict: false,
-            });
+            const dateStr = format(date, 'yyyy-MM-dd');
+            // Skip cancelled dates
+            if (!scheduled.cancelledDates || !scheduled.cancelledDates.includes(dateStr)) {
+              events.push({
+                id: `${scheduled.id}-${dateStr}`,
+                scheduledSessionId: scheduled.id,
+                studentIds: scheduled.studentIds,
+                date: date,
+                startTime: scheduled.startTime,
+                endTime: scheduled.endTime || endTimeStr,
+                title: scheduled.studentIds.map(id => students.find(s => s.id === id)?.name || 'Unknown').join(', '),
+                hasConflict: false,
+                isLogged: false,
+                isMissed: false,
+              });
+            }
           }
           date = addDays(date, 1);
         }
@@ -204,26 +214,11 @@ export const SessionCalendar = () => {
         // Generate daily recurring events
         let date = start;
         while (isBefore(date, end) || isSameDay(date, end)) {
-          events.push({
-            id: `${scheduled.id}-${format(date, 'yyyy-MM-dd')}`,
-            scheduledSessionId: scheduled.id,
-            studentIds: scheduled.studentIds,
-            date: date,
-            startTime: scheduled.startTime,
-            endTime: scheduled.endTime || endTimeStr,
-            title: scheduled.studentIds.map(id => students.find(s => s.id === id)?.name || 'Unknown').join(', '),
-            hasConflict: false,
-          });
-          date = addDays(date, 1);
-        }
-      } else if (scheduled.recurrencePattern === 'specific-dates' && scheduled.specificDates) {
-        // Generate events for specific dates
-        scheduled.specificDates.forEach(dateStr => {
-          const date = parse(dateStr, 'yyyy-MM-dd', new Date());
-          if ((isAfter(date, start) || isSameDay(date, start)) && 
-              (isBefore(date, end) || isSameDay(date, end))) {
+          const dateStr = format(date, 'yyyy-MM-dd');
+          // Skip cancelled dates
+          if (!scheduled.cancelledDates || !scheduled.cancelledDates.includes(dateStr)) {
             events.push({
-              id: `${scheduled.id}-${format(date, 'yyyy-MM-dd')}`,
+              id: `${scheduled.id}-${dateStr}`,
               scheduledSessionId: scheduled.id,
               studentIds: scheduled.studentIds,
               date: date,
@@ -231,22 +226,55 @@ export const SessionCalendar = () => {
               endTime: scheduled.endTime || endTimeStr,
               title: scheduled.studentIds.map(id => students.find(s => s.id === id)?.name || 'Unknown').join(', '),
               hasConflict: false,
+              isLogged: false,
+              isMissed: false,
+            });
+          }
+          date = addDays(date, 1);
+        }
+      } else if (scheduled.recurrencePattern === 'specific-dates' && scheduled.specificDates) {
+        // Generate events for specific dates
+        scheduled.specificDates.forEach(dateStr => {
+          // Skip cancelled dates
+          if (scheduled.cancelledDates && scheduled.cancelledDates.includes(dateStr)) {
+            return;
+          }
+          const date = parse(dateStr, 'yyyy-MM-dd', new Date());
+          if ((isAfter(date, start) || isSameDay(date, start)) && 
+              (isBefore(date, end) || isSameDay(date, end))) {
+            events.push({
+              id: `${scheduled.id}-${dateStr}`,
+              scheduledSessionId: scheduled.id,
+              studentIds: scheduled.studentIds,
+              date: date,
+              startTime: scheduled.startTime,
+              endTime: scheduled.endTime || endTimeStr,
+              title: scheduled.studentIds.map(id => students.find(s => s.id === id)?.name || 'Unknown').join(', '),
+              hasConflict: false,
+              isLogged: false,
+              isMissed: false,
             });
           }
         });
       } else if (scheduled.recurrencePattern === 'none') {
         // One-time event
-        const date = parse(scheduled.startDate, 'yyyy-MM-dd', new Date());
-        events.push({
-          id: scheduled.id,
-          scheduledSessionId: scheduled.id,
-          studentIds: scheduled.studentIds,
-          date: date,
-          startTime: scheduled.startTime,
-          endTime: scheduled.endTime || `${endHour}:${String(endMinute).padStart(2, '0')}`,
-          title: scheduled.studentIds.map(id => students.find(s => s.id === id)?.name || 'Unknown').join(', '),
-          hasConflict: false,
-        });
+        const dateStr = scheduled.startDate;
+        // Skip if cancelled
+        if (!scheduled.cancelledDates || !scheduled.cancelledDates.includes(dateStr)) {
+          const date = parse(dateStr, 'yyyy-MM-dd', new Date());
+          events.push({
+            id: scheduled.id,
+            scheduledSessionId: scheduled.id,
+            studentIds: scheduled.studentIds,
+            date: date,
+            startTime: scheduled.startTime,
+            endTime: scheduled.endTime || endTimeStr,
+            title: scheduled.studentIds.map(id => students.find(s => s.id === id)?.name || 'Unknown').join(', '),
+            hasConflict: false,
+            isLogged: false,
+            isMissed: false,
+          });
+        }
       }
     });
 
@@ -275,8 +303,144 @@ export const SessionCalendar = () => {
       event.hasConflict = !!conflictingEvent;
     });
 
+    // Check if sessions have been logged for each event
+    events.forEach(event => {
+      // Check if there's a logged session that matches this scheduled event
+      const eventDate = startOfDay(event.date);
+      const eventStartTime = setMinutes(setHours(event.date, parseInt(event.startTime.split(':')[0])), parseInt(event.startTime.split(':')[1]));
+      
+      let isLogged = false;
+      let isMissed = false;
+      let matchedSession: Session | null = null;
+      
+      // Check if it matches by scheduledSessionId (primary method - most reliable)
+      const matchingByScheduledId = sessions.find(session => {
+        if (!session.scheduledSessionId) return false;
+        if (session.scheduledSessionId !== event.scheduledSessionId) return false;
+        const sessionDate = startOfDay(new Date(session.date));
+        return isSameDay(sessionDate, eventDate);
+      });
+      
+      if (matchingByScheduledId) {
+        isLogged = true;
+        matchedSession = matchingByScheduledId;
+      } else {
+        // Fallback: match by students and time
+        // For single student sessions
+        if (event.studentIds.length === 1) {
+          const studentId = event.studentIds[0];
+          const matchingSession = sessions.find(session => {
+            if (session.studentId !== studentId) return false;
+            const sessionDate = startOfDay(new Date(session.date));
+            if (!isSameDay(sessionDate, eventDate)) return false;
+            
+            // Check if time is reasonably close (within 2 hours)
+            const sessionTime = new Date(session.date);
+            const timeDiff = Math.abs(sessionTime.getTime() - eventStartTime.getTime());
+            return timeDiff <= 2 * 60 * 60 * 1000; // 2 hours in milliseconds
+          });
+          if (matchingSession) {
+            isLogged = true;
+            matchedSession = matchingSession;
+          }
+        } else {
+          // For group sessions, check if all scheduled students have sessions on this day
+          // First, try to match via groupSessionId (sessions created together)
+          const sessionsOnThisDay = sessions.filter(session => {
+            const sessionDate = startOfDay(new Date(session.date));
+            return isSameDay(sessionDate, eventDate);
+          });
+          
+          // Group sessions by groupSessionId
+          const groupSessionsMap = new Map<string, Session[]>();
+          sessionsOnThisDay.forEach(session => {
+            if (session.groupSessionId) {
+              if (!groupSessionsMap.has(session.groupSessionId)) {
+                groupSessionsMap.set(session.groupSessionId, []);
+              }
+              groupSessionsMap.get(session.groupSessionId)!.push(session);
+            }
+          });
+          
+          // Check each group to see if all scheduled students are present
+          for (const [groupId, groupSessions] of groupSessionsMap.entries()) {
+            const groupStudentIds = groupSessions.map(s => s.studentId);
+            
+            // Check if all scheduled students are in this logged group
+            const allStudentsMatch = event.studentIds.every(id => groupStudentIds.includes(id)) &&
+                                     groupStudentIds.length === event.studentIds.length;
+            
+            if (allStudentsMatch) {
+              // Check if time is reasonably close (check first session in group)
+              const firstSession = groupSessions[0];
+              const sessionTime = new Date(firstSession.date);
+              const timeDiff = Math.abs(sessionTime.getTime() - eventStartTime.getTime());
+              if (timeDiff <= 2 * 60 * 60 * 1000) { // 2 hours in milliseconds
+                isLogged = true;
+                matchedSession = firstSession; // Use first session to check missed status
+                break;
+              }
+            }
+          }
+          
+          // If not found via groupSessionId, check if all students have individual sessions on this day
+          if (!isLogged) {
+            const studentsWithSessions = new Set<string>();
+            sessionsOnThisDay.forEach(session => {
+              // Check if this session's student is in our scheduled list
+              if (event.studentIds.includes(session.studentId)) {
+                // Check if time is reasonably close
+                const sessionTime = new Date(session.date);
+                const timeDiff = Math.abs(sessionTime.getTime() - eventStartTime.getTime());
+                if (timeDiff <= 2 * 60 * 60 * 1000) { // 2 hours in milliseconds
+                  studentsWithSessions.add(session.studentId);
+                }
+              }
+            });
+            
+            // Check if all scheduled students have matching sessions
+            const allLogged = event.studentIds.every(id => studentsWithSessions.has(id));
+            if (allLogged) {
+              isLogged = true;
+              // Find a matching session to check missed status
+              const firstMatchingSession = sessionsOnThisDay.find(session => {
+                if (!event.studentIds.includes(session.studentId)) return false;
+                const sessionTime = new Date(session.date);
+                const timeDiff = Math.abs(sessionTime.getTime() - eventStartTime.getTime());
+                return timeDiff <= 2 * 60 * 60 * 1000;
+              });
+              if (firstMatchingSession) {
+                matchedSession = firstMatchingSession;
+              }
+            }
+          }
+        }
+      }
+      
+      // Check if the matched session (or any session in the group) is marked as missed
+      if (isLogged && matchedSession) {
+        // For single student sessions, check the matched session directly
+        if (event.studentIds.length === 1) {
+          isMissed = matchedSession.missedSession === true;
+        } else {
+          // For group sessions, check if any session in the group is missed
+          // If matchedSession has a groupSessionId, check all sessions in that group
+          if (matchedSession.groupSessionId) {
+            const groupSessions = sessions.filter(s => s.groupSessionId === matchedSession!.groupSessionId);
+            isMissed = groupSessions.some(s => s.missedSession === true);
+          } else {
+            // If no groupSessionId, check the matched session
+            isMissed = matchedSession.missedSession === true;
+          }
+        }
+      }
+      
+      event.isLogged = isLogged;
+      event.isMissed = isMissed;
+    });
+
     return events;
-  }, [scheduledSessions, students, currentDate]);
+  }, [scheduledSessions, students, currentDate, sessions]);
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
@@ -472,6 +636,7 @@ export const SessionCalendar = () => {
     });
     setEditingSession(null);
     setEditingGroupSessionId(null);
+    setCurrentEvent(event); // Store the event so we can link the session when saving
     setSessionDialogOpen(true);
   };
 
@@ -480,6 +645,7 @@ export const SessionCalendar = () => {
     setEditingSession(null);
     setEditingGroupSessionId(null);
     setStudentSearch('');
+    setCurrentEvent(null);
   };
 
   const handleSaveSession = async () => {
@@ -520,13 +686,14 @@ export const SessionCalendar = () => {
           missedSession: sessionFormData.isDirectServices ? (sessionFormData.missedSession || false) : undefined,
           selectedSubjectiveStatements: sessionFormData.selectedSubjectiveStatements.length > 0 ? sessionFormData.selectedSubjectiveStatements : undefined,
           customSubjective: sessionFormData.customSubjective.trim() || undefined,
+          scheduledSessionId: currentEvent?.scheduledSessionId, // Link to the scheduled session
         };
 
         await addSession(sessionData);
       }
 
-      // Reload data to show the new session
-      loadData();
+      // Reload data to show the new session and update calendar colors
+      await loadData();
       handleCloseSessionDialog();
     } catch (error) {
       console.error('Failed to save session:', error);
@@ -658,6 +825,29 @@ export const SessionCalendar = () => {
     e.preventDefault();
   };
 
+  const handleCancelEvent = (event: CalendarEvent) => {
+    const scheduled = scheduledSessions.find(s => s.id === event.scheduledSessionId);
+    if (!scheduled) return;
+
+    const dateStr = format(event.date, 'yyyy-MM-dd');
+    const cancelledDates = scheduled.cancelledDates || [];
+    
+    // Only allow cancelling future dates that haven't been logged
+    const eventDate = startOfDay(event.date);
+    const today = startOfDay(new Date());
+    if (isBefore(eventDate, today) && event.isLogged) {
+      // Don't allow cancelling past logged sessions
+      return;
+    }
+
+    if (!cancelledDates.includes(dateStr)) {
+      updateScheduledSession(scheduled.id, {
+        cancelledDates: [...cancelledDates, dateStr],
+      });
+      loadData();
+    }
+  };
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
@@ -714,77 +904,151 @@ export const SessionCalendar = () => {
             </Alert>
           )}
 
-          <Grid container spacing={0.5}>
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-              <Grid item xs key={day} sx={{ textAlign: 'center', py: 1, fontWeight: 'bold' }}>
-                <Typography variant="body2" color="text.secondary">
-                  {day}
-                </Typography>
-              </Grid>
-            ))}
-            {daysInMonth.map(day => {
-              const dayEvents = getEventsForDay(day);
-              const isCurrentMonth = isSameMonth(day, currentDate);
-              const isToday = isSameDay(day, new Date());
-
-              return (
-                <Grid
-                  item
-                  xs
-                  key={day.toISOString()}
+          <Box>
+            {/* Day Headers */}
+            <Box 
+              sx={{ 
+                display: 'flex',
+                mb: 0.5,
+                borderBottom: '2px solid',
+                borderColor: 'divider',
+              }}
+            >
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                <Box
+                  key={day}
                   sx={{
-                    minHeight: 120,
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    p: 0.5,
-                    backgroundColor: isCurrentMonth ? 'background.paper' : 'action.hover',
-                    cursor: 'pointer',
-                    position: 'relative',
+                    flex: '1 1 0',
+                    textAlign: 'center',
+                    py: 1.5,
+                    fontWeight: 'bold',
                   }}
-                  onDoubleClick={() => handleOpenDialog(day)}
-                  onDrop={() => handleDrop(day)}
-                  onDragOver={handleDragOver}
                 >
+                  <Typography variant="body2" color="text.secondary">
+                    {day}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+            
+            {/* Calendar Days */}
+            <Box
+              sx={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 0.5,
+              }}
+            >
+              {daysInMonth.map(day => {
+                const dayEvents = getEventsForDay(day);
+                const isCurrentMonth = isSameMonth(day, currentDate);
+                const isToday = isSameDay(day, new Date());
+
+                return (
                   <Box
+                    key={day.toISOString()}
                     sx={{
-                      fontWeight: isToday ? 'bold' : 'normal',
-                      color: isToday ? 'primary.main' : isCurrentMonth ? 'text.primary' : 'text.disabled',
-                      mb: 0.5,
+                      flex: '1 1 calc(14.285% - 4px)', // 100% / 7 columns minus gap
+                      minWidth: 0,
+                      minHeight: 120,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      p: 0.5,
+                      backgroundColor: isCurrentMonth ? 'background.paper' : 'action.hover',
+                      cursor: 'pointer',
+                      position: 'relative',
+                      display: 'flex',
+                      flexDirection: 'column',
                     }}
+                    onDoubleClick={() => handleOpenDialog(day)}
+                    onDrop={() => handleDrop(day)}
+                    onDragOver={handleDragOver}
                   >
-                    {format(day, 'd')}
+                    <Box
+                      sx={{
+                        fontWeight: isToday ? 'bold' : 'normal',
+                        color: isToday ? 'primary.main' : isCurrentMonth ? 'text.primary' : 'text.disabled',
+                        mb: 0.5,
+                      }}
+                    >
+                      {format(day, 'd')}
+                    </Box>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, flex: 1 }}>
+                      {dayEvents.slice(0, 3).map(event => {
+                        const eventDate = startOfDay(event.date);
+                        const today = startOfDay(new Date());
+                        const isFuture = isAfter(eventDate, today) || isSameDay(eventDate, today);
+                        const canCancel = isFuture && !event.isLogged;
+
+                        return (
+                          <Box
+                            key={event.id}
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 0.5,
+                              position: 'relative',
+                              '&:hover .cancel-button': {
+                                opacity: 1,
+                              },
+                            }}
+                          >
+                            <Chip
+                              label={event.title}
+                              size="small"
+                              color={event.hasConflict ? 'error' : event.isMissed ? 'error' : event.isLogged ? 'success' : 'primary'}
+                              icon={<EventIcon />}
+                              draggable
+                              onDragStart={() => handleDragStart(event.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenSessionDialog(event);
+                              }}
+                              sx={{
+                                fontSize: '0.7rem',
+                                height: 20,
+                                flex: 1,
+                                '& .MuiChip-label': { px: 0.5 },
+                                justifyContent: 'flex-start',
+                              }}
+                            />
+                            {canCancel && (
+                              <IconButton
+                                size="small"
+                                className="cancel-button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (window.confirm(`Cancel this session on ${format(event.date, 'MMM d, yyyy')}?`)) {
+                                    handleCancelEvent(event);
+                                  }
+                                }}
+                                sx={{
+                                  opacity: 0,
+                                  transition: 'opacity 0.2s',
+                                  padding: '2px',
+                                  '&:hover': {
+                                    backgroundColor: 'error.light',
+                                    color: 'error.main',
+                                  },
+                                }}
+                              >
+                                <CloseIcon sx={{ fontSize: '0.9rem' }} />
+                              </IconButton>
+                            )}
+                          </Box>
+                        );
+                      })}
+                      {dayEvents.length > 3 && (
+                        <Typography variant="caption" color="text.secondary">
+                          +{dayEvents.length - 3} more
+                        </Typography>
+                      )}
+                    </Box>
                   </Box>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                    {dayEvents.slice(0, 3).map(event => (
-                      <Chip
-                        key={event.id}
-                        label={event.title}
-                        size="small"
-                        color={event.hasConflict ? 'error' : 'primary'}
-                        icon={<EventIcon />}
-                        draggable
-                        onDragStart={() => handleDragStart(event.id)}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenSessionDialog(event);
-                        }}
-                        sx={{
-                          fontSize: '0.7rem',
-                          height: 20,
-                          '& .MuiChip-label': { px: 0.5 },
-                        }}
-                      />
-                    ))}
-                    {dayEvents.length > 3 && (
-                      <Typography variant="caption" color="text.secondary">
-                        +{dayEvents.length - 3} more
-                      </Typography>
-                    )}
-                  </Box>
-                </Grid>
-              );
-            })}
-          </Grid>
+                );
+              })}
+            </Box>
+          </Box>
         </CardContent>
       </Card>
 

@@ -53,10 +53,10 @@ const drawerWidth = 240;
 
 const menuItems = [
   { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
+  { text: 'Calendar', icon: <CalendarTodayIcon />, path: '/session-calendar' },
   { text: 'Students', icon: <PeopleIcon />, path: '/students' },
   { text: 'Schools', icon: <SchoolIcon />, path: '/schools' },
   { text: 'Sessions', icon: <EventNoteIcon />, path: '/sessions' },
-  { text: 'Session Calendar', icon: <CalendarTodayIcon />, path: '/session-calendar' },
   { text: 'SOAP Notes', icon: <NoteIcon />, path: '/soap-notes' },
   { text: 'Progress', icon: <TrendingUpIcon />, path: '/progress' },
   { text: 'Progress Reports', icon: <DescriptionOutlinedIcon />, path: '/progress-reports' },
