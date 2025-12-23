@@ -14,6 +14,8 @@ import { Evaluations } from './pages/Evaluations';
 import { Schools } from './pages/Schools';
 import { TimeTracking } from './pages/TimeTracking';
 import { SOAPNotes } from './pages/SOAPNotes';
+import { ProgressReports } from './pages/ProgressReports';
+import { DueDateItems } from './pages/DueDateItems';
 import { SchoolProvider } from './context/SchoolContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 
@@ -103,6 +105,22 @@ const router = createBrowserRouter([
     element: (
       <Layout>
         <SOAPNotes />
+      </Layout>
+    ),
+  },
+  {
+    path: '/progress-reports',
+    element: (
+      <Layout>
+        <ProgressReports />
+      </Layout>
+    ),
+  },
+  {
+    path: '/due-date-items',
+    element: (
+      <Layout>
+        <DueDateItems />
       </Layout>
     ),
   },

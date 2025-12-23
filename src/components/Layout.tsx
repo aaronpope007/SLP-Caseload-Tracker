@@ -42,6 +42,8 @@ import {
   Assessment as AssessmentIcon,
   AccessTime as AccessTimeIcon,
   Note as NoteIcon,
+  DescriptionOutlined as DescriptionOutlinedIcon,
+  Event as EventIcon,
 } from '@mui/icons-material';
 import { SettingsDialog } from './SettingsDialog';
 import { useSchool } from '../context/SchoolContext';
@@ -55,6 +57,8 @@ const menuItems = [
   { text: 'Sessions', icon: <EventNoteIcon />, path: '/sessions' },
   { text: 'SOAP Notes', icon: <NoteIcon />, path: '/soap-notes' },
   { text: 'Progress', icon: <TrendingUpIcon />, path: '/progress' },
+  { text: 'Progress Reports', icon: <DescriptionOutlinedIcon />, path: '/progress-reports' },
+  { text: 'Due Date Items', icon: <EventIcon />, path: '/due-date-items' },
   { text: 'Evaluations', icon: <AssessmentIcon />, path: '/evaluations' },
   { text: 'Treatment Ideas', icon: <LightbulbIcon />, path: '/ideas' },
   { text: 'Documentation', icon: <DescriptionIcon />, path: '/documentation' },

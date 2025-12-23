@@ -5,7 +5,7 @@
  * Set VITE_API_URL in your .env file or it defaults to http://localhost:3001
  */
 
-import type { Student, Goal, Session, Activity, Evaluation, School, Lunch, SOAPNote } from '../types';
+import type { Student, Goal, Session, Activity, Evaluation, School, Lunch, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
@@ -238,6 +238,116 @@ export const api = {
   export: {
     getAll: () => 
       request<any>('/export/all'),
+  },
+
+  // Progress Reports
+  progressReports: {
+    getAll: (studentId?: string, school?: string, status?: string, startDate?: string, endDate?: string) => {
+      const params = new URLSearchParams();
+      if (studentId) params.append('studentId', studentId);
+      if (school) params.append('school', school);
+      if (status) params.append('status', status);
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      return request<ProgressReport[]>(`/progress-reports${params.toString() ? `?${params}` : ''}`);
+    },
+    getUpcoming: (days?: number, school?: string) => {
+      const params = new URLSearchParams();
+      if (days) params.append('days', days.toString());
+      if (school) params.append('school', school);
+      return request<ProgressReport[]>(`/progress-reports/upcoming${params.toString() ? `?${params}` : ''}`);
+    },
+    getById: (id: string) => 
+      request<ProgressReport>(`/progress-reports/${id}`),
+    create: (report: ProgressReport) => 
+      request<{ id: string; message: string }>('/progress-reports', {
+        method: 'POST',
+        body: JSON.stringify(report),
+      }),
+    update: (id: string, updates: Partial<ProgressReport>) => 
+      request<{ message: string }>(`/progress-reports/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      }),
+    scheduleAuto: (studentId?: string, school?: string) => 
+      request<{ message: string; reports: ProgressReport[] }>('/progress-reports/schedule-auto', {
+        method: 'POST',
+        body: JSON.stringify({ studentId, school }),
+      }),
+    complete: (id: string) => 
+      request<{ message: string }>(`/progress-reports/${id}/complete`, {
+        method: 'POST',
+      }),
+    delete: (id: string) => 
+      request<{ message: string }>(`/progress-reports/${id}`, {
+        method: 'DELETE',
+      }),
+  },
+
+  // Progress Report Templates
+  progressReportTemplates: {
+    getAll: (reportType?: 'quarterly' | 'annual') => 
+      request<ProgressReportTemplate[]>(`/progress-report-templates${reportType ? `?reportType=${reportType}` : ''}`),
+    getById: (id: string) => 
+      request<ProgressReportTemplate>(`/progress-report-templates/${id}`),
+    create: (template: Omit<ProgressReportTemplate, 'id' | 'dateCreated' | 'dateUpdated'>) => 
+      request<{ id: string; message: string }>('/progress-report-templates', {
+        method: 'POST',
+        body: JSON.stringify(template),
+      }),
+    update: (id: string, updates: Partial<ProgressReportTemplate>) => 
+      request<{ message: string }>(`/progress-report-templates/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      }),
+    setDefault: (id: string) => 
+      request<{ message: string }>(`/progress-report-templates/${id}/set-default`, {
+        method: 'POST',
+      }),
+    delete: (id: string) => 
+      request<{ message: string }>(`/progress-report-templates/${id}`, {
+        method: 'DELETE',
+      }),
+  },
+
+  // Due Date Items
+  dueDateItems: {
+    getAll: (studentId?: string, status?: string, category?: string, startDate?: string, endDate?: string, school?: string) => {
+      const params = new URLSearchParams();
+      if (studentId) params.append('studentId', studentId);
+      if (status) params.append('status', status);
+      if (category) params.append('category', category);
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      if (school) params.append('school', school);
+      return request<DueDateItem[]>(`/due-date-items${params.toString() ? `?${params}` : ''}`);
+    },
+    getUpcoming: (days?: number, school?: string) => {
+      const params = new URLSearchParams();
+      if (days) params.append('days', days.toString());
+      if (school) params.append('school', school);
+      return request<DueDateItem[]>(`/due-date-items/upcoming${params.toString() ? `?${params}` : ''}`);
+    },
+    getById: (id: string) => 
+      request<DueDateItem>(`/due-date-items/${id}`),
+    create: (item: Omit<DueDateItem, 'id' | 'dateCreated' | 'dateUpdated'>) => 
+      request<{ id: string; message: string }>('/due-date-items', {
+        method: 'POST',
+        body: JSON.stringify(item),
+      }),
+    update: (id: string, updates: Partial<DueDateItem>) => 
+      request<{ message: string }>(`/due-date-items/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      }),
+    complete: (id: string) => 
+      request<{ message: string }>(`/due-date-items/${id}/complete`, {
+        method: 'POST',
+      }),
+    delete: (id: string) => 
+      request<{ message: string }>(`/due-date-items/${id}`, {
+        method: 'DELETE',
+      }),
   },
 };
 

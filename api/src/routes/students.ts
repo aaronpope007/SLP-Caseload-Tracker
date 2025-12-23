@@ -90,8 +90,8 @@ studentsRouter.post('/', (req, res) => {
     }
     
     db.prepare(`
-      INSERT INTO students (id, name, age, grade, concerns, exceptionality, status, dateAdded, archived, dateArchived, school)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO students (id, name, age, grade, concerns, exceptionality, status, dateAdded, archived, dateArchived, school, iepDate, annualReviewDate, progressReportFrequency)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       student.id,
       student.name,
@@ -103,7 +103,10 @@ studentsRouter.post('/', (req, res) => {
       student.dateAdded,
       student.archived ? 1 : 0,
       student.dateArchived || null,
-      schoolName
+      schoolName,
+      student.iepDate || null,
+      student.annualReviewDate || null,
+      student.progressReportFrequency || null
     );
     
     res.status(201).json({ id: student.id, message: 'Student created' });
@@ -159,7 +162,7 @@ studentsRouter.put('/:id', (req, res) => {
     db.prepare(`
       UPDATE students 
       SET name = ?, age = ?, grade = ?, concerns = ?, exceptionality = ?, status = ?, 
-          archived = ?, dateArchived = ?, school = ?
+          archived = ?, dateArchived = ?, school = ?, iepDate = ?, annualReviewDate = ?, progressReportFrequency = ?
       WHERE id = ?
     `).run(
       student.name,
@@ -171,6 +174,9 @@ studentsRouter.put('/:id', (req, res) => {
       student.archived ? 1 : 0,
       student.dateArchived || null,
       schoolName,
+      student.iepDate || null,
+      student.annualReviewDate || null,
+      student.progressReportFrequency || null,
       id
     );
     

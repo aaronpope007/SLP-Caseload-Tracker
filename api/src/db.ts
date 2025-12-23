@@ -105,6 +105,78 @@ export function initDatabase() {
     console.warn('Could not add columns to sessions table:', e.message);
   }
 
+  // Add new columns to students table if they don't exist
+  try {
+    const studentTableInfo = db.prepare('PRAGMA table_info(students)').all() as Array<{ name: string }>;
+    const studentColumnNames = studentTableInfo.map(col => col.name);
+    
+    if (!studentColumnNames.includes('iepDate')) {
+      db.exec(`ALTER TABLE students ADD COLUMN iepDate TEXT`);
+    }
+    if (!studentColumnNames.includes('annualReviewDate')) {
+      db.exec(`ALTER TABLE students ADD COLUMN annualReviewDate TEXT`);
+    }
+    if (!studentColumnNames.includes('progressReportFrequency')) {
+      db.exec(`ALTER TABLE students ADD COLUMN progressReportFrequency TEXT CHECK(progressReportFrequency IN ('quarterly', 'annual'))`);
+    }
+  } catch (e: any) {
+    console.warn('Could not add columns to students table:', e.message);
+  }
+
+  // Progress Reports table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS progress_reports (
+      id TEXT PRIMARY KEY,
+      studentId TEXT NOT NULL,
+      reportType TEXT NOT NULL CHECK(reportType IN ('quarterly', 'annual')),
+      dueDate TEXT NOT NULL,
+      scheduledDate TEXT NOT NULL,
+      periodStart TEXT NOT NULL,
+      periodEnd TEXT NOT NULL,
+      status TEXT NOT NULL CHECK(status IN ('scheduled', 'in-progress', 'completed', 'overdue')),
+      completedDate TEXT,
+      templateId TEXT,
+      content TEXT,
+      dateCreated TEXT NOT NULL,
+      dateUpdated TEXT NOT NULL,
+      customDueDate TEXT,
+      reminderSent INTEGER DEFAULT 0,
+      reminderSentDate TEXT,
+      FOREIGN KEY (studentId) REFERENCES students(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Progress Report Templates table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS progress_report_templates (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      reportType TEXT NOT NULL CHECK(reportType IN ('quarterly', 'annual')),
+      sections TEXT NOT NULL,
+      isDefault INTEGER DEFAULT 0,
+      dateCreated TEXT NOT NULL,
+      dateUpdated TEXT NOT NULL
+    )
+  `);
+
+  // Due Date Items table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS due_date_items (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      description TEXT,
+      dueDate TEXT NOT NULL,
+      studentId TEXT,
+      status TEXT NOT NULL CHECK(status IN ('pending', 'completed', 'overdue')),
+      completedDate TEXT,
+      category TEXT,
+      priority TEXT CHECK(priority IN ('high', 'medium', 'low')),
+      dateCreated TEXT NOT NULL,
+      dateUpdated TEXT NOT NULL,
+      FOREIGN KEY (studentId) REFERENCES students(id) ON DELETE SET NULL
+    )
+  `);
+
   // Activities table
   db.exec(`
     CREATE TABLE IF NOT EXISTS activities (
@@ -184,6 +256,12 @@ export function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_soap_notes_sessionId ON soap_notes(sessionId);
     CREATE INDEX IF NOT EXISTS idx_soap_notes_studentId ON soap_notes(studentId);
     CREATE INDEX IF NOT EXISTS idx_soap_notes_date ON soap_notes(date);
+    CREATE INDEX IF NOT EXISTS idx_progress_reports_studentId ON progress_reports(studentId);
+    CREATE INDEX IF NOT EXISTS idx_progress_reports_dueDate ON progress_reports(dueDate);
+    CREATE INDEX IF NOT EXISTS idx_progress_reports_status ON progress_reports(status);
+    CREATE INDEX IF NOT EXISTS idx_due_date_items_studentId ON due_date_items(studentId);
+    CREATE INDEX IF NOT EXISTS idx_due_date_items_dueDate ON due_date_items(dueDate);
+    CREATE INDEX IF NOT EXISTS idx_due_date_items_status ON due_date_items(status);
   `);
 
   console.log('Database initialized successfully');

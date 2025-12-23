@@ -19,10 +19,20 @@ import {
   EventNote as EventNoteIcon,
   Add as AddIcon,
 } from '@mui/icons-material';
-import { getStudents, getGoals, getSessions } from '../utils/storage-api';
+import { 
+  getStudents, 
+  getGoals, 
+  getSessions,
+  getUpcomingProgressReports,
+  getUpcomingDueDateItems,
+} from '../utils/storage-api';
 import { formatDate } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
-import type { Session, Student } from '../types';
+import type { Session, Student, ProgressReport, DueDateItem } from '../types';
+import {
+  DescriptionOutlined as DescriptionOutlinedIcon,
+  Event as EventIcon,
+} from '@mui/icons-material';
 
 export const Dashboard = () => {
   console.log('Dashboard component rendering');
@@ -34,24 +44,28 @@ export const Dashboard = () => {
     totalGoals: 0,
     recentSessions: 0,
   });
+  const [students, setStudents] = useState<Student[]>([]);
   const [recentStudents, setRecentStudents] = useState<(Session & { student: Student })[]>([]);
+  const [upcomingReports, setUpcomingReports] = useState<ProgressReport[]>([]);
+  const [upcomingItems, setUpcomingItems] = useState<DueDateItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadDashboardData = async () => {
     console.log('Dashboard useEffect running');
     setLoading(true);
     try {
-      const students = await getStudents(selectedSchool);
+      const schoolStudents = await getStudents(selectedSchool);
+      setStudents(schoolStudents);
       const goals = await getGoals();
       const sessions = await getSessions();
     
     // Filter goals and sessions by school students
-    const studentIds = new Set(students.map(s => s.id));
+    const studentIds = new Set(schoolStudents.map(s => s.id));
     const schoolGoals = goals.filter(g => studentIds.has(g.studentId));
     const schoolSessions = sessions.filter(s => studentIds.has(s.studentId));
 
     // Filter out archived students (archived is optional for backward compatibility)
-    const activeStudents = students.filter(s => s.status === 'active' && s.archived !== true);
+    const activeStudents = schoolStudents.filter(s => s.status === 'active' && s.archived !== true);
     const activeStudentIds = new Set(activeStudents.map(s => s.id));
     
     // Filter goals to only include those belonging to active (non-archived) students
@@ -72,7 +86,7 @@ export const Dashboard = () => {
     });
 
     // Only include non-archived students in the map (archived is optional for backward compatibility)
-    const studentMap = new Map(students.filter(s => s.archived !== true).map(s => [s.id, s]));
+    const studentMap = new Map(schoolStudents.filter(s => s.archived !== true).map(s => [s.id, s]));
     setRecentStudents(
       recent
         .map(s => ({
@@ -81,6 +95,14 @@ export const Dashboard = () => {
         }))
         .filter(s => s.student) // Only show sessions for non-archived students
     );
+
+    // Load upcoming progress reports (next 30 days)
+    const reports = await getUpcomingProgressReports(30, selectedSchool);
+    setUpcomingReports(reports.slice(0, 5));
+
+    // Load upcoming due date items (next 30 days)
+    const items = await getUpcomingDueDateItems(30, selectedSchool);
+    setUpcomingItems(items.slice(0, 5));
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
     } finally {
@@ -220,6 +242,107 @@ export const Dashboard = () => {
                       />
                     </ListItem>
                   ))}
+                </List>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="h6">
+                  Upcoming Progress Reports
+                </Typography>
+                <Button size="small" onClick={() => navigate('/progress-reports')}>
+                  View All
+                </Button>
+              </Box>
+              {upcomingReports.length === 0 ? (
+                <Typography color="text.secondary">
+                  No upcoming reports
+                </Typography>
+              ) : (
+                <List>
+                  {upcomingReports.map((report) => {
+                    const studentMap = new Map(students.filter(s => s.archived !== true).map(s => [s.id, s]));
+                    const student = studentMap.get(report.studentId);
+                    const isOverdue = report.status === 'overdue';
+                    return (
+                      <ListItem 
+                        key={report.id}
+                        sx={{
+                          borderLeft: isOverdue ? '4px solid red' : '4px solid transparent',
+                          pl: isOverdue ? 1.5 : 2,
+                        }}
+                      >
+                        <ListItemText
+                          primary={student?.name || 'Unknown Student'}
+                          secondary={
+                            <Box>
+                              <Typography variant="caption" display="block">
+                                {report.reportType === 'quarterly' ? 'Quarterly' : 'Annual'} • Due: {formatDate(report.dueDate)}
+                              </Typography>
+                              {isOverdue && (
+                                <Chip label="Overdue" size="small" color="error" sx={{ mt: 0.5 }} />
+                              )}
+                            </Box>
+                          }
+                        />
+                      </ListItem>
+                    );
+                  })}
+                </List>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="h6">
+                  Upcoming Due Date Items
+                </Typography>
+                <Button size="small" onClick={() => navigate('/due-date-items')}>
+                  View All
+                </Button>
+              </Box>
+              {upcomingItems.length === 0 ? (
+                <Typography color="text.secondary">
+                  No upcoming items
+                </Typography>
+              ) : (
+                <List>
+                  {upcomingItems.map((item) => {
+                    const isOverdue = item.status === 'overdue';
+                    return (
+                      <ListItem 
+                        key={item.id}
+                        sx={{
+                          borderLeft: isOverdue ? '4px solid red' : '4px solid transparent',
+                          pl: isOverdue ? 1.5 : 2,
+                        }}
+                      >
+                        <ListItemText
+                          primary={item.title}
+                          secondary={
+                            <Box>
+                              <Typography variant="caption" display="block">
+                                Due: {formatDate(item.dueDate)}
+                                {item.category && ` • ${item.category}`}
+                              </Typography>
+                              {isOverdue && (
+                                <Chip label="Overdue" size="small" color="error" sx={{ mt: 0.5 }} />
+                              )}
+                            </Box>
+                          }
+                        />
+                      </ListItem>
+                    );
+                  })}
                 </List>
               )}
             </CardContent>

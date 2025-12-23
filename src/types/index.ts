@@ -18,6 +18,9 @@ export interface Student {
   archived?: boolean; // Optional for backward compatibility
   dateArchived?: string;
   school: string; // School name the student belongs to
+  iepDate?: string; // Date of current IEP (ISO string)
+  annualReviewDate?: string; // Next annual review date (ISO string)
+  progressReportFrequency?: 'quarterly' | 'annual'; // Default report frequency
 }
 
 export interface Goal {
@@ -119,6 +122,59 @@ export interface SOAPNote {
   objective: string;
   assessment: string;
   plan: string;
+  dateCreated: string;
+  dateUpdated: string;
+}
+
+export interface ProgressReportSection {
+  id: string;
+  title: string; // e.g., "Student Information", "Goal Progress", "Recommendations"
+  order: number; // Display order
+  content?: string; // Template content/instructions
+  includeGoals?: boolean; // Auto-include goal progress
+  includeSessions?: boolean; // Auto-include session data
+}
+
+export interface ProgressReportTemplate {
+  id: string;
+  name: string; // e.g., "Quarterly Progress Report", "Annual IEP Progress"
+  reportType: 'quarterly' | 'annual';
+  sections: ProgressReportSection[];
+  isDefault: boolean; // One default per type
+  dateCreated: string;
+  dateUpdated: string;
+}
+
+export interface ProgressReport {
+  id: string;
+  studentId: string;
+  reportType: 'quarterly' | 'annual';
+  dueDate: string; // ISO string - when report is due
+  scheduledDate: string; // ISO string - when it was auto-scheduled
+  periodStart: string; // Start of reporting period (ISO string)
+  periodEnd: string; // End of reporting period (ISO string)
+  status: 'scheduled' | 'in-progress' | 'completed' | 'overdue';
+  completedDate?: string; // ISO string - when completed
+  templateId?: string; // Which template was used
+  content?: string; // Report content/generated text
+  dateCreated: string;
+  dateUpdated: string;
+  // Optional fields for customization
+  customDueDate?: string; // Override auto-calculated due date
+  reminderSent?: boolean; // Track if reminder email was sent
+  reminderSentDate?: string; // When reminder was sent
+}
+
+export interface DueDateItem {
+  id: string;
+  title: string;
+  description?: string;
+  dueDate: string; // ISO string
+  studentId?: string; // Optional - link to student
+  status: 'pending' | 'completed' | 'overdue';
+  completedDate?: string; // ISO string - when completed
+  category?: string; // e.g., "IEP", "Evaluation", "Meeting", "Report", "Other"
+  priority?: 'high' | 'medium' | 'low';
   dateCreated: string;
   dateUpdated: string;
 }

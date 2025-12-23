@@ -78,6 +78,9 @@ export const Students = () => {
     exceptionality: '',
     status: 'active' as 'active' | 'discharged',
     school: '',
+    iepDate: '',
+    annualReviewDate: '',
+    progressReportFrequency: 'quarterly' as 'quarterly' | 'annual',
   });
   const [initialFormData, setInitialFormData] = useState(formData);
   const { confirm, ConfirmDialog } = useConfirm();
@@ -92,7 +95,10 @@ export const Students = () => {
       formData.concerns !== initialFormData.concerns ||
       formData.exceptionality !== initialFormData.exceptionality ||
       formData.status !== initialFormData.status ||
-      formData.school !== initialFormData.school
+      formData.school !== initialFormData.school ||
+      formData.iepDate !== initialFormData.iepDate ||
+      formData.annualReviewDate !== initialFormData.annualReviewDate ||
+      formData.progressReportFrequency !== initialFormData.progressReportFrequency
     );
   };
 
@@ -193,6 +199,9 @@ export const Students = () => {
         exceptionality: (student.exceptionality || []).join(', '),
         status: student.status,
         school: student.school || selectedSchool,
+        iepDate: student.iepDate ? student.iepDate.split('T')[0] : '',
+        annualReviewDate: student.annualReviewDate ? student.annualReviewDate.split('T')[0] : '',
+        progressReportFrequency: student.progressReportFrequency || 'quarterly',
       };
     } else {
       setEditingStudent(null);
@@ -204,6 +213,9 @@ export const Students = () => {
         exceptionality: '',
         status: 'active' as 'active' | 'discharged',
         school: selectedSchool,
+        iepDate: '',
+        annualReviewDate: '',
+        progressReportFrequency: 'quarterly' as 'quarterly' | 'annual',
       };
     }
     setFormData(newFormData);
@@ -250,27 +262,26 @@ export const Students = () => {
       .filter((e) => e.length > 0);
 
     try {
+      const studentData = {
+        name: formData.name,
+        age: ageValue ?? 0,
+        grade: formData.grade,
+        concerns: concernsArray,
+        exceptionality: exceptionalityArray.length > 0 ? exceptionalityArray : undefined,
+        status: formData.status,
+        school: formData.school || selectedSchool,
+        iepDate: formData.iepDate ? new Date(formData.iepDate).toISOString() : undefined,
+        annualReviewDate: formData.annualReviewDate ? new Date(formData.annualReviewDate).toISOString() : undefined,
+        progressReportFrequency: formData.progressReportFrequency,
+      };
+
       if (editingStudent) {
-        await updateStudent(editingStudent.id, {
-          name: formData.name,
-          age: ageValue ?? 0,
-          grade: formData.grade,
-          concerns: concernsArray,
-          exceptionality: exceptionalityArray.length > 0 ? exceptionalityArray : undefined,
-          status: formData.status,
-          school: formData.school || selectedSchool,
-        });
+        await updateStudent(editingStudent.id, studentData);
       } else {
         await addStudent({
           id: generateId(),
-          name: formData.name,
-          age: ageValue ?? 0,
-          grade: formData.grade,
-          concerns: concernsArray,
-          exceptionality: exceptionalityArray.length > 0 ? exceptionalityArray : undefined,
-          status: formData.status,
+          ...studentData,
           dateAdded: new Date().toISOString(),
-          school: formData.school || selectedSchool,
         });
       }
       await loadStudents();
@@ -657,6 +668,43 @@ export const Students = () => {
                   {school}
                 </option>
               ))}
+            </TextField>
+            <TextField
+              label="IEP Date (Optional)"
+              type="date"
+              fullWidth
+              value={formData.iepDate}
+              onChange={(e) => setFormData({ ...formData, iepDate: e.target.value })}
+              InputLabelProps={{ shrink: true }}
+              helperText="Date of current IEP - used for scheduling progress reports"
+            />
+            <TextField
+              label="Annual Review Date (Optional)"
+              type="date"
+              fullWidth
+              value={formData.annualReviewDate}
+              onChange={(e) => setFormData({ ...formData, annualReviewDate: e.target.value })}
+              InputLabelProps={{ shrink: true }}
+              helperText="Next annual review date"
+            />
+            <TextField
+              select
+              label="Progress Report Frequency"
+              fullWidth
+              value={formData.progressReportFrequency}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  progressReportFrequency: e.target.value as 'quarterly' | 'annual',
+                })
+              }
+              SelectProps={{
+                native: true,
+              }}
+              helperText="How often to schedule progress reports for this student"
+            >
+              <option value="quarterly">Quarterly (4 per year)</option>
+              <option value="annual">Annual (1 per year)</option>
             </TextField>
           </Box>
         </DialogContent>

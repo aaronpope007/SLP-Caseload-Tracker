@@ -3,7 +3,7 @@
  * This replaces localStorage with API calls to the Express + SQLite backend
  */
 
-import type { Student, Goal, Session, Activity, Evaluation, School, Lunch, SOAPNote } from '../types';
+import type { Student, Goal, Session, Activity, Evaluation, School, Lunch, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem } from '../types';
 import { api } from './api';
 
 const DEFAULT_SCHOOL = 'Noble Academy';
@@ -421,5 +421,138 @@ export const updateSOAPNote = async (id: string, updates: Partial<SOAPNote>): Pr
 
 export const deleteSOAPNote = async (id: string): Promise<void> => {
   await api.soapNotes.delete(id);
+};
+
+// Progress Reports
+export const getProgressReports = async (studentId?: string, school?: string, status?: string, startDate?: string, endDate?: string): Promise<ProgressReport[]> => {
+  try {
+    return await api.progressReports.getAll(studentId, school, status, startDate, endDate);
+  } catch (error) {
+    console.error('Failed to fetch progress reports:', error);
+    return [];
+  }
+};
+
+export const getUpcomingProgressReports = async (days?: number, school?: string): Promise<ProgressReport[]> => {
+  try {
+    return await api.progressReports.getUpcoming(days, school);
+  } catch (error) {
+    console.error('Failed to fetch upcoming progress reports:', error);
+    return [];
+  }
+};
+
+export const getProgressReport = async (id: string): Promise<ProgressReport | undefined> => {
+  try {
+    return await api.progressReports.getById(id);
+  } catch (error) {
+    console.error('Failed to fetch progress report:', error);
+    return undefined;
+  }
+};
+
+export const addProgressReport = async (report: ProgressReport): Promise<void> => {
+  await api.progressReports.create(report);
+};
+
+export const updateProgressReport = async (id: string, updates: Partial<ProgressReport>): Promise<void> => {
+  await api.progressReports.update(id, updates);
+};
+
+export const deleteProgressReport = async (id: string): Promise<void> => {
+  await api.progressReports.delete(id);
+};
+
+export const scheduleProgressReports = async (studentId?: string, school?: string): Promise<ProgressReport[]> => {
+  try {
+    const result = await api.progressReports.scheduleAuto(studentId, school);
+    return result.reports;
+  } catch (error) {
+    console.error('Failed to schedule progress reports:', error);
+    return [];
+  }
+};
+
+export const completeProgressReport = async (id: string): Promise<void> => {
+  await api.progressReports.complete(id);
+};
+
+// Progress Report Templates
+export const getProgressReportTemplates = async (reportType?: 'quarterly' | 'annual'): Promise<ProgressReportTemplate[]> => {
+  try {
+    return await api.progressReportTemplates.getAll(reportType);
+  } catch (error) {
+    console.error('Failed to fetch progress report templates:', error);
+    return [];
+  }
+};
+
+export const getProgressReportTemplate = async (id: string): Promise<ProgressReportTemplate | undefined> => {
+  try {
+    return await api.progressReportTemplates.getById(id);
+  } catch (error) {
+    console.error('Failed to fetch progress report template:', error);
+    return undefined;
+  }
+};
+
+export const addProgressReportTemplate = async (template: Omit<ProgressReportTemplate, 'id' | 'dateCreated' | 'dateUpdated'>): Promise<void> => {
+  await api.progressReportTemplates.create(template);
+};
+
+export const updateProgressReportTemplate = async (id: string, updates: Partial<ProgressReportTemplate>): Promise<void> => {
+  await api.progressReportTemplates.update(id, updates);
+};
+
+export const deleteProgressReportTemplate = async (id: string): Promise<void> => {
+  await api.progressReportTemplates.delete(id);
+};
+
+export const setDefaultProgressReportTemplate = async (id: string): Promise<void> => {
+  await api.progressReportTemplates.setDefault(id);
+};
+
+// Due Date Items
+export const getDueDateItems = async (studentId?: string, status?: string, category?: string, startDate?: string, endDate?: string, school?: string): Promise<DueDateItem[]> => {
+  try {
+    return await api.dueDateItems.getAll(studentId, status, category, startDate, endDate, school);
+  } catch (error) {
+    console.error('Failed to fetch due date items:', error);
+    return [];
+  }
+};
+
+export const getUpcomingDueDateItems = async (days?: number, school?: string): Promise<DueDateItem[]> => {
+  try {
+    return await api.dueDateItems.getUpcoming(days, school);
+  } catch (error) {
+    console.error('Failed to fetch upcoming due date items:', error);
+    return [];
+  }
+};
+
+export const getDueDateItem = async (id: string): Promise<DueDateItem | undefined> => {
+  try {
+    return await api.dueDateItems.getById(id);
+  } catch (error) {
+    console.error('Failed to fetch due date item:', error);
+    return undefined;
+  }
+};
+
+export const addDueDateItem = async (item: Omit<DueDateItem, 'id' | 'dateCreated' | 'dateUpdated'>): Promise<void> => {
+  await api.dueDateItems.create(item);
+};
+
+export const updateDueDateItem = async (id: string, updates: Partial<DueDateItem>): Promise<void> => {
+  await api.dueDateItems.update(id, updates);
+};
+
+export const deleteDueDateItem = async (id: string): Promise<void> => {
+  await api.dueDateItems.delete(id);
+};
+
+export const completeDueDateItem = async (id: string): Promise<void> => {
+  await api.dueDateItems.complete(id);
 };
 

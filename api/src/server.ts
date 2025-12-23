@@ -10,6 +10,9 @@ import { schoolsRouter } from './routes/schools';
 import { lunchesRouter } from './routes/lunches';
 import { exportRouter } from './routes/export';
 import { soapNotesRouter } from './routes/soap-notes';
+import { progressReportsRouter } from './routes/progress-reports';
+import { progressReportTemplatesRouter } from './routes/progress-report-templates';
+import { dueDateItemsRouter } from './routes/due-date-items';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -36,6 +39,9 @@ app.use('/api/schools', schoolsRouter);
 app.use('/api/lunches', lunchesRouter);
 app.use('/api/soap-notes', soapNotesRouter);
 app.use('/api/export', exportRouter);
+app.use('/api/progress-reports', progressReportsRouter);
+app.use('/api/progress-report-templates', progressReportTemplatesRouter);
+app.use('/api/due-date-items', dueDateItemsRouter);
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
