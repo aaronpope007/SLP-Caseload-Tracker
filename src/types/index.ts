@@ -74,6 +74,26 @@ export interface Session {
   missedSession?: boolean; // true if this was a missed session (only for Direct Services)
   selectedSubjectiveStatements?: string[]; // Selected subjective statements for SOAP notes
   customSubjective?: string; // Custom subjective statement for SOAP notes
+  scheduledSessionId?: string; // ID of the scheduled session template this was created from
+}
+
+export interface ScheduledSession {
+  id: string;
+  studentIds: string[]; // Support for group sessions
+  startTime: string; // Time of day in HH:mm format (24-hour)
+  endTime?: string; // End time in HH:mm format
+  duration?: number; // Duration in minutes (alternative to endTime)
+  dayOfWeek?: number[]; // 0-6 (Sunday-Saturday), undefined means specific dates
+  specificDates?: string[]; // ISO date strings for specific dates (alternative to dayOfWeek)
+  recurrencePattern: 'weekly' | 'daily' | 'specific-dates' | 'none'; // none = one-time
+  startDate: string; // ISO string - when to start the recurrence
+  endDate?: string; // ISO string - when to end the recurrence (optional)
+  goalsTargeted: string[]; // Goal IDs (shared across all instances)
+  notes?: string;
+  isDirectServices?: boolean;
+  dateCreated: string;
+  dateUpdated: string;
+  active?: boolean; // Whether this scheduled session is active
 }
 
 export interface Activity {

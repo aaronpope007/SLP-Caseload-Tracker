@@ -16,6 +16,7 @@ import { TimeTracking } from './pages/TimeTracking';
 import { SOAPNotes } from './pages/SOAPNotes';
 import { ProgressReports } from './pages/ProgressReports';
 import { DueDateItems } from './pages/DueDateItems';
+import { SessionCalendar } from './pages/SessionCalendar';
 import { SchoolProvider } from './context/SchoolContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { SessionDialogProvider } from './context/SessionDialogContext';
@@ -122,6 +123,14 @@ const router = createBrowserRouter([
     element: (
       <Layout>
         <DueDateItems />
+      </Layout>
+    ),
+  },
+  {
+    path: '/session-calendar',
+    element: (
+      <Layout>
+        <SessionCalendar />
       </Layout>
     ),
   },

@@ -137,7 +137,7 @@ This document tracks potential improvements and feature ideas for the SLP Caselo
   - Report deadline notifications
   - Annual review prep reminders
 
-- [ ] **Session Planning Calendar**
+- [x] **Session Planning Calendar**
   - Visual calendar view with upcoming sessions
   - Drag-and-drop session scheduling
   - Recurring session setup

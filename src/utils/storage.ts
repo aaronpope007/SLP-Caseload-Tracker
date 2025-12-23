@@ -1,4 +1,4 @@
-import type { Student, Goal, Session, Activity, GoalTemplate, Evaluation, School, Lunch } from '../types';
+import type { Student, Goal, Session, Activity, GoalTemplate, Evaluation, School, Lunch, ScheduledSession } from '../types';
 
 const STORAGE_KEYS = {
   STUDENTS: 'slp_students',
@@ -8,6 +8,7 @@ const STORAGE_KEYS = {
   EVALUATIONS: 'slp_evaluations',
   SCHOOLS: 'slp_schools',
   LUNCHES: 'slp_lunches',
+  SCHEDULED_SESSIONS: 'slp_scheduled_sessions',
 } as const;
 
 const DEFAULT_SCHOOL = 'Noble Academy';
@@ -467,8 +468,51 @@ export const exportData = (): string => {
     evaluations: getEvaluations(),
     schools: getSchools(),
     lunches: getLunches(),
+    scheduledSessions: getScheduledSessions(),
     exportDate: new Date().toISOString(),
   }, null, 2);
+};
+
+// Scheduled Sessions
+export const getScheduledSessions = (school?: string): ScheduledSession[] => {
+  const data = localStorage.getItem(STORAGE_KEYS.SCHEDULED_SESSIONS);
+  let scheduledSessions: ScheduledSession[] = data ? JSON.parse(data) : [];
+  
+  // Filter by school if provided
+  if (school && school.trim()) {
+    const students = getStudents(school);
+    const studentIds = new Set(students.map(s => s.id));
+    scheduledSessions = scheduledSessions.filter(ss => 
+      ss.studentIds.some(id => studentIds.has(id))
+    );
+  }
+  
+  return scheduledSessions.filter(ss => ss.active !== false);
+};
+
+export const saveScheduledSessions = (scheduledSessions: ScheduledSession[]): void => {
+  localStorage.setItem(STORAGE_KEYS.SCHEDULED_SESSIONS, JSON.stringify(scheduledSessions));
+};
+
+export const addScheduledSession = (scheduledSession: ScheduledSession): void => {
+  const scheduledSessions = getScheduledSessions();
+  scheduledSessions.push(scheduledSession);
+  saveScheduledSessions(scheduledSessions);
+};
+
+export const updateScheduledSession = (id: string, updates: Partial<ScheduledSession>): void => {
+  const scheduledSessions = getScheduledSessions();
+  const index = scheduledSessions.findIndex(ss => ss.id === id);
+  if (index !== -1) {
+    scheduledSessions[index] = { ...scheduledSessions[index], ...updates, dateUpdated: new Date().toISOString() };
+    saveScheduledSessions(scheduledSessions);
+  }
+};
+
+export const deleteScheduledSession = (id: string): void => {
+  const scheduledSessions = getScheduledSessions();
+  const filtered = scheduledSessions.filter(ss => ss.id !== id);
+  saveScheduledSessions(filtered);
 };
 
 export const importData = (jsonString: string): void => {
@@ -481,6 +525,7 @@ export const importData = (jsonString: string): void => {
     if (data.evaluations) saveEvaluations(data.evaluations);
     if (data.schools) saveSchools(data.schools);
     if (data.lunches) saveLunches(data.lunches);
+    if (data.scheduledSessions) saveScheduledSessions(data.scheduledSessions);
   } catch (error) {
     throw new Error('Invalid JSON data');
   }

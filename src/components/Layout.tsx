@@ -44,6 +44,7 @@ import {
   Note as NoteIcon,
   DescriptionOutlined as DescriptionOutlinedIcon,
   Event as EventIcon,
+  CalendarToday as CalendarTodayIcon,
 } from '@mui/icons-material';
 import { SettingsDialog } from './SettingsDialog';
 import { useSchool } from '../context/SchoolContext';
@@ -55,6 +56,7 @@ const menuItems = [
   { text: 'Students', icon: <PeopleIcon />, path: '/students' },
   { text: 'Schools', icon: <SchoolIcon />, path: '/schools' },
   { text: 'Sessions', icon: <EventNoteIcon />, path: '/sessions' },
+  { text: 'Session Calendar', icon: <CalendarTodayIcon />, path: '/session-calendar' },
   { text: 'SOAP Notes', icon: <NoteIcon />, path: '/soap-notes' },
   { text: 'Progress', icon: <TrendingUpIcon />, path: '/progress' },
   { text: 'Progress Reports', icon: <DescriptionOutlinedIcon />, path: '/progress-reports' },
