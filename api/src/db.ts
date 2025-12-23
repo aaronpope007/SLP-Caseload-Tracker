@@ -40,6 +40,18 @@ export function initDatabase() {
     console.warn('Could not add schoolHours column to schools table:', e.message);
   }
 
+  // Teachers table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS teachers (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      grade TEXT NOT NULL,
+      phoneNumber TEXT,
+      emailAddress TEXT,
+      dateCreated TEXT NOT NULL
+    )
+  `);
+
   // Students table
   // Note: Foreign key constraint removed - we handle school validation in application code
   // This avoids case-sensitivity issues with SQLite foreign keys
@@ -55,7 +67,8 @@ export function initDatabase() {
       dateAdded TEXT NOT NULL,
       archived INTEGER DEFAULT 0,
       dateArchived TEXT,
-      school TEXT NOT NULL
+      school TEXT NOT NULL,
+      teacherId TEXT
     )
   `);
 
@@ -131,6 +144,9 @@ export function initDatabase() {
     }
     if (!studentColumnNames.includes('progressReportFrequency')) {
       db.exec(`ALTER TABLE students ADD COLUMN progressReportFrequency TEXT CHECK(progressReportFrequency IN ('quarterly', 'annual'))`);
+    }
+    if (!studentColumnNames.includes('teacherId')) {
+      db.exec(`ALTER TABLE students ADD COLUMN teacherId TEXT`);
     }
   } catch (e: any) {
     console.warn('Could not add columns to students table:', e.message);
@@ -249,6 +265,7 @@ export function initDatabase() {
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_students_school ON students(school);
     CREATE INDEX IF NOT EXISTS idx_students_status ON students(status);
+    CREATE INDEX IF NOT EXISTS idx_students_teacherId ON students(teacherId);
     CREATE INDEX IF NOT EXISTS idx_goals_studentId ON goals(studentId);
     CREATE INDEX IF NOT EXISTS idx_sessions_studentId ON sessions(studentId);
     CREATE INDEX IF NOT EXISTS idx_sessions_date ON sessions(date);

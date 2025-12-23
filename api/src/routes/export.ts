@@ -9,6 +9,7 @@ exportRouter.get('/all', (req, res) => {
     // Get all data
     const schools = db.prepare('SELECT * FROM schools').all();
     const students = db.prepare('SELECT * FROM students').all();
+    const teachers = db.prepare('SELECT * FROM teachers').all();
     const goals = db.prepare('SELECT * FROM goals').all();
     const sessions = db.prepare('SELECT * FROM sessions').all();
     const activities = db.prepare('SELECT * FROM activities').all();
@@ -27,6 +28,7 @@ exportRouter.get('/all', (req, res) => {
         exceptionality: s.exceptionality ? JSON.parse(s.exceptionality) : undefined,
         archived: s.archived === 1,
       })),
+      teachers,
       goals: goals.map((g: any) => ({
         ...g,
         subGoalIds: g.subGoalIds ? JSON.parse(g.subGoalIds) : undefined,

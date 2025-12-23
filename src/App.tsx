@@ -6,6 +6,7 @@ import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { Students } from './pages/Students';
 import { StudentDetail } from './pages/StudentDetail';
+import { Teachers } from './pages/Teachers';
 import { Sessions } from './pages/Sessions';
 import { Progress } from './pages/Progress';
 import { TreatmentIdeas } from './pages/TreatmentIdeas';
@@ -43,6 +44,14 @@ const router = createBrowserRouter([
     element: (
       <Layout>
         <StudentDetail />
+      </Layout>
+    ),
+  },
+  {
+    path: '/teachers',
+    element: (
+      <Layout>
+        <Teachers />
       </Layout>
     ),
   },

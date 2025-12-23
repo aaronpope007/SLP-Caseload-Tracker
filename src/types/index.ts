@@ -11,6 +11,15 @@ export interface School {
   };
 }
 
+export interface Teacher {
+  id: string;
+  name: string;
+  grade: string;
+  phoneNumber?: string;
+  emailAddress?: string;
+  dateCreated: string;
+}
+
 export interface Student {
   id: string;
   name: string;
@@ -23,6 +32,7 @@ export interface Student {
   archived?: boolean; // Optional for backward compatibility
   dateArchived?: string;
   school: string; // School name the student belongs to
+  teacherId?: string; // Optional teacher ID
   iepDate?: string; // Date of current IEP (ISO string)
   annualReviewDate?: string; // Next annual review date (ISO string)
   progressReportFrequency?: 'quarterly' | 'annual'; // Default report frequency

@@ -5,58 +5,45 @@ import {
   Button,
   Card,
   CardContent,
-  Chip,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   Grid,
-  IconButton,
   TextField,
   Typography,
-  Menu,
-  MenuItem,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  InputAdornment,
 } from '@mui/material';
 import {
   Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  MoreVert as MoreVertIcon,
-  Search as SearchIcon,
   Archive as ArchiveIcon,
-  Unarchive as UnarchiveIcon,
-  ExpandMore as ExpandMoreIcon,
   UnfoldMore as UnfoldMoreIcon,
   UnfoldLess as UnfoldLessIcon,
-  Clear as ClearIcon,
 } from '@mui/icons-material';
-import type { Student } from '../types';
+import type { Student, Teacher } from '../types';
 import {
   getStudents,
   addStudent,
   updateStudent,
   deleteStudent,
+  getTeachers,
 } from '../utils/storage-api';
 import { generateId } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { useDirty } from '../hooks/useDirty';
+import { SearchBar } from '../components/SearchBar';
+import { StudentAccordionCard } from '../components/StudentAccordionCard';
 
 export const Students = () => {
   const navigate = useNavigate();
   const { selectedSchool, availableSchools } = useSchool();
   const [students, setStudents] = useState<Student[]>([]);
   const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
   const [expandedStudents, setExpandedStudents] = useState<Set<string>>(new Set());
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
@@ -78,6 +65,7 @@ export const Students = () => {
     exceptionality: '',
     status: 'active' as 'active' | 'discharged',
     school: '',
+    teacherId: '',
     iepDate: '',
     annualReviewDate: '',
     progressReportFrequency: 'quarterly' as 'quarterly' | 'annual',
@@ -96,6 +84,7 @@ export const Students = () => {
       formData.exceptionality !== initialFormData.exceptionality ||
       formData.status !== initialFormData.status ||
       formData.school !== initialFormData.school ||
+      formData.teacherId !== initialFormData.teacherId ||
       formData.iepDate !== initialFormData.iepDate ||
       formData.annualReviewDate !== initialFormData.annualReviewDate ||
       formData.progressReportFrequency !== initialFormData.progressReportFrequency
@@ -131,6 +120,15 @@ export const Students = () => {
     });
     
     setFilteredStudents(filtered);
+  };
+
+  const loadTeachers = async () => {
+    try {
+      const allTeachers = await getTeachers();
+      setTeachers(allTeachers);
+    } catch (error) {
+      console.error('Failed to load teachers:', error);
+    }
   };
 
   const loadStudents = async () => {
@@ -171,6 +169,7 @@ export const Students = () => {
 
   useEffect(() => {
     loadStudents();
+    loadTeachers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSchool]);
 
@@ -187,10 +186,20 @@ export const Students = () => {
     });
   }, [filteredStudents]);
 
-  const handleOpenDialog = (student?: Student, prefillName?: string) => {
+  const handleOpenDialog = async (student?: Student, prefillName?: string) => {
+    // Ensure teachers are loaded before opening dialog
+    if (teachers.length === 0) {
+      await loadTeachers();
+    }
+    
     let newFormData: typeof formData;
     if (student) {
       setEditingStudent(student);
+      // Validate teacherId exists in teachers list, if not reset to empty
+      const teacherId = student.teacherId && teachers.find(t => t.id === student.teacherId) 
+        ? student.teacherId 
+        : '';
+      
       newFormData = {
         name: student.name,
         age: student.age > 0 ? student.age.toString() : '',
@@ -199,6 +208,7 @@ export const Students = () => {
         exceptionality: (student.exceptionality || []).join(', '),
         status: student.status,
         school: student.school || selectedSchool,
+        teacherId: teacherId,
         iepDate: student.iepDate ? student.iepDate.split('T')[0] : '',
         annualReviewDate: student.annualReviewDate ? student.annualReviewDate.split('T')[0] : '',
         progressReportFrequency: student.progressReportFrequency || 'quarterly',
@@ -213,6 +223,7 @@ export const Students = () => {
         exceptionality: '',
         status: 'active' as 'active' | 'discharged',
         school: selectedSchool,
+        teacherId: '',
         iepDate: '',
         annualReviewDate: '',
         progressReportFrequency: 'quarterly' as 'quarterly' | 'annual',
@@ -270,6 +281,7 @@ export const Students = () => {
         exceptionality: exceptionalityArray.length > 0 ? exceptionalityArray : undefined,
         status: formData.status,
         school: formData.school || selectedSchool,
+        teacherId: formData.teacherId || undefined,
         iepDate: formData.iepDate ? new Date(formData.iepDate).toISOString() : undefined,
         annualReviewDate: formData.annualReviewDate ? new Date(formData.annualReviewDate).toISOString() : undefined,
         progressReportFrequency: formData.progressReportFrequency,
@@ -297,7 +309,6 @@ export const Students = () => {
 
   const handleDelete = (id: string) => {
     const student = students.find(s => s.id === id);
-    handleMenuClose(); // Close menu when dialog opens
     setConfirmDialog({
       open: true,
       title: 'Delete Student',
@@ -317,7 +328,6 @@ export const Students = () => {
 
   const handleArchive = (id: string, archive: boolean) => {
     const student = students.find(s => s.id === id);
-    handleMenuClose(); // Close menu when dialog opens
     setConfirmDialog({
       open: true,
       title: archive ? 'Archive Student' : 'Unarchive Student',
@@ -340,26 +350,10 @@ export const Students = () => {
     });
   };
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, studentId: string) => {
-    setAnchorEl(event.currentTarget);
-    setSelectedStudent(studentId);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-    setSelectedStudent(null);
-  };
-
   const handleViewDetails = (studentId: string) => {
     navigate(`/students/${studentId}`);
-    handleMenuClose();
   };
 
-  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && filteredStudents.length === 1) {
-      handleViewDetails(filteredStudents[0].id);
-    }
-  };
 
   const handleAccordionChange = (studentId: string) => {
     setExpandedStudents((prev) => {
@@ -423,30 +417,14 @@ export const Students = () => {
       </Box>
 
       <Box sx={{ mb: 3 }}>
-        <TextField
-          fullWidth
-          placeholder={`Search ${showArchived ? 'archived ' : ''}students by name, grade, or concerns...`}
+        <SearchBar
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          onKeyDown={handleSearchKeyDown}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon sx={{ color: 'text.secondary' }} />
-              </InputAdornment>
-            ),
-            endAdornment: searchTerm && (
-              <InputAdornment position="end">
-                <IconButton
-                  edge="end"
-                  onClick={() => setSearchTerm('')}
-                  size="small"
-                  aria-label="clear search"
-                >
-                  <ClearIcon />
-                </IconButton>
-              </InputAdornment>
-            ),
+          onChange={setSearchTerm}
+          placeholder={`Search ${showArchived ? 'archived ' : ''}students by name, grade, or concerns...`}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && filteredStudents.length === 1) {
+              handleViewDetails(filteredStudents[0].id);
+            }
           }}
         />
       </Box>
@@ -494,89 +472,16 @@ export const Students = () => {
         ) : (
           filteredStudents.map((student) => (
             <Grid item xs={12} sm={6} md={4} key={student.id}>
-              <Accordion
+              <StudentAccordionCard
+                student={student}
+                teachers={teachers}
                 expanded={expandedStudents.has(student.id)}
-                onChange={() => handleAccordionChange(student.id)}
-              >
-                <AccordionSummary
-                  expandIcon={<ExpandMoreIcon />}
-                  sx={{
-                    '& .MuiAccordionSummary-content': {
-                      alignItems: 'center',
-                    },
-                  }}
-                >
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', pr: 1 }}>
-                    <Typography variant="h6">{student.name}</Typography>
-                    <IconButton
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleMenuOpen(e, student.id);
-                      }}
-                    >
-                      <MoreVertIcon />
-                    </IconButton>
-                  </Box>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <Box>
-                    <Typography color="text.secondary" gutterBottom>
-                      {student.age > 0 ? `Age: ${student.age}` : ''}{student.age > 0 && student.grade ? ' | ' : ''}{student.grade ? `Grade: ${student.grade}` : ''}
-                    </Typography>
-                    <Box sx={{ mt: 1, mb: 1, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                      <Chip
-                        label={student.status}
-                        size="small"
-                        color={student.status === 'active' ? 'primary' : 'default'}
-                      />
-                      {student.archived && (
-                        <Chip
-                          label="Archived"
-                          size="small"
-                          color="default"
-                          variant="outlined"
-                        />
-                      )}
-                    </Box>
-                    {student.concerns.length > 0 && (
-                      <Box sx={{ mt: 1 }}>
-                        <Typography variant="caption" color="text.secondary">
-                          Concerns:
-                        </Typography>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
-                          {student.concerns.map((concern, idx) => (
-                            <Chip
-                              key={idx}
-                              label={concern}
-                              size="small"
-                              variant="outlined"
-                            />
-                          ))}
-                        </Box>
-                      </Box>
-                    )}
-                    {student.exceptionality && student.exceptionality.length > 0 && (
-                      <Box sx={{ mt: 1 }}>
-                        <Typography variant="caption" color="text.secondary">
-                          Exceptionality:
-                        </Typography>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
-                          {student.exceptionality.map((except, idx) => (
-                            <Chip
-                              key={idx}
-                              label={except}
-                              size="small"
-                              variant="outlined"
-                              color="primary"
-                            />
-                          ))}
-                        </Box>
-                      </Box>
-                    )}
-                  </Box>
-                </AccordionDetails>
-              </Accordion>
+                onToggleExpand={() => handleAccordionChange(student.id)}
+                onEdit={handleOpenDialog}
+                onDelete={handleDelete}
+                onArchive={handleArchive}
+                onViewDetails={handleViewDetails}
+              />
             </Grid>
           ))
         )}
@@ -670,6 +575,31 @@ export const Students = () => {
               ))}
             </TextField>
             <TextField
+              select
+              label="Teacher (Optional)"
+              fullWidth
+              value={formData.teacherId || ''}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  teacherId: e.target.value,
+                })
+              }
+              SelectProps={{
+                native: true,
+              }}
+              InputLabelProps={{
+                shrink: true,
+              }}
+            >
+              <option value="">None</option>
+              {teachers.map((teacher) => (
+                <option key={teacher.id} value={teacher.id}>
+                  {teacher.name}{teacher.grade ? ` - ${teacher.grade}` : ''}
+                </option>
+              ))}
+            </TextField>
+            <TextField
               label="IEP Date (Optional)"
               type="date"
               fullWidth
@@ -719,40 +649,6 @@ export const Students = () => {
           </Button>
         </DialogActions>
       </Dialog>
-
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleMenuClose}
-      >
-        <MenuItem onClick={() => selectedStudent && handleViewDetails(selectedStudent)}>
-          <EditIcon sx={{ mr: 1 }} /> View and Edit Goals
-        </MenuItem>
-        <MenuItem
-          onClick={() => selectedStudent && handleOpenDialog(students.find(s => s.id === selectedStudent))}
-        >
-          <EditIcon sx={{ mr: 1 }} /> Edit
-        </MenuItem>
-        {selectedStudent && students.find(s => s.id === selectedStudent)?.archived ? (
-          <MenuItem
-            onClick={() => selectedStudent && handleArchive(selectedStudent, false)}
-          >
-            <UnarchiveIcon sx={{ mr: 1 }} /> Unarchive
-          </MenuItem>
-        ) : (
-          <MenuItem
-            onClick={() => selectedStudent && handleArchive(selectedStudent, true)}
-          >
-            <ArchiveIcon sx={{ mr: 1 }} /> Archive
-          </MenuItem>
-        )}
-        <MenuItem
-          onClick={() => selectedStudent && handleDelete(selectedStudent)}
-          sx={{ color: 'error.main' }}
-        >
-          <DeleteIcon sx={{ mr: 1 }} /> Delete
-        </MenuItem>
-      </Menu>
 
       {/* Confirmation Dialog */}
       <Dialog

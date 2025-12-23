@@ -3,7 +3,7 @@
  * This replaces localStorage with API calls to the Express + SQLite backend
  */
 
-import type { Student, Goal, Session, Activity, Evaluation, School, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Reminder } from '../types';
+import type { Student, Goal, Session, Activity, Evaluation, School, Teacher, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Reminder } from '../types';
 import { api } from './api';
 
 const DEFAULT_SCHOOL = 'Noble Academy';
@@ -281,6 +281,42 @@ export const getSchoolByName = async (name: string): Promise<School | undefined>
   }
 };
 
+// Teachers
+export const getTeachers = async (): Promise<Teacher[]> => {
+  try {
+    return await api.teachers.getAll();
+  } catch (error) {
+    console.error('Failed to fetch teachers:', error);
+    return [];
+  }
+};
+
+export const saveTeachers = async (teachers: Teacher[]): Promise<void> => {
+  for (const teacher of teachers) {
+    try {
+      await api.teachers.update(teacher.id, teacher);
+    } catch {
+      try {
+        await api.teachers.create(teacher);
+      } catch (error) {
+        console.error(`Failed to save teacher ${teacher.id}:`, error);
+      }
+    }
+  }
+};
+
+export const addTeacher = async (teacher: Teacher): Promise<void> => {
+  await api.teachers.create(teacher);
+};
+
+export const updateTeacher = async (id: string, updates: Partial<Teacher>): Promise<void> => {
+  await api.teachers.update(id, updates);
+};
+
+export const deleteTeacher = async (id: string): Promise<void> => {
+  await api.teachers.delete(id);
+};
+
 // Export/Import
 export const exportData = async (): Promise<string> => {
   try {
@@ -301,6 +337,11 @@ export const importData = async (jsonString: string): Promise<void> => {
     if (data.schools) {
       for (const school of data.schools) {
         await addSchool(school);
+      }
+    }
+    if (data.teachers) {
+      for (const teacher of data.teachers) {
+        await addTeacher(teacher);
       }
     }
     if (data.students) {

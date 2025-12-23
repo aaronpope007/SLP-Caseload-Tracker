@@ -90,8 +90,8 @@ studentsRouter.post('/', (req, res) => {
     }
     
     db.prepare(`
-      INSERT INTO students (id, name, age, grade, concerns, exceptionality, status, dateAdded, archived, dateArchived, school, iepDate, annualReviewDate, progressReportFrequency)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO students (id, name, age, grade, concerns, exceptionality, status, dateAdded, archived, dateArchived, school, teacherId, iepDate, annualReviewDate, progressReportFrequency)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       student.id,
       student.name,
@@ -104,6 +104,7 @@ studentsRouter.post('/', (req, res) => {
       student.archived ? 1 : 0,
       student.dateArchived || null,
       schoolName,
+      student.teacherId || null,
       student.iepDate || null,
       student.annualReviewDate || null,
       student.progressReportFrequency || null
@@ -162,7 +163,7 @@ studentsRouter.put('/:id', (req, res) => {
     db.prepare(`
       UPDATE students 
       SET name = ?, age = ?, grade = ?, concerns = ?, exceptionality = ?, status = ?, 
-          archived = ?, dateArchived = ?, school = ?, iepDate = ?, annualReviewDate = ?, progressReportFrequency = ?
+          archived = ?, dateArchived = ?, school = ?, teacherId = ?, iepDate = ?, annualReviewDate = ?, progressReportFrequency = ?
       WHERE id = ?
     `).run(
       student.name,
@@ -174,6 +175,7 @@ studentsRouter.put('/:id', (req, res) => {
       student.archived ? 1 : 0,
       student.dateArchived || null,
       schoolName,
+      student.teacherId || null,
       student.iepDate || null,
       student.annualReviewDate || null,
       student.progressReportFrequency || null,
