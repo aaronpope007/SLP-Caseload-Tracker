@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -25,6 +26,7 @@ import { generateId, formatDateTime, toLocalDateTimeString, fromLocalDateTimeStr
 import { generateSessionPlan } from '../utils/gemini';
 import { useSchool } from '../context/SchoolContext';
 import { useConfirm } from '../hooks/useConfirm';
+import { useSessionDialog } from '../context/SessionDialogContext';
 import { SessionCard } from '../components/SessionCard';
 import { SessionPlanDialog } from '../components/SessionPlanDialog';
 import { LunchDialog } from '../components/LunchDialog';
@@ -39,6 +41,8 @@ import { api } from '../utils/api';
 export const Sessions = () => {
   const { selectedSchool } = useSchool();
   const { confirm, ConfirmDialog } = useConfirm();
+  const { registerHandler } = useSessionDialog();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -88,6 +92,18 @@ export const Sessions = () => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSchool]);
+
+  // Check for URL parameter to open add session dialog
+  useEffect(() => {
+    const addParam = searchParams.get('add');
+    if (addParam === 'true' && !dialogOpen && students.length > 0) {
+      // Open dialog after data has loaded
+      handleOpenDialog();
+      // Clear the URL parameter
+      setSearchParams({});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, students.length, dialogOpen]);
 
   const loadData = async () => {
     try {
@@ -236,6 +252,14 @@ export const Sessions = () => {
     }
     setDialogOpen(true);
   };
+
+  // Register the handler to open the dialog from context
+  useEffect(() => {
+    registerHandler(() => {
+      handleOpenDialog();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [registerHandler]);
 
   const isFormDirty = () => {
     if (!initialFormDataRef.current) return false;

@@ -18,6 +18,7 @@ import { ProgressReports } from './pages/ProgressReports';
 import { DueDateItems } from './pages/DueDateItems';
 import { SchoolProvider } from './context/SchoolContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
+import { SessionDialogProvider } from './context/SessionDialogContext';
 
 const router = createBrowserRouter([
   {
@@ -130,12 +131,14 @@ function AppContent() {
   const { theme } = useTheme();
   
   return (
-    <MuiThemeProvider theme={theme}>
-      <CssBaseline />
-      <SchoolProvider>
-        <RouterProvider router={router} />
-      </SchoolProvider>
-    </MuiThemeProvider>
+      <MuiThemeProvider theme={theme}>
+        <CssBaseline />
+        <SchoolProvider>
+          <SessionDialogProvider>
+            <RouterProvider router={router} />
+          </SessionDialogProvider>
+        </SchoolProvider>
+      </MuiThemeProvider>
   );
 }
 
