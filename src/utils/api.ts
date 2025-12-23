@@ -5,7 +5,7 @@
  * Set VITE_API_URL in your .env file or it defaults to http://localhost:3001
  */
 
-import type { Student, Goal, Session, Activity, Evaluation, School, Lunch, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Reminder } from '../types';
+import type { Student, Goal, Session, Activity, Evaluation, School, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Reminder } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
@@ -182,28 +182,6 @@ export const api = {
       }),
     delete: (id: string) => 
       request<{ message: string }>(`/schools/${id}`, {
-        method: 'DELETE',
-      }),
-  },
-
-  // Lunches
-  lunches: {
-    getAll: (school?: string) => 
-      request<Lunch[]>(`/lunches${school ? `?school=${encodeURIComponent(school)}` : ''}`),
-    getById: (id: string) => 
-      request<Lunch>(`/lunches/${id}`),
-    create: (lunch: Omit<Lunch, 'id' | 'dateCreated'>) => 
-      request<{ id: string; message: string }>('/lunches', {
-        method: 'POST',
-        body: JSON.stringify(lunch),
-      }),
-    update: (id: string, updates: Partial<Lunch>) => 
-      request<{ message: string }>(`/lunches/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(updates),
-      }),
-    delete: (id: string) => 
-      request<{ message: string }>(`/lunches/${id}`, {
         method: 'DELETE',
       }),
   },

@@ -7,19 +7,17 @@ import {
   Alert,
   Typography,
 } from '@mui/material';
-import type { Session, Evaluation, Student, Lunch } from '../types';
+import type { Session, Evaluation, Student } from '../types';
 import {
   getSessionsBySchool,
   getEvaluations,
   getStudents,
-  getLunches,
 } from '../utils/storage-api';
 import { formatDate, generateId } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
 import { getSchoolByName } from '../utils/storage-api';
 import { SessionTimeItem } from '../components/SessionTimeItem';
 import { EvaluationTimeItem } from '../components/EvaluationTimeItem';
-import { LunchTimeItem } from '../components/LunchTimeItem';
 import { TimesheetNoteDialog } from '../components/TimesheetNoteDialog';
 import { SavedNotesDialog, type TimesheetNote } from '../components/SavedNotesDialog';
 import { TimeTrackingFilter } from '../components/TimeTrackingFilter';
@@ -27,9 +25,9 @@ import { generateTimesheetNote } from '../utils/timesheetNoteGenerator';
 
 interface TimeTrackingItem {
   id: string;
-  type: 'session' | 'evaluation' | 'lunch';
+  type: 'session' | 'evaluation';
   date: string;
-  data: Session | Evaluation | Lunch;
+  data: Session | Evaluation;
 }
 
 const TIMESHEET_NOTES_STORAGE_KEY = 'slp_timesheet_notes';
@@ -62,7 +60,6 @@ export const TimeTracking = () => {
   const { selectedSchool } = useSchool();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
-  const [lunches, setLunches] = useState<Lunch[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   // Get current date in YYYY-MM-DD format for date input
   const getCurrentDateString = () => {
@@ -88,12 +85,10 @@ export const TimeTracking = () => {
   const loadData = async () => {
     const schoolSessions = await getSessionsBySchool(selectedSchool);
     const schoolEvaluations = await getEvaluations(selectedSchool);
-    const schoolLunches = await getLunches(selectedSchool);
     const schoolStudents = await getStudents(selectedSchool);
     
     setSessions(schoolSessions);
     setEvaluations(schoolEvaluations);
-    setLunches(schoolLunches);
     setStudents(schoolStudents);
   };
 
@@ -148,18 +143,8 @@ export const TimeTracking = () => {
       });
     });
     
-    // Add lunches
-    lunches.forEach(lunch => {
-      items.push({
-        id: lunch.id,
-        type: 'lunch' as const,
-        date: lunch.startTime,
-        data: lunch,
-      });
-    });
-
     // Sort all items by date/time chronologically (most recent first)
-    // This ensures group sessions, individual sessions, evaluations, and lunches are all intermingled correctly
+    // This ensures group sessions, individual sessions, and evaluations are all intermingled correctly
     const sorted = items.sort((a, b) => {
       const dateA = new Date(a.date).getTime();
       const dateB = new Date(b.date).getTime();
@@ -171,7 +156,7 @@ export const TimeTracking = () => {
     });
     
     return sorted;
-  }, [sessions, evaluations, lunches]);
+  }, [sessions, evaluations]);
 
   // Filter items by selected date
   const filteredItems = useMemo(() => {
@@ -359,12 +344,7 @@ export const TimeTracking = () => {
                 />
               );
             } else {
-              return (
-                <LunchTimeItem
-                  key={item.id}
-                  lunch={item.data as Lunch}
-                />
-              );
+              return null;
             }
           })
         )}

@@ -11,7 +11,7 @@ import {
 import {
   Psychology as PsychologyIcon,
 } from '@mui/icons-material';
-import type { Session, Student, Goal, Lunch } from '../types';
+import type { Session, Student, Goal } from '../types';
 import {
   getSessions,
   getStudents,
@@ -20,7 +20,6 @@ import {
   updateSession,
   deleteSession,
   getSessionsByStudent,
-  addLunch,
 } from '../utils/storage-api';
 import { generateId, formatDateTime, toLocalDateTimeString, fromLocalDateTimeString } from '../utils/helpers';
 import { generateSessionPlan } from '../utils/gemini';
@@ -29,7 +28,6 @@ import { useConfirm } from '../hooks/useConfirm';
 import { useSessionDialog } from '../context/SessionDialogContext';
 import { SessionCard } from '../components/SessionCard';
 import { SessionPlanDialog } from '../components/SessionPlanDialog';
-import { LunchDialog } from '../components/LunchDialog';
 import { GroupSessionAccordion } from '../components/GroupSessionAccordion';
 import { LogActivityMenu } from '../components/LogActivityMenu';
 import { SessionFormDialog } from '../components/SessionFormDialog';
@@ -61,12 +59,6 @@ export const Sessions = () => {
   // Student search state
   const [studentSearch, setStudentSearch] = useState('');
   
-  // Lunch dialog state
-  const [lunchDialogOpen, setLunchDialogOpen] = useState(false);
-  const [lunchFormData, setLunchFormData] = useState({
-    startTime: toLocalDateTimeString(new Date()),
-    endTime: toLocalDateTimeString(new Date(Date.now() + 30 * 60000)), // Default 30 minutes
-  });
 
   // SOAP Note dialog state
   const [soapNoteDialogOpen, setSoapNoteDialogOpen] = useState(false);
@@ -539,25 +531,6 @@ export const Sessions = () => {
     }
   };
 
-  const handleSaveLunch = async () => {
-    const lunch: Lunch = {
-      id: generateId(),
-      school: selectedSchool,
-      startTime: fromLocalDateTimeString(lunchFormData.startTime),
-      endTime: fromLocalDateTimeString(lunchFormData.endTime),
-      dateCreated: new Date().toISOString(),
-    };
-    
-    await addLunch(lunch);
-    setLunchDialogOpen(false);
-    // Reset form
-    const now = new Date();
-    const defaultEndTime = new Date(now.getTime() + 30 * 60000);
-    setLunchFormData({
-      startTime: toLocalDateTimeString(now),
-      endTime: toLocalDateTimeString(defaultEndTime),
-    });
-  };
 
   const getStudentName = (studentId: string) => {
     return students.find((s) => s.id === studentId)?.name || 'Unknown';
@@ -725,10 +698,6 @@ export const Sessions = () => {
           </Button>
           <LogActivityMenu
             onAddSession={handleOpenDialog}
-            onAddLunch={(startTime, endTime) => {
-              setLunchFormData({ startTime, endTime });
-              setLunchDialogOpen(true);
-            }}
           />
         </Box>
       </Box>
@@ -875,15 +844,6 @@ export const Sessions = () => {
         onGenerate={handleGenerateSessionPlan}
       />
 
-      <LunchDialog
-        open={lunchDialogOpen}
-        onClose={() => setLunchDialogOpen(false)}
-        startTime={lunchFormData.startTime}
-        endTime={lunchFormData.endTime}
-        onStartTimeChange={(value) => setLunchFormData({ ...lunchFormData, startTime: value })}
-        onEndTimeChange={(value) => setLunchFormData({ ...lunchFormData, endTime: value })}
-        onSave={handleSaveLunch}
-      />
       {selectedSessionForSOAP && (() => {
         const student = students.find(s => s.id === selectedSessionForSOAP.studentId);
         if (!student) {

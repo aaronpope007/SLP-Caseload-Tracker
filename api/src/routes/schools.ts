@@ -23,13 +23,22 @@ schoolsRouter.get('/', (req, res) => {
       countMap.set(key, existing + row.count);
     }
     
-    // Parse boolean and add student count
+    // Parse boolean, schoolHours JSON, and add student count
     const parsed = (schools as any[]).map((s) => {
       const key = s.name.toLowerCase();
       const studentCount = countMap.get(key) || 0;
+      let schoolHours = undefined;
+      if (s.schoolHours) {
+        try {
+          schoolHours = JSON.parse(s.schoolHours);
+        } catch {
+          // If parsing fails, leave as undefined
+        }
+      }
       return {
         ...s,
         teletherapy: s.teletherapy === 1,
+        schoolHours,
         studentCount,
       };
     });
@@ -50,9 +59,18 @@ schoolsRouter.get('/:id', (req, res) => {
       return res.status(404).json({ error: 'School not found' });
     }
     
+    let schoolHours = undefined;
+    if (school.schoolHours) {
+      try {
+        schoolHours = typeof school.schoolHours === 'string' ? JSON.parse(school.schoolHours) : school.schoolHours;
+      } catch {
+        // If parsing fails, leave as undefined
+      }
+    }
     res.json({
       ...school,
       teletherapy: school.teletherapy === 1,
+      schoolHours,
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -69,9 +87,18 @@ schoolsRouter.get('/name/:name', (req, res) => {
       return res.status(404).json({ error: 'School not found' });
     }
     
+    let schoolHours = undefined;
+    if (school.schoolHours) {
+      try {
+        schoolHours = typeof school.schoolHours === 'string' ? JSON.parse(school.schoolHours) : school.schoolHours;
+      } catch {
+        // If parsing fails, leave as undefined
+      }
+    }
     res.json({
       ...school,
       teletherapy: school.teletherapy === 1,
+      schoolHours,
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -104,14 +131,15 @@ schoolsRouter.post('/', (req, res) => {
     }
     
     db.prepare(`
-      INSERT INTO schools (id, name, state, teletherapy, dateCreated)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO schools (id, name, state, teletherapy, dateCreated, schoolHours)
+      VALUES (?, ?, ?, ?, ?, ?)
     `).run(
       school.id,
       schoolName,
       school.state || '',
       school.teletherapy ? 1 : 0,
-      school.dateCreated
+      school.dateCreated,
+      school.schoolHours ? JSON.stringify(school.schoolHours) : null
     );
     
     res.status(201).json({ id: school.id, message: 'School created' });
@@ -126,26 +154,39 @@ schoolsRouter.put('/:id', (req, res) => {
     const { id } = req.params;
     const updates = req.body;
     
+    console.log('Updating school:', id, 'with updates:', updates);
+    
     const existing = db.prepare('SELECT * FROM schools WHERE id = ?').get(id) as any;
     if (!existing) {
       return res.status(404).json({ error: 'School not found' });
     }
     
-    const school = { ...existing, ...updates };
+    // Use updates directly, not merged with existing (to properly handle schoolHours)
+    const name = updates.name !== undefined ? updates.name : existing.name;
+    const state = updates.state !== undefined ? updates.state : existing.state;
+    const teletherapy = updates.teletherapy !== undefined ? (updates.teletherapy ? 1 : 0) : (existing.teletherapy === 1 ? 1 : 0);
+    const schoolHours = updates.schoolHours !== undefined 
+      ? (updates.schoolHours ? JSON.stringify(updates.schoolHours) : null)
+      : existing.schoolHours;
+    
+    console.log('School update values:', { name, state, teletherapy, schoolHours });
     
     db.prepare(`
       UPDATE schools 
-      SET name = ?, state = ?, teletherapy = ?
+      SET name = ?, state = ?, teletherapy = ?, schoolHours = ?
       WHERE id = ?
     `).run(
-      school.name,
-      school.state,
-      school.teletherapy ? 1 : 0,
+      name,
+      state,
+      teletherapy,
+      schoolHours,
       id
     );
     
+    console.log('School updated successfully');
     res.json({ message: 'School updated' });
   } catch (error: any) {
+    console.error('Error updating school:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -161,49 +202,14 @@ schoolsRouter.delete('/:id', (req, res) => {
       return res.status(404).json({ error: 'School not found' });
     }
     
-    const schoolName = existing.name;
+    // Delete the school
+    const result = db.prepare('DELETE FROM schools WHERE id = ?').run(id);
     
-    // Temporarily disable foreign keys for this operation
-    db.pragma('foreign_keys = OFF');
-    
-    try {
-      // Check if there are lunches referencing this school
-      const lunches = db.prepare('SELECT * FROM lunches WHERE school = ?').all(schoolName) as any[];
-      
-      if (lunches.length > 0) {
-        // Find another school with the same name (case-insensitive) to transfer lunches to
-        // Prefer the one with teletherapy if there are duplicates
-        const allSchools = db.prepare('SELECT * FROM schools').all() as any[];
-        const sameNameSchools = allSchools.filter(
-          s => s.id !== id && s.name.toLowerCase() === schoolName.toLowerCase()
-        );
-        
-        if (sameNameSchools.length > 0) {
-          // Prefer the one with teletherapy
-          const targetSchool = sameNameSchools.find(s => s.teletherapy === 1) || sameNameSchools[0];
-          
-          // Update lunches to reference the target school
-          db.prepare('UPDATE lunches SET school = ? WHERE school = ?').run(targetSchool.name, schoolName);
-          console.log(`Transferred ${lunches.length} lunch(es) from "${schoolName}" to "${targetSchool.name}"`);
-        } else {
-          // No other school with same name exists, delete the lunches
-          db.prepare('DELETE FROM lunches WHERE school = ?').run(schoolName);
-          console.log(`Deleted ${lunches.length} orphaned lunch(es) for school "${schoolName}"`);
-        }
-      }
-      
-      // Now delete the school
-      const result = db.prepare('DELETE FROM schools WHERE id = ?').run(id);
-      
-      if (result.changes === 0) {
-        throw new Error('Failed to delete school');
-      }
-      
-      res.json({ message: 'School deleted', deletedId: id });
-    } finally {
-      // Always re-enable foreign keys
-      db.pragma('foreign_keys = ON');
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'School not found' });
     }
+    
+    res.json({ message: 'School deleted', deletedId: id });
   } catch (error: any) {
     // Make sure foreign keys are re-enabled even on error
     db.pragma('foreign_keys = ON');

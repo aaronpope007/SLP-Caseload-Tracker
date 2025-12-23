@@ -3,7 +3,7 @@
  * This replaces localStorage with API calls to the Express + SQLite backend
  */
 
-import type { Student, Goal, Session, Activity, Evaluation, School, Lunch, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Reminder } from '../types';
+import type { Student, Goal, Session, Activity, Evaluation, School, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Reminder } from '../types';
 import { api } from './api';
 
 const DEFAULT_SCHOOL = 'Noble Academy';
@@ -237,42 +237,6 @@ export const deleteEvaluation = async (id: string): Promise<void> => {
   await api.evaluations.delete(id);
 };
 
-// Lunches
-export const getLunches = async (school?: string): Promise<Lunch[]> => {
-  try {
-    return await api.lunches.getAll(school);
-  } catch (error) {
-    console.error('Failed to fetch lunches:', error);
-    return [];
-  }
-};
-
-export const saveLunches = async (lunches: Lunch[]): Promise<void> => {
-  for (const lunch of lunches) {
-    try {
-      await api.lunches.update(lunch.id, lunch);
-    } catch {
-      try {
-        await api.lunches.create(lunch);
-      } catch (error) {
-        console.error(`Failed to save lunch ${lunch.id}:`, error);
-      }
-    }
-  }
-};
-
-export const addLunch = async (lunch: Lunch): Promise<void> => {
-  await api.lunches.create(lunch);
-};
-
-export const updateLunch = async (id: string, updates: Partial<Lunch>): Promise<void> => {
-  await api.lunches.update(id, updates);
-};
-
-export const deleteLunch = async (id: string): Promise<void> => {
-  await api.lunches.delete(id);
-};
-
 // Schools
 export const getSchools = async (): Promise<School[]> => {
   try {
@@ -362,11 +326,6 @@ export const importData = async (jsonString: string): Promise<void> => {
     if (data.evaluations) {
       for (const evaluation of data.evaluations) {
         await addEvaluation(evaluation);
-      }
-    }
-    if (data.lunches) {
-      for (const lunch of data.lunches) {
-        await addLunch(lunch);
       }
     }
   } catch (error) {

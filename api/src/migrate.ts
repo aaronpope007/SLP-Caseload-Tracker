@@ -25,7 +25,6 @@ interface ImportData {
   activities?: any[];
   evaluations?: any[];
   schools?: any[];
-  lunches?: any[];
 }
 
 function migrateData(data: ImportData) {
@@ -38,7 +37,6 @@ function migrateData(data: ImportData) {
   const transaction = db.transaction(() => {
     // Clear existing data (optional - comment out if you want to append)
     console.log('⚠️  Clearing existing data...');
-    db.prepare('DELETE FROM lunches').run();
     db.prepare('DELETE FROM evaluations').run();
     db.prepare('DELETE FROM sessions').run();
     db.prepare('DELETE FROM activities').run();
@@ -205,53 +203,7 @@ function migrateData(data: ImportData) {
       console.log(`✅ Imported ${data.evaluations.length} evaluations`);
     }
     
-    // Import Lunches
-    if (data.lunches && data.lunches.length > 0) {
-      console.log(`🍽️  Importing ${data.lunches.length} lunches...`);
-      const insertLunch = db.prepare(`
-        INSERT INTO lunches (id, school, startTime, endTime, dateCreated)
-        VALUES (?, ?, ?, ?, ?)
-      `);
-      
-      // Get existing school names
-      const existingSchools = new Set(
-        db.prepare('SELECT name FROM schools').all().map((s: any) => s.name)
-      );
-      
-      // Create missing schools referenced in lunches
-      const insertSchool = db.prepare(`
-        INSERT INTO schools (id, name, state, teletherapy, dateCreated)
-        VALUES (?, ?, ?, ?, ?)
-      `);
-      
-      const lunchSchools = new Set(data.lunches.map((l: any) => l.school));
-      for (const schoolName of lunchSchools) {
-        if (schoolName && !existingSchools.has(schoolName)) {
-          // Create a default school entry
-          const schoolId = `school-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-          insertSchool.run(
-            schoolId,
-            schoolName,
-            'NC', // Default state
-            0, // Default teletherapy
-            new Date().toISOString()
-          );
-          console.log(`  ⚠️  Created missing school: ${schoolName}`);
-        }
-      }
-      
-      for (const lunch of data.lunches) {
-        insertLunch.run(
-          lunch.id,
-          lunch.school,
-          lunch.startTime,
-          lunch.endTime,
-          lunch.dateCreated
-        );
-      }
-      console.log(`✅ Imported ${data.lunches.length} lunches`);
-    }
-  });
+      });
   
   // Execute transaction
   transaction();

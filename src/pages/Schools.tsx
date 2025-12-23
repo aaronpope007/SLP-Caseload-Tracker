@@ -110,6 +110,10 @@ export const Schools = () => {
     name: '',
     state: '',
     teletherapy: false,
+    schoolHours: {
+      startHour: 8,
+      endHour: 17,
+    },
   });
 
   const loadSchools = async () => {
@@ -222,6 +226,7 @@ export const Schools = () => {
         name: school.name,
         state: school.state || '',
         teletherapy: school.teletherapy || false,
+        schoolHours: school.schoolHours || { startHour: 8, endHour: 17 },
       });
     } else {
       setEditingSchool(null);
@@ -229,6 +234,10 @@ export const Schools = () => {
         name: '',
         state: '',
         teletherapy: false,
+        schoolHours: {
+          startHour: 8,
+          endHour: 17,
+        },
       });
     }
     setDialogOpen(true);
@@ -241,6 +250,10 @@ export const Schools = () => {
       name: '',
       state: '',
       teletherapy: false,
+      schoolHours: {
+        startHour: 8,
+        endHour: 17,
+      },
     });
   };
 
@@ -249,23 +262,32 @@ export const Schools = () => {
       return;
     }
 
-    if (editingSchool) {
-      await updateSchool(editingSchool.id, {
+    try {
+      const schoolData = {
         name: formData.name.trim(),
         state: formData.state,
         teletherapy: formData.teletherapy,
-      });
-    } else {
-      await addSchool({
-        id: generateId(),
-        name: formData.name.trim(),
-        state: formData.state,
-        teletherapy: formData.teletherapy,
-        dateCreated: new Date().toISOString(),
-      });
+        schoolHours: formData.schoolHours,
+      };
+      
+      console.log('Saving school with data:', schoolData);
+      
+      if (editingSchool) {
+        console.log('Updating school:', editingSchool.id, schoolData);
+        await updateSchool(editingSchool.id, schoolData);
+      } else {
+        await addSchool({
+          id: generateId(),
+          ...schoolData,
+          dateCreated: new Date().toISOString(),
+        });
+      }
+      await loadSchools();
+      handleCloseDialog();
+    } catch (error) {
+      console.error('Failed to save school:', error);
+      alert(`Failed to save school: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-    loadSchools();
-    handleCloseDialog();
   };
 
   const handleDelete = async (id: string) => {

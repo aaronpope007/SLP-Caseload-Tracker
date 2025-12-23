@@ -23,9 +23,22 @@ export function initDatabase() {
       name TEXT NOT NULL,
       state TEXT NOT NULL,
       teletherapy INTEGER NOT NULL DEFAULT 0,
-      dateCreated TEXT NOT NULL
+      dateCreated TEXT NOT NULL,
+      schoolHours TEXT
     )
   `);
+  
+  // Add schoolHours column if it doesn't exist (for existing databases)
+  try {
+    const schoolTableInfo = db.prepare('PRAGMA table_info(schools)').all() as Array<{ name: string }>;
+    const schoolColumnNames = schoolTableInfo.map(col => col.name);
+    
+    if (!schoolColumnNames.includes('schoolHours')) {
+      db.exec(`ALTER TABLE schools ADD COLUMN schoolHours TEXT`);
+    }
+  } catch (e: any) {
+    console.warn('Could not add schoolHours column to schools table:', e.message);
+  }
 
   // Students table
   // Note: Foreign key constraint removed - we handle school validation in application code
@@ -213,18 +226,6 @@ export function initDatabase() {
     )
   `);
 
-  // Lunches table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS lunches (
-      id TEXT PRIMARY KEY,
-      school TEXT NOT NULL,
-      startTime TEXT NOT NULL,
-      endTime TEXT NOT NULL,
-      dateCreated TEXT NOT NULL,
-      FOREIGN KEY (school) REFERENCES schools(name)
-    )
-  `);
-
   // SOAP Notes table
   db.exec(`
     CREATE TABLE IF NOT EXISTS soap_notes (
@@ -252,7 +253,6 @@ export function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_sessions_studentId ON sessions(studentId);
     CREATE INDEX IF NOT EXISTS idx_sessions_date ON sessions(date);
     CREATE INDEX IF NOT EXISTS idx_evaluations_studentId ON evaluations(studentId);
-    CREATE INDEX IF NOT EXISTS idx_lunches_school ON lunches(school);
     CREATE INDEX IF NOT EXISTS idx_soap_notes_sessionId ON soap_notes(sessionId);
     CREATE INDEX IF NOT EXISTS idx_soap_notes_studentId ON soap_notes(studentId);
     CREATE INDEX IF NOT EXISTS idx_soap_notes_date ON soap_notes(date);
@@ -263,6 +263,28 @@ export function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_due_date_items_dueDate ON due_date_items(dueDate);
     CREATE INDEX IF NOT EXISTS idx_due_date_items_status ON due_date_items(status);
   `);
+
+  // Drop lunches table if it exists (removed feature)
+  try {
+    // Check if lunches table exists
+    const tables = db.prepare(`
+      SELECT name FROM sqlite_master 
+      WHERE type='table' AND name='lunches'
+    `).get() as { name: string } | undefined;
+    
+    if (tables) {
+      console.log('Removing lunches table (feature removed)...');
+      // Temporarily disable foreign keys to allow dropping the table
+      db.pragma('foreign_keys = OFF');
+      db.exec('DROP TABLE IF EXISTS lunches');
+      db.pragma('foreign_keys = ON');
+      console.log('✅ Removed lunches table');
+    }
+  } catch (e: any) {
+    console.warn('Could not remove lunches table:', e.message);
+    // Make sure foreign keys are re-enabled even if there's an error
+    db.pragma('foreign_keys = ON');
+  }
 
   console.log('Database initialized successfully');
 }

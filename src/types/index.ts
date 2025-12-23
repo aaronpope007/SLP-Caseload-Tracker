@@ -5,6 +5,10 @@ export interface School {
   teletherapy: boolean; // Teletherapy role
   dateCreated: string;
   studentCount?: number; // Optional: number of students in this school (from API)
+  schoolHours?: {
+    startHour: number; // Start hour (0-23), default 8
+    endHour: number; // End hour (0-23), default 17 (5 PM)
+  };
 }
 
 export interface Student {
@@ -124,14 +128,6 @@ export interface Evaluation {
   meetingDate?: string;
   dateCreated: string;
   dateUpdated: string;
-}
-
-export interface Lunch {
-  id: string;
-  school: string; // School name
-  startTime: string; // Start date/time
-  endTime: string; // End date/time
-  dateCreated: string;
 }
 
 export interface SOAPNote {

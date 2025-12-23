@@ -50,7 +50,7 @@ import {
   isAfter,
   isBefore,
 } from 'date-fns';
-import type { ScheduledSession, Student, Session, Goal } from '../types';
+import type { ScheduledSession, Student, Session, Goal, School } from '../types';
 import {
   getScheduledSessions,
   addScheduledSession,
@@ -62,6 +62,7 @@ import {
   getSessions,
   getGoals,
   addSession,
+  getSchoolByName,
 } from '../utils/storage-api';
 import { generateId, toLocalDateTimeString, fromLocalDateTimeString } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
@@ -93,6 +94,7 @@ export const SessionCalendar = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [school, setSchool] = useState<School | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingScheduledSession, setEditingScheduledSession] = useState<ScheduledSession | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -141,6 +143,8 @@ export const SessionCalendar = () => {
 
   const loadData = async () => {
     try {
+      const schoolObj = await getSchoolByName(selectedSchool);
+      setSchool(schoolObj || null);
       const schoolStudents = await getStudents(selectedSchool);
       setStudents(schoolStudents.filter(s => s.archived !== true));
       const allSessions = await getSessions();
@@ -154,6 +158,13 @@ export const SessionCalendar = () => {
       console.error('Failed to load data:', error);
     }
   };
+
+  // Get school hours, defaulting to 8 AM - 5 PM (8-17)
+  const getSchoolHours = useMemo(() => {
+    const startHour = school?.schoolHours?.startHour ?? 8;
+    const endHour = school?.schoolHours?.endHour ?? 17;
+    return { startHour, endHour };
+  }, [school]);
 
   // Helper function to format student name with grade
   const formatStudentNameWithGrade = (studentId: string): string => {
@@ -211,7 +222,7 @@ export const SessionCalendar = () => {
                 date: date,
                 startTime: scheduled.startTime,
                 endTime: scheduled.endTime || endTimeStr,
-                title: scheduled.studentIds.map(id => formatStudentNameWithGrade(id)).join(', '),
+                title: `${scheduled.startTime}-${scheduled.endTime || endTimeStr} ${scheduled.studentIds.map(id => formatStudentNameWithGrade(id)).join(', ')}`,
                 hasConflict: false,
                 isLogged: false,
                 isMissed: false,
@@ -234,7 +245,7 @@ export const SessionCalendar = () => {
               date: date,
               startTime: scheduled.startTime,
               endTime: scheduled.endTime || endTimeStr,
-              title: scheduled.studentIds.map(id => formatStudentNameWithGrade(id)).join(', '),
+              title: `${scheduled.startTime}-${scheduled.endTime || endTimeStr} ${scheduled.studentIds.map(id => formatStudentNameWithGrade(id)).join(', ')}`,
               hasConflict: false,
               isLogged: false,
               isMissed: false,
@@ -259,7 +270,7 @@ export const SessionCalendar = () => {
               date: date,
               startTime: scheduled.startTime,
               endTime: scheduled.endTime || endTimeStr,
-              title: scheduled.studentIds.map(id => formatStudentNameWithGrade(id)).join(', '),
+              title: `${scheduled.startTime}-${scheduled.endTime || endTimeStr} ${scheduled.studentIds.map(id => formatStudentNameWithGrade(id)).join(', ')}`,
               hasConflict: false,
               isLogged: false,
               isMissed: false,
@@ -279,7 +290,7 @@ export const SessionCalendar = () => {
             date: date,
             startTime: scheduled.startTime,
             endTime: scheduled.endTime || endTimeStr,
-            title: scheduled.studentIds.map(id => formatStudentNameWithGrade(id)).join(', '),
+            title: `${scheduled.startTime}-${scheduled.endTime || endTimeStr} ${scheduled.studentIds.map(id => formatStudentNameWithGrade(id)).join(', ')}`,
             hasConflict: false,
             isLogged: false,
             isMissed: false,
@@ -483,16 +494,29 @@ export const SessionCalendar = () => {
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
-  const calendarStart = startOfWeek(monthStart);
-  const calendarEnd = endOfWeek(monthEnd);
-  const daysInMonth = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 }); // Start week on Monday
+  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 }); // End week on Sunday
+  const allDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+  // Filter out weekends (Saturday = 6, Sunday = 0)
+  const daysInMonth = allDays.filter(day => {
+    const dayOfWeek = day.getDay();
+    return dayOfWeek !== 0 && dayOfWeek !== 6; // Exclude Sunday (0) and Saturday (6)
+  });
 
-  const handlePreviousMonth = () => {
-    setCurrentDate(subMonths(currentDate, 1));
+  const handlePreviousPeriod = () => {
+    if (viewMode === 'week') {
+      setCurrentDate(addDays(currentDate, -7));
+    } else {
+      setCurrentDate(subMonths(currentDate, 1));
+    }
   };
 
-  const handleNextMonth = () => {
-    setCurrentDate(addMonths(currentDate, 1));
+  const handleNextPeriod = () => {
+    if (viewMode === 'week') {
+      setCurrentDate(addDays(currentDate, 7));
+    } else {
+      setCurrentDate(addMonths(currentDate, 1));
+    }
   };
 
   const handleToday = () => {
@@ -650,10 +674,16 @@ export const SessionCalendar = () => {
   };
 
   const handleDelete = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this scheduled session?')) {
-      deleteScheduledSession(id);
-      loadData();
-    }
+    confirm({
+      title: 'Delete Scheduled Session',
+      message: 'Are you sure you want to delete this scheduled session? This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      onConfirm: () => {
+        deleteScheduledSession(id);
+        loadData();
+      },
+    });
   };
 
   // Session form handlers
@@ -896,7 +926,90 @@ export const SessionCalendar = () => {
   };
 
   const getEventsForDay = (day: Date): CalendarEvent[] => {
-    return calendarEvents.filter(event => isSameDay(event.date, day));
+    const events = calendarEvents.filter(event => isSameDay(event.date, day));
+    // Sort events by start time chronologically
+    return events.sort((a, b) => {
+      const [aHour, aMinute] = a.startTime.split(':').map(Number);
+      const [bHour, bMinute] = b.startTime.split(':').map(Number);
+      const aTime = aHour * 60 + aMinute;
+      const bTime = bHour * 60 + bMinute;
+      return aTime - bTime;
+    });
+  };
+
+  // Get week days (Monday to Friday)
+  const getWeekDays = useMemo(() => {
+    const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); // Monday
+    return Array.from({ length: 5 }, (_, i) => addDays(weekStart, i)); // Mon-Fri
+  }, [currentDate]);
+
+  // Generate time slots for week view based on school hours (30-minute intervals)
+  const timeSlots = useMemo(() => {
+    const slots: string[] = [];
+    const { startHour, endHour } = getSchoolHours;
+    for (let hour = startHour; hour < endHour; hour++) {
+      slots.push(`${String(hour).padStart(2, '0')}:00`);
+      if (hour < endHour - 1) {
+        slots.push(`${String(hour).padStart(2, '0')}:30`);
+      }
+    }
+    // Add final :30 slot if end hour is not on the hour
+    // For now, we'll just add :30 slots up to endHour-1, so if endHour is 17 (5 PM), last slot is 16:30
+    return slots;
+  }, [getSchoolHours]);
+
+  // Convert time string to minutes from midnight
+  const timeToMinutes = (timeStr: string): number => {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return hours * 60 + minutes;
+  };
+
+  // Get all events for a specific day, sorted by start time
+  const getEventsForDaySorted = (day: Date): CalendarEvent[] => {
+    return calendarEvents
+      .filter(event => isSameDay(event.date, day))
+      .sort((a, b) => {
+        const aTime = timeToMinutes(a.startTime);
+        const bTime = timeToMinutes(b.startTime);
+        return aTime - bTime;
+      });
+  };
+
+  // Calculate event height in pixels based on duration
+  const getEventHeight = (event: CalendarEvent): number => {
+    const [startHour, startMin] = event.startTime.split(':').map(Number);
+    const startMinutes = startHour * 60 + startMin;
+    const [endHour, endMin] = (event.endTime || '').split(':').map(Number);
+    const endMinutes = endHour * 60 + endMin;
+    const duration = endMinutes - startMinutes;
+    // Each 30-minute slot is 60px, so calculate proportional height
+    return Math.max((duration / 30) * 60, 40); // Minimum 40px height
+  };
+
+  // Calculate top position in pixels from start of day using school hours
+  const getEventTopPosition = (event: CalendarEvent): number => {
+    const [startHour, startMin] = event.startTime.split(':').map(Number);
+    const startMinutes = startHour * 60 + startMin;
+    const { startHour: schoolStartHour } = getSchoolHours;
+    const dayStartMinutes = schoolStartHour * 60; // School start hour
+    const minutesFromDayStart = startMinutes - dayStartMinutes;
+    // Each 30-minute slot is 60px
+    return (minutesFromDayStart / 30) * 60;
+  };
+
+  // Check if a time slot overlaps with any event
+  const slotHasEvents = (day: Date, slot: string): boolean => {
+    const slotMinutes = timeToMinutes(slot);
+    const nextSlotMinutes = slotMinutes + 30;
+    
+    return calendarEvents.some(event => {
+      if (!isSameDay(event.date, day)) return false;
+      const eventStartMinutes = timeToMinutes(event.startTime);
+      const eventEndMinutes = event.endTime ? timeToMinutes(event.endTime) : eventStartMinutes + 30;
+      
+      // Check if event overlaps with this slot
+      return eventStartMinutes < nextSlotMinutes && eventEndMinutes > slotMinutes;
+    });
   };
 
   const handleDragStart = (eventId: string) => {
@@ -987,13 +1100,15 @@ export const SessionCalendar = () => {
         <CardContent>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <IconButton onClick={handlePreviousMonth}>
+              <IconButton onClick={handlePreviousPeriod}>
                 <ChevronLeft />
               </IconButton>
               <Typography variant="h5">
-                {format(currentDate, 'MMMM yyyy')}
+                {viewMode === 'week' 
+                  ? `Week of ${format(startOfWeek(currentDate, { weekStartsOn: 1 }), 'MMM d, yyyy')}`
+                  : format(currentDate, 'MMMM yyyy')}
               </Typography>
-              <IconButton onClick={handleNextMonth}>
+              <IconButton onClick={handleNextPeriod}>
                 <ChevronRight />
               </IconButton>
               <Button
@@ -1013,6 +1128,229 @@ export const SessionCalendar = () => {
             </Alert>
           )}
 
+          {viewMode === 'week' ? (
+            // Week View with Time Column
+            <Box>
+              <Box sx={{ display: 'flex', border: '1px solid', borderColor: 'divider' }}>
+                {/* Time Column */}
+                <Box
+                  sx={{
+                    width: 80,
+                    borderRight: '1px solid',
+                    borderColor: 'divider',
+                    flexShrink: 0,
+                  }}
+                >
+                  <Box
+                    sx={{
+                      height: 48,
+                      borderBottom: '1px solid',
+                      borderColor: 'divider',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    <Typography variant="body2" color="text.secondary">
+                      Time
+                    </Typography>
+                  </Box>
+                  {timeSlots.map((slot, index) => (
+                    <Box
+                      key={slot}
+                      sx={{
+                        height: 60,
+                        borderBottom: index % 2 === 1 ? '1px solid' : 'none',
+                        borderColor: 'divider',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'flex-end',
+                        pr: 1,
+                      }}
+                    >
+                      {index % 2 === 0 && (
+                        <Typography variant="caption" color="text.secondary">
+                          {format(parse(slot, 'HH:mm', new Date()), 'h:mm a')}
+                        </Typography>
+                      )}
+                    </Box>
+                  ))}
+                </Box>
+
+                {/* Day Columns */}
+                <Box sx={{ display: 'flex', flex: 1 }}>
+                  {getWeekDays.map((day, dayIndex) => {
+                    const isToday = isSameDay(day, new Date());
+                    const isCurrentWeek = isSameMonth(day, currentDate) || 
+                      Math.abs(day.getMonth() - currentDate.getMonth()) <= 1;
+                    
+                    return (
+                      <Box
+                        key={day.toISOString()}
+                        sx={{
+                          flex: 1,
+                          borderRight: dayIndex < 4 ? '1px solid' : 'none',
+                          borderColor: 'divider',
+                          minWidth: 0,
+                        }}
+                      >
+                        {/* Day Header */}
+                        <Box
+                          sx={{
+                            height: 48,
+                            borderBottom: '1px solid',
+                            borderColor: 'divider',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: isToday ? 'primary.light' : 'background.paper',
+                            cursor: 'pointer',
+                          }}
+                          onDoubleClick={() => handleOpenDialog(day)}
+                        >
+                          <Typography
+                            variant="body2"
+                            fontWeight={isToday ? 'bold' : 'normal'}
+                            color={isToday ? 'primary.contrastText' : 'text.primary'}
+                          >
+                            {format(day, 'EEE')}
+                          </Typography>
+                          <Typography
+                            variant="caption"
+                            color={isToday ? 'primary.contrastText' : 'text.secondary'}
+                          >
+                            {format(day, 'M/d')}
+                          </Typography>
+                        </Box>
+
+                        {/* Time Slots for this day - Background grid */}
+                        <Box 
+                          sx={{ 
+                            position: 'relative',
+                            height: timeSlots.length * 60, // Total height for all slots
+                          }}
+                          onDrop={() => handleDrop(day)}
+                          onDragOver={handleDragOver}
+                        >
+                          {/* Render time slot rows for gap visualization */}
+                          {timeSlots.map((slot, slotIndex) => {
+                            const isHourMark = slot.endsWith(':00');
+                            const hasEvents = slotHasEvents(day, slot);
+                            
+                            return (
+                              <Box
+                                key={`slot-${day.toISOString()}-${slot}`}
+                                sx={{
+                                  position: 'absolute',
+                                  top: slotIndex * 60,
+                                  left: 0,
+                                  right: 0,
+                                  height: 60,
+                                  borderBottom: isHourMark ? '2px solid' : slotIndex % 2 === 1 ? '1px solid' : 'none',
+                                  borderColor: 'divider',
+                                  backgroundColor: hasEvents ? 'transparent' : '#f5f5f5',
+                                  borderLeft: hasEvents ? 'none' : '4px solid #d0d0d0',
+                                  pointerEvents: 'none',
+                                  zIndex: 0,
+                                }}
+                              />
+                            );
+                          })}
+                          
+                          {/* Render events positioned absolutely by their actual times */}
+                          {getEventsForDaySorted(day).map((event) => {
+                            const eventDate = startOfDay(event.date);
+                            const today = startOfDay(new Date());
+                            const canCancel = !event.isLogged;
+                            const topPosition = getEventTopPosition(event);
+                            const eventHeight = getEventHeight(event);
+
+                            return (
+                              <Box
+                                key={event.id}
+                                sx={{
+                                  position: 'absolute',
+                                  top: `${topPosition}px`,
+                                  left: 4,
+                                  right: 4,
+                                  height: `${eventHeight}px`,
+                                  zIndex: 1,
+                                  '&:hover .cancel-button': {
+                                    opacity: 1,
+                                  },
+                                }}
+                              >
+                                <Chip
+                                  label={event.title}
+                                  size="small"
+                                  color={event.hasConflict ? 'error' : event.isMissed ? 'error' : event.isLogged ? 'success' : 'primary'}
+                                  icon={<EventIcon />}
+                                  draggable
+                                  onDragStart={() => handleDragStart(event.id)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenSessionDialog(event);
+                                  }}
+                                  sx={{
+                                    fontSize: '0.7rem',
+                                    height: '100%',
+                                    width: '100%',
+                                    justifyContent: 'flex-start',
+                                    '& .MuiChip-label': {
+                                      whiteSpace: 'normal',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      height: '100%',
+                                    },
+                                  }}
+                                />
+                                {canCancel && (
+                                  <IconButton
+                                    size="small"
+                                    className="cancel-button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      confirm({
+                                        title: 'Cancel Session',
+                                        message: `Cancel this session on ${format(event.date, 'MMM d, yyyy')}?`,
+                                        confirmText: 'Cancel Session',
+                                        cancelText: 'Keep Scheduled',
+                                        onConfirm: () => {
+                                          handleCancelEvent(event);
+                                        },
+                                      });
+                                    }}
+                                    sx={{
+                                      position: 'absolute',
+                                      top: -8,
+                                      right: -8,
+                                      opacity: 0,
+                                      transition: 'opacity 0.2s',
+                                      padding: '2px',
+                                      backgroundColor: 'background.paper',
+                                      '&:hover': {
+                                        backgroundColor: 'error.light',
+                                        color: 'error.main',
+                                      },
+                                    }}
+                                  >
+                                    <CloseIcon sx={{ fontSize: '0.9rem' }} />
+                                  </IconButton>
+                                )}
+                              </Box>
+                            );
+                          })}
+                        </Box>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              </Box>
+            </Box>
+          ) : (
+            // Month View
           <Box>
             {/* Day Headers */}
             <Box 
@@ -1023,7 +1361,7 @@ export const SessionCalendar = () => {
                 borderColor: 'divider',
               }}
             >
-              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(day => (
                 <Box
                   key={day}
                   sx={{
@@ -1057,7 +1395,7 @@ export const SessionCalendar = () => {
                   <Box
                     key={day.toISOString()}
                     sx={{
-                      flex: '1 1 calc(14.285% - 4px)', // 100% / 7 columns minus gap
+                      flex: '1 1 calc(20% - 4px)', // 100% / 5 columns minus gap (Mon-Fri only)
                       minWidth: 0,
                       minHeight: 120,
                       border: '1px solid',
@@ -1127,9 +1465,15 @@ export const SessionCalendar = () => {
                                 className="cancel-button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  if (window.confirm(`Cancel this session on ${format(event.date, 'MMM d, yyyy')}?`)) {
-                                    handleCancelEvent(event);
-                                  }
+                                  confirm({
+                                    title: 'Cancel Session',
+                                    message: `Cancel this session on ${format(event.date, 'MMM d, yyyy')}?`,
+                                    confirmText: 'Cancel Session',
+                                    cancelText: 'Keep Scheduled',
+                                    onConfirm: () => {
+                                      handleCancelEvent(event);
+                                    },
+                                  });
                                 }}
                                 sx={{
                                   opacity: 0,
@@ -1153,6 +1497,7 @@ export const SessionCalendar = () => {
               })}
             </Box>
           </Box>
+          )}
         </CardContent>
       </Card>
 

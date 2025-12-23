@@ -1,4 +1,4 @@
-import type { Student, Goal, Session, Activity, GoalTemplate, Evaluation, School, Lunch, ScheduledSession } from '../types';
+import type { Student, Goal, Session, Activity, GoalTemplate, Evaluation, School, ScheduledSession } from '../types';
 
 const STORAGE_KEYS = {
   STUDENTS: 'slp_students',
@@ -7,7 +7,6 @@ const STORAGE_KEYS = {
   ACTIVITIES: 'slp_activities',
   EVALUATIONS: 'slp_evaluations',
   SCHOOLS: 'slp_schools',
-  LUNCHES: 'slp_lunches',
   SCHEDULED_SESSIONS: 'slp_scheduled_sessions',
 } as const;
 
@@ -340,44 +339,6 @@ export const deleteEvaluation = (id: string): void => {
   saveEvaluations(evaluations);
 };
 
-// Lunches
-export const getLunches = (school?: string): Lunch[] => {
-  const data = localStorage.getItem(STORAGE_KEYS.LUNCHES);
-  let lunches: Lunch[] = data ? JSON.parse(data) : [];
-  
-  // Filter by school if provided
-  if (school && school.trim()) {
-    const normalizedSchool = school.trim();
-    lunches = lunches.filter(l => l.school.trim() === normalizedSchool);
-  }
-  
-  return lunches.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
-};
-
-export const saveLunches = (lunches: Lunch[]): void => {
-  localStorage.setItem(STORAGE_KEYS.LUNCHES, JSON.stringify(lunches));
-};
-
-export const addLunch = (lunch: Lunch): void => {
-  const lunches = getLunches();
-  lunches.push(lunch);
-  saveLunches(lunches);
-};
-
-export const updateLunch = (id: string, updates: Partial<Lunch>): void => {
-  const lunches = getLunches();
-  const index = lunches.findIndex(l => l.id === id);
-  if (index !== -1) {
-    lunches[index] = { ...lunches[index], ...updates };
-    saveLunches(lunches);
-  }
-};
-
-export const deleteLunch = (id: string): void => {
-  const lunches = getLunches().filter(l => l.id !== id);
-  saveLunches(lunches);
-};
-
 // Schools
 // Migrate existing schools to have teletherapy field
 const migrateSchools = (): void => {
@@ -467,7 +428,6 @@ export const exportData = (): string => {
     activities: getActivities(),
     evaluations: getEvaluations(),
     schools: getSchools(),
-    lunches: getLunches(),
     scheduledSessions: getScheduledSessions(),
     exportDate: new Date().toISOString(),
   }, null, 2);
@@ -524,7 +484,6 @@ export const importData = (jsonString: string): void => {
     if (data.activities) saveActivities(data.activities);
     if (data.evaluations) saveEvaluations(data.evaluations);
     if (data.schools) saveSchools(data.schools);
-    if (data.lunches) saveLunches(data.lunches);
     if (data.scheduledSessions) saveScheduledSessions(data.scheduledSessions);
   } catch (error) {
     throw new Error('Invalid JSON data');

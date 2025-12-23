@@ -8,6 +8,8 @@ import {
   DialogActions,
   TextField,
   FormControlLabel,
+  Typography,
+  Grid,
 } from '@mui/material';
 import type { School } from '../types';
 
@@ -18,11 +20,15 @@ interface SchoolFormDialogProps {
     name: string;
     state: string;
     teletherapy: boolean;
+    schoolHours?: {
+      startHour: number;
+      endHour: number;
+    };
   };
   states: Array<{ value: string; label: string }>;
   onClose: () => void;
   onSave: () => void;
-  onFormDataChange: (data: Partial<{ name: string; state: string; teletherapy: boolean }>) => void;
+  onFormDataChange: (data: Partial<{ name: string; state: string; teletherapy: boolean; schoolHours?: { startHour: number; endHour: number } }>) => void;
 }
 
 export const SchoolFormDialog = ({
@@ -80,6 +86,56 @@ export const SchoolFormDialog = ({
             label="Teletherapy"
             sx={{ mt: 1 }}
           />
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>
+              School Hours (for Calendar)
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={6}>
+                <TextField
+                  label="Start Hour"
+                  type="number"
+                  fullWidth
+                  value={formData.schoolHours?.startHour ?? 8}
+                  onChange={(e) => {
+                    const startHour = parseInt(e.target.value) || 8;
+                    onFormDataChange({
+                      schoolHours: {
+                        startHour,
+                        endHour: formData.schoolHours?.endHour ?? 17,
+                      },
+                    });
+                  }}
+                  inputProps={{ min: 0, max: 23, step: 1 }}
+                  helperText="24-hour format (0-23)"
+                  margin="normal"
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  label="End Hour"
+                  type="number"
+                  fullWidth
+                  value={formData.schoolHours?.endHour ?? 17}
+                  onChange={(e) => {
+                    const endHour = parseInt(e.target.value) || 17;
+                    onFormDataChange({
+                      schoolHours: {
+                        startHour: formData.schoolHours?.startHour ?? 8,
+                        endHour,
+                      },
+                    });
+                  }}
+                  inputProps={{ min: 0, max: 23, step: 1 }}
+                  helperText="24-hour format (0-23)"
+                  margin="normal"
+                />
+              </Grid>
+            </Grid>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+              Defaults to 8 AM - 5 PM if not set. Used for calendar week view time slots.
+            </Typography>
+          </Box>
         </Box>
       </DialogContent>
       <DialogActions>

@@ -9,18 +9,14 @@ import {
 import {
   Add as AddIcon,
   ArrowDropDown as ArrowDropDownIcon,
-  Restaurant as RestaurantIcon,
 } from '@mui/icons-material';
-import { toLocalDateTimeString } from '../utils/helpers';
 
 interface LogActivityMenuProps {
   onAddSession: () => void;
-  onAddLunch: (startTime: string, endTime: string) => void;
 }
 
 export const LogActivityMenu = ({
   onAddSession,
-  onAddLunch,
 }: LogActivityMenuProps) => {
   const navigate = useNavigate();
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
@@ -47,17 +43,6 @@ export const LogActivityMenu = ({
           setMenuAnchorEl(null);
           navigate('/evaluations');
           break;
-        case 'l': {
-          event.preventDefault();
-          setMenuAnchorEl(null);
-          const now = new Date();
-          const defaultEndTime = new Date(now.getTime() + 30 * 60000);
-          onAddLunch(
-            toLocalDateTimeString(now),
-            toLocalDateTimeString(defaultEndTime)
-          );
-          break;
-        }
       }
     };
 
@@ -65,7 +50,7 @@ export const LogActivityMenu = ({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [menuOpen, onAddSession, onAddLunch, navigate]);
+  }, [menuOpen, onAddSession, navigate]);
 
   return (
     <Box>
@@ -97,19 +82,6 @@ export const LogActivityMenu = ({
           }}
         >
           <AddIcon sx={{ mr: 1 }} /> Add <span style={{ textDecoration: 'underline' }}>E</span>valuation
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            setMenuAnchorEl(null);
-            const now = new Date();
-            const defaultEndTime = new Date(now.getTime() + 30 * 60000);
-            onAddLunch(
-              toLocalDateTimeString(now),
-              toLocalDateTimeString(defaultEndTime)
-            );
-          }}
-        >
-          <RestaurantIcon sx={{ mr: 1 }} /> Add <span style={{ textDecoration: 'underline' }}>L</span>unch
         </MenuItem>
       </Menu>
     </Box>

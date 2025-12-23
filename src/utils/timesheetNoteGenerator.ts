@@ -1,10 +1,10 @@
-import type { Session, Student, School, Evaluation, Lunch } from '../types';
+import type { Session, Student, School, Evaluation } from '../types';
 
 interface TimeTrackingItem {
   id: string;
-  type: 'session' | 'evaluation' | 'lunch';
+  type: 'session' | 'evaluation';
   date: string;
-  data: Session | Evaluation | Lunch;
+  data: Session | Evaluation;
 }
 
 interface GenerateTimesheetNoteParams {
@@ -32,7 +32,7 @@ export const generateTimesheetNote = ({
 }: GenerateTimesheetNoteParams): string => {
   const noteParts: string[] = [];
 
-  // Filter to only sessions (not evaluations or lunches)
+  // Filter to only sessions (not evaluations)
   const sessionItems = filteredItems.filter(item => item.type === 'session');
 
   // Separate direct services, missed direct services, and indirect services
