@@ -44,6 +44,58 @@ export const goalTemplates: GoalTemplate[] = [
     keywords: ['final consonant', 'deletion', 'articulation', 'phonological'],
   },
   
+  // Phonology Templates
+  {
+    id: 'phon-1',
+    title: 'Reduce fronting',
+    description: 'Student will produce velar sounds (/k/, /g/) in place of alveolar sounds (/t/, /d/) in words in 8/10 opportunities across 3 sessions.',
+    domain: 'Phonology',
+    suggestedBaseline: '30% accuracy',
+    suggestedTarget: '80% accuracy',
+    ageRange: '3-6',
+    keywords: ['fronting', 'phonology', 'phonological process', 'velar'],
+  },
+  {
+    id: 'phon-2',
+    title: 'Reduce backing',
+    description: 'Student will produce alveolar sounds (/t/, /d/) in place of velar sounds (/k/, /g/) in words in 8/10 opportunities across 3 sessions.',
+    domain: 'Phonology',
+    suggestedBaseline: '40% accuracy',
+    suggestedTarget: '80% accuracy',
+    ageRange: '3-6',
+    keywords: ['backing', 'phonology', 'phonological process', 'alveolar'],
+  },
+  {
+    id: 'phon-3',
+    title: 'Reduce stopping',
+    description: 'Student will produce fricative sounds (/f/, /v/, /s/, /z/) in place of stops in words in 8/10 opportunities across 3 sessions.',
+    domain: 'Phonology',
+    suggestedBaseline: '35% accuracy',
+    suggestedTarget: '80% accuracy',
+    ageRange: '3-6',
+    keywords: ['stopping', 'phonology', 'phonological process', 'fricative'],
+  },
+  {
+    id: 'phon-4',
+    title: 'Reduce gliding',
+    description: 'Student will produce /r/ and /l/ sounds in place of /w/ and /j/ in words in 8/10 opportunities across 3 sessions.',
+    domain: 'Phonology',
+    suggestedBaseline: '30% accuracy',
+    suggestedTarget: '80% accuracy',
+    ageRange: '3-7',
+    keywords: ['gliding', 'phonology', 'phonological process', 'liquid'],
+  },
+  {
+    id: 'phon-5',
+    title: 'Reduce syllable reduction',
+    description: 'Student will produce multisyllabic words with all syllables in 8/10 opportunities across 3 sessions.',
+    domain: 'Phonology',
+    suggestedBaseline: '40% accuracy',
+    suggestedTarget: '80% accuracy',
+    ageRange: '3-6',
+    keywords: ['syllable reduction', 'phonology', 'phonological process', 'multisyllabic'],
+  },
+  
   // Language Templates
   {
     id: 'lang-1',

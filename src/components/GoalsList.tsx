@@ -79,7 +79,7 @@ export const GoalsList = ({
     <>
       {Array.from(goalsByDomain.entries()).map(([domain, domainGoals]) => (
         <Grid item xs={12} key={domain}>
-          <Typography variant="h6" sx={{ mb: 1, mt: 1 }}>
+          <Typography variant="h6" sx={{ mb: 1, mt: 1, fontSize: '1.5rem', fontWeight: 'bold' }}>
             {domain}
           </Typography>
           <Grid container spacing={2}>
@@ -108,7 +108,7 @@ export const GoalsList = ({
       {goalsWithoutDomain.length > 0 && (
         <Grid item xs={12}>
           {goalsByDomain.size > 0 && (
-            <Typography variant="h6" sx={{ mb: 1, mt: 1 }}>
+            <Typography variant="h6" sx={{ mb: 1, mt: 1, fontSize: '1.5rem', fontWeight: 'bold' }}>
               Other Goals
             </Typography>
           )}

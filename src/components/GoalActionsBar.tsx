@@ -24,7 +24,7 @@ export const GoalActionsBar = ({
 }: GoalActionsBarProps) => {
   return (
     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
-      <Typography variant="h5">Goals</Typography>
+      <Typography variant="h5" sx={{ fontSize: '1.75rem', fontWeight: 'bold' }}>Goals</Typography>
       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
         <Button
           variant="outlined"
