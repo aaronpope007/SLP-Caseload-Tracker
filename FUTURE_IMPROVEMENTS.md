@@ -27,10 +27,10 @@ This document tracks potential improvements and feature ideas for the SLP Caselo
   - Service verification reports
   - Compliance checklists by state
 
-- [ ] **Progress Report Scheduling**
+- [x] **Progress Report Scheduling**
   - Auto-schedule reports based on IEP/annual review dates
-  - Templates for quarterly/annual reports
-  - Email reminders before report due dates
+  - Templates for quarterly/annual reports (structure in place, templates can be created)
+  - Email reminders before report due dates (structure in place, email integration pending)
 
 ---
 
