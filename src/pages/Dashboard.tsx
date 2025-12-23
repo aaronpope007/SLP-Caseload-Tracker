@@ -22,19 +22,14 @@ import {
 } from '@mui/icons-material';
 import { 
   getStudents, 
-  getGoals, 
-  getSessions,
+  getGoals,
   getUpcomingProgressReports,
   getUpcomingDueDateItems,
 } from '../utils/storage-api';
 import { RemindersCard } from '../components/RemindersCard';
 import { formatDate } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
-import type { Session, Student, ProgressReport, DueDateItem } from '../types';
-import {
-  DescriptionOutlined as DescriptionOutlinedIcon,
-  Event as EventIcon,
-} from '@mui/icons-material';
+import type { Student, ProgressReport, DueDateItem } from '../types';
 
 export const Dashboard = () => {
   console.log('Dashboard component rendering');
@@ -54,10 +49,8 @@ export const Dashboard = () => {
   const [stats, setStats] = useState({
     activeStudents: 0,
     totalGoals: 0,
-    recentSessions: 0,
   });
   const [students, setStudents] = useState<Student[]>([]);
-  const [recentStudents, setRecentStudents] = useState<(Session & { student: Student })[]>([]);
   const [upcomingReports, setUpcomingReports] = useState<ProgressReport[]>([]);
   const [upcomingItems, setUpcomingItems] = useState<DueDateItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,12 +62,10 @@ export const Dashboard = () => {
       const schoolStudents = await getStudents(selectedSchool);
       setStudents(schoolStudents);
       const goals = await getGoals();
-      const sessions = await getSessions();
     
-    // Filter goals and sessions by school students
+    // Filter goals by school students
     const studentIds = new Set(schoolStudents.map(s => s.id));
     const schoolGoals = goals.filter(g => studentIds.has(g.studentId));
-    const schoolSessions = sessions.filter(s => studentIds.has(s.studentId));
 
     // Filter out archived students (archived is optional for backward compatibility)
     const activeStudents = schoolStudents.filter(s => s.status === 'active' && s.archived !== true);
@@ -85,28 +76,10 @@ export const Dashboard = () => {
       g.status === 'in-progress' && activeStudentIds.has(g.studentId)
     );
     
-    // Filter sessions to only include those belonging to active (non-archived) students
-    const activeSessions = schoolSessions.filter(s => activeStudentIds.has(s.studentId));
-    const recent = activeSessions
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 5);
-    
     setStats({
       activeStudents: activeStudents.length,
       totalGoals: activeGoals.length,
-      recentSessions: recent.length,
     });
-
-    // Only include non-archived students in the map (archived is optional for backward compatibility)
-    const studentMap = new Map(schoolStudents.filter(s => s.archived !== true).map(s => [s.id, s]));
-    setRecentStudents(
-      recent
-        .map(s => ({
-          ...s,
-          student: studentMap.get(s.studentId),
-        }))
-        .filter(s => s.student) // Only show sessions for non-archived students
-    );
 
     // Load upcoming progress reports (next 30 days)
     const reports = await getUpcomingProgressReports(30, selectedSchool);
@@ -141,16 +114,9 @@ export const Dashboard = () => {
       color: '#2e7d32',
       action: () => navigate('/students'),
     },
-    {
-      title: 'Recent Sessions',
-      value: stats.recentSessions,
-      icon: <EventNoteIcon sx={{ fontSize: 40 }} />,
-      color: '#ed6c02',
-      action: () => navigate('/sessions'),
-    },
   ];
 
-  console.log('Dashboard render - stats:', stats, 'recentStudents:', recentStudents.length);
+  console.log('Dashboard render - stats:', stats);
   
   return (
     <Box sx={{ backgroundColor: theme.palette.background.default, minHeight: '100%' }}>
@@ -226,36 +192,6 @@ export const Dashboard = () => {
                   Generate Treatment Ideas
                 </Button>
               </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Recent Sessions
-              </Typography>
-              {recentStudents.length === 0 ? (
-                <Typography color="text.secondary">
-                  No sessions logged yet
-                </Typography>
-              ) : (
-                <List>
-                  {recentStudents.map((session) => (
-                    <ListItem key={session.id}>
-                      <ListItemText
-                        primary={session.student?.name || 'Unknown Student'}
-                        secondary={formatDate(session.date)}
-                      />
-                      <Chip
-                        label={`${session.goalsTargeted.length} goals`}
-                        size="small"
-                      />
-                    </ListItem>
-                  ))}
-                </List>
-              )}
             </CardContent>
           </Card>
         </Grid>

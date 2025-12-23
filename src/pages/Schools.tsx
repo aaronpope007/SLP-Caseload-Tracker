@@ -114,35 +114,74 @@ export const Schools = () => {
 
   const loadSchools = async () => {
     try {
-      const allSchoolObjects = await getSchools();
-    const schoolNames = new Set(allSchoolObjects.map(s => s.name.toLowerCase()));
-    
+      // Get all existing schools first
+      let allSchoolObjects = await getSchools();
+      const schoolNames = new Set(allSchoolObjects.map(s => s.name.toLowerCase()));
+      
       // Also check for schools that exist in students but not as School objects
-      // and create School objects for them
+      // and create School objects for them (but check for duplicates case-insensitively)
       const students = await getStudents();
+      const schoolsToCreate = new Set<string>();
+      
       for (const student of students) {
         if (student.school && student.school.trim()) {
           const schoolName = student.school.trim();
-          if (!schoolNames.has(schoolName.toLowerCase())) {
+          const schoolNameLower = schoolName.toLowerCase();
+          
+          // Check if a school with this name (case-insensitive) already exists
+          const existingSchool = allSchoolObjects.find(
+            s => s.name.toLowerCase() === schoolNameLower
+          );
+          
+          if (!existingSchool && !schoolsToCreate.has(schoolNameLower)) {
             // This school exists in students but not as a School object
-            // Create a School object for it
-            const newSchool: School = {
-              id: generateId(),
-              name: schoolName,
-              state: '',
-              teletherapy: false,
-              dateCreated: new Date().toISOString(),
-            };
-            await addSchool(newSchool);
-            schoolNames.add(schoolName.toLowerCase());
+            // Add to set to prevent duplicates in this batch
+            schoolsToCreate.add(schoolNameLower);
           }
         }
       }
       
-      // Reload to get the newly created schools
-      const allSchools = await getSchools();
+      // Create all new schools (but check again after each creation to avoid duplicates)
+      for (const schoolNameLower of schoolsToCreate) {
+        // Re-check if school exists (in case it was just created or already exists)
+        allSchoolObjects = await getSchools();
+        const existingSchool = allSchoolObjects.find(
+          s => s.name.toLowerCase() === schoolNameLower
+        );
+        
+        if (existingSchool) {
+          // School already exists, skip creation
+          continue;
+        }
+        
+        // Find the original case from students
+        const studentWithSchool = students.find(
+          s => s.school && s.school.trim().toLowerCase() === schoolNameLower
+        );
+        if (studentWithSchool && studentWithSchool.school) {
+          const schoolName = studentWithSchool.school.trim();
+          const newSchool: School = {
+            id: generateId(),
+            name: schoolName,
+            state: '',
+            teletherapy: false,
+            dateCreated: new Date().toISOString(),
+          };
+          try {
+            await addSchool(newSchool);
+            // Reload schools after creation to get updated list
+            allSchoolObjects = await getSchools();
+          } catch (error) {
+            // If school creation fails (e.g., duplicate), just continue
+            console.warn(`Failed to create school ${schoolName}:`, error);
+          }
+        }
+      }
+      
+      // Final reload to get all schools
+      allSchoolObjects = await getSchools();
       // Sort alphabetically by name
-      const sorted = [...allSchools].sort((a, b) => 
+      const sorted = [...allSchoolObjects].sort((a, b) => 
         a.name.localeCompare(b.name)
       );
       setSchools(sorted);
@@ -229,7 +268,7 @@ export const Schools = () => {
     handleCloseDialog();
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     const school = schools.find(s => s.id === id);
     confirm({
       title: 'Delete School',
@@ -237,8 +276,14 @@ export const Schools = () => {
       confirmText: 'Delete',
       cancelText: 'Cancel',
       onConfirm: async () => {
-        await deleteSchool(id);
-        loadSchools();
+        try {
+          await deleteSchool(id);
+          // Reload schools after deletion
+          await loadSchools();
+        } catch (error) {
+          console.error('Failed to delete school:', error);
+          alert(`Failed to delete school: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
       },
     });
   };

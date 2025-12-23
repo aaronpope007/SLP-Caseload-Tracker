@@ -77,6 +77,14 @@ export const SchoolCard = ({
               color="success"
             />
           )}
+          {school.studentCount !== undefined && (
+            <Chip
+              label={`${school.studentCount} student${school.studentCount !== 1 ? 's' : ''}`}
+              size="small"
+              variant="outlined"
+              color={school.studentCount === 0 ? 'default' : 'primary'}
+            />
+          )}
         </Box>
       </CardContent>
     </Card>

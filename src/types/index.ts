@@ -4,6 +4,7 @@ export interface School {
   state: string; // US state abbreviation (e.g., 'NC', 'NY', 'CA')
   teletherapy: boolean; // Teletherapy role
   dateCreated: string;
+  studentCount?: number; // Optional: number of students in this school (from API)
 }
 
 export interface Student {
