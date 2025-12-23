@@ -6,6 +6,7 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  Chip,
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
@@ -90,6 +91,14 @@ export const GoalHierarchy = ({
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                       <Typography variant={isCompact ? 'body2' : 'body1'}>{goal.description}</Typography>
                       <GoalProgressChip average={recentAvg} target={goal.target} />
+                      {(!goal.target || goal.target.trim() === '') && (
+                        <Chip
+                          label="No target set"
+                          size="small"
+                          color="error"
+                          variant="outlined"
+                        />
+                      )}
                     </Box>
                   }
                   onClick={(e) => e.stopPropagation()}
@@ -114,6 +123,14 @@ export const GoalHierarchy = ({
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                 <Typography variant={isCompact ? 'body2' : 'body1'}>{goal.description}</Typography>
                 <GoalProgressChip average={recentAvg} target={goal.target} />
+                {(!goal.target || goal.target.trim() === '') && (
+                  <Chip
+                    label="No target set"
+                    size="small"
+                    color="error"
+                    variant="outlined"
+                  />
+                )}
               </Box>
             }
           />
@@ -161,6 +178,14 @@ export const GoalHierarchy = ({
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                         <Typography variant={isCompact ? 'body2' : 'body1'}>{goal.description}</Typography>
                         <GoalProgressChip average={recentAvg} target={goal.target} />
+                        {(!goal.target || goal.target.trim() === '') && (
+                          <Chip
+                            label="No target set"
+                            size="small"
+                            color="error"
+                            variant="outlined"
+                          />
+                        )}
                       </Box>
                     }
                     onClick={(e) => e.stopPropagation()}

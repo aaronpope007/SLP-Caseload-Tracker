@@ -350,17 +350,23 @@ export const StudentDetail = () => {
     setTemplateDialogOpen(false);
   };
 
-  const handleDelete = async (goalId: string) => {
-    if (window.confirm('Are you sure you want to delete this goal?')) {
-      try {
-        await deleteGoal(goalId);
-        await loadGoals();
-        await loadSessions(); // Reload sessions after goal deletion
-      } catch (error) {
-        console.error('Failed to delete goal:', error);
-        alert('Failed to delete goal. Please try again.');
-      }
-    }
+  const handleDelete = (goalId: string) => {
+    confirm({
+      title: 'Delete Goal',
+      message: 'Are you sure you want to delete this goal? This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          await deleteGoal(goalId);
+          await loadGoals();
+          await loadSessions(); // Reload sessions after goal deletion
+        } catch (error) {
+          console.error('Failed to delete goal:', error);
+          alert('Failed to delete goal. Please try again.');
+        }
+      },
+    });
   };
 
   const handleDuplicateSubGoal = (subGoal: Goal) => {

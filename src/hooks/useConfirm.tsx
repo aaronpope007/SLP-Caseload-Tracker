@@ -59,20 +59,27 @@ export const useConfirm = () => {
     setConfirmState((prev) => ({ ...prev, open: false }));
   }, [confirmState]);
 
-  const ConfirmDialog = () => (
-    <Dialog open={confirmState.open} onClose={handleCancel}>
-      <DialogTitle>{confirmState.title}</DialogTitle>
-      <DialogContent>
-        <DialogContentText>{confirmState.message}</DialogContentText>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={handleCancel}>{confirmState.cancelText}</Button>
-        <Button onClick={handleConfirm} variant="contained" color="primary">
-          {confirmState.confirmText}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
+  const ConfirmDialog = () => {
+    const isDeleteAction = confirmState.title.toLowerCase().includes('delete');
+    return (
+      <Dialog open={confirmState.open} onClose={handleCancel}>
+        <DialogTitle>{confirmState.title}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>{confirmState.message}</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancel}>{confirmState.cancelText}</Button>
+          <Button 
+            onClick={handleConfirm} 
+            variant="contained" 
+            color={isDeleteAction ? 'error' : 'primary'}
+          >
+            {confirmState.confirmText}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    );
+  };
 
   return { confirm, ConfirmDialog };
 };

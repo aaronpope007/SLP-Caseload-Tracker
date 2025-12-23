@@ -74,6 +74,14 @@ export const GoalCard: React.FC<GoalCardProps> = ({
       <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>
         <StatusChip status={goal.status} />
         <GoalProgressChip average={recent.average} target={goal.target} />
+        {(!goal.target || goal.target.trim() === '') && (
+          <Chip
+            label="No target set"
+            size="small"
+            color="error"
+            variant="outlined"
+          />
+        )}
         {goal.priority && <PriorityChip priority={goal.priority} />}
         {goal.domain && (
           <Chip
@@ -103,6 +111,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
         getRecentPerformance={getRecentPerformance}
         onEdit={onEditSubGoal}
         onDuplicate={onDuplicateSubGoal}
+        onDelete={onDelete}
         onAddSubGoal={onAddSubGoal}
       />
       <Button

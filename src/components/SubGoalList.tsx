@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, Button, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
+import { Box, Typography, Button, Accordion, AccordionSummary, AccordionDetails, Chip } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
 import type { Goal } from '../types';
 import { organizeGoalsHierarchy } from '../utils/goalHierarchy';
@@ -23,6 +23,7 @@ interface SubGoalListProps {
   getRecentPerformance: (goalId: string) => { recentSessions: RecentSessionData[]; average: number | null };
   onEdit: (goal: Goal) => void;
   onDuplicate: (goal: Goal) => void;
+  onDelete?: (goalId: string) => void;
   onAddSubGoal: (parentGoalId: string) => void;
   depth?: number; // Track nesting depth for recursive rendering
   label?: string; // Custom label for the list (e.g., "Sub-goals", "Breakdown-sub-goals")
@@ -35,6 +36,7 @@ const NestedGoalItem: React.FC<{
   getRecentPerformance: (goalId: string) => { recentSessions: RecentSessionData[]; average: number | null };
   onEdit: (goal: Goal) => void;
   onDuplicate: (goal: Goal) => void;
+  onDelete?: (goalId: string) => void;
   onAddSubGoal: (parentGoalId: string) => void;
   depth: number;
   defaultExpanded?: boolean;
@@ -45,6 +47,7 @@ const NestedGoalItem: React.FC<{
   getRecentPerformance,
   onEdit,
   onDuplicate,
+  onDelete,
   onAddSubGoal,
   depth,
   defaultExpanded = false,
@@ -58,12 +61,22 @@ const NestedGoalItem: React.FC<{
       <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
         <StatusChip status={goal.status} />
         <GoalProgressChip average={recent.average} target={goal.target} />
+        {(!goal.target || goal.target.trim() === '') && (
+          <Chip
+            label="No target set"
+            size="small"
+            color="error"
+            variant="outlined"
+          />
+        )}
         {goal.priority && <PriorityChip priority={goal.priority} />}
         <GoalActionButtons
           onEdit={() => onEdit(goal)}
           onDuplicate={() => onDuplicate(goal)}
+          onDelete={onDelete ? () => onDelete(goal.id) : undefined}
           editTitle={`Edit ${depth > 1 ? 'sub-' : ''}goal`}
           duplicateTitle={`Duplicate ${depth > 1 ? 'sub-' : ''}goal`}
+          deleteTitle={`Delete ${depth > 1 ? 'sub-' : ''}goal`}
         />
       </Box>
       <GoalDateInfo
@@ -80,6 +93,7 @@ const NestedGoalItem: React.FC<{
           getRecentPerformance={getRecentPerformance}
           onEdit={onEdit}
           onDuplicate={onDuplicate}
+          onDelete={onDelete}
           onAddSubGoal={onAddSubGoal}
           depth={depth + 1}
           label={`Breakdown-sub-goals (${subGoals.length})`}
@@ -130,6 +144,7 @@ export const SubGoalList: React.FC<SubGoalListProps> = ({
   getRecentPerformance,
   onEdit,
   onDuplicate,
+  onDelete,
   onAddSubGoal,
   depth = 0,
   label,
@@ -164,6 +179,7 @@ export const SubGoalList: React.FC<SubGoalListProps> = ({
           getRecentPerformance={getRecentPerformance}
           onEdit={onEdit}
           onDuplicate={onDuplicate}
+          onDelete={onDelete}
           onAddSubGoal={onAddSubGoal}
           depth={depth}
           defaultExpanded={depth === 0}
