@@ -13,6 +13,7 @@ import { soapNotesRouter } from './routes/soap-notes';
 import { progressReportsRouter } from './routes/progress-reports';
 import { progressReportTemplatesRouter } from './routes/progress-report-templates';
 import { dueDateItemsRouter } from './routes/due-date-items';
+import { remindersRouter } from './routes/reminders';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -42,6 +43,7 @@ app.use('/api/export', exportRouter);
 app.use('/api/progress-reports', progressReportsRouter);
 app.use('/api/progress-report-templates', progressReportTemplatesRouter);
 app.use('/api/due-date-items', dueDateItemsRouter);
+app.use('/api/reminders', remindersRouter);
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);

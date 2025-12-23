@@ -26,6 +26,7 @@ import {
   getUpcomingProgressReports,
   getUpcomingDueDateItems,
 } from '../utils/storage-api';
+import { RemindersCard } from '../components/RemindersCard';
 import { formatDate } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
 import type { Session, Student, ProgressReport, DueDateItem } from '../types';
@@ -347,6 +348,10 @@ export const Dashboard = () => {
               )}
             </CardContent>
           </Card>
+        </Grid>
+
+        <Grid item xs={12}>
+          <RemindersCard maxItems={10} />
         </Grid>
       </Grid>
     </Box>

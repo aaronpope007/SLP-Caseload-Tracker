@@ -131,7 +131,7 @@ This document tracks potential improvements and feature ideas for the SLP Caselo
   - Copy previous session feature
   - Bulk session creation for recurring groups
 
-- [ ] **Smart Reminders**
+- [x] **Smart Reminders**
   - Goal review reminders (when goals stagnant)
   - Re-evaluation due date alerts
   - Report deadline notifications

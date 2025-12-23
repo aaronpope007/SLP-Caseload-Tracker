@@ -5,7 +5,7 @@
  * Set VITE_API_URL in your .env file or it defaults to http://localhost:3001
  */
 
-import type { Student, Goal, Session, Activity, Evaluation, School, Lunch, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem } from '../types';
+import type { Student, Goal, Session, Activity, Evaluation, School, Lunch, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Reminder } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
@@ -348,6 +348,15 @@ export const api = {
       request<{ message: string }>(`/due-date-items/${id}`, {
         method: 'DELETE',
       }),
+  },
+
+  // Reminders
+  reminders: {
+    getAll: (school?: string) => {
+      const params = new URLSearchParams();
+      if (school) params.append('school', school);
+      return request<Reminder[]>(`/reminders${params.toString() ? `?${params}` : ''}`);
+    },
   },
 };
 

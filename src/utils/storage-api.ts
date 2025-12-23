@@ -3,7 +3,7 @@
  * This replaces localStorage with API calls to the Express + SQLite backend
  */
 
-import type { Student, Goal, Session, Activity, Evaluation, School, Lunch, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem } from '../types';
+import type { Student, Goal, Session, Activity, Evaluation, School, Lunch, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Reminder } from '../types';
 import { api } from './api';
 
 const DEFAULT_SCHOOL = 'Noble Academy';
@@ -554,5 +554,15 @@ export const deleteDueDateItem = async (id: string): Promise<void> => {
 
 export const completeDueDateItem = async (id: string): Promise<void> => {
   await api.dueDateItems.complete(id);
+};
+
+// Reminders
+export const getReminders = async (school?: string): Promise<Reminder[]> => {
+  try {
+    return await api.reminders.getAll(school);
+  } catch (error) {
+    console.error('Failed to fetch reminders:', error);
+    return [];
+  }
 };
 

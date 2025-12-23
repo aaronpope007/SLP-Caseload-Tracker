@@ -178,3 +178,17 @@ export interface DueDateItem {
   dateCreated: string;
   dateUpdated: string;
 }
+
+export interface Reminder {
+  id: string;
+  type: 'goal-review' | 're-evaluation' | 'report-deadline' | 'annual-review';
+  title: string;
+  description: string;
+  studentId: string;
+  studentName: string;
+  relatedId?: string; // ID of related goal, evaluation, report, etc.
+  dueDate?: string; // ISO string - when the reminder is due
+  priority: 'high' | 'medium' | 'low';
+  daysUntilDue?: number; // Days until the related item is due (negative if overdue)
+  dateCreated: string;
+}
