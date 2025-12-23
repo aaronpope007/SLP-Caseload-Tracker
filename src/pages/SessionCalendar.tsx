@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Box,
   Button,
@@ -66,6 +66,7 @@ import {
 import { generateId, toLocalDateTimeString, fromLocalDateTimeString } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
 import { SessionFormDialog } from '../components/SessionFormDialog';
+import { StudentSelector } from '../components/StudentSelector';
 import { useConfirm } from '../hooks/useConfirm';
 
 type ViewMode = 'month' | 'week';
@@ -96,6 +97,7 @@ export const SessionCalendar = () => {
   const [editingScheduledSession, setEditingScheduledSession] = useState<ScheduledSession | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [draggedSession, setDraggedSession] = useState<string | null>(null);
+  const [scheduleStudentSearch, setScheduleStudentSearch] = useState('');
   
   // Session form dialog state
   const [sessionDialogOpen, setSessionDialogOpen] = useState(false);
@@ -131,6 +133,7 @@ export const SessionCalendar = () => {
     notes: '',
     isDirectServices: true,
   });
+  const initialFormDataRef = useRef<typeof formData | null>(null);
 
   useEffect(() => {
     loadData();
@@ -150,6 +153,13 @@ export const SessionCalendar = () => {
     } catch (error) {
       console.error('Failed to load data:', error);
     }
+  };
+
+  // Helper function to format student name with grade
+  const formatStudentNameWithGrade = (studentId: string): string => {
+    const student = students.find(s => s.id === studentId);
+    if (!student) return 'Unknown';
+    return student.grade ? `${student.name} (${student.grade})` : student.name;
   };
 
   // Generate calendar events from scheduled sessions
@@ -201,7 +211,7 @@ export const SessionCalendar = () => {
                 date: date,
                 startTime: scheduled.startTime,
                 endTime: scheduled.endTime || endTimeStr,
-                title: scheduled.studentIds.map(id => students.find(s => s.id === id)?.name || 'Unknown').join(', '),
+                title: scheduled.studentIds.map(id => formatStudentNameWithGrade(id)).join(', '),
                 hasConflict: false,
                 isLogged: false,
                 isMissed: false,
@@ -224,7 +234,7 @@ export const SessionCalendar = () => {
               date: date,
               startTime: scheduled.startTime,
               endTime: scheduled.endTime || endTimeStr,
-              title: scheduled.studentIds.map(id => students.find(s => s.id === id)?.name || 'Unknown').join(', '),
+              title: scheduled.studentIds.map(id => formatStudentNameWithGrade(id)).join(', '),
               hasConflict: false,
               isLogged: false,
               isMissed: false,
@@ -249,7 +259,7 @@ export const SessionCalendar = () => {
               date: date,
               startTime: scheduled.startTime,
               endTime: scheduled.endTime || endTimeStr,
-              title: scheduled.studentIds.map(id => students.find(s => s.id === id)?.name || 'Unknown').join(', '),
+              title: scheduled.studentIds.map(id => formatStudentNameWithGrade(id)).join(', '),
               hasConflict: false,
               isLogged: false,
               isMissed: false,
@@ -269,7 +279,7 @@ export const SessionCalendar = () => {
             date: date,
             startTime: scheduled.startTime,
             endTime: scheduled.endTime || endTimeStr,
-            title: scheduled.studentIds.map(id => students.find(s => s.id === id)?.name || 'Unknown').join(', '),
+            title: scheduled.studentIds.map(id => formatStudentNameWithGrade(id)).join(', '),
             hasConflict: false,
             isLogged: false,
             isMissed: false,
@@ -325,11 +335,12 @@ export const SessionCalendar = () => {
         isLogged = true;
         matchedSession = matchingByScheduledId;
       } else {
-        // Fallback: match by students and time
+        // Fallback: match by students and time/date
         // For single student sessions
         if (event.studentIds.length === 1) {
           const studentId = event.studentIds[0];
-          const matchingSession = sessions.find(session => {
+          // First try to match by time (within 2 hours) for better accuracy
+          let matchingSession = sessions.find(session => {
             if (session.studentId !== studentId) return false;
             const sessionDate = startOfDay(new Date(session.date));
             if (!isSameDay(sessionDate, eventDate)) return false;
@@ -339,6 +350,16 @@ export const SessionCalendar = () => {
             const timeDiff = Math.abs(sessionTime.getTime() - eventStartTime.getTime());
             return timeDiff <= 2 * 60 * 60 * 1000; // 2 hours in milliseconds
           });
+          
+          // If no time match, fall back to date-only matching (any session on that day)
+          if (!matchingSession) {
+            matchingSession = sessions.find(session => {
+              if (session.studentId !== studentId) return false;
+              const sessionDate = startOfDay(new Date(session.date));
+              return isSameDay(sessionDate, eventDate);
+            });
+          }
+          
           if (matchingSession) {
             isLogged = true;
             matchedSession = matchingSession;
@@ -385,7 +406,8 @@ export const SessionCalendar = () => {
           
           // If not found via groupSessionId, check if all students have individual sessions on this day
           if (!isLogged) {
-            const studentsWithSessions = new Set<string>();
+            // First try to match by time (within 2 hours) for better accuracy
+            const studentsWithSessionsByTime = new Set<string>();
             sessionsOnThisDay.forEach(session => {
               // Check if this session's student is in our scheduled list
               if (event.studentIds.includes(session.studentId)) {
@@ -393,22 +415,39 @@ export const SessionCalendar = () => {
                 const sessionTime = new Date(session.date);
                 const timeDiff = Math.abs(sessionTime.getTime() - eventStartTime.getTime());
                 if (timeDiff <= 2 * 60 * 60 * 1000) { // 2 hours in milliseconds
-                  studentsWithSessions.add(session.studentId);
+                  studentsWithSessionsByTime.add(session.studentId);
                 }
               }
             });
             
-            // Check if all scheduled students have matching sessions
-            const allLogged = event.studentIds.every(id => studentsWithSessions.has(id));
+            // Check if all scheduled students have matching sessions by time
+            let allLogged = event.studentIds.every(id => studentsWithSessionsByTime.has(id));
+            
+            // If not all matched by time, fall back to date-only matching
+            if (!allLogged) {
+              const studentsWithSessionsByDate = new Set<string>();
+              sessionsOnThisDay.forEach(session => {
+                if (event.studentIds.includes(session.studentId)) {
+                  studentsWithSessionsByDate.add(session.studentId);
+                }
+              });
+              allLogged = event.studentIds.every(id => studentsWithSessionsByDate.has(id));
+            }
+            
             if (allLogged) {
               isLogged = true;
-              // Find a matching session to check missed status
-              const firstMatchingSession = sessionsOnThisDay.find(session => {
+              // Find a matching session to check missed status (prefer time match, fall back to any)
+              let firstMatchingSession = sessionsOnThisDay.find(session => {
                 if (!event.studentIds.includes(session.studentId)) return false;
                 const sessionTime = new Date(session.date);
                 const timeDiff = Math.abs(sessionTime.getTime() - eventStartTime.getTime());
                 return timeDiff <= 2 * 60 * 60 * 1000;
               });
+              if (!firstMatchingSession) {
+                firstMatchingSession = sessionsOnThisDay.find(session => 
+                  event.studentIds.includes(session.studentId)
+                );
+              }
               if (firstMatchingSession) {
                 matchedSession = firstMatchingSession;
               }
@@ -460,10 +499,31 @@ export const SessionCalendar = () => {
     setCurrentDate(new Date());
   };
 
-  const handleOpenDialog = (date?: Date, scheduledSession?: ScheduledSession) => {
+  const isFormDirty = () => {
+    if (!initialFormDataRef.current) return false;
+    const initial = initialFormDataRef.current;
+    
+    // Compare form data with initial state
+    const hasChanges = 
+      JSON.stringify(formData.studentIds.sort()) !== JSON.stringify(initial.studentIds.sort()) ||
+      formData.startTime !== initial.startTime ||
+      formData.endTime !== initial.endTime ||
+      formData.recurrencePattern !== initial.recurrencePattern ||
+      JSON.stringify(formData.dayOfWeek.sort()) !== JSON.stringify(initial.dayOfWeek.sort()) ||
+      JSON.stringify(formData.specificDates.sort()) !== JSON.stringify(initial.specificDates.sort()) ||
+      formData.startDate !== initial.startDate ||
+      formData.endDate !== initial.endDate ||
+      JSON.stringify(formData.goalsTargeted.sort()) !== JSON.stringify(initial.goalsTargeted.sort()) ||
+      formData.notes !== initial.notes ||
+      formData.isDirectServices !== initial.isDirectServices;
+    
+    return hasChanges;
+  };
+
+  const doOpenDialog = (date?: Date, scheduledSession?: ScheduledSession) => {
     if (scheduledSession) {
       setEditingScheduledSession(scheduledSession);
-      setFormData({
+      const newFormData = {
         studentIds: scheduledSession.studentIds,
         startTime: scheduledSession.startTime,
         endTime: scheduledSession.endTime || 
@@ -478,16 +538,18 @@ export const SessionCalendar = () => {
         goalsTargeted: scheduledSession.goalsTargeted,
         notes: scheduledSession.notes || '',
         isDirectServices: scheduledSession.isDirectServices !== false,
-      });
+      };
+      setFormData(newFormData);
+      initialFormDataRef.current = { ...newFormData };
     } else {
       setEditingScheduledSession(null);
       const dateToUse = date || new Date();
       setSelectedDate(dateToUse);
-      setFormData({
+      const newFormData = {
         studentIds: [],
         startTime: '09:00',
         endTime: '09:30',
-        recurrencePattern: 'weekly',
+        recurrencePattern: 'weekly' as ScheduledSession['recurrencePattern'],
         dayOfWeek: [dateToUse.getDay()],
         specificDates: [],
         startDate: format(dateToUse, 'yyyy-MM-dd'),
@@ -495,15 +557,61 @@ export const SessionCalendar = () => {
         goalsTargeted: [],
         notes: '',
         isDirectServices: true,
-      });
+      };
+      setFormData(newFormData);
+      initialFormDataRef.current = { ...newFormData };
     }
     setDialogOpen(true);
   };
 
-  const handleCloseDialog = () => {
+  const handleOpenDialog = (date?: Date, scheduledSession?: ScheduledSession) => {
+    // If opening a new session (not editing) and form is dirty, confirm first
+    if (!scheduledSession && dialogOpen && isFormDirty()) {
+      confirm({
+        title: 'Unsaved Changes',
+        message: 'You have unsaved changes. Are you sure you want to discard them and create a new scheduled session?',
+        confirmText: 'Discard Changes',
+        cancelText: 'Cancel',
+        onConfirm: () => {
+          doOpenDialog(date, scheduledSession);
+        },
+      });
+    } else {
+      doOpenDialog(date, scheduledSession);
+    }
+  };
+
+  const handleCloseDialog = (forceClose = false) => {
+    if (!forceClose && isFormDirty()) {
+      confirm({
+        title: 'Unsaved Changes',
+        message: 'You have unsaved changes. Are you sure you want to close without saving?',
+        confirmText: 'Discard Changes',
+        cancelText: 'Cancel',
+        onConfirm: () => {
+          doCloseDialog();
+        },
+      });
+    } else {
+      doCloseDialog();
+    }
+  };
+
+  const doCloseDialog = () => {
     setDialogOpen(false);
     setEditingScheduledSession(null);
     setSelectedDate(null);
+    setScheduleStudentSearch('');
+    initialFormDataRef.current = null;
+  };
+
+  const handleScheduleStudentToggle = (studentId: string) => {
+    const isSelected = formData.studentIds.includes(studentId);
+    if (isSelected) {
+      setFormData({ ...formData, studentIds: formData.studentIds.filter(id => id !== studentId) });
+    } else {
+      setFormData({ ...formData, studentIds: [...formData.studentIds, studentId] });
+    }
   };
 
   const handleSave = () => {
@@ -537,7 +645,8 @@ export const SessionCalendar = () => {
     }
 
     loadData();
-    handleCloseDialog();
+    initialFormDataRef.current = null;
+    doCloseDialog();
   };
 
   const handleDelete = (id: string) => {
@@ -832,11 +941,11 @@ export const SessionCalendar = () => {
     const dateStr = format(event.date, 'yyyy-MM-dd');
     const cancelledDates = scheduled.cancelledDates || [];
     
-    // Only allow cancelling future dates that haven't been logged
+    // Don't allow cancelling sessions that have been logged
     const eventDate = startOfDay(event.date);
     const today = startOfDay(new Date());
-    if (isBefore(eventDate, today) && event.isLogged) {
-      // Don't allow cancelling past logged sessions
+    if (event.isLogged) {
+      // Don't allow cancelling logged sessions (past or future)
       return;
     }
 
@@ -974,11 +1083,11 @@ export const SessionCalendar = () => {
                       {format(day, 'd')}
                     </Box>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, flex: 1 }}>
-                      {dayEvents.slice(0, 3).map(event => {
+                      {dayEvents.map(event => {
                         const eventDate = startOfDay(event.date);
                         const today = startOfDay(new Date());
                         const isFuture = isAfter(eventDate, today) || isSameDay(eventDate, today);
-                        const canCancel = isFuture && !event.isLogged;
+                        const canCancel = !event.isLogged;
 
                         return (
                           <Box
@@ -1038,11 +1147,6 @@ export const SessionCalendar = () => {
                           </Box>
                         );
                       })}
-                      {dayEvents.length > 3 && (
-                        <Typography variant="caption" color="text.secondary">
-                          +{dayEvents.length - 3} more
-                        </Typography>
-                      )}
                     </Box>
                   </Box>
                 );
@@ -1065,7 +1169,7 @@ export const SessionCalendar = () => {
           ) : (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
               {scheduledSessions.map(scheduled => {
-                const studentNames = scheduled.studentIds.map(id => students.find(s => s.id === id)?.name || 'Unknown').join(', ');
+                const studentNames = scheduled.studentIds.map(id => formatStudentNameWithGrade(id)).join(', ');
                 return (
                   <Card key={scheduled.id} variant="outlined">
                     <CardContent sx={{ '&:last-child': { pb: 2 } }}>
@@ -1115,34 +1219,30 @@ export const SessionCalendar = () => {
       </Card>
 
       {/* Schedule Session Dialog */}
-      <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="md" fullWidth>
+      <Dialog 
+        open={dialogOpen} 
+        onClose={(event, reason) => {
+          // Prevent closing on backdrop click or escape key - let the handler decide
+          if (reason === 'backdropClick' || reason === 'escapeKeyDown') {
+            handleCloseDialog();
+          }
+        }} 
+        maxWidth="md" 
+        fullWidth
+      >
         <DialogTitle>
           {editingScheduledSession ? 'Edit Scheduled Session' : 'Schedule New Session'}
         </DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-            <FormControl fullWidth>
-              <InputLabel>Students</InputLabel>
-              <Select
-                multiple
-                value={formData.studentIds}
-                onChange={(e) => setFormData({ ...formData, studentIds: e.target.value as string[] })}
-                label="Students"
-                renderValue={(selected) => (
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                    {selected.map((id) => (
-                      <Chip key={id} label={students.find(s => s.id === id)?.name || id} size="small" />
-                    ))}
-                  </Box>
-                )}
-              >
-                {students.map((student) => (
-                  <MenuItem key={student.id} value={student.id}>
-                    {student.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <StudentSelector
+              students={students}
+              selectedStudentIds={formData.studentIds}
+              searchTerm={scheduleStudentSearch}
+              onSearchChange={setScheduleStudentSearch}
+              onStudentToggle={handleScheduleStudentToggle}
+              autoFocus={!editingScheduledSession}
+            />
 
             <Box sx={{ display: 'flex', gap: 2 }}>
               <TextField
