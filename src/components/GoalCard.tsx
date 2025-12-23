@@ -11,17 +11,22 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  useTheme,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   ContentCopy as ContentCopyIcon,
-  ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material';
 import type { Goal } from '../types';
-import { formatDate, getGoalProgressChipProps } from '../utils/helpers';
+import { getPriorityBorderColor } from '../utils/helpers';
 import { SubGoalList } from './SubGoalList';
+import { StatusChip } from './StatusChip';
+import { PriorityChip } from './PriorityChip';
+import { GoalProgressChip } from './GoalProgressChip';
+import { GoalDateInfo } from './GoalDateInfo';
+import { AccordionExpandIcon } from './AccordionExpandIcon';
 
 interface RecentSessionData {
   date: string;
@@ -55,38 +60,21 @@ export const GoalCard: React.FC<GoalCardProps> = ({
   onEditSubGoal,
   onDuplicateSubGoal,
 }) => {
+  const theme = useTheme();
   const recent = getRecentPerformance(goal.id);
-  const chipProps = getGoalProgressChipProps(recent.average, goal.target);
   const hasSubGoals = subGoals.length > 0;
+
+  // Get border color from theme using priority
+  const borderColor = goal.priority 
+    ? theme.palette[getPriorityBorderColor(goal.priority).split('.')[0] as 'error' | 'warning' | 'success']?.main || theme.palette.divider
+    : theme.palette.divider;
 
   const goalContent = (
     <>
       <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>
-        <Chip
-          label={goal.status}
-          size="small"
-          color={
-            goal.status === 'achieved'
-              ? 'success'
-              : goal.status === 'modified' || goal.status === 'in-progress'
-              ? 'warning'
-              : 'default'
-          }
-        />
-        <Chip
-          label={recent.average !== null ? `${Math.round(recent.average)}%` : 'not started'}
-          size="small"
-          color={chipProps.color}
-          variant={chipProps.variant}
-        />
-        {goal.priority && (
-          <Chip
-            label={goal.priority}
-            size="small"
-            color={goal.priority === 'high' ? 'error' : goal.priority === 'medium' ? 'warning' : 'success'}
-            variant="outlined"
-          />
-        )}
+        <StatusChip status={goal.status} />
+        <GoalProgressChip average={recent.average} target={goal.target} />
+        {goal.priority && <PriorityChip priority={goal.priority} />}
         {goal.domain && (
           <Chip
             label={goal.domain}
@@ -125,67 +113,49 @@ export const GoalCard: React.FC<GoalCardProps> = ({
       >
         Add Sub-goal
       </Button>
-      <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-        Created: {formatDate(goal.dateCreated)}
-        {goal.status === 'achieved' && goal.dateAchieved && (
-          <>
-            <br />
-            Achieved: {formatDate(goal.dateAchieved)}
-          </>
-        )}
-      </Typography>
+      <GoalDateInfo
+        dateCreated={goal.dateCreated}
+        status={goal.status}
+        dateAchieved={goal.dateAchieved}
+      />
     </>
   );
 
+  const actionButtons = (
+    <Box onClick={(e) => e.stopPropagation()}>
+      <IconButton
+        size="small"
+        onClick={() => onEdit(goal)}
+      >
+        <EditIcon fontSize="small" />
+      </IconButton>
+      <Tooltip title="Copy to sub goal">
+        <IconButton
+          size="small"
+          onClick={() => onCopyToSubGoal(goal)}
+        >
+          <ContentCopyIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+      <IconButton
+        size="small"
+        onClick={() => onDelete(goal.id)}
+        color="error"
+      >
+        <DeleteIcon fontSize="small" />
+      </IconButton>
+    </Box>
+  );
+
   return (
-    <Card sx={{ borderLeft: `4px solid ${goal.priority === 'high' ? '#f44336' : goal.priority === 'medium' ? '#ff9800' : '#4caf50'}` }}>
+    <Card sx={{ borderLeft: `4px solid ${borderColor}` }}>
       <CardContent sx={{ p: hasSubGoals ? 0 : 2, '&:last-child': { pb: hasSubGoals ? 0 : 2 } }}>
         {hasSubGoals ? (
           <Accordion defaultExpanded={true}>
-            <AccordionSummary
-              expandIcon={
-                <Box
-                  sx={{
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    borderRadius: '50%',
-                    p: 0.5,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: 'action.hover',
-                  }}
-                >
-                  <ExpandMoreIcon sx={{ fontSize: '1.2rem' }} />
-                </Box>
-              }
-              sx={{ px: 2, py: 1 }}
-            >
+            <AccordionSummary expandIcon={<AccordionExpandIcon />} sx={{ px: 2, py: 1 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', pr: 2 }}>
                 <Typography variant="h6">{goal.description}</Typography>
-                <Box onClick={(e) => e.stopPropagation()}>
-                  <IconButton
-                    size="small"
-                    onClick={() => onEdit(goal)}
-                  >
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                  <Tooltip title="Copy to sub goal">
-                    <IconButton
-                      size="small"
-                      onClick={() => onCopyToSubGoal(goal)}
-                    >
-                      <ContentCopyIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  <IconButton
-                    size="small"
-                    onClick={() => onDelete(goal.id)}
-                    color="error"
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </Box>
+                {actionButtons}
               </Box>
             </AccordionSummary>
             <AccordionDetails sx={{ px: 2, pb: 2 }}>
@@ -196,29 +166,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
           <>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
               <Typography variant="h6">{goal.description}</Typography>
-              <Box>
-                <IconButton
-                  size="small"
-                  onClick={() => onEdit(goal)}
-                >
-                  <EditIcon fontSize="small" />
-                </IconButton>
-                <Tooltip title="Copy to sub goal">
-                  <IconButton
-                    size="small"
-                    onClick={() => onCopyToSubGoal(goal)}
-                  >
-                    <ContentCopyIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-                <IconButton
-                  size="small"
-                  onClick={() => onDelete(goal.id)}
-                  color="error"
-                >
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-              </Box>
+              {actionButtons}
             </Box>
             {goalContent}
           </>
@@ -227,4 +175,3 @@ export const GoalCard: React.FC<GoalCardProps> = ({
     </Card>
   );
 };
-

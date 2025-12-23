@@ -24,6 +24,7 @@ import { getReminders } from '../utils/storage-api';
 import { formatDate } from '../utils/helpers';
 import type { Reminder } from '../types';
 import { useSchool } from '../context/SchoolContext';
+import { PriorityChip } from './PriorityChip';
 
 const getReminderIcon = (type: Reminder['type']) => {
   switch (type) {
@@ -40,18 +41,6 @@ const getReminderIcon = (type: Reminder['type']) => {
   }
 };
 
-const getReminderColor = (priority: Reminder['priority']) => {
-  switch (priority) {
-    case 'high':
-      return 'error';
-    case 'medium':
-      return 'warning';
-    case 'low':
-      return 'info';
-    default:
-      return 'default';
-  }
-};
 
 const getReminderPath = (reminder: Reminder): string => {
   switch (reminder.type) {
@@ -155,11 +144,9 @@ export const RemindersCard = ({ maxItems = 5, showViewAll = true }: RemindersCar
                       <Typography variant="body2" fontWeight="medium">
                         {reminder.title}
                       </Typography>
-                      <Chip
-                        label={reminder.priority}
+                      <PriorityChip 
+                        priority={reminder.priority} 
                         size="small"
-                        color={getReminderColor(reminder.priority)}
-                        sx={{ height: 20, fontSize: '0.65rem' }}
                       />
                     </Box>
                   }

@@ -90,3 +90,42 @@ export const fromLocalDateTimeString = (dateString: string): string => {
   return date.toISOString();
 };
 
+/**
+ * Gets the chip color for goal status
+ * @param status - Goal status
+ * @returns Material-UI chip color
+ */
+export const getStatusChipColor = (
+  status: 'in-progress' | 'achieved' | 'modified'
+): 'success' | 'warning' | 'default' => {
+  if (status === 'achieved') return 'success';
+  if (status === 'modified' || status === 'in-progress') return 'warning';
+  return 'default';
+};
+
+/**
+ * Gets the chip color for priority
+ * @param priority - Priority level
+ * @returns Material-UI chip color
+ */
+export const getPriorityChipColor = (
+  priority: 'high' | 'medium' | 'low'
+): 'error' | 'warning' | 'success' => {
+  if (priority === 'high') return 'error';
+  if (priority === 'medium') return 'warning';
+  return 'success';
+};
+
+/**
+ * Gets the border color for priority (for use in sx props)
+ * @param priority - Priority level
+ * @returns Color string or theme color reference
+ */
+export const getPriorityBorderColor = (
+  priority: 'high' | 'medium' | 'low'
+): string => {
+  if (priority === 'high') return 'error.main';
+  if (priority === 'medium') return 'warning.main';
+  return 'success.main';
+};
+

@@ -3,20 +3,16 @@ import {
   Checkbox,
   FormControlLabel,
   Typography,
-  Chip,
-  IconButton,
-  TextField,
   Accordion,
   AccordionSummary,
   AccordionDetails,
 } from '@mui/material';
 import {
-  Add as AddIcon,
-  Remove as RemoveIcon,
   ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material';
 import type { Goal } from '../types';
-import { getGoalProgressChipProps } from '../utils/helpers';
+import { GoalProgressChip } from './GoalProgressChip';
+import { PerformanceDataForm } from './PerformanceDataForm';
 
 interface PerformanceDataItem {
   goalId: string;
@@ -71,7 +67,6 @@ export const GoalHierarchy = ({
     const subGoals = subGoalsByParent.get(goal.id) || [];
     const hasSubGoals = subGoals.length > 0;
     const recentAvg = getRecentPerformance(goal.id, studentId);
-    const chipProps = getGoalProgressChipProps(recentAvg, goal.target);
     
     // Calculate indentation based on depth (each level adds 2 units of padding)
     const paddingLeft = depth * 2;
@@ -94,12 +89,7 @@ export const GoalHierarchy = ({
                   label={
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                       <Typography variant={isCompact ? 'body2' : 'body1'}>{goal.description}</Typography>
-                      <Chip
-                        label={recentAvg !== null ? `${Math.round(recentAvg)}%` : 'not started'}
-                        size="small"
-                        color={chipProps.color}
-                        variant={chipProps.variant}
-                      />
+                      <GoalProgressChip average={recentAvg} target={goal.target} />
                     </Box>
                   }
                   onClick={(e) => e.stopPropagation()}
@@ -123,224 +113,24 @@ export const GoalHierarchy = ({
             label={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                 <Typography variant={isCompact ? 'body2' : 'body1'}>{goal.description}</Typography>
-                <Chip
-                  label={recentAvg !== null ? `${Math.round(recentAvg)}%` : 'not started'}
-                  size="small"
-                  color={chipProps.color}
-                  variant={chipProps.variant}
-                />
+                <GoalProgressChip average={recentAvg} target={goal.target} />
               </Box>
             }
           />
         )}
         {/* Performance data for goal */}
-        {renderPerformanceData(goal)}
-      </Box>
-    );
-  };
-
-  // Helper function to render a single goal item (used for both parent and subgoals)
-  const renderGoalItem = (goal: Goal, isSubgoal: boolean = false) => {
-    const recentAvg = getRecentPerformance(goal.id, studentId);
-    const chipProps = getGoalProgressChipProps(recentAvg, goal.target);
-    return (
-      <Box key={goal.id} sx={isSubgoal ? { pl: 2, borderLeft: '2px solid', borderColor: 'divider' } : {}}>
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={goalsTargeted.includes(goal.id)}
-              onChange={() => onGoalToggle(goal.id, studentId)}
-            />
-          }
-          label={
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-              <Typography variant={isCompact ? 'body2' : 'body1'}>{goal.description}</Typography>
-              <Chip
-                label={recentAvg !== null ? `${Math.round(recentAvg)}%` : 'not started'}
-                size="small"
-                color={chipProps.color}
-                variant={chipProps.variant}
-              />
-            </Box>
-          }
-        />
-        {goalsTargeted.includes(goal.id) && (() => {
-          const perfData = performanceData.find((p) => p.goalId === goal.id && p.studentId === studentId);
-          const correctTrials = perfData?.correctTrials || 0;
-          const incorrectTrials = perfData?.incorrectTrials || 0;
-          const totalTrials = correctTrials + incorrectTrials;
-          const calculatedAccuracy = totalTrials > 0 ? Math.round((correctTrials / totalTrials) * 100) : 0;
-          const displayText = totalTrials > 0 ? `${correctTrials}/${totalTrials} trials (${calculatedAccuracy}%)` : '0/0 trials (0%)';
-          
-          return (
-            <Box sx={{ ml: 4, display: 'flex', gap: 1, mt: 0.5, alignItems: 'center', flexWrap: 'wrap', ...(isCompact ? { flexDirection: 'column', alignItems: 'stretch' } : {}) }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-                <IconButton
-                  size="small"
-                  onClick={() => onTrialUpdate(goal.id, studentId, false)}
-                  color="error"
-                  sx={{ border: '1px solid', borderColor: 'error.main' }}
-                >
-                  <RemoveIcon fontSize="small" />
-                </IconButton>
-                <IconButton
-                  size="small"
-                  onClick={() => onTrialUpdate(goal.id, studentId, true)}
-                  color="success"
-                  sx={{ border: '1px solid', borderColor: 'success.main' }}
-                >
-                  <AddIcon fontSize="small" />
-                </IconButton>
-                <Typography variant="body2" sx={{ ml: 1, minWidth: isCompact ? '120px' : '140px', fontSize: isCompact ? '0.75rem' : 'inherit' }}>
-                  {displayText}
-                </Typography>
-              </Box>
-              <TextField
-                label="Accuracy %"
-                type="number"
-                size="small"
-                value={totalTrials > 0 ? calculatedAccuracy.toString() : (perfData?.accuracy || '')}
-                onChange={(e) => {
-                  onFormDataChange((prev) => ({
-                    ...prev,
-                    performanceData: prev.performanceData.map((p) =>
-                      p.goalId === goal.id && p.studentId === studentId
-                        ? { ...p, accuracy: e.target.value, correctTrials: 0, incorrectTrials: 0 }
-                        : p
-                    ),
-                  }));
-                }}
-                helperText={totalTrials > 0 ? (isCompact ? 'Auto-calculated' : 'Auto-calculated from trials (clear to enter manually)') : (isCompact ? 'Manual entry' : 'Enter manually or use +/- buttons')}
-                sx={{ width: isCompact ? '100%' : 140 }}
-              />
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: isCompact ? '100%' : 'auto' }}>
-                <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
-                  Cuing Levels:
-                </Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  {(['independent', 'verbal', 'visual', 'tactile', 'physical'] as const).map((level) => {
-                    const cuingLevels = perfData?.cuingLevels || [];
-                    const isChecked = cuingLevels.includes(level);
-                    return (
-                      <FormControlLabel
-                        key={level}
-                        control={
-                          <Checkbox
-                            size="small"
-                            checked={isChecked}
-                            onChange={() => onCuingLevelToggle(goal.id, studentId, level)}
-                          />
-                        }
-                        label={level.charAt(0).toUpperCase() + level.slice(1)}
-                      />
-                    );
-                  })}
-                </Box>
-              </Box>
-              <TextField
-                label="Notes"
-                size="small"
-                fullWidth
-                multiline={isCompact}
-                rows={isCompact ? 2 : 1}
-                value={perfData?.notes || ''}
-                onChange={(e) =>
-                  onPerformanceUpdate(goal.id, studentId, 'notes', e.target.value)
-                }
-              />
-            </Box>
-          );
-        })()}
-      </Box>
-    );
-  };
-
-  const renderPerformanceData = (goal: Goal) => {
-    if (!goalsTargeted.includes(goal.id)) return null;
-    
-    const perfData = performanceData.find((p) => p.goalId === goal.id && p.studentId === studentId);
-    const correctTrials = perfData?.correctTrials || 0;
-    const incorrectTrials = perfData?.incorrectTrials || 0;
-    const totalTrials = correctTrials + incorrectTrials;
-    const calculatedAccuracy = totalTrials > 0 ? Math.round((correctTrials / totalTrials) * 100) : 0;
-    const displayText = totalTrials > 0 ? `${correctTrials}/${totalTrials} trials (${calculatedAccuracy}%)` : '0/0 trials (0%)';
-    
-    return (
-      <Box sx={{ ml: 4, display: 'flex', gap: 1, mt: 0.5, alignItems: 'center', flexWrap: 'wrap', mb: 1, ...(isCompact ? { flexDirection: 'column', alignItems: 'stretch' } : {}) }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <IconButton
-            size="small"
-            onClick={() => onTrialUpdate(goal.id, studentId, false)}
-            color="error"
-            sx={{ border: '1px solid', borderColor: 'error.main' }}
-          >
-            <RemoveIcon fontSize="small" />
-          </IconButton>
-          <IconButton
-            size="small"
-            onClick={() => onTrialUpdate(goal.id, studentId, true)}
-            color="success"
-            sx={{ border: '1px solid', borderColor: 'success.main' }}
-          >
-            <AddIcon fontSize="small" />
-          </IconButton>
-          <Typography variant="body2" sx={{ ml: 1, minWidth: isCompact ? '120px' : '140px', fontSize: isCompact ? '0.75rem' : 'inherit' }}>
-            {displayText}
-          </Typography>
-        </Box>
-        <TextField
-          label="Accuracy %"
-          type="number"
-          size="small"
-          value={totalTrials > 0 ? calculatedAccuracy.toString() : (perfData?.accuracy || '')}
-          onChange={(e) => {
-            onFormDataChange((prev) => ({
-              ...prev,
-              performanceData: prev.performanceData.map((p) =>
-                p.goalId === goal.id && p.studentId === studentId
-                  ? { ...p, accuracy: e.target.value, correctTrials: 0, incorrectTrials: 0 }
-                  : p
-              ),
-            }));
-          }}
-          helperText={totalTrials > 0 ? (isCompact ? 'Auto-calculated' : 'Auto-calculated from trials (clear to enter manually)') : (isCompact ? 'Manual entry' : 'Enter manually or use +/- buttons')}
-          sx={{ width: isCompact ? '100%' : 140 }}
-        />
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: isCompact ? '100%' : 'auto' }}>
-          <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
-            Cuing Levels:
-          </Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            {(['independent', 'verbal', 'visual', 'tactile', 'physical'] as const).map((level) => {
-              const cuingLevels = perfData?.cuingLevels || [];
-              const isChecked = cuingLevels.includes(level);
-              return (
-                <FormControlLabel
-                  key={level}
-                  control={
-                    <Checkbox
-                      size="small"
-                      checked={isChecked}
-                      onChange={() => onCuingLevelToggle(goal.id, studentId, level)}
-                    />
-                  }
-                  label={level.charAt(0).toUpperCase() + level.slice(1)}
-                />
-              );
-            })}
-          </Box>
-        </Box>
-        <TextField
-          label="Notes"
-          size="small"
-          fullWidth
-          multiline={isCompact}
-          rows={isCompact ? 2 : 1}
-          value={perfData?.notes || ''}
-          onChange={(e) =>
-            onPerformanceUpdate(goal.id, studentId, 'notes', e.target.value)
-          }
-        />
+        {goalsTargeted.includes(goal.id) && (
+          <PerformanceDataForm
+            goalId={goal.id}
+            studentId={studentId}
+            performanceData={performanceData}
+            isCompact={isCompact}
+            onTrialUpdate={onTrialUpdate}
+            onPerformanceUpdate={onPerformanceUpdate}
+            onCuingLevelToggle={onCuingLevelToggle}
+            onFormDataChange={onFormDataChange}
+          />
+        )}
       </Box>
     );
   };
@@ -353,7 +143,6 @@ export const GoalHierarchy = ({
       {/* Render orphan goals (goals without parent/child relationships) in accordions for consistent layout */}
       {orphanGoals.map((goal) => {
         const recentAvg = getRecentPerformance(goal.id, studentId);
-        const chipProps = getGoalProgressChipProps(recentAvg, goal.target);
         
         return (
           <Box key={goal.id}>
@@ -371,12 +160,7 @@ export const GoalHierarchy = ({
                     label={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                         <Typography variant={isCompact ? 'body2' : 'body1'}>{goal.description}</Typography>
-                        <Chip
-                          label={recentAvg !== null ? `${Math.round(recentAvg)}%` : 'not started'}
-                          size="small"
-                          color={chipProps.color}
-                          variant={chipProps.variant}
-                        />
+                        <GoalProgressChip average={recentAvg} target={goal.target} />
                       </Box>
                     }
                     onClick={(e) => e.stopPropagation()}
@@ -385,11 +169,21 @@ export const GoalHierarchy = ({
               </AccordionSummary>
             </Accordion>
             {/* Performance data for orphan goal (outside accordion) */}
-            {renderPerformanceData(goal)}
+            {goalsTargeted.includes(goal.id) && (
+              <PerformanceDataForm
+                goalId={goal.id}
+                studentId={studentId}
+                performanceData={performanceData}
+                isCompact={isCompact}
+                onTrialUpdate={onTrialUpdate}
+                onPerformanceUpdate={onPerformanceUpdate}
+                onCuingLevelToggle={onCuingLevelToggle}
+                onFormDataChange={onFormDataChange}
+              />
+            )}
           </Box>
         );
       })}
     </Box>
   );
 };
-

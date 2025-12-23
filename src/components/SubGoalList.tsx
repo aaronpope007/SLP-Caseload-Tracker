@@ -1,9 +1,14 @@
 import React from 'react';
-import { Box, Typography, Chip, IconButton, Button, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
-import { Edit as EditIcon, ContentCopy as ContentCopyIcon, Add as AddIcon, ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
+import { Box, Typography, Button, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
+import { Add as AddIcon } from '@mui/icons-material';
 import type { Goal } from '../types';
-import { formatDate, getGoalProgressChipProps } from '../utils/helpers';
 import { organizeGoalsHierarchy } from '../utils/goalHierarchy';
+import { StatusChip } from './StatusChip';
+import { PriorityChip } from './PriorityChip';
+import { GoalProgressChip } from './GoalProgressChip';
+import { GoalDateInfo } from './GoalDateInfo';
+import { GoalActionButtons } from './GoalActionButtons';
+import { AccordionExpandIcon } from './AccordionExpandIcon';
 
 interface RecentSessionData {
   date: string;
@@ -19,7 +24,105 @@ interface SubGoalListProps {
   onEdit: (goal: Goal) => void;
   onDuplicate: (goal: Goal) => void;
   onAddSubGoal: (parentGoalId: string) => void;
+  depth?: number; // Track nesting depth for recursive rendering
+  label?: string; // Custom label for the list (e.g., "Sub-goals", "Breakdown-sub-goals")
 }
+
+const NestedGoalItem: React.FC<{
+  goal: Goal;
+  allGoals: Goal[];
+  hierarchy: ReturnType<typeof organizeGoalsHierarchy>;
+  getRecentPerformance: (goalId: string) => { recentSessions: RecentSessionData[]; average: number | null };
+  onEdit: (goal: Goal) => void;
+  onDuplicate: (goal: Goal) => void;
+  onAddSubGoal: (parentGoalId: string) => void;
+  depth: number;
+  defaultExpanded?: boolean;
+}> = ({
+  goal,
+  allGoals,
+  hierarchy,
+  getRecentPerformance,
+  onEdit,
+  onDuplicate,
+  onAddSubGoal,
+  depth,
+  defaultExpanded = false,
+}) => {
+  const recent = getRecentPerformance(goal.id);
+  const subGoals = hierarchy.subGoalsByParent.get(goal.id) || [];
+  const hasSubGoals = subGoals.length > 0;
+
+  const goalContent = (
+    <>
+      <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
+        <StatusChip status={goal.status} />
+        <GoalProgressChip average={recent.average} target={goal.target} />
+        {goal.priority && <PriorityChip priority={goal.priority} />}
+        <GoalActionButtons
+          onEdit={() => onEdit(goal)}
+          onDuplicate={() => onDuplicate(goal)}
+          editTitle={`Edit ${depth > 1 ? 'sub-' : ''}goal`}
+          duplicateTitle={`Duplicate ${depth > 1 ? 'sub-' : ''}goal`}
+        />
+      </Box>
+      <GoalDateInfo
+        dateCreated={goal.dateCreated}
+        status={goal.status}
+        dateAchieved={goal.dateAchieved}
+      />
+      
+      {/* Recursively render nested sub-goals */}
+      {hasSubGoals && (
+        <SubGoalList
+          subGoals={subGoals}
+          allGoals={allGoals}
+          getRecentPerformance={getRecentPerformance}
+          onEdit={onEdit}
+          onDuplicate={onDuplicate}
+          onAddSubGoal={onAddSubGoal}
+          depth={depth + 1}
+          label={`Breakdown-sub-goals (${subGoals.length})`}
+        />
+      )}
+      
+      {/* Add Sub-goal button */}
+      <Button
+        size="small"
+        startIcon={<AddIcon />}
+        onClick={() => onAddSubGoal(goal.id)}
+        sx={{ mt: 1, ml: depth > 0 ? 2 : 0 }}
+        variant="outlined"
+      >
+        Add {depth > 0 ? 'breakdown-' : ''}sub-goal
+      </Button>
+    </>
+  );
+
+  return (
+    <Box sx={{ mb: depth === 0 ? 2 : 1 }}>
+      {hasSubGoals ? (
+        <Accordion defaultExpanded={defaultExpanded}>
+          <AccordionSummary expandIcon={<AccordionExpandIcon />}>
+            <Typography variant="body2" sx={{ fontSize: depth > 0 ? '0.875rem' : 'inherit' }}>
+              {goal.description}
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            {goalContent}
+          </AccordionDetails>
+        </Accordion>
+      ) : (
+        <>
+          <Typography variant="body2" sx={{ fontSize: depth > 0 ? '0.875rem' : 'inherit' }}>
+            {goal.description}
+          </Typography>
+          {goalContent}
+        </>
+      )}
+    </Box>
+  );
+};
 
 export const SubGoalList: React.FC<SubGoalListProps> = ({
   subGoals,
@@ -28,242 +131,44 @@ export const SubGoalList: React.FC<SubGoalListProps> = ({
   onEdit,
   onDuplicate,
   onAddSubGoal,
+  depth = 0,
+  label,
 }) => {
   if (subGoals.length === 0) return null;
 
-  // Build hierarchy to find sub-sub goals
+  // Build hierarchy to find nested sub-goals
   const hierarchy = organizeGoalsHierarchy(allGoals);
 
+  const displayLabel = label || `Sub-goals (${subGoals.length})`;
+
   return (
-    <Box sx={{ mt: 2, pl: 2, borderLeft: '2px solid #e0e0e0' }}>
-      <Typography variant="subtitle2" gutterBottom>
-        Sub-goals ({subGoals.length}):
+    <Box sx={{ 
+      mt: depth > 0 ? 1 : 2, 
+      pl: depth > 0 ? 2 : 2, 
+      borderLeft: depth > 0 ? '2px solid' : '2px solid',
+      borderColor: 'divider'
+    }}>
+      <Typography 
+        variant={depth > 0 ? 'caption' : 'subtitle2'} 
+        color={depth > 0 ? 'text.secondary' : 'text.primary'}
+        sx={{ mb: depth > 0 ? 0.5 : 1, display: 'block' }}
+      >
+        {displayLabel}:
       </Typography>
-      {subGoals.map(sub => {
-        const subRecent = getRecentPerformance(sub.id);
-        const subSubGoals = hierarchy.subGoalsByParent.get(sub.id) || [];
-        const hasSubSubGoals = subSubGoals.length > 0;
-        
-        const subGoalContent = (
-          <>
-            <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
-              <Chip 
-                label={sub.status} 
-                size="small"
-                color={
-                  sub.status === 'achieved'
-                    ? 'success'
-                    : sub.status === 'modified' || sub.status === 'in-progress'
-                    ? 'warning'
-                    : 'default'
-                }
-              />
-              {(() => {
-                const subChipProps = getGoalProgressChipProps(subRecent.average, sub.target);
-                return (
-                  <Chip
-                    label={subRecent.average !== null ? `${Math.round(subRecent.average)}%` : 'not started'}
-                    size="small"
-                    color={subChipProps.color}
-                    variant={subChipProps.variant}
-                  />
-                );
-              })()}
-              {sub.priority && (
-                <Chip
-                  label={sub.priority}
-                  size="small"
-                  color={sub.priority === 'high' ? 'error' : sub.priority === 'medium' ? 'warning' : 'success'}
-                  variant="outlined"
-                />
-              )}
-              <IconButton
-                size="small"
-                onClick={() => onEdit(sub)}
-                title="Edit sub-goal"
-              >
-                <EditIcon fontSize="small" />
-              </IconButton>
-              <IconButton
-                size="small"
-                onClick={() => onDuplicate(sub)}
-                title="Duplicate sub-goal"
-              >
-                <ContentCopyIcon fontSize="small" />
-              </IconButton>
-            </Box>
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-              Created: {formatDate(sub.dateCreated)}
-              {sub.status === 'achieved' && sub.dateAchieved && (
-                <>
-                  <br />
-                  Achieved: {formatDate(sub.dateAchieved)}
-                </>
-              )}
-            </Typography>
-            
-            {/* Recursively render sub-sub goals */}
-            {hasSubSubGoals && (
-              <Box sx={{ mt: 1, pl: 2, borderLeft: '2px solid #e0e0e0' }}>
-                <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
-                  Breakdown-sub-goals ({subSubGoals.length}):
-                </Typography>
-                {subSubGoals.map(subSub => {
-                  const subSubRecent = getRecentPerformance(subSub.id);
-                  const subSubSubGoals = hierarchy.subGoalsByParent.get(subSub.id) || [];
-                  const hasSubSubSubGoals = subSubSubGoals.length > 0;
-                  
-                  const subSubGoalContent = (
-                    <>
-                      <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
-                        <Chip 
-                          label={subSub.status} 
-                          size="small"
-                          color={
-                            subSub.status === 'achieved'
-                              ? 'success'
-                              : subSub.status === 'modified' || subSub.status === 'in-progress'
-                              ? 'warning'
-                              : 'default'
-                          }
-                        />
-                        {(() => {
-                          const subSubChipProps = getGoalProgressChipProps(subSubRecent.average, subSub.target);
-                          return (
-                            <Chip
-                              label={subSubRecent.average !== null ? `${Math.round(subSubRecent.average)}%` : 'not started'}
-                              size="small"
-                              color={subSubChipProps.color}
-                              variant={subSubChipProps.variant}
-                            />
-                          );
-                        })()}
-                        {subSub.priority && (
-                          <Chip
-                            label={subSub.priority}
-                            size="small"
-                            color={subSub.priority === 'high' ? 'error' : subSub.priority === 'medium' ? 'warning' : 'success'}
-                            variant="outlined"
-                          />
-                        )}
-                        <IconButton
-                          size="small"
-                          onClick={() => onEdit(subSub)}
-                          title="Edit sub-sub-goal"
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => onDuplicate(subSub)}
-                          title="Duplicate sub-sub-goal"
-                        >
-                          <ContentCopyIcon fontSize="small" />
-                        </IconButton>
-                      </Box>
-                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                        Created: {formatDate(subSub.dateCreated)}
-                        {subSub.status === 'achieved' && subSub.dateAchieved && (
-                          <>
-                            <br />
-                            Achieved: {formatDate(subSub.dateAchieved)}
-                          </>
-                        )}
-                      </Typography>
-                    </>
-                  );
-
-                  return (
-                    <Box key={subSub.id} sx={{ mb: 1 }}>
-                      {hasSubSubSubGoals ? (
-                        <Accordion defaultExpanded={false}>
-                          <AccordionSummary
-                            expandIcon={
-                              <Box
-                                sx={{
-                                  border: '1px solid',
-                                  borderColor: 'divider',
-                                  borderRadius: '50%',
-                                  p: 0.5,
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  backgroundColor: 'action.hover',
-                                }}
-                              >
-                                <ExpandMoreIcon sx={{ fontSize: '1.2rem' }} />
-                              </Box>
-                            }
-                          >
-                            <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>{subSub.description}</Typography>
-                          </AccordionSummary>
-                          <AccordionDetails>
-                            {subSubGoalContent}
-                          </AccordionDetails>
-                        </Accordion>
-                      ) : (
-                        <>
-                          <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>{subSub.description}</Typography>
-                          {subSubGoalContent}
-                        </>
-                      )}
-                    </Box>
-                  );
-                })}
-              </Box>
-            )}
-            
-            {/* Add Sub-sub-goal button */}
-            <Button
-              size="small"
-              startIcon={<AddIcon />}
-              onClick={() => onAddSubGoal(sub.id)}
-              sx={{ mt: 1, ml: 2 }}
-              variant="outlined"
-            >
-              Add breakdown-sub-goal
-            </Button>
-          </>
-        );
-
-        return (
-          <Box key={sub.id} sx={{ mb: 2 }}>
-            {hasSubSubGoals ? (
-              <Accordion defaultExpanded={true}>
-                <AccordionSummary
-                  expandIcon={
-                    <Box
-                      sx={{
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        borderRadius: '50%',
-                        p: 0.5,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: 'action.hover',
-                      }}
-                    >
-                      <ExpandMoreIcon sx={{ fontSize: '1.2rem' }} />
-                    </Box>
-                  }
-                >
-                  <Typography variant="body2">{sub.description}</Typography>
-                </AccordionSummary>
-                <AccordionDetails>
-                  {subGoalContent}
-                </AccordionDetails>
-              </Accordion>
-            ) : (
-              <>
-                <Typography variant="body2">{sub.description}</Typography>
-                {subGoalContent}
-              </>
-            )}
-          </Box>
-        );
-      })}
+      {subGoals.map(sub => (
+        <NestedGoalItem
+          key={sub.id}
+          goal={sub}
+          allGoals={allGoals}
+          hierarchy={hierarchy}
+          getRecentPerformance={getRecentPerformance}
+          onEdit={onEdit}
+          onDuplicate={onDuplicate}
+          onAddSubGoal={onAddSubGoal}
+          depth={depth}
+          defaultExpanded={depth === 0}
+        />
+      ))}
     </Box>
   );
 };
-
