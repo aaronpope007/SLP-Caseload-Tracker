@@ -50,7 +50,7 @@ export const ExportDialog = ({ open, onClose, onImportSuccess }: ExportDialogPro
 
     let csv = 'Type,ID,Name,Age,Grade,Status,Date\n';
     students.forEach((s) => {
-      csv += `Student,${s.id},${s.name},${s.age},${s.grade},${s.status},${s.dateAdded}\n`;
+      csv += `Student,${s.id},${s.name},${s.age > 0 ? s.age : 'n/a'},${s.grade},${s.status},${s.dateAdded}\n`;
     });
     goals.forEach((g) => {
       csv += `Goal,${g.id},"${g.description.replace(/"/g, '""')}",,,${g.status},${g.dateCreated}\n`;

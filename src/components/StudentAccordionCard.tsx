@@ -18,11 +18,12 @@ import {
   Archive as ArchiveIcon,
   Unarchive as UnarchiveIcon,
 } from '@mui/icons-material';
-import type { Student, Teacher } from '../types';
+import type { Student, Teacher, CaseManager } from '../types';
 
 interface StudentAccordionCardProps {
   student: Student;
   teachers: Teacher[];
+  caseManagers?: CaseManager[];
   expanded: boolean;
   onToggleExpand: () => void;
   onEdit: (student: Student) => void;
@@ -34,6 +35,7 @@ interface StudentAccordionCardProps {
 export const StudentAccordionCard = ({
   student,
   teachers,
+  caseManagers = [],
   expanded,
   onToggleExpand,
   onEdit,
@@ -45,6 +47,8 @@ export const StudentAccordionCard = ({
   
   // Get teacher name if student has a teacher assigned
   const teacher = student.teacherId ? teachers.find(t => t.id === student.teacherId) : null;
+  // Get case manager name if student has a case manager assigned
+  const caseManager = student.caseManagerId ? caseManagers.find(cm => cm.id === student.caseManagerId) : null;
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     event.stopPropagation();
@@ -99,10 +103,11 @@ export const StudentAccordionCard = ({
         <AccordionDetails>
           <Box>
             <Typography color="text.secondary" gutterBottom>
-              {student.age > 0 ? `Age: ${student.age}` : ''}
-              {student.age > 0 && student.grade ? ' | ' : ''}
+              Age: {student.age > 0 ? student.age : 'n/a'}
+              {student.grade ? ' | ' : ''}
               {student.grade ? `Grade: ${student.grade}` : ''}
               {teacher ? ` | ${teacher.name}` : ''}
+              {caseManager ? ` | CM: ${caseManager.name} (${caseManager.role})` : ''}
             </Typography>
             <Box sx={{ mt: 1, mb: 1, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
               <Chip

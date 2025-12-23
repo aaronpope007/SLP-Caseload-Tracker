@@ -57,6 +57,7 @@ const menuItems = [
   { text: 'Calendar', icon: <CalendarTodayIcon />, path: '/session-calendar' },
   { text: 'Students', icon: <PeopleIcon />, path: '/students' },
   { text: 'Teachers', icon: <PersonIcon />, path: '/teachers' },
+  { text: 'Case Managers', icon: <PersonIcon />, path: '/case-managers' },
   { text: 'Schools', icon: <SchoolIcon />, path: '/schools' },
   { text: 'Sessions', icon: <EventNoteIcon />, path: '/sessions' },
   { text: 'SOAP Notes', icon: <NoteIcon />, path: '/soap-notes' },
@@ -219,8 +220,6 @@ export const Layout = ({ children }: LayoutProps) => {
       </List>
     </Box>
   );
-
-  console.log('Layout rendering, mobileOpen:', mobileOpen, 'location:', location.pathname);
   
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', width: '100%', backgroundColor: theme.palette.background.default }}>

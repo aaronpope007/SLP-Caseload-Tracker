@@ -15,6 +15,17 @@ export interface Teacher {
   id: string;
   name: string;
   grade: string;
+  school: string; // School name the teacher belongs to
+  phoneNumber?: string;
+  emailAddress?: string;
+  dateCreated: string;
+}
+
+export interface CaseManager {
+  id: string;
+  name: string;
+  role: string; // e.g., 'SPED', 'SLP', 'OT', 'PT', etc.
+  school: string; // School name the case manager belongs to
   phoneNumber?: string;
   emailAddress?: string;
   dateCreated: string;
@@ -33,6 +44,7 @@ export interface Student {
   dateArchived?: string;
   school: string; // School name the student belongs to
   teacherId?: string; // Optional teacher ID
+  caseManagerId?: string; // Optional case manager ID
   iepDate?: string; // Date of current IEP (ISO string)
   annualReviewDate?: string; // Next annual review date (ISO string)
   progressReportFrequency?: 'quarterly' | 'annual'; // Default report frequency

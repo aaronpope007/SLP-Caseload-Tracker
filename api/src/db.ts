@@ -46,6 +46,20 @@ export function initDatabase() {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       grade TEXT NOT NULL,
+      school TEXT NOT NULL,
+      phoneNumber TEXT,
+      emailAddress TEXT,
+      dateCreated TEXT NOT NULL
+    )
+  `);
+
+  // Case Managers table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS case_managers (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      role TEXT NOT NULL,
+      school TEXT NOT NULL,
       phoneNumber TEXT,
       emailAddress TEXT,
       dateCreated TEXT NOT NULL
@@ -68,7 +82,8 @@ export function initDatabase() {
       archived INTEGER DEFAULT 0,
       dateArchived TEXT,
       school TEXT NOT NULL,
-      teacherId TEXT
+      teacherId TEXT,
+      caseManagerId TEXT
     )
   `);
 
@@ -148,8 +163,103 @@ export function initDatabase() {
     if (!studentColumnNames.includes('teacherId')) {
       db.exec(`ALTER TABLE students ADD COLUMN teacherId TEXT`);
     }
+    if (!studentColumnNames.includes('caseManagerId')) {
+      db.exec(`ALTER TABLE students ADD COLUMN caseManagerId TEXT`);
+    }
   } catch (e: any) {
     console.warn('Could not add columns to students table:', e.message);
+  }
+
+  // Add school column to teachers table if it doesn't exist
+  try {
+    const teacherTableInfo = db.prepare('PRAGMA table_info(teachers)').all() as Array<{ name: string }>;
+    const teacherColumnNames = teacherTableInfo.map(col => col.name);
+    
+    if (!teacherColumnNames.includes('school')) {
+      db.exec(`ALTER TABLE teachers ADD COLUMN school TEXT NOT NULL DEFAULT ''`);
+    }
+    
+    // Migrate existing teachers: try to infer school from students that have this teacher assigned
+    const teachersWithEmptySchool = db.prepare('SELECT id FROM teachers WHERE school = "" OR school IS NULL').all() as Array<{ id: string }>;
+    if (teachersWithEmptySchool.length > 0) {
+      for (const teacher of teachersWithEmptySchool) {
+        // Try to find a student with this teacher assigned
+        const studentWithTeacher = db.prepare('SELECT school FROM students WHERE teacherId = ? AND school IS NOT NULL AND school != "" LIMIT 1').get(teacher.id) as { school: string } | undefined;
+        if (studentWithTeacher) {
+          db.prepare('UPDATE teachers SET school = ? WHERE id = ?').run(studentWithTeacher.school, teacher.id);
+        } else {
+          // If no students have this teacher, try to get ALL schools and use the first one
+          const allSchools = db.prepare('SELECT name FROM schools ORDER BY name').all() as Array<{ name: string }>;
+          if (allSchools.length > 0) {
+            const schoolName = allSchools[0].name;
+            db.prepare('UPDATE teachers SET school = ? WHERE id = ?').run(schoolName, teacher.id);
+            console.log(`  Set teacher ${teacher.id} school to ${schoolName} (from schools table, first of ${allSchools.length} schools)`);
+          } else {
+            // Try students table for any school
+            const availableSchools = db.prepare('SELECT DISTINCT school FROM students WHERE school IS NOT NULL AND school != "" ORDER BY school LIMIT 1').get() as { school: string } | undefined;
+            if (availableSchools) {
+              db.prepare('UPDATE teachers SET school = ? WHERE id = ?').run(availableSchools.school, teacher.id);
+            } else {
+              // Last resort: use "Noble Academy" as default
+              db.prepare('UPDATE teachers SET school = ? WHERE id = ?').run('Noble Academy', teacher.id);
+            }
+          }
+        }
+      }
+    }
+  } catch (e: any) {
+    console.warn('Could not add school column to teachers table:', e.message);
+  }
+
+  // Add school column to case_managers table if it doesn't exist
+  try {
+    const caseManagerTableInfo = db.prepare('PRAGMA table_info(case_managers)').all() as Array<{ name: string }>;
+    const caseManagerColumnNames = caseManagerTableInfo.map(col => col.name);
+    
+    if (!caseManagerColumnNames.includes('school')) {
+      db.exec(`ALTER TABLE case_managers ADD COLUMN school TEXT NOT NULL DEFAULT ''`);
+    }
+  } catch (e: any) {
+    console.warn('Could not add school column to case_managers table:', e.message);
+  }
+
+  // Migrate existing case managers: try to infer school from students that have this case manager assigned
+  // This runs every time to fix any case managers with empty schools
+  try {
+    const caseManagersWithEmptySchool = db.prepare('SELECT id FROM case_managers WHERE school = "" OR school IS NULL').all() as Array<{ id: string }>;
+    if (caseManagersWithEmptySchool.length > 0) {
+      console.log(`Migrating ${caseManagersWithEmptySchool.length} case managers with empty school...`);
+      for (const caseManager of caseManagersWithEmptySchool) {
+        // Try to find a student with this case manager assigned
+        const studentWithCaseManager = db.prepare('SELECT school FROM students WHERE caseManagerId = ? AND school IS NOT NULL AND school != "" LIMIT 1').get(caseManager.id) as { school: string } | undefined;
+        if (studentWithCaseManager) {
+          db.prepare('UPDATE case_managers SET school = ? WHERE id = ?').run(studentWithCaseManager.school, caseManager.id);
+          console.log(`  Set case manager ${caseManager.id} school to ${studentWithCaseManager.school} (from student)`);
+        } else {
+          // If no students have this case manager, try to get ALL schools and use the first one
+          // This ensures we get a valid school even if the first query returns nothing
+          const allSchools = db.prepare('SELECT name FROM schools ORDER BY name').all() as Array<{ name: string }>;
+          if (allSchools.length > 0) {
+            const schoolName = allSchools[0].name;
+            db.prepare('UPDATE case_managers SET school = ? WHERE id = ?').run(schoolName, caseManager.id);
+            console.log(`  Set case manager ${caseManager.id} school to ${schoolName} (from schools table, first of ${allSchools.length} schools)`);
+          } else {
+            // Try students table for any school
+            const availableSchools = db.prepare('SELECT DISTINCT school FROM students WHERE school IS NOT NULL AND school != "" ORDER BY school LIMIT 1').get() as { school: string } | undefined;
+            if (availableSchools) {
+              db.prepare('UPDATE case_managers SET school = ? WHERE id = ?').run(availableSchools.school, caseManager.id);
+              console.log(`  Set case manager ${caseManager.id} school to ${availableSchools.school} (from students)`);
+            } else {
+              // Last resort: use "Noble Academy" as default
+              db.prepare('UPDATE case_managers SET school = ? WHERE id = ?').run('Noble Academy', caseManager.id);
+              console.log(`  Set case manager ${caseManager.id} school to Noble Academy (default)`);
+            }
+          }
+        }
+      }
+    }
+  } catch (e: any) {
+    console.warn('Could not migrate case managers with empty school:', e.message);
   }
 
   // Progress Reports table
@@ -266,6 +376,9 @@ export function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_students_school ON students(school);
     CREATE INDEX IF NOT EXISTS idx_students_status ON students(status);
     CREATE INDEX IF NOT EXISTS idx_students_teacherId ON students(teacherId);
+    CREATE INDEX IF NOT EXISTS idx_students_caseManagerId ON students(caseManagerId);
+    CREATE INDEX IF NOT EXISTS idx_teachers_school ON teachers(school);
+    CREATE INDEX IF NOT EXISTS idx_case_managers_school ON case_managers(school);
     CREATE INDEX IF NOT EXISTS idx_goals_studentId ON goals(studentId);
     CREATE INDEX IF NOT EXISTS idx_sessions_studentId ON sessions(studentId);
     CREATE INDEX IF NOT EXISTS idx_sessions_date ON sessions(date);

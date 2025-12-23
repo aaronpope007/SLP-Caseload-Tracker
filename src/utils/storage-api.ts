@@ -3,7 +3,7 @@
  * This replaces localStorage with API calls to the Express + SQLite backend
  */
 
-import type { Student, Goal, Session, Activity, Evaluation, School, Teacher, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Reminder } from '../types';
+import type { Student, Goal, Session, Activity, Evaluation, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Reminder } from '../types';
 import { api } from './api';
 
 const DEFAULT_SCHOOL = 'Noble Academy';
@@ -282,9 +282,9 @@ export const getSchoolByName = async (name: string): Promise<School | undefined>
 };
 
 // Teachers
-export const getTeachers = async (): Promise<Teacher[]> => {
+export const getTeachers = async (school?: string): Promise<Teacher[]> => {
   try {
-    return await api.teachers.getAll();
+    return await api.teachers.getAll(school);
   } catch (error) {
     console.error('Failed to fetch teachers:', error);
     return [];
@@ -315,6 +315,50 @@ export const updateTeacher = async (id: string, updates: Partial<Teacher>): Prom
 
 export const deleteTeacher = async (id: string): Promise<void> => {
   await api.teachers.delete(id);
+};
+
+// Case Managers
+export const getCaseManagers = async (school?: string): Promise<CaseManager[]> => {
+  try {
+    return await api.caseManagers.getAll(school);
+  } catch (error) {
+    console.error('Failed to fetch case managers:', error);
+    return [];
+  }
+};
+
+export const saveCaseManagers = async (caseManagers: CaseManager[]): Promise<void> => {
+  for (const caseManager of caseManagers) {
+    try {
+      await api.caseManagers.update(caseManager.id, caseManager);
+    } catch {
+      try {
+        await api.caseManagers.create(caseManager);
+      } catch (error) {
+        console.error(`Failed to save case manager ${caseManager.id}:`, error);
+      }
+    }
+  }
+};
+
+export const addCaseManager = async (caseManager: CaseManager): Promise<void> => {
+  console.log('[storage-api] Adding case manager:', caseManager);
+  try {
+    // The API expects the full object including id and dateCreated
+    await api.caseManagers.create(caseManager);
+    console.log('[storage-api] Case manager added successfully');
+  } catch (error) {
+    console.error('[storage-api] Error adding case manager:', error);
+    throw error;
+  }
+};
+
+export const updateCaseManager = async (id: string, updates: Partial<CaseManager>): Promise<void> => {
+  await api.caseManagers.update(id, updates);
+};
+
+export const deleteCaseManager = async (id: string): Promise<void> => {
+  await api.caseManagers.delete(id);
 };
 
 // Export/Import

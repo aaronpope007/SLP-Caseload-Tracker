@@ -5,7 +5,7 @@
  * Set VITE_API_URL in your .env file or it defaults to http://localhost:3001
  */
 
-import type { Student, Goal, Session, Activity, Evaluation, School, Teacher, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Reminder } from '../types';
+import type { Student, Goal, Session, Activity, Evaluation, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Reminder } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
@@ -188,8 +188,8 @@ export const api = {
 
   // Teachers
   teachers: {
-    getAll: () => 
-      request<Teacher[]>('/teachers'),
+    getAll: (school?: string) => 
+      request<Teacher[]>(`/teachers${school ? `?school=${encodeURIComponent(school)}` : ''}`),
     getById: (id: string) => 
       request<Teacher>(`/teachers/${id}`),
     create: (teacher: Omit<Teacher, 'id' | 'dateCreated'>) => 
@@ -204,6 +204,28 @@ export const api = {
       }),
     delete: (id: string) => 
       request<{ message: string }>(`/teachers/${id}`, {
+        method: 'DELETE',
+      }),
+  },
+
+  // Case Managers
+  caseManagers: {
+    getAll: (school?: string) => 
+      request<CaseManager[]>(`/case-managers${school ? `?school=${encodeURIComponent(school)}` : ''}`),
+    getById: (id: string) => 
+      request<CaseManager>(`/case-managers/${id}`),
+    create: (caseManager: CaseManager) => 
+      request<{ id: string; message: string }>('/case-managers', {
+        method: 'POST',
+        body: JSON.stringify(caseManager),
+      }),
+    update: (id: string, updates: Partial<CaseManager>) => 
+      request<{ message: string }>(`/case-managers/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      }),
+    delete: (id: string) => 
+      request<{ message: string }>(`/case-managers/${id}`, {
         method: 'DELETE',
       }),
   },

@@ -19,13 +19,14 @@ import {
   UnfoldMore as UnfoldMoreIcon,
   UnfoldLess as UnfoldLessIcon,
 } from '@mui/icons-material';
-import type { Student, Teacher } from '../types';
+import type { Student, Teacher, CaseManager } from '../types';
 import {
   getStudents,
   addStudent,
   updateStudent,
   deleteStudent,
   getTeachers,
+  getCaseManagers,
 } from '../utils/storage-api';
 import { generateId } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
@@ -40,6 +41,7 @@ export const Students = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [caseManagers, setCaseManagers] = useState<CaseManager[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -66,6 +68,7 @@ export const Students = () => {
     status: 'active' as 'active' | 'discharged',
     school: '',
     teacherId: '',
+    caseManagerId: '',
     iepDate: '',
     annualReviewDate: '',
     progressReportFrequency: 'quarterly' as 'quarterly' | 'annual',
@@ -85,6 +88,7 @@ export const Students = () => {
       formData.status !== initialFormData.status ||
       formData.school !== initialFormData.school ||
       formData.teacherId !== initialFormData.teacherId ||
+      formData.caseManagerId !== initialFormData.caseManagerId ||
       formData.iepDate !== initialFormData.iepDate ||
       formData.annualReviewDate !== initialFormData.annualReviewDate ||
       formData.progressReportFrequency !== initialFormData.progressReportFrequency
@@ -123,11 +127,28 @@ export const Students = () => {
   };
 
   const loadTeachers = async () => {
+    if (!selectedSchool) {
+      setTeachers([]);
+      return;
+    }
     try {
-      const allTeachers = await getTeachers();
+      const allTeachers = await getTeachers(selectedSchool);
       setTeachers(allTeachers);
     } catch (error) {
       console.error('Failed to load teachers:', error);
+    }
+  };
+
+  const loadCaseManagers = async () => {
+    if (!selectedSchool) {
+      setCaseManagers([]);
+      return;
+    }
+    try {
+      const allCaseManagers = await getCaseManagers(selectedSchool);
+      setCaseManagers(allCaseManagers);
+    } catch (error) {
+      console.error('Failed to load case managers:', error);
     }
   };
 
@@ -170,6 +191,7 @@ export const Students = () => {
   useEffect(() => {
     loadStudents();
     loadTeachers();
+    loadCaseManagers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSchool]);
 
@@ -187,9 +209,12 @@ export const Students = () => {
   }, [filteredStudents]);
 
   const handleOpenDialog = async (student?: Student, prefillName?: string) => {
-    // Ensure teachers are loaded before opening dialog
+    // Ensure teachers and case managers are loaded before opening dialog
     if (teachers.length === 0) {
       await loadTeachers();
+    }
+    if (caseManagers.length === 0) {
+      await loadCaseManagers();
     }
     
     let newFormData: typeof formData;
@@ -198,6 +223,10 @@ export const Students = () => {
       // Validate teacherId exists in teachers list, if not reset to empty
       const teacherId = student.teacherId && teachers.find(t => t.id === student.teacherId) 
         ? student.teacherId 
+        : '';
+      // Validate caseManagerId exists in case managers list, if not reset to empty
+      const caseManagerId = student.caseManagerId && caseManagers.find(cm => cm.id === student.caseManagerId)
+        ? student.caseManagerId
         : '';
       
       newFormData = {
@@ -209,6 +238,7 @@ export const Students = () => {
         status: student.status,
         school: student.school || selectedSchool,
         teacherId: teacherId,
+        caseManagerId: caseManagerId,
         iepDate: student.iepDate ? student.iepDate.split('T')[0] : '',
         annualReviewDate: student.annualReviewDate ? student.annualReviewDate.split('T')[0] : '',
         progressReportFrequency: student.progressReportFrequency || 'quarterly',
@@ -224,6 +254,7 @@ export const Students = () => {
         status: 'active' as 'active' | 'discharged',
         school: selectedSchool,
         teacherId: '',
+        caseManagerId: '',
         iepDate: '',
         annualReviewDate: '',
         progressReportFrequency: 'quarterly' as 'quarterly' | 'annual',
@@ -282,6 +313,7 @@ export const Students = () => {
         status: formData.status,
         school: formData.school || selectedSchool,
         teacherId: formData.teacherId || undefined,
+        caseManagerId: formData.caseManagerId || undefined,
         iepDate: formData.iepDate ? new Date(formData.iepDate).toISOString() : undefined,
         annualReviewDate: formData.annualReviewDate ? new Date(formData.annualReviewDate).toISOString() : undefined,
         progressReportFrequency: formData.progressReportFrequency,
@@ -456,6 +488,8 @@ export const Students = () => {
                             exceptionality: '',
                             status: 'active',
                             school: selectedSchool,
+                            teacherId: '',
+                            caseManagerId: '',
                           });
                           setEditingStudent(null);
                           setDialogOpen(true);
@@ -475,6 +509,7 @@ export const Students = () => {
               <StudentAccordionCard
                 student={student}
                 teachers={teachers}
+                caseManagers={caseManagers}
                 expanded={expandedStudents.has(student.id)}
                 onToggleExpand={() => handleAccordionChange(student.id)}
                 onEdit={handleOpenDialog}
@@ -596,6 +631,31 @@ export const Students = () => {
               {teachers.map((teacher) => (
                 <option key={teacher.id} value={teacher.id}>
                   {teacher.name}{teacher.grade ? ` - ${teacher.grade}` : ''}
+                </option>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="Case Manager (Optional)"
+              fullWidth
+              value={formData.caseManagerId || ''}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  caseManagerId: e.target.value,
+                })
+              }
+              SelectProps={{
+                native: true,
+              }}
+              InputLabelProps={{
+                shrink: true,
+              }}
+            >
+              <option value="">None</option>
+              {caseManagers.map((caseManager) => (
+                <option key={caseManager.id} value={caseManager.id}>
+                  {caseManager.name}{caseManager.role ? ` - ${caseManager.role}` : ''}
                 </option>
               ))}
             </TextField>

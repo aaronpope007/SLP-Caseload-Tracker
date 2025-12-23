@@ -17,19 +17,19 @@ import {
   UnfoldMore as UnfoldMoreIcon,
   UnfoldLess as UnfoldLessIcon,
 } from '@mui/icons-material';
-import type { Teacher } from '../types';
+import type { CaseManager } from '../types';
 import {
-  getTeachers,
-  addTeacher,
-  updateTeacher,
-  deleteTeacher,
+  getCaseManagers,
+  addCaseManager,
+  updateCaseManager,
+  deleteCaseManager,
 } from '../utils/storage-api';
 import { generateId } from '../utils/helpers';
 import { useConfirm } from '../hooks/useConfirm';
 import { useDirty } from '../hooks/useDirty';
 import { useSchool } from '../context/SchoolContext';
 import { SearchBar } from '../components/SearchBar';
-import { TeacherAccordionCard } from '../components/TeacherAccordionCard';
+import { CaseManagerAccordionCard } from '../components/CaseManagerAccordionCard';
 
 // Format phone number as user types: (XXX) XXX-XXXX
 const formatPhoneNumber = (value: string): string => {
@@ -59,14 +59,14 @@ const formatPhoneForDisplay = (phoneNumber: string | undefined): string => {
   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
 };
 
-export const Teachers = () => {
+export const CaseManagers = () => {
   const { selectedSchool, availableSchools } = useSchool();
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
-  const [filteredTeachers, setFilteredTeachers] = useState<Teacher[]>([]);
+  const [caseManagers, setCaseManagers] = useState<CaseManager[]>([]);
+  const [filteredCaseManagers, setFilteredCaseManagers] = useState<CaseManager[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [expandedTeachers, setExpandedTeachers] = useState<Set<string>>(new Set());
+  const [expandedCaseManagers, setExpandedCaseManagers] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
+  const [editingCaseManager, setEditingCaseManager] = useState<CaseManager | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     title: string;
@@ -81,7 +81,7 @@ export const Teachers = () => {
 
   const [formData, setFormData] = useState({
     name: '',
-    grade: '',
+    role: '',
     school: '',
     phoneNumber: '',
     emailAddress: '',
@@ -94,7 +94,7 @@ export const Teachers = () => {
     if (!dialogOpen) return false;
     return (
       formData.name !== initialFormData.name ||
-      formData.grade !== initialFormData.grade ||
+      formData.role !== initialFormData.role ||
       formData.school !== initialFormData.school ||
       formData.phoneNumber !== initialFormData.phoneNumber ||
       formData.emailAddress !== initialFormData.emailAddress
@@ -104,25 +104,26 @@ export const Teachers = () => {
   // Use dirty hook to block navigation
   const { blocker, reset: resetDirty } = useDirty({
     isDirty: isFormDirty(),
-    message: 'You have unsaved changes to this teacher. Are you sure you want to leave?',
+    message: 'You have unsaved changes to this case manager. Are you sure you want to leave?',
   });
 
-  const filterTeachers = () => {
-    let filtered = teachers;
+  const filterCaseManagers = () => {
+    console.log(`[CaseManagers] filterCaseManagers called. caseManagers.length: ${caseManagers.length}, searchTerm: "${searchTerm}"`);
+    let filtered = caseManagers;
     
     // Filter by search term if provided
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       const searchDigits = stripPhoneFormatting(term);
       filtered = filtered.filter(
-        (t) =>
-          t.name.toLowerCase().includes(term) ||
-          t.grade.toLowerCase().includes(term) ||
-          (t.phoneNumber && (
-            t.phoneNumber.toLowerCase().includes(term) ||
-            stripPhoneFormatting(t.phoneNumber).includes(searchDigits)
+        (cm) =>
+          cm.name.toLowerCase().includes(term) ||
+          cm.role.toLowerCase().includes(term) ||
+          (cm.phoneNumber && (
+            cm.phoneNumber.toLowerCase().includes(term) ||
+            stripPhoneFormatting(cm.phoneNumber).includes(searchDigits)
           )) ||
-          (t.emailAddress && t.emailAddress.toLowerCase().includes(term))
+          (cm.emailAddress && cm.emailAddress.toLowerCase().includes(term))
       );
     }
     
@@ -133,62 +134,97 @@ export const Teachers = () => {
       return nameA.localeCompare(nameB);
     });
     
-    setFilteredTeachers(filtered);
+    console.log(`[CaseManagers] Setting filteredCaseManagers with ${filtered.length} items`);
+    setFilteredCaseManagers(filtered);
   };
 
-  const loadTeachers = async () => {
+  const loadCaseManagers = async () => {
     if (!selectedSchool) {
-      setTeachers([]);
+      console.log('[CaseManagers] No school selected, clearing case managers');
+      setCaseManagers([]);
       return;
     }
     try {
-      const allTeachers = await getTeachers(selectedSchool);
+      console.log(`[CaseManagers] Loading case managers for school: "${selectedSchool}"`);
+      const allCaseManagers = await getCaseManagers(selectedSchool);
+      console.log(`[CaseManagers] Received ${allCaseManagers.length} case managers from API`);
+      if (allCaseManagers.length > 0) {
+        console.log(`[CaseManagers] First case manager:`, allCaseManagers[0]);
+        console.log(`[CaseManagers] All received case managers:`, allCaseManagers.map(cm => ({
+          id: cm.id,
+          name: cm.name,
+          school: cm.school,
+          schoolMatch: cm.school?.trim().toLowerCase() === selectedSchool?.trim().toLowerCase()
+        })));
+      } else {
+        console.log(`[CaseManagers] No case managers received. Selected school: "${selectedSchool}"`);
+      }
       // Sort alphabetically by name
-      const sortedTeachers = [...allTeachers].sort((a, b) => {
+      const sortedCaseManagers = [...allCaseManagers].sort((a, b) => {
         const nameA = a.name.toLowerCase();
         const nameB = b.name.toLowerCase();
         return nameA.localeCompare(nameB);
       });
-      setTeachers(sortedTeachers);
+      console.log(`[CaseManagers] Setting caseManagers state with ${sortedCaseManagers.length} items`);
+      setCaseManagers(sortedCaseManagers);
     } catch (error) {
-      console.error('Failed to load teachers:', error);
+      console.error('[CaseManagers] Failed to load case managers:', error);
     }
   };
 
   useEffect(() => {
-    loadTeachers();
+    loadCaseManagers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSchool]);
 
   useEffect(() => {
-    filterTeachers();
+    console.log(`[CaseManagers] caseManagers state changed. Length: ${caseManagers.length}`);
+    if (caseManagers.length > 0) {
+      console.log(`[CaseManagers] caseManagers in state:`, caseManagers.map(cm => ({
+        id: cm.id,
+        name: cm.name,
+        school: cm.school
+      })));
+    }
+    filterCaseManagers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, teachers]);
+  }, [searchTerm, caseManagers]);
 
   useEffect(() => {
-    // Clean up expanded state for teachers that are no longer visible
-    setExpandedTeachers((prev) => {
-      const visibleIds = new Set(filteredTeachers.map((t) => t.id));
+    console.log(`[CaseManagers] filteredCaseManagers state changed. Length: ${filteredCaseManagers.length}`);
+    if (filteredCaseManagers.length > 0) {
+      console.log(`[CaseManagers] filteredCaseManagers in state:`, filteredCaseManagers.map(cm => ({
+        id: cm.id,
+        name: cm.name,
+        school: cm.school
+      })));
+    }
+  }, [filteredCaseManagers]);
+
+  useEffect(() => {
+    // Clean up expanded state for case managers that are no longer visible
+    setExpandedCaseManagers((prev) => {
+      const visibleIds = new Set(filteredCaseManagers.map((cm) => cm.id));
       return new Set([...prev].filter((id) => visibleIds.has(id)));
     });
-  }, [filteredTeachers]);
+  }, [filteredCaseManagers]);
 
-  const handleOpenDialog = (teacher?: Teacher) => {
+  const handleOpenDialog = (caseManager?: CaseManager) => {
     let newFormData: typeof formData;
-    if (teacher) {
-      setEditingTeacher(teacher);
+    if (caseManager) {
+      setEditingCaseManager(caseManager);
       newFormData = {
-        name: teacher.name,
-        grade: teacher.grade,
-        school: teacher.school || selectedSchool,
-        phoneNumber: teacher.phoneNumber ? formatPhoneForDisplay(teacher.phoneNumber) : '',
-        emailAddress: teacher.emailAddress || '',
+        name: caseManager.name,
+        role: caseManager.role,
+        school: caseManager.school || selectedSchool,
+        phoneNumber: caseManager.phoneNumber ? formatPhoneForDisplay(caseManager.phoneNumber) : '',
+        emailAddress: caseManager.emailAddress || '',
       };
     } else {
-      setEditingTeacher(null);
+      setEditingCaseManager(null);
       newFormData = {
         name: '',
-        grade: '',
+        role: '',
         school: selectedSchool,
         phoneNumber: '',
         emailAddress: '',
@@ -208,20 +244,25 @@ export const Teachers = () => {
         cancelText: 'Cancel',
         onConfirm: () => {
           setDialogOpen(false);
-          setEditingTeacher(null);
+          setEditingCaseManager(null);
           resetDirty();
         },
       });
     } else {
       setDialogOpen(false);
-      setEditingTeacher(null);
+      setEditingCaseManager(null);
       resetDirty();
     }
   };
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
-      alert('Please enter a teacher name');
+      alert('Please enter a case manager name');
+      return;
+    }
+
+    if (!formData.role.trim()) {
+      alert('Please enter a role (e.g., SPED, SLP, OT, PT)');
       return;
     }
 
@@ -240,70 +281,84 @@ export const Teachers = () => {
     }
 
     try {
-      const teacherData = {
+      const caseManagerData = {
         name: formData.name.trim(),
-        grade: formData.grade.trim(),
+        role: formData.role.trim(),
         school: formData.school.trim() || selectedSchool,
         phoneNumber: phoneDigits || undefined,
         emailAddress: emailTrimmed || undefined,
       };
 
-      if (editingTeacher) {
-        await updateTeacher(editingTeacher.id, teacherData);
+      console.log('[CaseManagers] Saving case manager:', caseManagerData);
+      console.log('[CaseManagers] Selected school:', selectedSchool);
+
+      if (editingCaseManager) {
+        console.log('[CaseManagers] Updating existing case manager:', editingCaseManager.id);
+        await updateCaseManager(editingCaseManager.id, caseManagerData);
       } else {
-        await addTeacher({
+        const newCaseManager = {
           id: generateId(),
-          ...teacherData,
+          ...caseManagerData,
           dateCreated: new Date().toISOString(),
-        });
+        };
+        console.log('[CaseManagers] Creating new case manager:', newCaseManager);
+        await addCaseManager(newCaseManager);
       }
-      await loadTeachers();
+      
+      console.log('[CaseManagers] Case manager saved, reloading list...');
+      await loadCaseManagers();
+      console.log('[CaseManagers] List reloaded');
       resetDirty();
       setDialogOpen(false);
-      setEditingTeacher(null);
+      setEditingCaseManager(null);
     } catch (error: any) {
-      console.error('Failed to save teacher:', error);
+      console.error('[CaseManagers] Failed to save case manager:', error);
+      console.error('[CaseManagers] Error details:', {
+        message: error?.message,
+        stack: error?.stack,
+        response: error?.response
+      });
       const errorMessage = error?.message || 'Unknown error';
-      alert(`Failed to save teacher: ${errorMessage}\n\nMake sure the API server is running on http://localhost:3001`);
+      alert(`Failed to save case manager: ${errorMessage}\n\nMake sure the API server is running on http://localhost:3001`);
     }
   };
 
-  const handleAccordionChange = (teacherId: string) => {
-    setExpandedTeachers((prev) => {
+  const handleAccordionChange = (caseManagerId: string) => {
+    setExpandedCaseManagers((prev) => {
       const newSet = new Set(prev);
-      if (newSet.has(teacherId)) {
-        newSet.delete(teacherId);
+      if (newSet.has(caseManagerId)) {
+        newSet.delete(caseManagerId);
       } else {
-        newSet.add(teacherId);
+        newSet.add(caseManagerId);
       }
       return newSet;
     });
   };
 
   const handleExpandAll = () => {
-    if (expandedTeachers.size === filteredTeachers.length) {
+    if (expandedCaseManagers.size === filteredCaseManagers.length) {
       // Collapse all
-      setExpandedTeachers(new Set());
+      setExpandedCaseManagers(new Set());
     } else {
       // Expand all
-      setExpandedTeachers(new Set(filteredTeachers.map((t) => t.id)));
+      setExpandedCaseManagers(new Set(filteredCaseManagers.map((cm) => cm.id)));
     }
   };
 
   const handleDelete = (id: string) => {
-    const teacher = teachers.find(t => t.id === id);
+    const caseManager = caseManagers.find(cm => cm.id === id);
     setConfirmDialog({
       open: true,
-      title: 'Delete Teacher',
-      message: `Are you sure you want to delete ${teacher?.name || 'this teacher'}? This action cannot be undone.`,
+      title: 'Delete Case Manager',
+      message: `Are you sure you want to delete ${caseManager?.name || 'this case manager'}? This action cannot be undone.`,
       onConfirm: async () => {
         try {
-          await deleteTeacher(id);
-          await loadTeachers();
+          await deleteCaseManager(id);
+          await loadCaseManagers();
           setConfirmDialog({ ...confirmDialog, open: false });
         } catch (error) {
-          console.error('Failed to delete teacher:', error);
-          alert('Failed to delete teacher. Please try again.');
+          console.error('Failed to delete case manager:', error);
+          alert('Failed to delete case manager. Please try again.');
         }
       },
     });
@@ -312,17 +367,59 @@ export const Teachers = () => {
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-        <Typography variant="h4" component="h1">
-          Teachers
-        </Typography>
+        <Box>
+          <Typography variant="h4" component="h1">
+            Case Managers
+          </Typography>
+          {selectedSchool && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              Showing case managers for: <strong>{selectedSchool}</strong>
+            </Typography>
+          )}
+        </Box>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          {filteredTeachers.length > 0 && (
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={async () => {
+              // Debug: Load all case managers without school filter
+              try {
+                console.log('[Debug] Current selected school:', selectedSchool);
+                const all = await getCaseManagers();
+                console.log('[Debug] All case managers (no filter):', all);
+                const withSchool = await getCaseManagers(selectedSchool);
+                console.log('[Debug] Case managers for selected school:', withSchool);
+                
+                // Also try the debug endpoint
+                try {
+                  const debugResponse = await fetch('http://localhost:3001/api/case-managers/debug/all');
+                  const debugData = await debugResponse.json();
+                  console.log('[Debug] Debug endpoint response:', debugData);
+                  
+                  let message = `Found ${all.length} case managers total (no filter).\n`;
+                  message += `Found ${withSchool.length} for school "${selectedSchool}".\n`;
+                  message += `Debug endpoint shows ${debugData.count} in database.\n\n`;
+                  message += `Check browser console (F12) for full details.`;
+                  alert(message);
+                } catch (debugError) {
+                  console.error('[Debug] Error calling debug endpoint:', debugError);
+                  alert(`Found ${all.length} case managers total. Check console for details.`);
+                }
+              } catch (error) {
+                console.error('[Debug] Error loading all case managers:', error);
+                alert('Error loading case managers. Check console.');
+              }
+            }}
+          >
+            Debug: Load All
+          </Button>
+          {filteredCaseManagers.length > 0 && (
             <Button
               variant="outlined"
-              startIcon={expandedTeachers.size === filteredTeachers.length ? <UnfoldLessIcon /> : <UnfoldMoreIcon />}
+              startIcon={expandedCaseManagers.size === filteredCaseManagers.length ? <UnfoldLessIcon /> : <UnfoldMoreIcon />}
               onClick={handleExpandAll}
             >
-              {expandedTeachers.size === filteredTeachers.length ? 'Collapse All' : 'Expand All'}
+              {expandedCaseManagers.size === filteredCaseManagers.length ? 'Collapse All' : 'Expand All'}
             </Button>
           )}
           <Button
@@ -330,7 +427,7 @@ export const Teachers = () => {
             startIcon={<AddIcon />}
             onClick={() => handleOpenDialog()}
           >
-            Add Teacher
+            Add Case Manager
           </Button>
         </Box>
       </Box>
@@ -339,32 +436,32 @@ export const Teachers = () => {
         <SearchBar
           value={searchTerm}
           onChange={setSearchTerm}
-          placeholder="Search teachers by name, grade, phone, or email..."
+          placeholder="Search case managers by name, role, phone, or email..."
         />
       </Box>
 
       <Grid container spacing={2}>
-        {filteredTeachers.length === 0 ? (
+        {filteredCaseManagers.length === 0 ? (
           <Grid item xs={12}>
             <Card>
               <CardContent>
                 <Box sx={{ textAlign: 'center', py: 2 }}>
                   <Typography color="text.secondary" gutterBottom>
                     {searchTerm
-                      ? `No teachers found matching "${searchTerm}"`
-                      : 'No teachers added yet. Click "Add Teacher" to get started.'}
+                      ? `No case managers found matching "${searchTerm}"`
+                      : 'No case managers added yet. Click "Add Case Manager" to get started.'}
                   </Typography>
                 </Box>
               </CardContent>
             </Card>
           </Grid>
         ) : (
-          filteredTeachers.map((teacher) => (
-            <Grid item xs={12} sm={6} md={4} key={teacher.id}>
-              <TeacherAccordionCard
-                teacher={teacher}
-                expanded={expandedTeachers.has(teacher.id)}
-                onToggleExpand={() => handleAccordionChange(teacher.id)}
+          filteredCaseManagers.map((caseManager) => (
+            <Grid item xs={12} sm={6} md={4} key={caseManager.id}>
+              <CaseManagerAccordionCard
+                caseManager={caseManager}
+                expanded={expandedCaseManagers.has(caseManager.id)}
+                onToggleExpand={() => handleAccordionChange(caseManager.id)}
                 onEdit={handleOpenDialog}
                 onDelete={handleDelete}
                 formatPhoneForDisplay={formatPhoneForDisplay}
@@ -376,7 +473,7 @@ export const Teachers = () => {
 
       <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>
-          {editingTeacher ? 'Edit Teacher' : 'Add New Teacher'}
+          {editingCaseManager ? 'Edit Case Manager' : 'Add New Case Manager'}
         </DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
@@ -389,10 +486,13 @@ export const Teachers = () => {
               autoFocus
             />
             <TextField
-              label="Grade"
+              label="Role"
               fullWidth
-              value={formData.grade}
-              onChange={(e) => setFormData({ ...formData, grade: e.target.value })}
+              value={formData.role}
+              onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+              required
+              placeholder="e.g., SPED, SLP, OT, PT"
+              helperText="Enter the case manager's role (e.g., SPED, SLP, OT, PT)"
             />
             <TextField
               select
@@ -433,7 +533,7 @@ export const Teachers = () => {
               type="email"
               value={formData.emailAddress}
               onChange={(e) => setFormData({ ...formData, emailAddress: e.target.value })}
-              placeholder="teacher@example.com"
+              placeholder="casemanager@example.com"
               helperText={formData.emailAddress.trim() && !formData.emailAddress.includes('@')
                 ? 'Email must contain an @ sign'
                 : ''}
@@ -446,7 +546,7 @@ export const Teachers = () => {
           <Button 
             onClick={handleSave} 
             variant="contained" 
-            disabled={!formData.name.trim()}
+            disabled={!formData.name.trim() || !formData.role.trim()}
           >
             Save
           </Button>
@@ -488,7 +588,7 @@ export const Teachers = () => {
           <DialogTitle>Unsaved Changes</DialogTitle>
           <DialogContent>
             <Typography>
-              You have unsaved changes to this teacher. Are you sure you want to leave?
+              You have unsaved changes to this case manager. Are you sure you want to leave?
             </Typography>
           </DialogContent>
           <DialogActions>

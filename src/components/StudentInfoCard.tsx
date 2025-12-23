@@ -12,6 +12,7 @@ interface StudentInfoCardProps {
   grade: string;
   status: 'active' | 'discharged';
   concerns: string[];
+  caseManager?: { name: string; role: string };
 }
 
 export const StudentInfoCard = ({
@@ -20,6 +21,7 @@ export const StudentInfoCard = ({
   grade,
   status,
   concerns,
+  caseManager,
 }: StudentInfoCardProps) => {
   return (
     <Card sx={{ mb: 3 }}>
@@ -28,7 +30,8 @@ export const StudentInfoCard = ({
           <Box>
             <Typography variant="h4">{name}</Typography>
             <Typography color="text.secondary">
-              Age: {age} | Grade: {grade}
+              Age: {age > 0 ? age : 'n/a'} | Grade: {grade}
+              {caseManager ? ` | Case Manager: ${caseManager.name} (${caseManager.role})` : ''}
             </Typography>
           </Box>
           <Chip

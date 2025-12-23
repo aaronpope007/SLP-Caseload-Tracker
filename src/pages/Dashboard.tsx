@@ -31,7 +31,6 @@ import { useSchool } from '../context/SchoolContext';
 import type { Student, ProgressReport, DueDateItem } from '../types';
 
 export const Dashboard = () => {
-  console.log('Dashboard component rendering');
   const navigate = useNavigate();
   const theme = useTheme();
   const { selectedSchool } = useSchool();
@@ -50,7 +49,6 @@ export const Dashboard = () => {
   const [loading, setLoading] = useState(true);
 
   const loadDashboardData = async () => {
-    console.log('Dashboard useEffect running');
     setLoading(true);
     try {
       const schoolStudents = await getStudents(selectedSchool);
@@ -109,8 +107,6 @@ export const Dashboard = () => {
       action: () => navigate('/students'),
     },
   ];
-
-  console.log('Dashboard render - stats:', stats);
   
   return (
     <Box sx={{ backgroundColor: theme.palette.background.default, minHeight: '100%' }}>
