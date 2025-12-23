@@ -29,6 +29,7 @@ interface RecentSessionData {
 interface GoalCardProps {
   goal: Goal;
   subGoals: Goal[];
+  allGoals: Goal[]; // All goals needed for hierarchy building
   getRecentPerformance: (goalId: string) => { recentSessions: RecentSessionData[]; average: number | null };
   onEdit: (goal: Goal) => void;
   onDelete: (goalId: string) => void;
@@ -41,6 +42,7 @@ interface GoalCardProps {
 export const GoalCard: React.FC<GoalCardProps> = ({
   goal,
   subGoals,
+  allGoals,
   getRecentPerformance,
   onEdit,
   onDelete,
@@ -131,9 +133,11 @@ export const GoalCard: React.FC<GoalCardProps> = ({
         </Typography>
         <SubGoalList
           subGoals={subGoals}
+          allGoals={allGoals}
           getRecentPerformance={getRecentPerformance}
           onEdit={onEditSubGoal}
           onDuplicate={onDuplicateSubGoal}
+          onAddSubGoal={onAddSubGoal}
         />
         <Button
           size="small"

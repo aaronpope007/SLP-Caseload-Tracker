@@ -66,6 +66,79 @@ export const GoalHierarchy = ({
 }: GoalHierarchyProps) => {
   const { parentGoals, subGoalsByParent, orphanGoals } = hierarchy;
 
+  // Recursive function to render a goal and all its nested sub-goals
+  const renderGoalWithChildren = (goal: Goal, depth: number = 0): JSX.Element => {
+    const subGoals = subGoalsByParent.get(goal.id) || [];
+    const hasSubGoals = subGoals.length > 0;
+    const recentAvg = getRecentPerformance(goal.id, studentId);
+    const chipProps = getGoalProgressChipProps(recentAvg, goal.target);
+    
+    // Calculate indentation based on depth (each level adds 2 units of padding)
+    const paddingLeft = depth * 2;
+    const borderLeftWidth = depth > 0 ? '2px solid' : 'none';
+    
+    return (
+      <Box key={goal.id} sx={{ pl: paddingLeft, borderLeft: borderLeftWidth, borderColor: 'divider' }}>
+        {hasSubGoals ? (
+          <Accordion defaultExpanded={false}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', gap: 1 }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={goalsTargeted.includes(goal.id)}
+                      onChange={() => onGoalToggle(goal.id, studentId)}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  }
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                      <Typography variant={isCompact ? 'body2' : 'body1'}>{goal.description}</Typography>
+                      <Chip
+                        label={recentAvg !== null ? `${Math.round(recentAvg)}%` : 'not started'}
+                        size="small"
+                        color={chipProps.color}
+                        variant={chipProps.variant}
+                      />
+                    </Box>
+                  }
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </Box>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {subGoals.map((subGoal) => renderGoalWithChildren(subGoal, depth + 1))}
+              </Box>
+            </AccordionDetails>
+          </Accordion>
+        ) : (
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={goalsTargeted.includes(goal.id)}
+                onChange={() => onGoalToggle(goal.id, studentId)}
+              />
+            }
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                <Typography variant={isCompact ? 'body2' : 'body1'}>{goal.description}</Typography>
+                <Chip
+                  label={recentAvg !== null ? `${Math.round(recentAvg)}%` : 'not started'}
+                  size="small"
+                  color={chipProps.color}
+                  variant={chipProps.variant}
+                />
+              </Box>
+            }
+          />
+        )}
+        {/* Performance data for goal */}
+        {renderPerformanceData(goal)}
+      </Box>
+    );
+  };
+
   // Helper function to render a single goal item (used for both parent and subgoals)
   const renderGoalItem = (goal: Goal, isSubgoal: boolean = false) => {
     const recentAvg = getRecentPerformance(goal.id, studentId);
@@ -274,54 +347,8 @@ export const GoalHierarchy = ({
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-      {/* Render parent goals with accordions for subgoals */}
-      {parentGoals.map((parentGoal) => {
-        const subGoals = subGoalsByParent.get(parentGoal.id) || [];
-        const hasSubGoals = subGoals.length > 0;
-        const recentAvg = getRecentPerformance(parentGoal.id, studentId);
-        const chipProps = getGoalProgressChipProps(recentAvg, parentGoal.target);
-        
-        return (
-          <Box key={parentGoal.id}>
-            <Accordion defaultExpanded={false}>
-              <AccordionSummary expandIcon={hasSubGoals ? <ExpandMoreIcon /> : null}>
-                <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={goalsTargeted.includes(parentGoal.id)}
-                        onChange={() => onGoalToggle(parentGoal.id, studentId)}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    }
-                    label={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                        <span>{parentGoal.description}</span>
-                        <Chip
-                          label={recentAvg !== null ? `${Math.round(recentAvg)}%` : 'not started'}
-                          size="small"
-                          color={chipProps.color}
-                          variant={chipProps.variant}
-                        />
-                      </Box>
-                    }
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                </Box>
-              </AccordionSummary>
-              {hasSubGoals && (
-                <AccordionDetails>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    {subGoals.map((subGoal) => renderGoalItem(subGoal, true))}
-                  </Box>
-                </AccordionDetails>
-              )}
-            </Accordion>
-            {/* Performance data for parent goal (outside accordion) */}
-            {renderPerformanceData(parentGoal)}
-          </Box>
-        );
-      })}
+      {/* Render parent goals with recursive sub-goal rendering */}
+      {parentGoals.map((parentGoal) => renderGoalWithChildren(parentGoal, 0))}
       
       {/* Render orphan goals (goals without parent/child relationships) in accordions for consistent layout */}
       {orphanGoals.map((goal) => {

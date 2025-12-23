@@ -12,6 +12,7 @@ import {
 import { AutoAwesome as AutoAwesomeIcon } from '@mui/icons-material';
 import type { Goal } from '../types';
 import { getUniqueDomains } from '../utils/goalTemplates';
+import { getGoalDepth, getGoalPath } from '../utils/goalHierarchy';
 
 interface GoalFormData {
   description: string;
@@ -27,7 +28,7 @@ interface GoalFormDialogProps {
   open: boolean;
   editingGoal: Goal | null;
   formData: GoalFormData;
-  mainGoals: Goal[];
+  allGoals: Goal[]; // All goals (including sub-goals) for parent selection
   selectedTemplate: { title: string } | null;
   onClose: () => void;
   onSave: () => void;
@@ -39,21 +40,55 @@ export const GoalFormDialog: React.FC<GoalFormDialogProps> = ({
   open,
   editingGoal,
   formData,
-  mainGoals,
+  allGoals,
   selectedTemplate,
   onClose,
   onSave,
   onFormDataChange,
   onOpenGoalSuggestions,
 }) => {
+  // Filter out the goal being edited (can't be its own parent)
+  const availableParentGoals = allGoals.filter(g => !editingGoal || g.id !== editingGoal.id);
+  
+  // Helper to format goal display with hierarchy
+  const formatGoalOption = (goal: Goal): string => {
+    const depth = getGoalDepth(goal, allGoals);
+    const indent = '  '.repeat(depth); // 2 spaces per level
+    const path = getGoalPath(goal, allGoals);
+    
+    if (depth === 0) {
+      return goal.description;
+    } else if (depth === 1) {
+      return `  └─ ${goal.description}`;
+    } else {
+      return `${indent}└─ ${goal.description}`;
+    }
+  };
+
+  // Determine dialog title based on hierarchy level
+  const getDialogTitle = (): string => {
+    if (editingGoal) return 'Edit Goal';
+    
+    if (formData.parentGoalId) {
+      const parent = allGoals.find(g => g.id === formData.parentGoalId);
+      if (parent) {
+        const parentDepth = getGoalDepth(parent, allGoals);
+        if (parentDepth === 0) {
+          return 'Adding New Sub-goal';
+        } else {
+          return 'Adding New Sub-sub-goal';
+        }
+      }
+      return 'Adding New Sub-goal';
+    }
+    
+    return 'Add New Goal';
+  };
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        {editingGoal 
-          ? 'Edit Goal' 
-          : formData.parentGoalId 
-          ? 'Adding New Subgoal' 
-          : 'Add New Goal'}
+        {getDialogTitle()}
       </DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
@@ -122,15 +157,15 @@ export const GoalFormDialog: React.FC<GoalFormDialogProps> = ({
               select
               value={formData.parentGoalId}
               onChange={(e) => onFormDataChange({ parentGoalId: e.target.value })}
-              helperText="Optional - for sub-goals"
+              helperText="Optional - select a parent goal to create a sub-goal or sub-sub-goal"
               InputLabelProps={{
                 shrink: true,
               }}
               SelectProps={{ native: true }}
             >
               <option value="">None (Main Goal)</option>
-              {mainGoals.map(goal => (
-                <option key={goal.id} value={goal.id}>{goal.description}</option>
+              {availableParentGoals.map(goal => (
+                <option key={goal.id} value={goal.id}>{formatGoalOption(goal)}</option>
               ))}
             </TextField>
           )}

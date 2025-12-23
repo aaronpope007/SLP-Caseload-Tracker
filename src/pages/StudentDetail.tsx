@@ -595,7 +595,7 @@ export const StudentDetail = () => {
         open={dialogOpen}
         editingGoal={editingGoal}
         formData={formData}
-        mainGoals={goals.filter(g => !g.parentGoalId)}
+        allGoals={goals}
         selectedTemplate={selectedTemplate}
         onClose={handleCloseDialog}
         onSave={handleSave}

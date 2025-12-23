@@ -90,6 +90,7 @@ export const GoalsList = ({
                   <GoalCard
                     goal={goal}
                     subGoals={subs}
+                    allGoals={goals}
                     getRecentPerformance={getRecentPerformance}
                     onEdit={onEdit}
                     onDelete={onDelete}
@@ -119,6 +120,7 @@ export const GoalsList = ({
                   <GoalCard
                     goal={goal}
                     subGoals={subs}
+                    allGoals={goals}
                     getRecentPerformance={getRecentPerformance}
                     onEdit={onEdit}
                     onDelete={onDelete}
