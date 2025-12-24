@@ -62,6 +62,8 @@ import {
   getSessions,
   getGoals,
   addSession,
+  updateSession,
+  deleteSession,
   getSchoolByName,
 } from '../utils/storage-api';
 import { generateId, toLocalDateTimeString, fromLocalDateTimeString } from '../utils/helpers';
@@ -83,6 +85,7 @@ interface CalendarEvent {
   hasConflict: boolean;
   isLogged: boolean;
   isMissed: boolean;
+  matchedSessions?: Session[]; // Store matched sessions for logged events
 }
 
 export const SessionCalendar = () => {
@@ -467,6 +470,18 @@ export const SessionCalendar = () => {
         }
       }
       
+      // Collect all matched sessions (for group sessions, get all sessions in the group)
+      let matchedSessions: Session[] = [];
+      if (isLogged && matchedSession) {
+        if (matchedSession.groupSessionId) {
+          // Get all sessions in the group
+          matchedSessions = sessions.filter(s => s.groupSessionId === matchedSession!.groupSessionId);
+        } else {
+          // Single session
+          matchedSessions = [matchedSession];
+        }
+      }
+      
       // Check if the matched session (or any session in the group) is marked as missed
       if (isLogged && matchedSession) {
         // For single student sessions, check the matched session directly
@@ -487,6 +502,7 @@ export const SessionCalendar = () => {
       
       event.isLogged = isLogged;
       event.isMissed = isMissed;
+      event.matchedSessions = matchedSessions.length > 0 ? matchedSessions : undefined;
     });
 
     return events;
@@ -722,59 +738,167 @@ export const SessionCalendar = () => {
     const scheduled = scheduledSessions.find(s => s.id === event.scheduledSessionId);
     if (!scheduled) return;
 
-    // Create date with the event's date and start time
-    const [startHour, startMinute] = event.startTime.split(':').map(Number);
-    const sessionDate = new Date(event.date);
-    sessionDate.setHours(startHour, startMinute, 0, 0);
-
-    // Calculate end time
-    let endTimeDate: Date;
-    if (event.endTime) {
-      const [endHour, endMinute] = event.endTime.split(':').map(Number);
-      endTimeDate = new Date(event.date);
-      endTimeDate.setHours(endHour, endMinute, 0, 0);
+    // Check if this is an existing logged session
+    if (event.isLogged && event.matchedSessions && event.matchedSessions.length > 0) {
+      // Load existing session(s) for editing
+      const matchedSessions = event.matchedSessions;
+      
+      if (matchedSessions.length === 1) {
+        // Single session - edit it
+        const session = matchedSessions[0];
+        setEditingSession(session);
+        setEditingGroupSessionId(null);
+        
+        const startDate = new Date(session.date);
+        const endDate = session.endTime ? new Date(session.endTime) : null;
+        
+        // Filter out achieved goals when editing
+        const activeGoalsTargeted = session.goalsTargeted.filter(gId => {
+          const goal = goals.find(g => g.id === gId);
+          return goal && !isGoalAchieved(goal);
+        });
+        
+        const newFormData = {
+          studentIds: [session.studentId],
+          date: toLocalDateTimeString(startDate),
+          endTime: endDate ? toLocalDateTimeString(endDate) : '',
+          goalsTargeted: activeGoalsTargeted,
+          activitiesUsed: session.activitiesUsed,
+          performanceData: session.performanceData
+            .filter(p => activeGoalsTargeted.includes(p.goalId))
+            .map(p => ({
+              goalId: p.goalId,
+              studentId: session.studentId,
+              accuracy: p.accuracy?.toString(),
+              correctTrials: p.correctTrials,
+              incorrectTrials: p.incorrectTrials,
+              notes: p.notes,
+              cuingLevels: p.cuingLevels,
+            })),
+          notes: session.notes,
+          isDirectServices: session.isDirectServices === true,
+          indirectServicesNotes: session.indirectServicesNotes || '',
+          missedSession: session.missedSession || false,
+          selectedSubjectiveStatements: session.selectedSubjectiveStatements || [],
+          customSubjective: session.customSubjective || '',
+        };
+        
+        setSessionFormData(newFormData);
+      } else {
+        // Group session - edit all sessions in the group
+        const firstSession = matchedSessions[0];
+        setEditingSession(null);
+        setEditingGroupSessionId(firstSession.groupSessionId || null);
+        
+        // Collect all student IDs from the matched sessions
+        const allStudentIds = matchedSessions.map(s => s.studentId);
+        
+        // Use the first session's date/time (they should be the same for group sessions)
+        const startDate = new Date(firstSession.date);
+        const endDate = firstSession.endTime ? new Date(firstSession.endTime) : null;
+        
+        // Collect all goals and performance data from all sessions
+        const allGoalsTargeted = new Set<string>();
+        const allPerformanceData: typeof sessionFormData.performanceData = [];
+        
+        matchedSessions.forEach(session => {
+          session.goalsTargeted.forEach(gId => {
+            const goal = goals.find(g => g.id === gId);
+            if (goal && !isGoalAchieved(goal)) {
+              allGoalsTargeted.add(gId);
+            }
+          });
+          
+          session.performanceData.forEach(p => {
+            const goal = goals.find(g => g.id === p.goalId);
+            if (goal && !isGoalAchieved(goal)) {
+              allPerformanceData.push({
+                goalId: p.goalId,
+                studentId: session.studentId,
+                accuracy: p.accuracy?.toString(),
+                correctTrials: p.correctTrials,
+                incorrectTrials: p.incorrectTrials,
+                notes: p.notes,
+                cuingLevels: p.cuingLevels,
+              });
+            }
+          });
+        });
+        
+        const newFormData = {
+          studentIds: allStudentIds,
+          date: toLocalDateTimeString(startDate),
+          endTime: endDate ? toLocalDateTimeString(endDate) : '',
+          goalsTargeted: Array.from(allGoalsTargeted),
+          activitiesUsed: firstSession.activitiesUsed, // Use first session's activities (should be same for all)
+          performanceData: allPerformanceData,
+          notes: firstSession.notes, // Use first session's notes (should be same for all)
+          isDirectServices: firstSession.isDirectServices === true,
+          indirectServicesNotes: firstSession.indirectServicesNotes || '',
+          missedSession: matchedSessions.some(s => s.missedSession === true),
+          selectedSubjectiveStatements: firstSession.selectedSubjectiveStatements || [],
+          customSubjective: firstSession.customSubjective || '',
+        };
+        
+        setSessionFormData(newFormData);
+      }
     } else {
-      // Default to 30 minutes later
-      endTimeDate = new Date(sessionDate.getTime() + 30 * 60000);
+      // Create new session from scheduled event
+      // Create date with the event's date and start time
+      const [startHour, startMinute] = event.startTime.split(':').map(Number);
+      const sessionDate = new Date(event.date);
+      sessionDate.setHours(startHour, startMinute, 0, 0);
+
+      // Calculate end time
+      let endTimeDate: Date;
+      if (event.endTime) {
+        const [endHour, endMinute] = event.endTime.split(':').map(Number);
+        endTimeDate = new Date(event.date);
+        endTimeDate.setHours(endHour, endMinute, 0, 0);
+      } else {
+        // Default to 30 minutes later
+        endTimeDate = new Date(sessionDate.getTime() + 30 * 60000);
+      }
+
+      // Filter goals to only active ones for the selected students
+      const activeGoals = scheduled.goalsTargeted.filter(gId => {
+        const goal = goals.find(g => g.id === gId);
+        return goal && !isGoalAchieved(goal) && scheduled.studentIds.includes(goal.studentId);
+      });
+
+      // Initialize performance data for each student-goal combination
+      const performanceData = activeGoals.flatMap(goalId => {
+        return scheduled.studentIds
+          .filter(studentId => {
+            const goal = goals.find(g => g.id === goalId);
+            return goal?.studentId === studentId;
+          })
+          .map(studentId => ({
+            goalId,
+            studentId,
+            notes: '',
+            cuingLevels: [] as ('independent' | 'verbal' | 'visual' | 'tactile' | 'physical')[],
+          }));
+      });
+
+      setSessionFormData({
+        studentIds: scheduled.studentIds,
+        date: toLocalDateTimeString(sessionDate),
+        endTime: toLocalDateTimeString(endTimeDate),
+        goalsTargeted: activeGoals,
+        activitiesUsed: [],
+        performanceData,
+        notes: scheduled.notes || '',
+        isDirectServices: scheduled.isDirectServices !== false,
+        indirectServicesNotes: '',
+        missedSession: false,
+        selectedSubjectiveStatements: [],
+        customSubjective: '',
+      });
+      setEditingSession(null);
+      setEditingGroupSessionId(null);
     }
-
-    // Filter goals to only active ones for the selected students
-    const activeGoals = scheduled.goalsTargeted.filter(gId => {
-      const goal = goals.find(g => g.id === gId);
-      return goal && !isGoalAchieved(goal) && scheduled.studentIds.includes(goal.studentId);
-    });
-
-    // Initialize performance data for each student-goal combination
-    const performanceData = activeGoals.flatMap(goalId => {
-      return scheduled.studentIds
-        .filter(studentId => {
-          const goal = goals.find(g => g.id === goalId);
-          return goal?.studentId === studentId;
-        })
-        .map(studentId => ({
-          goalId,
-          studentId,
-          notes: '',
-          cuingLevels: [] as ('independent' | 'verbal' | 'visual' | 'tactile' | 'physical')[],
-        }));
-    });
-
-    setSessionFormData({
-      studentIds: scheduled.studentIds,
-      date: toLocalDateTimeString(sessionDate),
-      endTime: toLocalDateTimeString(endTimeDate),
-      goalsTargeted: activeGoals,
-      activitiesUsed: [],
-      performanceData,
-      notes: scheduled.notes || '',
-      isDirectServices: scheduled.isDirectServices !== false,
-      indirectServicesNotes: '',
-      missedSession: false,
-      selectedSubjectiveStatements: [],
-      customSubjective: '',
-    });
-    setEditingSession(null);
-    setEditingGroupSessionId(null);
+    
     setCurrentEvent(event); // Store the event so we can link the session when saving
     setSessionDialogOpen(true);
   };
@@ -787,6 +911,43 @@ export const SessionCalendar = () => {
     setCurrentEvent(null);
   };
 
+  const handleDeleteSession = () => {
+    if (!editingSession && !editingGroupSessionId) {
+      return;
+    }
+
+    const sessionCount = editingSession ? 1 : sessions.filter(s => s.groupSessionId === editingGroupSessionId).length;
+    const sessionText = sessionCount === 1 ? 'session' : 'sessions';
+    
+    confirm({
+      title: 'Delete Session',
+      message: `Are you sure you want to delete this ${sessionText}? This action cannot be undone.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          if (editingSession) {
+            // Delete single session
+            await deleteSession(editingSession.id);
+          } else if (editingGroupSessionId) {
+            // Delete all sessions in the group
+            const groupSessions = sessions.filter(s => s.groupSessionId === editingGroupSessionId);
+            for (const session of groupSessions) {
+              await deleteSession(session.id);
+            }
+          }
+
+          // Reload data to update calendar
+          await loadData();
+          handleCloseSessionDialog();
+        } catch (error) {
+          console.error('Failed to delete session:', error);
+          alert('Failed to delete session. Please try again.');
+        }
+      },
+    });
+  };
+
   const handleSaveSession = async () => {
     if (sessionFormData.studentIds.length === 0) {
       alert('Please select at least one student');
@@ -794,13 +955,13 @@ export const SessionCalendar = () => {
     }
 
     try {
-      const groupSessionId = sessionFormData.studentIds.length > 1 ? generateId() : undefined;
-
-      for (const studentId of sessionFormData.studentIds) {
-        const studentGoals = goals.filter(g => g.studentId === studentId && !isGoalAchieved(g)).map(g => g.id);
+      // Check if we're editing existing session(s)
+      if (editingSession) {
+        // Editing a single session
+        const studentGoals = goals.filter(g => g.studentId === editingSession.studentId && !isGoalAchieved(g)).map(g => g.id);
         const studentGoalsTargeted = sessionFormData.goalsTargeted.filter(gId => studentGoals.includes(gId));
         const studentPerformanceData = sessionFormData.performanceData
-          .filter(p => p.studentId === studentId && studentGoalsTargeted.includes(p.goalId))
+          .filter(p => p.studentId === editingSession.studentId && studentGoalsTargeted.includes(p.goalId))
           .map((p) => ({
             goalId: p.goalId,
             accuracy: p.accuracy ? parseFloat(p.accuracy) : undefined,
@@ -810,9 +971,7 @@ export const SessionCalendar = () => {
             cuingLevels: p.cuingLevels,
           }));
 
-        const sessionData: Session = {
-          id: generateId(),
-          studentId: studentId,
+        const updates: Partial<Session> = {
           date: fromLocalDateTimeString(sessionFormData.date),
           endTime: sessionFormData.endTime ? fromLocalDateTimeString(sessionFormData.endTime) : undefined,
           goalsTargeted: studentGoalsTargeted,
@@ -821,17 +980,87 @@ export const SessionCalendar = () => {
           notes: sessionFormData.notes,
           isDirectServices: sessionFormData.isDirectServices === true,
           indirectServicesNotes: sessionFormData.indirectServicesNotes || undefined,
-          groupSessionId: groupSessionId,
           missedSession: sessionFormData.isDirectServices ? (sessionFormData.missedSession || false) : undefined,
           selectedSubjectiveStatements: sessionFormData.selectedSubjectiveStatements.length > 0 ? sessionFormData.selectedSubjectiveStatements : undefined,
           customSubjective: sessionFormData.customSubjective.trim() || undefined,
-          scheduledSessionId: currentEvent?.scheduledSessionId, // Link to the scheduled session
         };
 
-        await addSession(sessionData);
+        await updateSession(editingSession.id, updates);
+      } else if (editingGroupSessionId) {
+        // Editing a group session - update all sessions in the group
+        const groupSessions = sessions.filter(s => s.groupSessionId === editingGroupSessionId);
+        
+        for (const existingSession of groupSessions) {
+          const studentGoals = goals.filter(g => g.studentId === existingSession.studentId && !isGoalAchieved(g)).map(g => g.id);
+          const studentGoalsTargeted = sessionFormData.goalsTargeted.filter(gId => studentGoals.includes(gId));
+          const studentPerformanceData = sessionFormData.performanceData
+            .filter(p => p.studentId === existingSession.studentId && studentGoalsTargeted.includes(p.goalId))
+            .map((p) => ({
+              goalId: p.goalId,
+              accuracy: p.accuracy ? parseFloat(p.accuracy) : undefined,
+              correctTrials: p.correctTrials,
+              incorrectTrials: p.incorrectTrials,
+              notes: p.notes,
+              cuingLevels: p.cuingLevels,
+            }));
+
+          const updates: Partial<Session> = {
+            date: fromLocalDateTimeString(sessionFormData.date),
+            endTime: sessionFormData.endTime ? fromLocalDateTimeString(sessionFormData.endTime) : undefined,
+            goalsTargeted: studentGoalsTargeted,
+            activitiesUsed: sessionFormData.activitiesUsed,
+            performanceData: studentPerformanceData,
+            notes: sessionFormData.notes,
+            isDirectServices: sessionFormData.isDirectServices === true,
+            indirectServicesNotes: sessionFormData.indirectServicesNotes || undefined,
+            missedSession: sessionFormData.isDirectServices ? (sessionFormData.missedSession || false) : undefined,
+            selectedSubjectiveStatements: sessionFormData.selectedSubjectiveStatements.length > 0 ? sessionFormData.selectedSubjectiveStatements : undefined,
+            customSubjective: sessionFormData.customSubjective.trim() || undefined,
+          };
+
+          await updateSession(existingSession.id, updates);
+        }
+      } else {
+        // Creating new session(s)
+        const groupSessionId = sessionFormData.studentIds.length > 1 ? generateId() : undefined;
+
+        for (const studentId of sessionFormData.studentIds) {
+          const studentGoals = goals.filter(g => g.studentId === studentId && !isGoalAchieved(g)).map(g => g.id);
+          const studentGoalsTargeted = sessionFormData.goalsTargeted.filter(gId => studentGoals.includes(gId));
+          const studentPerformanceData = sessionFormData.performanceData
+            .filter(p => p.studentId === studentId && studentGoalsTargeted.includes(p.goalId))
+            .map((p) => ({
+              goalId: p.goalId,
+              accuracy: p.accuracy ? parseFloat(p.accuracy) : undefined,
+              correctTrials: p.correctTrials,
+              incorrectTrials: p.incorrectTrials,
+              notes: p.notes,
+              cuingLevels: p.cuingLevels,
+            }));
+
+          const sessionData: Session = {
+            id: generateId(),
+            studentId: studentId,
+            date: fromLocalDateTimeString(sessionFormData.date),
+            endTime: sessionFormData.endTime ? fromLocalDateTimeString(sessionFormData.endTime) : undefined,
+            goalsTargeted: studentGoalsTargeted,
+            activitiesUsed: sessionFormData.activitiesUsed,
+            performanceData: studentPerformanceData,
+            notes: sessionFormData.notes,
+            isDirectServices: sessionFormData.isDirectServices === true,
+            indirectServicesNotes: sessionFormData.indirectServicesNotes || undefined,
+            groupSessionId: groupSessionId,
+            missedSession: sessionFormData.isDirectServices ? (sessionFormData.missedSession || false) : undefined,
+            selectedSubjectiveStatements: sessionFormData.selectedSubjectiveStatements.length > 0 ? sessionFormData.selectedSubjectiveStatements : undefined,
+            customSubjective: sessionFormData.customSubjective.trim() || undefined,
+            scheduledSessionId: currentEvent?.scheduledSessionId, // Link to the scheduled session
+          };
+
+          await addSession(sessionData);
+        }
       }
 
-      // Reload data to show the new session and update calendar colors
+      // Reload data to show the updated/new session and update calendar colors
       await loadData();
       handleCloseSessionDialog();
     } catch (error) {
@@ -1743,6 +1972,7 @@ export const SessionCalendar = () => {
         studentSearch={studentSearch}
         onClose={handleCloseSessionDialog}
         onSave={handleSaveSession}
+        onDelete={handleDeleteSession}
         onFormDataChange={(updates) => setSessionFormData({ ...sessionFormData, ...updates })}
         onStudentSearchChange={setStudentSearch}
         onStudentToggle={handleStudentToggle}

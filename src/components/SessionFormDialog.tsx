@@ -19,6 +19,7 @@ import {
 import {
   AccessTime as AccessTimeIcon,
   ExpandMore as ExpandMoreIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import type { Student, Goal, Session } from '../types';
 import { formatDate, toLocalDateTimeString } from '../utils/helpers';
@@ -62,6 +63,7 @@ interface SessionFormDialogProps {
   studentSearch: string;
   onClose: () => void;
   onSave: () => void;
+  onDelete?: () => void;
   onFormDataChange: (data: Partial<SessionFormData>) => void;
   onStudentSearchChange: (value: string) => void;
   onStudentToggle: (studentId: string) => void;
@@ -84,6 +86,7 @@ export const SessionFormDialog = ({
   studentSearch,
   onClose,
   onSave,
+  onDelete,
   onFormDataChange,
   onStudentSearchChange,
   onStudentToggle,
@@ -442,6 +445,16 @@ export const SessionFormDialog = ({
         </Box>
       </DialogContent>
       <DialogActions>
+        {(editingSession || editingGroupSessionId) && onDelete && (
+          <Button
+            onClick={onDelete}
+            color="error"
+            startIcon={<DeleteIcon />}
+            sx={{ mr: 'auto' }}
+          >
+            Delete
+          </Button>
+        )}
         <Button onClick={onClose}>Cancel</Button>
         <Button
           onClick={onSave}
