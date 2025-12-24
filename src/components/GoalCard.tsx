@@ -48,6 +48,10 @@ interface GoalCardProps {
   onEditSubGoal: (goal: Goal) => void;
   onDuplicateSubGoal: (goal: Goal) => void;
   onCopySubtree?: (goal: Goal) => void;
+  expanded?: boolean;
+  onExpandedChange?: (goalId: string, expanded: boolean) => void;
+  expandedSubGoals?: Set<string>;
+  onSubGoalExpandedChange?: (goalId: string, expanded: boolean) => void;
 }
 
 export const GoalCard: React.FC<GoalCardProps> = ({
@@ -62,6 +66,10 @@ export const GoalCard: React.FC<GoalCardProps> = ({
   onEditSubGoal,
   onDuplicateSubGoal,
   onCopySubtree,
+  expanded = false,
+  onExpandedChange,
+  expandedSubGoals = new Set(),
+  onSubGoalExpandedChange,
 }) => {
   const theme = useTheme();
   const recent = getRecentPerformance(goal.id);
@@ -117,6 +125,8 @@ export const GoalCard: React.FC<GoalCardProps> = ({
         onCopySubtree={onCopySubtree}
         onDelete={onDelete}
         onAddSubGoal={onAddSubGoal}
+        expandedSubGoals={expandedSubGoals}
+        onSubGoalExpandedChange={onSubGoalExpandedChange}
       />
       <Button
         size="small"
@@ -177,7 +187,10 @@ export const GoalCard: React.FC<GoalCardProps> = ({
     <Card sx={{ borderLeft: `4px solid ${borderColor}` }}>
       <CardContent sx={{ p: hasSubGoals ? 0 : 2, '&:last-child': { pb: hasSubGoals ? 0 : 2 } }}>
         {hasSubGoals ? (
-          <Accordion defaultExpanded={true}>
+          <Accordion 
+            expanded={expanded}
+            onChange={(_, isExpanded) => onExpandedChange?.(goal.id, isExpanded)}
+          >
             <AccordionSummary expandIcon={<AccordionExpandIcon />} sx={{ px: 2, py: 1 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', pr: 2 }}>
                 <Typography variant="h6">{goal.description}</Typography>

@@ -1,9 +1,16 @@
+import { useState, useMemo } from 'react';
 import {
   Grid,
   Typography,
   Card,
   CardContent,
+  Button,
+  Box,
 } from '@mui/material';
+import {
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
+} from '@mui/icons-material';
 import type { Goal } from '../types';
 import { GoalCard } from './GoalCard';
 
@@ -37,6 +44,99 @@ export const GoalsList = ({
   onDuplicateSubGoal,
   onCopySubtree,
 }: GoalsListProps) => {
+  // State to track expanded goals and subgoals
+  const [expandedGoals, setExpandedGoals] = useState<Set<string>>(new Set());
+  const [expandedSubGoals, setExpandedSubGoals] = useState<Set<string>>(new Set());
+
+  // Get all goal IDs that have subgoals (for expand all functionality)
+  // Separate main goals and subgoals
+  const { mainGoalIdsWithSubGoals, subGoalIdsWithSubGoals } = useMemo(() => {
+    const mainGoals = goals.filter(g => !g.parentGoalId);
+    const subGoals = goals.filter(g => g.parentGoalId);
+    const subGoalsByParent = new Map<string, Goal[]>();
+    subGoals.forEach(sub => {
+      const parentId = sub.parentGoalId!;
+      if (!subGoalsByParent.has(parentId)) {
+        subGoalsByParent.set(parentId, []);
+      }
+      subGoalsByParent.get(parentId)!.push(sub);
+    });
+    
+    const mainIds = new Set<string>();
+    const subIds = new Set<string>();
+    
+    // Add main goals that have subgoals
+    mainGoals.forEach(goal => {
+      if ((subGoalsByParent.get(goal.id) || []).length > 0) {
+        mainIds.add(goal.id);
+      }
+    });
+    
+    // Recursively find all subgoals that have their own subgoals
+    const getAllNestedSubGoalIds = (goalId: string): string[] => {
+      const result: string[] = [];
+      const directSubs = subGoalsByParent.get(goalId) || [];
+      directSubs.forEach(sub => {
+        const nestedSubs = subGoalsByParent.get(sub.id) || [];
+        if (nestedSubs.length > 0) {
+          result.push(sub.id);
+          result.push(...getAllNestedSubGoalIds(sub.id));
+        }
+      });
+      return result;
+    };
+    
+    mainGoals.forEach(goal => {
+      const nestedIds = getAllNestedSubGoalIds(goal.id);
+      nestedIds.forEach(id => subIds.add(id));
+    });
+    
+    return { mainGoalIdsWithSubGoals: mainIds, subGoalIdsWithSubGoals: subIds };
+  }, [goals]);
+
+  const handleGoalExpandedChange = (goalId: string, expanded: boolean) => {
+    setExpandedGoals(prev => {
+      const newSet = new Set(prev);
+      if (expanded) {
+        newSet.add(goalId);
+      } else {
+        newSet.delete(goalId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSubGoalExpandedChange = (goalId: string, expanded: boolean) => {
+    setExpandedSubGoals(prev => {
+      const newSet = new Set(prev);
+      if (expanded) {
+        newSet.add(goalId);
+      } else {
+        newSet.delete(goalId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleExpandAll = () => {
+    const allMainExpanded = mainGoalIdsWithSubGoals.size > 0 && 
+      Array.from(mainGoalIdsWithSubGoals).every(id => expandedGoals.has(id));
+    const allSubExpanded = subGoalIdsWithSubGoals.size > 0 && 
+      Array.from(subGoalIdsWithSubGoals).every(id => expandedSubGoals.has(id));
+    const allExpanded = (mainGoalIdsWithSubGoals.size === 0 || allMainExpanded) &&
+      (subGoalIdsWithSubGoals.size === 0 || allSubExpanded);
+    
+    if (allExpanded) {
+      // Collapse all
+      setExpandedGoals(new Set());
+      setExpandedSubGoals(new Set());
+    } else {
+      // Expand all
+      setExpandedGoals(new Set(mainGoalIdsWithSubGoals));
+      setExpandedSubGoals(new Set(subGoalIdsWithSubGoals));
+    }
+  };
+
   if (goals.length === 0) {
     return (
       <Grid item xs={12}>
@@ -82,8 +182,29 @@ export const GoalsList = ({
     domainA.localeCompare(domainB)
   );
 
+  const allMainExpanded = mainGoalIdsWithSubGoals.size > 0 && 
+    Array.from(mainGoalIdsWithSubGoals).every(id => expandedGoals.has(id));
+  const allSubExpanded = subGoalIdsWithSubGoals.size > 0 && 
+    Array.from(subGoalIdsWithSubGoals).every(id => expandedSubGoals.has(id));
+  const allExpanded = (mainGoalIdsWithSubGoals.size === 0 || allMainExpanded) &&
+    (subGoalIdsWithSubGoals.size === 0 || allSubExpanded);
+
   return (
     <>
+      {(mainGoalIdsWithSubGoals.size > 0 || subGoalIdsWithSubGoals.size > 0) && (
+        <Grid item xs={12}>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+            <Button
+              variant="outlined"
+              startIcon={allExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+              onClick={handleExpandAll}
+              size="small"
+            >
+              {allExpanded ? 'Collapse All' : 'Expand All'}
+            </Button>
+          </Box>
+        </Grid>
+      )}
       {sortedDomains.map(([domain, domainGoals]) => (
         <Grid item xs={12} key={domain}>
           <Typography variant="h6" sx={{ mb: 1, mt: 1, fontSize: '1.5rem', fontWeight: 'bold' }}>
@@ -106,6 +227,10 @@ export const GoalsList = ({
                     onEditSubGoal={onEditSubGoal}
                     onDuplicateSubGoal={onDuplicateSubGoal}
                     onCopySubtree={onCopySubtree}
+                    expanded={expandedGoals.has(goal.id)}
+                    onExpandedChange={handleGoalExpandedChange}
+                    expandedSubGoals={expandedSubGoals}
+                    onSubGoalExpandedChange={handleSubGoalExpandedChange}
                   />
                 </Grid>
               );
@@ -137,6 +262,10 @@ export const GoalsList = ({
                     onEditSubGoal={onEditSubGoal}
                     onDuplicateSubGoal={onDuplicateSubGoal}
                     onCopySubtree={onCopySubtree}
+                    expanded={expandedGoals.has(goal.id)}
+                    onExpandedChange={handleGoalExpandedChange}
+                    expandedSubGoals={expandedSubGoals}
+                    onSubGoalExpandedChange={handleSubGoalExpandedChange}
                   />
                 </Grid>
               );

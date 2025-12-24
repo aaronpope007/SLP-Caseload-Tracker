@@ -28,6 +28,8 @@ interface SubGoalListProps {
   onAddSubGoal: (parentGoalId: string) => void;
   depth?: number; // Track nesting depth for recursive rendering
   label?: string; // Custom label for the list (e.g., "Sub-goals", "Breakdown-sub-goals")
+  expandedSubGoals?: Set<string>;
+  onSubGoalExpandedChange?: (goalId: string, expanded: boolean) => void;
 }
 
 const NestedGoalItem: React.FC<{
@@ -41,7 +43,10 @@ const NestedGoalItem: React.FC<{
   onDelete?: (goalId: string) => void;
   onAddSubGoal: (parentGoalId: string) => void;
   depth: number;
-  defaultExpanded?: boolean;
+  expanded?: boolean;
+  onExpandedChange?: (goalId: string, expanded: boolean) => void;
+  expandedSubGoals?: Set<string>;
+  onSubGoalExpandedChange?: (goalId: string, expanded: boolean) => void;
 }> = ({
   goal,
   allGoals,
@@ -53,7 +58,10 @@ const NestedGoalItem: React.FC<{
   onDelete,
   onAddSubGoal,
   depth,
-  defaultExpanded = false,
+  expanded = false,
+  onExpandedChange,
+  expandedSubGoals = new Set(),
+  onSubGoalExpandedChange,
 }) => {
   const recent = getRecentPerformance(goal.id);
   const subGoals = hierarchy.subGoalsByParent.get(goal.id) || [];
@@ -103,6 +111,8 @@ const NestedGoalItem: React.FC<{
           onAddSubGoal={onAddSubGoal}
           depth={depth + 1}
           label={`Breakdown-sub-goals (${subGoals.length})`}
+          expandedSubGoals={expandedSubGoals}
+          onSubGoalExpandedChange={onSubGoalExpandedChange}
         />
       )}
       
@@ -122,7 +132,10 @@ const NestedGoalItem: React.FC<{
   return (
     <Box sx={{ mb: depth === 0 ? 2 : 1 }}>
       {hasSubGoals ? (
-        <Accordion defaultExpanded={defaultExpanded}>
+        <Accordion 
+          expanded={expanded}
+          onChange={(_, isExpanded) => onExpandedChange?.(goal.id, isExpanded)}
+        >
           <AccordionSummary expandIcon={<AccordionExpandIcon />}>
             <Typography variant="body2" sx={{ fontSize: depth > 0 ? '0.875rem' : 'inherit' }}>
               {goal.description}
@@ -155,6 +168,8 @@ export const SubGoalList: React.FC<SubGoalListProps> = ({
   onAddSubGoal,
   depth = 0,
   label,
+  expandedSubGoals = new Set(),
+  onSubGoalExpandedChange,
 }) => {
   if (subGoals.length === 0) return null;
 
@@ -190,7 +205,8 @@ export const SubGoalList: React.FC<SubGoalListProps> = ({
           onDelete={onDelete}
           onAddSubGoal={onAddSubGoal}
           depth={depth}
-          defaultExpanded={depth === 0}
+          expanded={expandedSubGoals.has(sub.id)}
+          onExpandedChange={onSubGoalExpandedChange}
         />
       ))}
     </Box>
