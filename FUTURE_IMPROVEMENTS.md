@@ -6,10 +6,10 @@ This document tracks potential improvements and feature ideas for the SLP Caselo
 
 ## 📋 Clinical Documentation & Compliance
 
-- [ ] **SOAP Note Generation**
-  - Auto-generate SOAP notes from session data
-  - Template system for Subjective/Objective/Assessment/Plan sections
-  - Customizable templates by setting/context
+- [x] **SOAP Note Generation**
+  - Auto-generate SOAP notes from session data ✅
+  - Template system for Subjective/Objective/Assessment/Plan sections ✅
+  - Customizable templates by setting/context ✅
 
 - [ ] **Treatment Authorization Tracking**
   - Track insurance authorizations per student

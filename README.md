@@ -52,6 +52,12 @@ A comprehensive web application designed to help Speech-Language Pathologists (S
   - Session notes
 - **Performance Tracking**: Track accuracy both manually and through trial counting with automatic calculation
 - **Activity Documentation**: Keep track of activities used in each session
+- **Cuing Levels**: Track cuing/prompting levels (independent, verbal, visual, tactile, physical) for each goal
+- **Direct/Indirect Services**: Categorize sessions as Direct Services or Indirect Services with separate note fields
+- **Group Sessions**: Link multiple sessions together for group therapy tracking
+- **Session Scheduling**: Schedule recurring or one-time sessions with calendar integration
+- **Session Calendar**: Visual calendar view of scheduled and completed sessions
+- **Missed Session Tracking**: Mark sessions as missed for attendance tracking
 
 ### 📈 Progress Tracking
 - **Visual Analytics**: 
@@ -63,6 +69,11 @@ A comprehensive web application designed to help Speech-Language Pathologists (S
   - Select specific goals to include in combined notes
   - Uses Google Gemini AI to create clinically appropriate documentation
 - **Performance History**: Track performance trends over time with detailed session-by-session data
+- **Progress Report Scheduling**: 
+  - Auto-schedule quarterly and annual progress reports based on IEP dates
+  - Customizable report templates with sections
+  - Track report status (scheduled, in-progress, completed, overdue)
+  - Reminders for upcoming report deadlines
 
 ### 💡 AI-Powered Treatment Ideas
 - **Smart Activity Generation**: Generate creative, age-appropriate treatment activities using Google Gemini AI
@@ -73,13 +84,74 @@ A comprehensive web application designed to help Speech-Language Pathologists (S
 - **Activity Library**: Save generated or manually created activities
 - **Favorites System**: Mark frequently used activities as favorites for quick access
 - **Activity Details**: Each activity includes descriptions, materials needed, and step-by-step instructions
+- **Treatment Recommendations**: Get AI-powered personalized treatment recommendations based on goal progress and session history
+- **IEP Goal Suggestions**: AI-assisted creation of comprehensive annual IEP goals from assessment data
+
+### 📋 Clinical Documentation
+- **SOAP Notes**: 
+  - Generate professional SOAP (Subjective, Objective, Assessment, Plan) notes from session data
+  - Customizable templates with common subjective statements
+  - Edit and save SOAP notes for each session
+  - View and manage all SOAP notes in a dedicated page
+- **Documentation Templates**: Create and manage reusable templates for various documentation needs
+- **Timesheet Notes**: Generate timesheet notes for billing and time tracking purposes
+
+### 🏫 School & Team Management
+- **Schools Management**: 
+  - Create and manage multiple schools
+  - Track school hours and teletherapy settings
+  - Filter data by school for multi-school caseloads
+- **Teachers Management**: 
+  - Track teachers associated with each school
+  - Link students to their classroom teachers
+  - Store teacher contact information
+- **Case Managers**: 
+  - Manage case managers (SPED, SLP, OT, PT, etc.) by school
+  - Link students to case managers
+  - Store contact information for team collaboration
+
+### 📅 Scheduling & Reminders
+- **Session Calendar**: 
+  - Visual calendar view of all sessions
+  - Schedule recurring weekly sessions
+  - Schedule specific date sessions
+  - Cancel individual session instances
+  - Drag-and-drop session management
+- **Due Date Items**: 
+  - Track important deadlines (IEP meetings, evaluations, reports, etc.)
+  - Categorize by type (IEP, Evaluation, Meeting, Report, Other)
+  - Set priority levels
+  - Mark items as completed
+- **Smart Reminders**: 
+  - Automatic reminders for goal reviews
+  - Re-evaluation due date alerts
+  - Report deadline notifications
+  - Annual review prep reminders
+  - Dashboard widget showing upcoming reminders
+
+### 🔬 Evaluations
+- **Evaluation Tracking**: 
+  - Track evaluation types (Initial, 3-year, Adding Academic, etc.)
+  - Store areas of concern and assessment results
+  - Track qualification status and report completion
+  - Link evaluations to students and teachers
+  - Track meeting dates and due dates
+
+### ⏱️ Time Tracking
+- **Time Tracking Dashboard**: 
+  - View all sessions and evaluations in a unified timeline
+  - Filter by date range, school, and service type
+  - Generate timesheet notes for billing
+  - Track direct and indirect service time
+  - Save and reuse timesheet notes
 
 ### ⚙️ Data Management
 - **Export Functionality**: 
   - Export all data as JSON for full backup
   - Export as CSV for spreadsheet compatibility
 - **Import Functionality**: Restore data from previously exported JSON files
-- **Local Storage**: All data is stored locally in your browser for privacy and security
+- **Local Storage**: All data is stored locally in your browser for privacy and security (default)
+- **SQLite Backend**: Optional Express.js + SQLite backend for more robust data storage
 - **Settings**: Configure Google Gemini API key for AI features
 
 ## Technology Stack
@@ -202,16 +274,28 @@ SLP Caseload Tracker/
 │   │   ├── Students.tsx
 │   │   ├── StudentDetail.tsx
 │   │   ├── Sessions.tsx
+│   │   ├── SessionCalendar.tsx
 │   │   ├── Progress.tsx
+│   │   ├── ProgressReports.tsx
 │   │   ├── TreatmentIdeas.tsx
-│   │   └── DocumentationTemplates.tsx
+│   │   ├── DocumentationTemplates.tsx
+│   │   ├── SOAPNotes.tsx
+│   │   ├── TimeTracking.tsx
+│   │   ├── Evaluations.tsx
+│   │   ├── Schools.tsx
+│   │   ├── Teachers.tsx
+│   │   ├── CaseManagers.tsx
+│   │   └── DueDateItems.tsx
 │   ├── types/            # TypeScript type definitions
 │   │   └── index.ts
 │   ├── utils/            # Utility functions
 │   │   ├── storage.ts    # LocalStorage operations
+│   │   ├── storage-api.ts # API-based storage operations
 │   │   ├── helpers.ts    # Helper functions
 │   │   ├── gemini.ts     # Gemini AI integration
-│   │   └── goalTemplates.ts  # Goal templates library
+│   │   ├── goalTemplates.ts  # Goal templates library
+│   │   ├── soapNoteGenerator.ts  # SOAP note generation
+│   │   └── timesheetNoteGenerator.ts  # Timesheet note generation
 │   ├── App.tsx           # Main app component
 │   └── main.tsx          # Application entry point
 └── package.json
@@ -239,20 +323,20 @@ SLP Caseload Tracker/
 - **Statistical Analysis**: More advanced statistical tracking and trend analysis
 - **Benchmarking**: Compare student progress against typical development milestones
 
-### 🤖 Enhanced AI Features (NEW!)
-- **Goal Writing Assistant**: AI suggestions for writing measurable, appropriate goals based on goal area, student age, and concerns
+### 🤖 Enhanced AI Features
+- **Goal Writing Assistant**: AI suggestions for writing measurable, appropriate goals based on goal area, student age, and concerns ✅ (Implemented)
 - **Session Planning**: AI-generated session plans with objectives, activities, materials, and data collection strategies
-- **Treatment Recommendations**: Personalized treatment recommendations based on goal progress and session history
-- **IEP Goal Suggestions**: AI-assisted creation of comprehensive annual IEP goals from assessment data
+- **Treatment Recommendations**: Personalized treatment recommendations based on goal progress and session history ✅ (Implemented)
+- **IEP Goal Suggestions**: AI-assisted creation of comprehensive annual IEP goals from assessment data ✅ (Implemented)
 - **Documentation Templates**: AI-generated professional templates for:
   - Evaluation reports
-  - Progress notes
+  - Progress notes ✅ (Implemented)
   - Discharge summaries
   - Treatment plans
-  - SOAP notes
+  - SOAP notes ✅ (Implemented)
 
 ### 📋 Documentation Improvements
-- **Report Templates**: Pre-built templates for progress reports, discharge summaries, and evaluation reports
+- **Report Templates**: Pre-built templates for progress reports, discharge summaries, and evaluation reports ✅ (Implemented - Progress Report Templates)
 - **Customizable Fields**: Add custom fields to student profiles and sessions
 - **Attachments**: Support for attaching files, images, or audio recordings to sessions
 - **Notes Templates**: Reusable note templates for common session types
@@ -263,11 +347,25 @@ SLP Caseload Tracker/
 - **Goal Recommendations**: AI suggestions for appropriate goals based on student concerns ✅
 - **Goal Hierarchy**: Organize goals by domain or priority ✅
 - **Student Archive**: Archive functionality to manage active vs. archived caseloads ✅
+- **SOAP Notes**: Full SOAP note generation and management system ✅
+- **Session Scheduling**: Calendar-based session scheduling with recurring patterns ✅
+- **Session Calendar**: Visual calendar view of scheduled and completed sessions ✅
+- **Progress Reports**: Auto-scheduled progress reports with templates ✅
+- **Due Date Items**: Comprehensive deadline tracking system ✅
+- **Reminders**: Smart reminder system for goals, evaluations, and reports ✅
+- **Time Tracking**: Unified time tracking dashboard for sessions and evaluations ✅
+- **Schools Management**: Multi-school caseload management ✅
+- **Teachers & Case Managers**: Team member tracking and linking ✅
+- **Evaluations**: Complete evaluation tracking system ✅
+- **Cuing Levels**: Track prompting levels for goal performance ✅
+- **Direct/Indirect Services**: Service type categorization ✅
+- **Group Sessions**: Support for group therapy session tracking ✅
+- **IEP Date Tracking**: Track IEP dates and annual review dates per student ✅
 
 ### 📅 Scheduling and Calendar
-- **Calendar Integration**: Calendar view of sessions and upcoming appointments
-- **Session Scheduling**: Schedule future sessions with reminders
-- **Attendance Tracking**: Track attendance and cancellations
+- **Calendar Integration**: Calendar view of sessions and upcoming appointments ✅ (Implemented)
+- **Session Scheduling**: Schedule future sessions with reminders ✅ (Implemented)
+- **Attendance Tracking**: Track attendance and cancellations ✅ (Implemented - missed session tracking)
 - **Session Templates**: Quick session creation from templates
 
 ### 🔍 Search and Filtering

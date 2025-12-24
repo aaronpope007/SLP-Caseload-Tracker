@@ -29,6 +29,7 @@ import {
   deleteStudent,
   getTeachers,
   getCaseManagers,
+  getGoalsByStudent,
 } from '../utils/storage-api';
 import { generateId } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
@@ -46,6 +47,7 @@ export const Students = () => {
   const [caseManagers, setCaseManagers] = useState<CaseManager[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showArchived, setShowArchived] = useState(false);
+  const [studentsWithNoGoals, setStudentsWithNoGoals] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [expandedStudents, setExpandedStudents] = useState<Set<string>>(new Set());
@@ -190,6 +192,16 @@ export const Students = () => {
         return firstNameA.localeCompare(firstNameB);
       });
       setStudents(sortedStudents);
+      
+      // Check which students have no goals
+      const noGoalsSet = new Set<string>();
+      for (const student of sortedStudents) {
+        const goals = await getGoalsByStudent(student.id, selectedSchool);
+        if (goals.length === 0) {
+          noGoalsSet.add(student.id);
+        }
+      }
+      setStudentsWithNoGoals(noGoalsSet);
     } catch (error) {
       console.error('Failed to load students:', error);
     }
@@ -345,7 +357,7 @@ export const Students = () => {
           severity: 'success',
         });
       }
-      await loadStudents();
+      await loadStudents(); // This will also update the studentsWithNoGoals set
       resetDirty();
       setDialogOpen(false);
       setEditingStudent(null);
@@ -538,6 +550,7 @@ export const Students = () => {
                 onDelete={handleDelete}
                 onArchive={handleArchive}
                 onViewDetails={handleViewDetails}
+                hasNoGoals={studentsWithNoGoals.has(student.id)}
               />
             </Grid>
           ))

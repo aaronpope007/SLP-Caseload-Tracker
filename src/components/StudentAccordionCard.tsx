@@ -30,6 +30,7 @@ interface StudentAccordionCardProps {
   onDelete: (id: string) => void;
   onArchive: (id: string, archive: boolean) => void;
   onViewDetails: (id: string) => void;
+  hasNoGoals?: boolean;
 }
 
 export const StudentAccordionCard = ({
@@ -42,6 +43,7 @@ export const StudentAccordionCard = ({
   onDelete,
   onArchive,
   onViewDetails,
+  hasNoGoals = false,
 }: StudentAccordionCardProps) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   
@@ -81,7 +83,16 @@ export const StudentAccordionCard = ({
 
   return (
     <>
-      <Accordion expanded={expanded} onChange={onToggleExpand}>
+      <Accordion 
+        expanded={expanded} 
+        onChange={onToggleExpand}
+        sx={{
+          backgroundColor: hasNoGoals ? '#ffebee' : undefined,
+          '&:hover': {
+            backgroundColor: hasNoGoals ? '#ffcdd2' : undefined,
+          },
+        }}
+      >
         <AccordionSummary
           expandIcon={<ExpandMoreIcon />}
           sx={{
