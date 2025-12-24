@@ -284,6 +284,6 @@ export const getGoalTemplatesByKeywords = (keywords: string[]): GoalTemplate[] =
 
 export const getUniqueDomains = (): string[] => {
   const domains = new Set(goalTemplates.map(t => t.domain));
-  return Array.from(domains).sort();
+  return Array.from(domains).sort((a, b) => a.localeCompare(b));
 };
 

@@ -77,9 +77,14 @@ export const GoalsList = ({
     }
   });
 
+  // Sort domains alphabetically
+  const sortedDomains = Array.from(goalsByDomain.entries()).sort(([domainA], [domainB]) => 
+    domainA.localeCompare(domainB)
+  );
+
   return (
     <>
-      {Array.from(goalsByDomain.entries()).map(([domain, domainGoals]) => (
+      {sortedDomains.map(([domain, domainGoals]) => (
         <Grid item xs={12} key={domain}>
           <Typography variant="h6" sx={{ mb: 1, mt: 1, fontSize: '1.5rem', fontWeight: 'bold' }}>
             {domain}

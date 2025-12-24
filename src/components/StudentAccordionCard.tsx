@@ -9,6 +9,7 @@ import {
   IconButton,
   Menu,
   MenuItem,
+  Tooltip,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -81,18 +82,17 @@ export const StudentAccordionCard = ({
     onViewDetails(student.id);
   };
 
-  return (
-    <>
-      <Accordion 
-        expanded={expanded} 
-        onChange={onToggleExpand}
-        sx={{
-          backgroundColor: hasNoGoals ? '#ffebee' : undefined,
-          '&:hover': {
-            backgroundColor: hasNoGoals ? '#ffcdd2' : undefined,
-          },
-        }}
-      >
+  const accordion = (
+    <Accordion 
+      expanded={expanded} 
+      onChange={onToggleExpand}
+      sx={{
+        backgroundColor: hasNoGoals ? '#ffebee' : undefined,
+        '&:hover': {
+          backgroundColor: hasNoGoals ? '#ffcdd2' : undefined,
+        },
+      }}
+    >
         <AccordionSummary
           expandIcon={<ExpandMoreIcon />}
           sx={{
@@ -173,6 +173,21 @@ export const StudentAccordionCard = ({
           </Box>
         </AccordionDetails>
       </Accordion>
+  );
+
+  return (
+    <>
+      {hasNoGoals ? (
+        <Tooltip
+          title="No goals added. Click the menu (⋮) and select 'View and Edit Goals' to add goals for this student."
+          arrow
+          placement="top"
+        >
+          {accordion}
+        </Tooltip>
+      ) : (
+        accordion
+      )}
       <Menu
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
