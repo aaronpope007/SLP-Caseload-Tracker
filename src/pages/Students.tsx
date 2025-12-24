@@ -81,6 +81,8 @@ export const Students = () => {
     iepDate: '',
     annualReviewDate: '',
     progressReportFrequency: 'quarterly' as 'quarterly' | 'annual',
+    frequencyPerWeek: '',
+    frequencyType: 'per-week' as 'per-week' | 'per-month',
   });
   const [initialFormData, setInitialFormData] = useState(formData);
   const { confirm, ConfirmDialog } = useConfirm();
@@ -100,7 +102,9 @@ export const Students = () => {
       formData.caseManagerId !== initialFormData.caseManagerId ||
       formData.iepDate !== initialFormData.iepDate ||
       formData.annualReviewDate !== initialFormData.annualReviewDate ||
-      formData.progressReportFrequency !== initialFormData.progressReportFrequency
+      formData.progressReportFrequency !== initialFormData.progressReportFrequency ||
+      formData.frequencyPerWeek !== initialFormData.frequencyPerWeek ||
+      formData.frequencyType !== initialFormData.frequencyType
     );
   };
 
@@ -261,6 +265,8 @@ export const Students = () => {
         iepDate: student.iepDate ? student.iepDate.split('T')[0] : '',
         annualReviewDate: student.annualReviewDate ? student.annualReviewDate.split('T')[0] : '',
         progressReportFrequency: student.progressReportFrequency || 'quarterly',
+        frequencyPerWeek: student.frequencyPerWeek ? student.frequencyPerWeek.toString() : '',
+        frequencyType: student.frequencyType || 'per-week',
       };
     } else {
       setEditingStudent(null);
@@ -277,6 +283,8 @@ export const Students = () => {
         iepDate: '',
         annualReviewDate: '',
         progressReportFrequency: 'quarterly' as 'quarterly' | 'annual',
+        frequencyPerWeek: '',
+        frequencyType: 'per-week' as 'per-week' | 'per-month',
       };
     }
     setFormData(newFormData);
@@ -323,6 +331,12 @@ export const Students = () => {
       .filter((e) => e.length > 0);
 
     try {
+      const frequencyPerWeekValue = formData.frequencyPerWeek.trim() === '' ? undefined : parseInt(formData.frequencyPerWeek);
+      if (frequencyPerWeekValue !== undefined && (isNaN(frequencyPerWeekValue) || frequencyPerWeekValue < 1)) {
+        alert('Please enter a valid frequency of 1 or greater, or leave it blank');
+        return;
+      }
+
       const studentData = {
         name: formData.name,
         age: ageValue ?? 0,
@@ -336,6 +350,8 @@ export const Students = () => {
         iepDate: formData.iepDate ? new Date(formData.iepDate).toISOString() : undefined,
         annualReviewDate: formData.annualReviewDate ? new Date(formData.annualReviewDate).toISOString() : undefined,
         progressReportFrequency: formData.progressReportFrequency,
+        frequencyPerWeek: frequencyPerWeekValue,
+        frequencyType: frequencyPerWeekValue ? formData.frequencyType : undefined,
       };
 
       if (editingStudent) {
@@ -731,6 +747,40 @@ export const Students = () => {
               <option value="quarterly">Quarterly (4 per year)</option>
               <option value="annual">Annual (1 per year)</option>
             </TextField>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField
+                label="Session Frequency"
+                type="number"
+                fullWidth
+                value={formData.frequencyPerWeek}
+                onChange={(e) => setFormData({ ...formData, frequencyPerWeek: e.target.value })}
+                inputProps={{ min: 1 }}
+                helperText="Number of sessions expected"
+                InputLabelProps={{ shrink: true }}
+              />
+              <TextField
+                select
+                label="Frequency Type"
+                fullWidth
+                value={formData.frequencyType}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    frequencyType: e.target.value as 'per-week' | 'per-month',
+                  })
+                }
+                SelectProps={{
+                  native: true,
+                }}
+                helperText="Per week or per month"
+              >
+                <option value="per-week">Per Week</option>
+                <option value="per-month">Per Month</option>
+              </TextField>
+            </Box>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: -1 }}>
+              Set the expected session frequency to track when students fall behind schedule. Leave blank if not tracking frequency.
+            </Typography>
           </Box>
         </DialogContent>
         <DialogActions>

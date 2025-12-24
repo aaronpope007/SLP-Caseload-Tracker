@@ -48,6 +48,8 @@ export interface Student {
   iepDate?: string; // Date of current IEP (ISO string)
   annualReviewDate?: string; // Next annual review date (ISO string)
   progressReportFrequency?: 'quarterly' | 'annual'; // Default report frequency
+  frequencyPerWeek?: number; // Number of sessions per week (e.g., 2, 3)
+  frequencyType?: 'per-week' | 'per-month'; // Whether frequency is per week or per month
 }
 
 export interface Goal {
@@ -221,7 +223,7 @@ export interface DueDateItem {
 
 export interface Reminder {
   id: string;
-  type: 'goal-review' | 're-evaluation' | 'report-deadline' | 'annual-review';
+  type: 'goal-review' | 're-evaluation' | 'report-deadline' | 'annual-review' | 'frequency-alert';
   title: string;
   description: string;
   studentId: string;

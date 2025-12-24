@@ -36,6 +36,8 @@ const getReminderIcon = (type: Reminder['type']) => {
       return <DescriptionOutlinedIcon fontSize="small" />;
     case 'annual-review':
       return <EventIcon fontSize="small" />;
+    case 'frequency-alert':
+      return <EventIcon fontSize="small" />;
     default:
       return null;
   }
@@ -51,6 +53,8 @@ const getReminderPath = (reminder: Reminder): string => {
     case 'report-deadline':
       return '/progress-reports';
     case 'annual-review':
+      return `/students/${reminder.studentId}`;
+    case 'frequency-alert':
       return `/students/${reminder.studentId}`;
     default:
       return '/';

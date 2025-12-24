@@ -240,6 +240,93 @@ function getAnnualReviewReminders(school?: string): Reminder[] {
 }
 
 /**
+ * Get frequency tracking reminders
+ * Alert when students are falling behind their expected session frequency
+ */
+function getFrequencyAlerts(school?: string): Reminder[] {
+  const reminders: Reminder[] = [];
+  const now = new Date();
+
+  // Get all active students with frequency set
+  let studentsQuery = `
+    SELECT id, name, school, frequencyPerWeek, frequencyType
+    FROM students
+    WHERE status = 'active'
+    AND (archived IS NULL OR archived = 0)
+    AND frequencyPerWeek IS NOT NULL
+    AND frequencyType IS NOT NULL
+  `;
+  
+  const params: any[] = [];
+  if (school) {
+    studentsQuery += ' AND school = ?';
+    params.push(school);
+  }
+
+  const students = db.prepare(studentsQuery).all(...params) as any[];
+
+  for (const student of students) {
+    const frequencyPerWeek = student.frequencyPerWeek as number;
+    const frequencyType = student.frequencyType as 'per-week' | 'per-month';
+    
+    // Determine the tracking period
+    let periodStart: Date;
+    let expectedSessions: number;
+    
+    if (frequencyType === 'per-week') {
+      // Check last 4 weeks
+      periodStart = new Date(now);
+      periodStart.setDate(periodStart.getDate() - 28); // 4 weeks ago
+      expectedSessions = frequencyPerWeek * 4; // Expected sessions in 4 weeks
+    } else {
+      // Check last month (30 days)
+      periodStart = new Date(now);
+      periodStart.setDate(periodStart.getDate() - 30);
+      // Convert per-month frequency to expected sessions in 30 days
+      // If frequencyPerWeek is set for per-month, it represents sessions per month
+      expectedSessions = frequencyPerWeek; // Direct monthly frequency
+    }
+
+    // Get actual sessions in the period (only direct services, not missed sessions)
+    const sessions = db.prepare(`
+      SELECT date, missedSession, isDirectServices
+      FROM sessions
+      WHERE studentId = ?
+      AND date >= ?
+      AND date <= ?
+      AND (isDirectServices = 1 OR isDirectServices IS NULL)
+      AND (missedSession = 0 OR missedSession IS NULL)
+      ORDER BY date DESC
+    `).all(student.id, periodStart.toISOString(), now.toISOString()) as any[];
+
+    const actualSessions = sessions.length;
+    const sessionsBehind = expectedSessions - actualSessions;
+
+    // Alert if student is behind by 1 or more sessions
+    if (sessionsBehind >= 1) {
+      const periodDays = frequencyType === 'per-week' ? 28 : 30;
+      const frequencyDisplay = frequencyType === 'per-week' 
+        ? `${frequencyPerWeek} per week` 
+        : `${frequencyPerWeek} per month`;
+      
+      reminders.push({
+        id: `frequency-alert-${student.id}-${now.toISOString()}`,
+        type: 'frequency-alert',
+        title: 'Frequency Behind Schedule',
+        description: `Student is ${sessionsBehind} session${sessionsBehind > 1 ? 's' : ''} behind expected frequency (${frequencyDisplay}). Had ${actualSessions} of ${expectedSessions} expected sessions in the last ${periodDays} days.`,
+        studentId: student.id,
+        studentName: student.name,
+        priority: sessionsBehind >= 3 ? 'high' : sessionsBehind >= 2 ? 'medium' : 'low',
+        daysUntilDue: -sessionsBehind, // Negative to indicate behind
+        dateCreated: now.toISOString(),
+      });
+    }
+  }
+
+  return reminders;
+}
+
+/**
  * Get all reminders for a school (or all schools if not specified)
  */
 export function getAllReminders(school?: string): Reminder[] {
@@ -249,6 +336,7 @@ export function getAllReminders(school?: string): Reminder[] {
   reminders.push(...getReEvaluationReminders(school));
   reminders.push(...getReportDeadlineReminders(school));
   reminders.push(...getAnnualReviewReminders(school));
+  reminders.push(...getFrequencyAlerts(school));
   
   // Sort by priority (high first) and then by days until due
   reminders.sort((a, b) => {

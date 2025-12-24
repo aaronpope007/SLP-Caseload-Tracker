@@ -166,6 +166,12 @@ export function initDatabase() {
     if (!studentColumnNames.includes('caseManagerId')) {
       db.exec(`ALTER TABLE students ADD COLUMN caseManagerId TEXT`);
     }
+    if (!studentColumnNames.includes('frequencyPerWeek')) {
+      db.exec(`ALTER TABLE students ADD COLUMN frequencyPerWeek INTEGER`);
+    }
+    if (!studentColumnNames.includes('frequencyType')) {
+      db.exec(`ALTER TABLE students ADD COLUMN frequencyType TEXT CHECK(frequencyType IN ('per-week', 'per-month'))`);
+    }
   } catch (e: any) {
     console.warn('Could not add columns to students table:', e.message);
   }

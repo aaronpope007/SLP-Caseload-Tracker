@@ -696,6 +696,8 @@ export const StudentDetail = () => {
         grade={student.grade}
         status={student.status}
         concerns={student.concerns}
+        frequencyPerWeek={student.frequencyPerWeek}
+        frequencyType={student.frequencyType}
       />
 
       <GoalActionsBar
