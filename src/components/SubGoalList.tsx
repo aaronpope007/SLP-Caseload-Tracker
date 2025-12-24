@@ -23,6 +23,7 @@ interface SubGoalListProps {
   getRecentPerformance: (goalId: string) => { recentSessions: RecentSessionData[]; average: number | null };
   onEdit: (goal: Goal) => void;
   onDuplicate: (goal: Goal) => void;
+  onCopySubtree?: (goal: Goal) => void;
   onDelete?: (goalId: string) => void;
   onAddSubGoal: (parentGoalId: string) => void;
   depth?: number; // Track nesting depth for recursive rendering
@@ -36,6 +37,7 @@ const NestedGoalItem: React.FC<{
   getRecentPerformance: (goalId: string) => { recentSessions: RecentSessionData[]; average: number | null };
   onEdit: (goal: Goal) => void;
   onDuplicate: (goal: Goal) => void;
+  onCopySubtree?: (goal: Goal) => void;
   onDelete?: (goalId: string) => void;
   onAddSubGoal: (parentGoalId: string) => void;
   depth: number;
@@ -47,6 +49,7 @@ const NestedGoalItem: React.FC<{
   getRecentPerformance,
   onEdit,
   onDuplicate,
+  onCopySubtree,
   onDelete,
   onAddSubGoal,
   depth,
@@ -73,9 +76,11 @@ const NestedGoalItem: React.FC<{
         <GoalActionButtons
           onEdit={() => onEdit(goal)}
           onDuplicate={() => onDuplicate(goal)}
+          onCopySubtree={onCopySubtree ? () => onCopySubtree(goal) : undefined}
           onDelete={onDelete ? () => onDelete(goal.id) : undefined}
           editTitle={`Edit ${depth > 1 ? 'sub-' : ''}goal`}
           duplicateTitle={`Duplicate ${depth > 1 ? 'sub-' : ''}goal`}
+          copySubtreeTitle={`Copy ${depth > 1 ? 'sub-' : ''}goal subtree`}
           deleteTitle={`Delete ${depth > 1 ? 'sub-' : ''}goal`}
         />
       </Box>
@@ -93,6 +98,7 @@ const NestedGoalItem: React.FC<{
           getRecentPerformance={getRecentPerformance}
           onEdit={onEdit}
           onDuplicate={onDuplicate}
+          onCopySubtree={onCopySubtree}
           onDelete={onDelete}
           onAddSubGoal={onAddSubGoal}
           depth={depth + 1}
@@ -144,6 +150,7 @@ export const SubGoalList: React.FC<SubGoalListProps> = ({
   getRecentPerformance,
   onEdit,
   onDuplicate,
+  onCopySubtree,
   onDelete,
   onAddSubGoal,
   depth = 0,
@@ -179,6 +186,7 @@ export const SubGoalList: React.FC<SubGoalListProps> = ({
           getRecentPerformance={getRecentPerformance}
           onEdit={onEdit}
           onDuplicate={onDuplicate}
+          onCopySubtree={onCopySubtree}
           onDelete={onDelete}
           onAddSubGoal={onAddSubGoal}
           depth={depth}

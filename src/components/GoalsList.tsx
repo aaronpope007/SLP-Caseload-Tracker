@@ -23,6 +23,7 @@ interface GoalsListProps {
   onAddSubGoal: (parentGoalId: string) => void;
   onEditSubGoal: (goal: Goal) => void;
   onDuplicateSubGoal: (goal: Goal) => void;
+  onCopySubtree?: (goal: Goal) => void;
 }
 
 export const GoalsList = ({
@@ -34,6 +35,7 @@ export const GoalsList = ({
   onAddSubGoal,
   onEditSubGoal,
   onDuplicateSubGoal,
+  onCopySubtree,
 }: GoalsListProps) => {
   if (goals.length === 0) {
     return (
@@ -98,6 +100,7 @@ export const GoalsList = ({
                     onAddSubGoal={onAddSubGoal}
                     onEditSubGoal={onEditSubGoal}
                     onDuplicateSubGoal={onDuplicateSubGoal}
+                    onCopySubtree={onCopySubtree}
                   />
                 </Grid>
               );
@@ -128,6 +131,7 @@ export const GoalsList = ({
                     onAddSubGoal={onAddSubGoal}
                     onEditSubGoal={onEditSubGoal}
                     onDuplicateSubGoal={onDuplicateSubGoal}
+                    onCopySubtree={onCopySubtree}
                   />
                 </Grid>
               );

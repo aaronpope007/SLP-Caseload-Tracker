@@ -18,6 +18,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   ContentCopy as ContentCopyIcon,
+  AccountTree as AccountTreeIcon,
 } from '@mui/icons-material';
 import type { Goal } from '../types';
 import { getPriorityBorderColor } from '../utils/helpers';
@@ -46,6 +47,7 @@ interface GoalCardProps {
   onAddSubGoal: (parentGoalId: string) => void;
   onEditSubGoal: (goal: Goal) => void;
   onDuplicateSubGoal: (goal: Goal) => void;
+  onCopySubtree?: (goal: Goal) => void;
 }
 
 export const GoalCard: React.FC<GoalCardProps> = ({
@@ -59,6 +61,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
   onAddSubGoal,
   onEditSubGoal,
   onDuplicateSubGoal,
+  onCopySubtree,
 }) => {
   const theme = useTheme();
   const recent = getRecentPerformance(goal.id);
@@ -111,6 +114,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
         getRecentPerformance={getRecentPerformance}
         onEdit={onEditSubGoal}
         onDuplicate={onDuplicateSubGoal}
+        onCopySubtree={onCopySubtree}
         onDelete={onDelete}
         onAddSubGoal={onAddSubGoal}
       />
@@ -135,6 +139,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
       <IconButton
         size="small"
         onClick={() => onEdit(goal)}
+        title="Edit goal"
       >
         <EditIcon fontSize="small" />
       </IconButton>
@@ -146,10 +151,22 @@ export const GoalCard: React.FC<GoalCardProps> = ({
           <ContentCopyIcon fontSize="small" />
         </IconButton>
       </Tooltip>
+      {onCopySubtree && (
+        <Tooltip title="Copy subtree">
+          <IconButton
+            size="small"
+            onClick={() => onCopySubtree(goal)}
+            color="primary"
+          >
+            <AccountTreeIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      )}
       <IconButton
         size="small"
         onClick={() => onDelete(goal.id)}
         color="error"
+        title="Delete goal"
       >
         <DeleteIcon fontSize="small" />
       </IconButton>

@@ -12,6 +12,8 @@ import {
   DialogActions,
   Grid,
   Typography,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -49,6 +51,8 @@ import { GoalTemplateDialog } from '../components/GoalTemplateDialog';
 import { StudentInfoCard } from '../components/StudentInfoCard';
 import { GoalActionsBar } from '../components/GoalActionsBar';
 import { GoalsList } from '../components/GoalsList';
+import { CopySubtreeDialog } from '../components/CopySubtreeDialog';
+import { copyGoalSubtree } from '../utils/goalSubtreeCopy';
 
 export const StudentDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -97,6 +101,17 @@ export const StudentDetail = () => {
   const [selectedTemplate, setSelectedTemplate] = useState<typeof goalTemplates[0] | null>(null);
   const [templateFilterDomain, setTemplateFilterDomain] = useState<string>('');
   const [showRecommendedTemplates, setShowRecommendedTemplates] = useState(true);
+
+  // Copy subtree dialog state
+  const [copySubtreeDialogOpen, setCopySubtreeDialogOpen] = useState(false);
+  const [goalToCopySubtree, setGoalToCopySubtree] = useState<Goal | null>(null);
+  
+  // Snackbar state
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity?: 'success' | 'error' | 'info' | 'warning' }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
 
   // AI Features State
   const [goalSuggestionsDialogOpen, setGoalSuggestionsDialogOpen] = useState(false);
@@ -407,6 +422,105 @@ export const StudentDetail = () => {
     setDialogOpen(true);
   };
 
+  const handleCopySubtree = (goal: Goal) => {
+    setGoalToCopySubtree(goal);
+    setCopySubtreeDialogOpen(true);
+  };
+
+  const handleConfirmCopySubtree = async (replacements: Array<{ from: string; to: string }>) => {
+    if (!goalToCopySubtree || !id) return;
+
+    try {
+      // Get all goals to pass to the copy function
+      // We need all goals (not just for this student) to properly map parent relationships
+      const allGoals = await getGoals();
+      
+      // Determine the parent for the copied subtree
+      // If the goal being copied has a parent, the new subtree should have the same parent
+      // Otherwise, it will be a top-level goal
+      const newParentGoalId = goalToCopySubtree.parentGoalId;
+
+      // Copy the subtree - use allGoals to ensure we can find all parent relationships
+      const { newGoals } = await copyGoalSubtree(
+        goalToCopySubtree,
+        allGoals,
+        replacements,
+        newParentGoalId
+      );
+
+      if (newGoals.length === 0) {
+        alert('No goals were created. The selected goal may not have any sub-goals to copy.');
+        return;
+      }
+
+      // Ensure all new goals have the correct studentId
+      for (const newGoal of newGoals) {
+        newGoal.studentId = id;
+      }
+
+      // Save all new goals first
+      for (const newGoal of newGoals) {
+        try {
+          await addGoal(newGoal);
+        } catch (error) {
+          console.error(`Failed to add goal ${newGoal.id}:`, error);
+          throw new Error(`Failed to add goal: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+
+      // Then update parent's subGoalIds for all new goals that have a parent
+      // Group by parent to avoid multiple updates to the same parent
+      const goalsByParent = new Map<string, string[]>();
+      for (const newGoal of newGoals) {
+        if (newGoal.parentGoalId) {
+          if (!goalsByParent.has(newGoal.parentGoalId)) {
+            goalsByParent.set(newGoal.parentGoalId, []);
+          }
+          goalsByParent.get(newGoal.parentGoalId)!.push(newGoal.id);
+        }
+      }
+
+      // Update each parent's subGoalIds
+      // Reload goals to get the latest parent data
+      const updatedAllGoals = await getGoals();
+      for (const [parentId, newSubGoalIds] of goalsByParent.entries()) {
+        const parent = updatedAllGoals.find(g => g.id === parentId);
+        if (parent) {
+          const existingSubGoalIds = parent.subGoalIds || [];
+          // Only add IDs that aren't already in the list
+          const idsToAdd = newSubGoalIds.filter(id => !existingSubGoalIds.includes(id));
+          if (idsToAdd.length > 0) {
+            const updatedSubGoalIds = [...existingSubGoalIds, ...idsToAdd];
+            try {
+              await updateGoal(parent.id, { subGoalIds: updatedSubGoalIds });
+            } catch (error) {
+              console.error(`Failed to update parent goal ${parent.id}:`, error);
+              throw new Error(`Failed to update parent goal: ${error instanceof Error ? error.message : String(error)}`);
+            }
+          }
+        }
+      }
+
+      // Reload goals to show the new subtree
+      await loadGoals();
+      await loadSessions();
+      
+      setCopySubtreeDialogOpen(false);
+      setGoalToCopySubtree(null);
+      
+      // Show success message
+      setSnackbar({
+        open: true,
+        message: `Successfully copied ${newGoals.length} goal(s) with replacements applied.`,
+        severity: 'success',
+      });
+    } catch (error) {
+      console.error('Failed to copy subtree:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      alert(`Failed to copy subtree: ${errorMessage}. Please check the console for more details.`);
+    }
+  };
+
   // AI Feature Handlers
   const handleGenerateGoalSuggestions = async () => {
     if (!goalArea.trim()) {
@@ -594,6 +708,7 @@ export const StudentDetail = () => {
           onAddSubGoal={(parentId) => handleOpenDialog(undefined, parentId)}
           onEditSubGoal={handleOpenDialog}
           onDuplicateSubGoal={handleDuplicateSubGoal}
+          onCopySubtree={handleCopySubtree}
         />
       </Grid>
 
@@ -655,8 +770,34 @@ export const StudentDetail = () => {
         onUseTemplate={handleUseTemplate}
       />
 
+      <CopySubtreeDialog
+        open={copySubtreeDialogOpen}
+        goal={goalToCopySubtree}
+        onClose={() => {
+          setCopySubtreeDialogOpen(false);
+          setGoalToCopySubtree(null);
+        }}
+        onConfirm={handleConfirmCopySubtree}
+      />
+
       {/* Confirmation dialog for unsaved changes */}
       <ConfirmDialog />
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity || 'success'}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
 
       {/* Navigation blocker confirmation */}
       {blocker.state === 'blocked' && (

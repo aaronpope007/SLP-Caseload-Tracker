@@ -1,23 +1,27 @@
 import React from 'react';
 import { IconButton, Box } from '@mui/material';
-import { Edit as EditIcon, ContentCopy as ContentCopyIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { Edit as EditIcon, ContentCopy as ContentCopyIcon, Delete as DeleteIcon, AccountTree as AccountTreeIcon } from '@mui/icons-material';
 
 interface GoalActionButtonsProps {
   onEdit: () => void;
   onDuplicate: () => void;
   onDelete?: () => void;
+  onCopySubtree?: () => void;
   editTitle?: string;
   duplicateTitle?: string;
   deleteTitle?: string;
+  copySubtreeTitle?: string;
 }
 
 export const GoalActionButtons: React.FC<GoalActionButtonsProps> = ({
   onEdit,
   onDuplicate,
   onDelete,
+  onCopySubtree,
   editTitle = 'Edit goal',
   duplicateTitle = 'Duplicate goal',
   deleteTitle = 'Delete goal',
+  copySubtreeTitle = 'Copy subtree',
 }) => {
   return (
     <Box sx={{ display: 'flex', gap: 0.5 }}>
@@ -35,6 +39,16 @@ export const GoalActionButtons: React.FC<GoalActionButtonsProps> = ({
       >
         <ContentCopyIcon fontSize="small" />
       </IconButton>
+      {onCopySubtree && (
+        <IconButton
+          size="small"
+          onClick={onCopySubtree}
+          title={copySubtreeTitle}
+          color="primary"
+        >
+          <AccountTreeIcon fontSize="small" />
+        </IconButton>
+      )}
       {onDelete && (
         <IconButton
           size="small"
