@@ -72,7 +72,7 @@ import { SessionFormDialog } from '../components/SessionFormDialog';
 import { StudentSelector } from '../components/StudentSelector';
 import { useConfirm } from '../hooks/useConfirm';
 
-type ViewMode = 'month' | 'week';
+type ViewMode = 'month' | 'week' | 'day';
 
 interface CalendarEvent {
   id: string;
@@ -522,6 +522,8 @@ export const SessionCalendar = () => {
   const handlePreviousPeriod = () => {
     if (viewMode === 'week') {
       setCurrentDate(addDays(currentDate, -7));
+    } else if (viewMode === 'day') {
+      setCurrentDate(addDays(currentDate, -1));
     } else {
       setCurrentDate(subMonths(currentDate, 1));
     }
@@ -530,6 +532,8 @@ export const SessionCalendar = () => {
   const handleNextPeriod = () => {
     if (viewMode === 'week') {
       setCurrentDate(addDays(currentDate, 7));
+    } else if (viewMode === 'day') {
+      setCurrentDate(addDays(currentDate, 1));
     } else {
       setCurrentDate(addMonths(currentDate, 1));
     }
@@ -1314,6 +1318,7 @@ export const SessionCalendar = () => {
           >
             <ToggleButton value="month">Month</ToggleButton>
             <ToggleButton value="week">Week</ToggleButton>
+            <ToggleButton value="day">Day</ToggleButton>
           </ToggleButtonGroup>
           <Button
             variant="contained"
@@ -1335,6 +1340,8 @@ export const SessionCalendar = () => {
               <Typography variant="h5">
                 {viewMode === 'week' 
                   ? `Week of ${format(startOfWeek(currentDate, { weekStartsOn: 1 }), 'MMM d, yyyy')}`
+                  : viewMode === 'day'
+                  ? format(currentDate, 'EEEE, MMMM d, yyyy')
                   : format(currentDate, 'MMMM yyyy')}
               </Typography>
               <IconButton onClick={handleNextPeriod}>
@@ -1357,7 +1364,224 @@ export const SessionCalendar = () => {
             </Alert>
           )}
 
-          {viewMode === 'week' ? (
+          {viewMode === 'day' ? (
+            // Day View with Time Column
+            <Box>
+              <Box sx={{ display: 'flex', border: '1px solid', borderColor: 'divider', overflowX: 'auto' }}>
+                {/* Time Column */}
+                <Box
+                  sx={{
+                    width: { xs: 60, sm: 80 },
+                    borderRight: '1px solid',
+                    borderColor: 'divider',
+                    flexShrink: 0,
+                  }}
+                >
+                  <Box
+                    sx={{
+                      height: 48,
+                      borderBottom: '1px solid',
+                      borderColor: 'divider',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    <Typography variant="body2" color="text.secondary">
+                      Time
+                    </Typography>
+                  </Box>
+                  {timeSlots.map((slot, index) => (
+                    <Box
+                      key={slot}
+                      sx={{
+                        height: 60,
+                        borderBottom: index % 2 === 1 ? '1px solid' : 'none',
+                        borderColor: 'divider',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'flex-end',
+                        pr: 1,
+                      }}
+                    >
+                      {index % 2 === 0 && (
+                        <Typography 
+                          variant="caption" 
+                          color="text.secondary"
+                          sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}
+                        >
+                          {format(parse(slot, 'HH:mm', new Date()), 'h:mm a')}
+                        </Typography>
+                      )}
+                    </Box>
+                  ))}
+                </Box>
+
+                {/* Day Column */}
+                <Box sx={{ flex: 1 }}>
+                  {(() => {
+                    const day = currentDate;
+                    const isToday = isSameDay(day, new Date());
+                    
+                    return (
+                      <Box>
+                        {/* Day Header */}
+                        <Box
+                          sx={{
+                            height: 48,
+                            borderBottom: '1px solid',
+                            borderColor: 'divider',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: isToday ? 'primary.light' : 'background.paper',
+                            cursor: 'pointer',
+                          }}
+                          onDoubleClick={() => handleOpenDialog(day)}
+                        >
+                          <Typography
+                            variant="body2"
+                            fontWeight={isToday ? 'bold' : 'normal'}
+                            color={isToday ? 'primary.contrastText' : 'text.primary'}
+                          >
+                            {format(day, 'EEEE')}
+                          </Typography>
+                          <Typography
+                            variant="caption"
+                            color={isToday ? 'primary.contrastText' : 'text.secondary'}
+                          >
+                            {format(day, 'MMMM d, yyyy')}
+                          </Typography>
+                        </Box>
+
+                        {/* Time Slots for this day - Background grid */}
+                        <Box 
+                          sx={{ 
+                            position: 'relative',
+                            height: timeSlots.length * 60, // Total height for all slots
+                          }}
+                          onDrop={() => handleDrop(day)}
+                          onDragOver={handleDragOver}
+                        >
+                          {/* Render time slot rows for gap visualization */}
+                          {timeSlots.map((slot, slotIndex) => {
+                            const isHourMark = slot.endsWith(':00');
+                            const hasEvents = slotHasEvents(day, slot);
+                            
+                            return (
+                              <Box
+                                key={`slot-${day.toISOString()}-${slot}`}
+                                sx={{
+                                  position: 'absolute',
+                                  top: slotIndex * 60,
+                                  left: 0,
+                                  right: 0,
+                                  height: 60,
+                                  borderBottom: isHourMark ? '2px solid' : slotIndex % 2 === 1 ? '1px solid' : 'none',
+                                  borderColor: 'divider',
+                                  backgroundColor: hasEvents ? 'transparent' : '#f5f5f5',
+                                  borderLeft: hasEvents ? 'none' : '4px solid #d0d0d0',
+                                  pointerEvents: 'none',
+                                  zIndex: 0,
+                                }}
+                              />
+                            );
+                          })}
+                          
+                          {/* Render events positioned absolutely by their actual times */}
+                          {getEventsForDaySorted(day).map((event) => {
+                            const eventDate = startOfDay(event.date);
+                            const today = startOfDay(new Date());
+                            const canCancel = !event.isLogged;
+                            const topPosition = getEventTopPosition(event);
+                            const eventHeight = getEventHeight(event);
+
+                            return (
+                              <Box
+                                key={event.id}
+                                sx={{
+                                  position: 'absolute',
+                                  top: `${topPosition}px`,
+                                  left: { xs: 2, sm: 4 },
+                                  right: { xs: 2, sm: 4 },
+                                  height: `${eventHeight}px`,
+                                  zIndex: 1,
+                                  '&:hover .cancel-button': {
+                                    opacity: 1,
+                                  },
+                                }}
+                              >
+                                <Chip
+                                  label={event.title}
+                                  size="small"
+                                  color={event.hasConflict ? 'error' : event.isMissed ? 'error' : event.isLogged ? 'success' : 'primary'}
+                                  icon={<EventIcon />}
+                                  draggable
+                                  onDragStart={() => handleDragStart(event.id)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenSessionDialog(event);
+                                  }}
+                                  sx={{
+                                    fontSize: { xs: '0.65rem', sm: '0.7rem' },
+                                    height: '100%',
+                                    width: '100%',
+                                    justifyContent: 'flex-start',
+                                    '& .MuiChip-label': {
+                                      whiteSpace: 'normal',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      height: '100%',
+                                      padding: { xs: '4px 8px', sm: '4px 12px' },
+                                    },
+                                  }}
+                                />
+                                {canCancel && (
+                                  <IconButton
+                                    size="small"
+                                    className="cancel-button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      confirm({
+                                        title: 'Cancel Session',
+                                        message: `Cancel this session on ${format(event.date, 'MMM d, yyyy')}?`,
+                                        confirmText: 'Cancel Session',
+                                        cancelText: 'Keep Scheduled',
+                                        onConfirm: () => {
+                                          handleCancelEvent(event);
+                                        },
+                                      });
+                                    }}
+                                    sx={{
+                                      position: 'absolute',
+                                      top: -8,
+                                      right: -8,
+                                      opacity: 0,
+                                      transition: 'opacity 0.2s',
+                                      padding: '2px',
+                                      backgroundColor: 'background.paper',
+                                      '&:hover': {
+                                        backgroundColor: 'error.light',
+                                        color: 'error.main',
+                                      },
+                                    }}
+                                  >
+                                    <CloseIcon sx={{ fontSize: '0.9rem' }} />
+                                  </IconButton>
+                                )}
+                              </Box>
+                            );
+                          })}
+                        </Box>
+                      </Box>
+                    );
+                  })()}
+                </Box>
+              </Box>
+            </Box>
+          ) : viewMode === 'week' ? (
             // Week View with Time Column
             <Box>
               <Box sx={{ display: 'flex', border: '1px solid', borderColor: 'divider' }}>
