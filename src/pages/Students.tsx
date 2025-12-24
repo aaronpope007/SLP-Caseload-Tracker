@@ -12,6 +12,8 @@ import {
   Grid,
   TextField,
   Typography,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -57,6 +59,11 @@ export const Students = () => {
     title: '',
     message: '',
     onConfirm: () => {},
+  });
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity?: 'success' | 'error' | 'info' | 'warning' }>({
+    open: false,
+    message: '',
+    severity: 'success',
   });
 
   const [formData, setFormData] = useState({
@@ -321,11 +328,21 @@ export const Students = () => {
 
       if (editingStudent) {
         await updateStudent(editingStudent.id, studentData);
+        setSnackbar({
+          open: true,
+          message: 'Student updated successfully',
+          severity: 'success',
+        });
       } else {
         await addStudent({
           id: generateId(),
           ...studentData,
           dateAdded: new Date().toISOString(),
+        });
+        setSnackbar({
+          open: true,
+          message: 'Student created successfully',
+          severity: 'success',
         });
       }
       await loadStudents();
@@ -350,6 +367,11 @@ export const Students = () => {
           await deleteStudent(id);
           await loadStudents();
           setConfirmDialog({ ...confirmDialog, open: false });
+          setSnackbar({
+            open: true,
+            message: 'Student deleted successfully',
+            severity: 'success',
+          });
         } catch (error) {
           console.error('Failed to delete student:', error);
           alert('Failed to delete student. Please try again.');
@@ -763,6 +785,21 @@ export const Students = () => {
           </DialogActions>
         </Dialog>
       )}
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity || 'success'}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

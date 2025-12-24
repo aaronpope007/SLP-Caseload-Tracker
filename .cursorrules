@@ -1,0 +1,77 @@
+# SLP Caseload Tracker - Cursor Rules
+
+## Type Safety (CRITICAL)
+- **NEVER use `any` types.** Always use proper interfaces/types from `src/types/index.ts` or create new ones.
+- Use `unknown` for error handling, then narrow with type guards (`error instanceof Error`).
+- All API functions should use typed parameters (Student, Goal, Session, Activity, Evaluation, School, Lunch) not `any`.
+- When creating new interfaces, place them near where they're used (component files) or in `src/types/index.ts` if shared.
+
+## Project Structure
+- **Pages**: `src/pages/` - top-level route components (Dashboard, Students, Sessions, etc.)
+- **Components**: `src/components/` - reusable UI components
+- **Utils**: `src/utils/` - helper functions, API clients, storage utilities
+- **Types**: `src/types/index.ts` - shared TypeScript interfaces
+- **Context**: `src/context/` - React context providers (SchoolContext, ThemeContext)
+
+## Data Management
+- **Local Storage**: Use `storage-api.ts` for localStorage operations (legacy/local-first mode)
+- **Backend API**: Use `api.ts` for backend API calls (when backend server is available)
+- Both should return properly typed data - never `any[]` or `any`
+- API functions should accept `Omit<Type, 'id' | 'dateCreated'>` for create, `Partial<Type>` for update
+
+## Component Patterns
+- Use functional components with hooks (no class components)
+- Performance data interfaces:
+  - `PerformanceDataItem` - for session form performance data
+  - `RecentSessionData` - for recent session performance display
+  - `PerformanceHistoryItem` - for progress tracking over time
+- Form data: Use typed interfaces (e.g., `SessionFormData`), not `any`
+- Props interfaces should be defined in the component file
+
+## Error Handling
+- Catch blocks: `catch (error: unknown)` then check `error instanceof Error`
+- Display user-friendly messages to users, log full errors to console
+- Use ErrorBoundary for React component errors
+
+## Naming Conventions
+- **Interfaces**: PascalCase (e.g., `GoalProgressItem`, `TimelineDataItem`)
+- **Functions**: camelCase (e.g., `getRecentPerformance`, `formatDate`)
+- **Components**: PascalCase matching filename (e.g., `GoalCard` in `GoalCard.tsx`)
+- **Files**: PascalCase for components, camelCase for utilities
+
+## Domain-Specific Patterns
+- **Goals**: Can have parent/child relationships (parentGoalId, subGoalIds)
+- **Sessions**: Support group sessions via `groupSessionId`, direct/indirect services via `isDirectServices`
+- **Performance Data**: Accuracy can be calculated from trials OR entered manually
+- **Students**: Filter by school, support archived status (backward compatibility)
+- **Cuing Levels**: Use union type `'independent' | 'verbal' | 'visual' | 'tactile' | 'physical'`
+
+## Material-UI Usage
+- Use MUI components from `@mui/material`
+- Icons from `@mui/icons-material`
+- Follow MUI patterns for dialogs, forms, and data display
+
+## Code Quality
+- Use TypeScript strict mode (enforced in tsconfig)
+- No unused variables or parameters (enforced by linter)
+- Prefer explicit types over inference when it improves clarity
+- Use optional chaining (`?.`) and nullish coalescing (`??`) for safe property access
+
+## User Feedback & Notifications (CRITICAL)
+- **ALWAYS use Snackbar/Toast notifications for user actions:**
+  - **Create operations**: Show success notification (e.g., "Student created successfully")
+  - **Update operations**: Show success notification (e.g., "Student updated successfully")
+  - **Delete operations**: Show success notification (e.g., "Student deleted successfully")
+- **Snackbar pattern:**
+  - Use Material-UI `Snackbar` with `Alert` component
+  - State: `const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity?: 'success' | 'error' | 'info' | 'warning' }>({ open: false, message: '', severity: 'success' })`
+  - Show on success: `setSnackbar({ open: true, message: 'Item created/updated/deleted successfully', severity: 'success' })`
+  - Auto-hide duration: 6000ms
+  - Anchor: `{ vertical: 'bottom', horizontal: 'center' }`
+- **Why this matters:**
+  - Dialogs close after save, so users need confirmation the action succeeded
+  - Provides accessibility feedback for screen readers
+  - Creates consistent UX across all operations
+  - Helps users understand when actions complete, especially on slow networks
+- **Error handling**: Continue using `alert()` for errors, but always show success via Snackbar
+

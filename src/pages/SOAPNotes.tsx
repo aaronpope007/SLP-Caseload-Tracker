@@ -17,6 +17,8 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -48,6 +50,11 @@ export const SOAPNotes = () => {
   const [goals, setGoals] = useState<any[]>([]);
   const [selectedNote, setSelectedNote] = useState<SOAPNote | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity?: 'success' | 'error' | 'info' | 'warning' }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
 
   useEffect(() => {
     loadData();
@@ -91,23 +98,27 @@ export const SOAPNotes = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    const confirmed = await confirm({
+  const handleDelete = (id: string) => {
+    confirm({
       title: 'Delete SOAP Note',
       message: 'Are you sure you want to delete this SOAP note? This action cannot be undone.',
       confirmText: 'Delete',
       cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          await deleteSOAPNote(id);
+          await loadData();
+          setSnackbar({
+            open: true,
+            message: 'SOAP note deleted successfully',
+            severity: 'success',
+          });
+        } catch (error) {
+          console.error('Failed to delete SOAP note:', error);
+          alert('Failed to delete SOAP note. Please try again.');
+        }
+      },
     });
-
-    if (confirmed) {
-      try {
-        await deleteSOAPNote(id);
-        await loadData();
-      } catch (error) {
-        console.error('Failed to delete SOAP note:', error);
-        alert('Failed to delete SOAP note. Please try again.');
-      }
-    }
   };
 
   const handleSave = async (soapNote: SOAPNote) => {
@@ -121,8 +132,18 @@ export const SOAPNotes = () => {
           plan: soapNote.plan,
           dateUpdated: soapNote.dateUpdated,
         });
+        setSnackbar({
+          open: true,
+          message: 'SOAP note updated successfully',
+          severity: 'success',
+        });
       } else {
         await addSOAPNote(soapNote);
+        setSnackbar({
+          open: true,
+          message: 'SOAP note created successfully',
+          severity: 'success',
+        });
       }
       await loadData();
       setDialogOpen(false);
@@ -278,6 +299,21 @@ export const SOAPNotes = () => {
       })()}
 
       <ConfirmDialog />
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity || 'success'}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

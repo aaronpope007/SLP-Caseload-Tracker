@@ -315,6 +315,11 @@ export const StudentDetail = () => {
             }
           }
         }
+        setSnackbar({
+          open: true,
+          message: 'Goal updated successfully',
+          severity: 'success',
+        });
       } else {
         const newGoal: Goal = {
           id: generateId(),
@@ -341,6 +346,11 @@ export const StudentDetail = () => {
             await updateGoal(parent.id, { subGoalIds: [...subGoalIds, newGoal.id] });
           }
         }
+        setSnackbar({
+          open: true,
+          message: 'Goal created successfully',
+          severity: 'success',
+        });
       }
       await loadGoals();
       await loadSessions(); // Reload sessions after goal changes
@@ -376,6 +386,11 @@ export const StudentDetail = () => {
           await deleteGoal(goalId);
           await loadGoals();
           await loadSessions(); // Reload sessions after goal deletion
+          setSnackbar({
+            open: true,
+            message: 'Goal deleted successfully',
+            severity: 'success',
+          });
         } catch (error) {
           console.error('Failed to delete goal:', error);
           alert('Failed to delete goal. Please try again.');

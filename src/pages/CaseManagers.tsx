@@ -11,6 +11,8 @@ import {
   Grid,
   TextField,
   Typography,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -77,6 +79,11 @@ export const CaseManagers = () => {
     title: '',
     message: '',
     onConfirm: () => {},
+  });
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity?: 'success' | 'error' | 'info' | 'warning' }>({
+    open: false,
+    message: '',
+    severity: 'success',
   });
 
   const [formData, setFormData] = useState({
@@ -295,6 +302,11 @@ export const CaseManagers = () => {
       if (editingCaseManager) {
         console.log('[CaseManagers] Updating existing case manager:', editingCaseManager.id);
         await updateCaseManager(editingCaseManager.id, caseManagerData);
+        setSnackbar({
+          open: true,
+          message: 'Case manager updated successfully',
+          severity: 'success',
+        });
       } else {
         const newCaseManager = {
           id: generateId(),
@@ -303,6 +315,11 @@ export const CaseManagers = () => {
         };
         console.log('[CaseManagers] Creating new case manager:', newCaseManager);
         await addCaseManager(newCaseManager);
+        setSnackbar({
+          open: true,
+          message: 'Case manager created successfully',
+          severity: 'success',
+        });
       }
       
       console.log('[CaseManagers] Case manager saved, reloading list...');
@@ -356,6 +373,11 @@ export const CaseManagers = () => {
           await deleteCaseManager(id);
           await loadCaseManagers();
           setConfirmDialog({ ...confirmDialog, open: false });
+          setSnackbar({
+            open: true,
+            message: 'Case manager deleted successfully',
+            severity: 'success',
+          });
         } catch (error) {
           console.error('Failed to delete case manager:', error);
           alert('Failed to delete case manager. Please try again.');
@@ -606,6 +628,21 @@ export const CaseManagers = () => {
           </DialogActions>
         </Dialog>
       )}
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity || 'success'}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

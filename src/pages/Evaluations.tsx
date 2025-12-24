@@ -16,6 +16,8 @@ import {
   FormControl,
   InputLabel,
   Select,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid';
 import type { GridColDef, GridRowParams } from '@mui/x-data-grid';
@@ -45,6 +47,11 @@ export const Evaluations = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvaluation, setEditingEvaluation] = useState<Evaluation | null>(null);
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity?: 'success' | 'error' | 'info' | 'warning' }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
   const [formData, setFormData] = useState({
     studentId: '',
     grade: '',
@@ -156,6 +163,19 @@ export const Evaluations = () => {
     }
     loadData();
     handleCloseDialog();
+    if (editingEvaluation) {
+      setSnackbar({
+        open: true,
+        message: 'Evaluation updated successfully',
+        severity: 'success',
+      });
+    } else {
+      setSnackbar({
+        open: true,
+        message: 'Evaluation created successfully',
+        severity: 'success',
+      });
+    }
   };
 
   const handleDelete = (id: string) => {
@@ -168,6 +188,11 @@ export const Evaluations = () => {
       onConfirm: async () => {
         await deleteEvaluation(id);
         loadData();
+        setSnackbar({
+          open: true,
+          message: 'Evaluation deleted successfully',
+          severity: 'success',
+        });
       },
     });
   };
@@ -447,6 +472,21 @@ export const Evaluations = () => {
       </Dialog>
 
       <ConfirmDialog />
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity || 'success'}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

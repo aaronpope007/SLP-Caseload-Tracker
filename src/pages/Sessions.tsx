@@ -7,6 +7,8 @@ import {
   CardContent,
   Grid,
   Typography,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import {
   Psychology as PsychologyIcon,
@@ -64,6 +66,11 @@ export const Sessions = () => {
   const [soapNoteDialogOpen, setSoapNoteDialogOpen] = useState(false);
   const [selectedSessionForSOAP, setSelectedSessionForSOAP] = useState<Session | null>(null);
   const [existingSOAPNote, setExistingSOAPNote] = useState<SOAPNote | undefined>(undefined);
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity?: 'success' | 'error' | 'info' | 'warning' }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
 
   const [formData, setFormData] = useState({
     studentIds: [] as string[], // Changed to support multiple students
@@ -513,22 +520,38 @@ export const Sessions = () => {
 
       await loadData();
       doCloseDialog(); // Use doCloseDialog directly since we've already saved
+      setSnackbar({
+        open: true,
+        message: editingSession ? 'Session updated successfully' : 'Session created successfully',
+        severity: 'success',
+      });
     } catch (error) {
       console.error('Failed to save session:', error);
       alert('Failed to save session. Please try again.');
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this session?')) {
-      try {
-        await deleteSession(id);
-        await loadData();
-      } catch (error) {
-        console.error('Failed to delete session:', error);
-        alert('Failed to delete session. Please try again.');
-      }
-    }
+  const handleDelete = (id: string) => {
+    confirm({
+      title: 'Delete Session',
+      message: 'Are you sure you want to delete this session? This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          await deleteSession(id);
+          await loadData();
+          setSnackbar({
+            open: true,
+            message: 'Session deleted successfully',
+            severity: 'success',
+          });
+        } catch (error) {
+          console.error('Failed to delete session:', error);
+          alert('Failed to delete session. Please try again.');
+        }
+      },
+    });
   };
 
 
@@ -866,6 +889,21 @@ export const Sessions = () => {
         );
       })()}
       <ConfirmDialog />
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity || 'success'}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

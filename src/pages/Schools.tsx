@@ -16,6 +16,8 @@ import {
   InputAdornment,
   FormControlLabel,
   Checkbox,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -105,6 +107,11 @@ export const Schools = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSchool, setEditingSchool] = useState<School | null>(null);
   const { confirm, ConfirmDialog } = useConfirm();
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity?: 'success' | 'error' | 'info' | 'warning' }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
 
   const [formData, setFormData] = useState({
     name: '',
@@ -275,11 +282,21 @@ export const Schools = () => {
       if (editingSchool) {
         console.log('Updating school:', editingSchool.id, schoolData);
         await updateSchool(editingSchool.id, schoolData);
+        setSnackbar({
+          open: true,
+          message: 'School updated successfully',
+          severity: 'success',
+        });
       } else {
         await addSchool({
           id: generateId(),
           ...schoolData,
           dateCreated: new Date().toISOString(),
+        });
+        setSnackbar({
+          open: true,
+          message: 'School created successfully',
+          severity: 'success',
         });
       }
       await loadSchools();
@@ -302,6 +319,11 @@ export const Schools = () => {
           await deleteSchool(id);
           // Reload schools after deletion
           await loadSchools();
+          setSnackbar({
+            open: true,
+            message: 'School deleted successfully',
+            severity: 'success',
+          });
         } catch (error) {
           console.error('Failed to delete school:', error);
           alert(`Failed to delete school: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -375,6 +397,21 @@ export const Schools = () => {
       />
 
       <ConfirmDialog />
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity || 'success'}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

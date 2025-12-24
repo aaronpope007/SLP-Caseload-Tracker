@@ -20,6 +20,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Snackbar,
 } from '@mui/material';
 import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid';
 import type { GridColDef, GridRowParams } from '@mui/x-data-grid';
@@ -188,6 +189,11 @@ export const ProgressReports = () => {
       });
       await loadData();
       handleCloseDialog();
+      setSnackbar({
+        open: true,
+        message: 'Progress report created successfully',
+        severity: 'success',
+      });
     } catch (error) {
       console.error('Failed to create report:', error);
       alert('Failed to create report. Please try again.');
@@ -213,6 +219,11 @@ export const ProgressReports = () => {
       onConfirm: async () => {
         await deleteProgressReport(id);
         loadData();
+        setSnackbar({
+          open: true,
+          message: 'Progress report deleted successfully',
+          severity: 'success',
+        });
       },
     });
   };
@@ -536,6 +547,21 @@ export const ProgressReports = () => {
       </Dialog>
 
       <ConfirmDialog />
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity || 'success'}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

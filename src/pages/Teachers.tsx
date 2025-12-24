@@ -11,6 +11,8 @@ import {
   Grid,
   TextField,
   Typography,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -250,11 +252,21 @@ export const Teachers = () => {
 
       if (editingTeacher) {
         await updateTeacher(editingTeacher.id, teacherData);
+        setSnackbar({
+          open: true,
+          message: 'Teacher updated successfully',
+          severity: 'success',
+        });
       } else {
         await addTeacher({
           id: generateId(),
           ...teacherData,
           dateCreated: new Date().toISOString(),
+        });
+        setSnackbar({
+          open: true,
+          message: 'Teacher created successfully',
+          severity: 'success',
         });
       }
       await loadTeachers();
@@ -301,6 +313,11 @@ export const Teachers = () => {
           await deleteTeacher(id);
           await loadTeachers();
           setConfirmDialog({ ...confirmDialog, open: false });
+          setSnackbar({
+            open: true,
+            message: 'Teacher deleted successfully',
+            severity: 'success',
+          });
         } catch (error) {
           console.error('Failed to delete teacher:', error);
           alert('Failed to delete teacher. Please try again.');

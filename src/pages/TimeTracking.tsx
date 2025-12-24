@@ -22,6 +22,7 @@ import { TimesheetNoteDialog } from '../components/TimesheetNoteDialog';
 import { SavedNotesDialog, type TimesheetNote } from '../components/SavedNotesDialog';
 import { TimeTrackingFilter } from '../components/TimeTrackingFilter';
 import { generateTimesheetNote } from '../utils/timesheetNoteGenerator';
+import { useConfirm } from '../hooks/useConfirm';
 
 interface TimeTrackingItem {
   id: string;
@@ -58,6 +59,7 @@ const deleteTimesheetNote = (id: string): void => {
 
 export const TimeTracking = () => {
   const { selectedSchool } = useSchool();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -284,10 +286,21 @@ export const TimeTracking = () => {
   };
 
   const handleDeleteNote = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this saved note?')) {
-      deleteTimesheetNote(id);
-      loadSavedNotes();
-    }
+    confirm({
+      title: 'Delete Saved Note',
+      message: 'Are you sure you want to delete this saved note? This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      onConfirm: () => {
+        deleteTimesheetNote(id);
+        loadSavedNotes();
+        setSnackbar({
+          open: true,
+          message: 'Saved note deleted successfully',
+          severity: 'success',
+        });
+      },
+    });
   };
 
 
@@ -365,6 +378,8 @@ export const TimeTracking = () => {
         onLoadNote={handleLoadNote}
         onDeleteNote={handleDeleteNote}
       />
+
+      <ConfirmDialog />
 
       <Snackbar
         open={snackbar.open}
