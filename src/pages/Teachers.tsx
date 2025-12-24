@@ -89,6 +89,11 @@ export const Teachers = () => {
     emailAddress: '',
   });
   const [initialFormData, setInitialFormData] = useState(formData);
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity?: 'success' | 'error' | 'info' | 'warning' }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
   const { confirm, ConfirmDialog } = useConfirm();
 
   // Check if form is dirty
@@ -523,6 +528,21 @@ export const Teachers = () => {
           </DialogActions>
         </Dialog>
       )}
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity || 'success'}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
