@@ -30,6 +30,7 @@ import {
   Delete as DeleteIcon,
   Edit as EditIcon,
   Close as CloseIcon,
+  EventBusy as EventBusyIcon,
 } from '@mui/icons-material';
 import {
   startOfMonth,
@@ -1303,6 +1304,48 @@ export const SessionCalendar = () => {
     }
   };
 
+  const handleCancelAllEventsForDay = (day: Date) => {
+    const dateStr = format(day, 'yyyy-MM-dd');
+    const dayEvents = calendarEvents.filter(event => isSameDay(event.date, day));
+    
+    // Filter out logged events - only cancel events that haven't been logged
+    const cancellableEvents = dayEvents.filter(event => !event.isLogged);
+    
+    if (cancellableEvents.length === 0) {
+      // No cancellable events for this day
+      return;
+    }
+
+    // Group events by scheduledSessionId to avoid duplicate updates
+    const scheduledSessionMap = new Map<string, CalendarEvent[]>();
+    cancellableEvents.forEach(event => {
+      const existing = scheduledSessionMap.get(event.scheduledSessionId) || [];
+      scheduledSessionMap.set(event.scheduledSessionId, [...existing, event]);
+    });
+
+    confirm({
+      title: 'Cancel All Appointments',
+      message: `Cancel all ${cancellableEvents.length} appointment${cancellableEvents.length === 1 ? '' : 's'} on ${format(day, 'MMM d, yyyy')}? This will mark all appointments for this day as cancelled.`,
+      confirmText: 'Cancel All',
+      cancelText: 'Keep Scheduled',
+      onConfirm: () => {
+        // Update each scheduled session to include this date in cancelledDates
+        scheduledSessionMap.forEach((events, scheduledSessionId) => {
+          const scheduled = scheduledSessions.find(s => s.id === scheduledSessionId);
+          if (!scheduled) return;
+
+          const cancelledDates = scheduled.cancelledDates || [];
+          if (!cancelledDates.includes(dateStr)) {
+            updateScheduledSession(scheduled.id, {
+              cancelledDates: [...cancelledDates, dateStr],
+            });
+          }
+        });
+        loadData();
+      },
+    });
+  };
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
@@ -1433,27 +1476,56 @@ export const SessionCalendar = () => {
                             borderBottom: '1px solid',
                             borderColor: 'divider',
                             display: 'flex',
-                            flexDirection: 'column',
+                            flexDirection: 'row',
                             alignItems: 'center',
-                            justifyContent: 'center',
+                            justifyContent: 'space-between',
+                            px: 1,
                             backgroundColor: isToday ? 'primary.light' : 'background.paper',
                             cursor: 'pointer',
                           }}
                           onDoubleClick={() => handleOpenDialog(day)}
                         >
-                          <Typography
-                            variant="body2"
-                            fontWeight={isToday ? 'bold' : 'normal'}
-                            color={isToday ? 'primary.contrastText' : 'text.primary'}
-                          >
-                            {format(day, 'EEEE')}
-                          </Typography>
-                          <Typography
-                            variant="caption"
-                            color={isToday ? 'primary.contrastText' : 'text.secondary'}
-                          >
-                            {format(day, 'MMMM d, yyyy')}
-                          </Typography>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                            <Typography
+                              variant="body2"
+                              fontWeight={isToday ? 'bold' : 'normal'}
+                              color={isToday ? 'primary.contrastText' : 'text.primary'}
+                            >
+                              {format(day, 'EEEE')}
+                            </Typography>
+                            <Typography
+                              variant="caption"
+                              color={isToday ? 'primary.contrastText' : 'text.secondary'}
+                            >
+                              {format(day, 'MMMM d, yyyy')}
+                            </Typography>
+                          </Box>
+                          {(() => {
+                            const cancellableEvents = calendarEvents.filter(
+                              event => isSameDay(event.date, day) && !event.isLogged
+                            );
+                            if (cancellableEvents.length > 0) {
+                              return (
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCancelAllEventsForDay(day);
+                                  }}
+                                  sx={{
+                                    color: isToday ? 'primary.contrastText' : 'text.secondary',
+                                    '&:hover': {
+                                      backgroundColor: isToday ? 'primary.main' : 'action.hover',
+                                    },
+                                  }}
+                                  title="Cancel all appointments for this day"
+                                >
+                                  <EventBusyIcon fontSize="small" />
+                                </IconButton>
+                              );
+                            }
+                            return null;
+                          })()}
                         </Box>
 
                         {/* Time Slots for this day - Background grid */}
@@ -1655,27 +1727,57 @@ export const SessionCalendar = () => {
                             borderBottom: '1px solid',
                             borderColor: 'divider',
                             display: 'flex',
-                            flexDirection: 'column',
+                            flexDirection: 'row',
                             alignItems: 'center',
-                            justifyContent: 'center',
+                            justifyContent: 'space-between',
+                            px: 0.5,
                             backgroundColor: isToday ? 'primary.light' : 'background.paper',
                             cursor: 'pointer',
                           }}
                           onDoubleClick={() => handleOpenDialog(day)}
                         >
-                          <Typography
-                            variant="body2"
-                            fontWeight={isToday ? 'bold' : 'normal'}
-                            color={isToday ? 'primary.contrastText' : 'text.primary'}
-                          >
-                            {format(day, 'EEE')}
-                          </Typography>
-                          <Typography
-                            variant="caption"
-                            color={isToday ? 'primary.contrastText' : 'text.secondary'}
-                          >
-                            {format(day, 'M/d')}
-                          </Typography>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                            <Typography
+                              variant="body2"
+                              fontWeight={isToday ? 'bold' : 'normal'}
+                              color={isToday ? 'primary.contrastText' : 'text.primary'}
+                            >
+                              {format(day, 'EEE')}
+                            </Typography>
+                            <Typography
+                              variant="caption"
+                              color={isToday ? 'primary.contrastText' : 'text.secondary'}
+                            >
+                              {format(day, 'M/d')}
+                            </Typography>
+                          </Box>
+                          {(() => {
+                            const cancellableEvents = calendarEvents.filter(
+                              event => isSameDay(event.date, day) && !event.isLogged
+                            );
+                            if (cancellableEvents.length > 0) {
+                              return (
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCancelAllEventsForDay(day);
+                                  }}
+                                  sx={{
+                                    color: isToday ? 'primary.contrastText' : 'text.secondary',
+                                    padding: '4px',
+                                    '&:hover': {
+                                      backgroundColor: isToday ? 'primary.main' : 'action.hover',
+                                    },
+                                  }}
+                                  title="Cancel all appointments for this day"
+                                >
+                                  <EventBusyIcon sx={{ fontSize: '1rem' }} />
+                                </IconButton>
+                              );
+                            }
+                            return null;
+                          })()}
                         </Box>
 
                         {/* Time Slots for this day - Background grid */}
@@ -1866,12 +1968,45 @@ export const SessionCalendar = () => {
                   >
                     <Box
                       sx={{
-                        fontWeight: isToday ? 'bold' : 'normal',
-                        color: isToday ? 'primary.main' : isCurrentMonth ? 'text.primary' : 'text.disabled',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
                         mb: 0.5,
                       }}
                     >
-                      {format(day, 'd')}
+                      <Box
+                        sx={{
+                          fontWeight: isToday ? 'bold' : 'normal',
+                          color: isToday ? 'primary.main' : isCurrentMonth ? 'text.primary' : 'text.disabled',
+                        }}
+                      >
+                        {format(day, 'd')}
+                      </Box>
+                      {(() => {
+                        const cancellableEvents = dayEvents.filter(event => !event.isLogged);
+                        if (cancellableEvents.length > 0) {
+                          return (
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCancelAllEventsForDay(day);
+                              }}
+                              sx={{
+                                padding: '2px',
+                                '&:hover': {
+                                  backgroundColor: 'error.light',
+                                  color: 'error.main',
+                                },
+                              }}
+                              title="Cancel all appointments for this day"
+                            >
+                              <EventBusyIcon sx={{ fontSize: '0.875rem' }} />
+                            </IconButton>
+                          );
+                        }
+                        return null;
+                      })()}
                     </Box>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, flex: 1 }}>
                       {dayEvents.map(event => {
