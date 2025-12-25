@@ -9,6 +9,7 @@ import { GoalProgressChip } from './GoalProgressChip';
 import { GoalDateInfo } from './GoalDateInfo';
 import { GoalActionButtons } from './GoalActionButtons';
 import { AccordionExpandIcon } from './AccordionExpandIcon';
+import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
 
 interface RecentSessionData {
   date: string;
@@ -120,7 +121,13 @@ const NestedGoalItem: React.FC<{
       <Button
         size="small"
         startIcon={<AddIcon />}
-        onClick={() => onAddSubGoal(goal.id)}
+        onClick={() => {
+          // Automatically expand this goal when adding a sub-goal so the new sub-goal is visible
+          if (onExpandedChange && !expanded) {
+            onExpandedChange(goal.id, true);
+          }
+          onAddSubGoal(goal.id);
+        }}
         sx={{ mt: 1, ml: depth > 0 ? 2 : 0 }}
         variant="outlined"
       >
@@ -129,19 +136,60 @@ const NestedGoalItem: React.FC<{
     </>
   );
 
+  // Always use accordion if goal has sub-goals (all levels)
+  const useAccordion = hasSubGoals;
+
   return (
-    <Box sx={{ mb: depth === 0 ? 2 : 1 }}>
-      {hasSubGoals ? (
+    <Box 
+      sx={{ 
+        mb: depth === 0 ? 2 : 1,
+        position: 'relative',
+        zIndex: 1,
+      }} 
+      key={`goal-wrapper-${goal.id}`}
+    >
+      {useAccordion ? (
         <Accordion 
+          key={`accordion-${goal.id}`}
           expanded={expanded}
-          onChange={(_, isExpanded) => onExpandedChange?.(goal.id, isExpanded)}
+          onChange={(_, isExpanded) => {
+            // For nested accordions (depth >= 2), handle expansion manually via onClick on AccordionSummary
+            // The Accordion's onChange might not fire properly for deeply nested accordions
+            if (depth < 2 && onExpandedChange) {
+              onExpandedChange(goal.id, isExpanded);
+            }
+          }}
+          sx={{
+            boxShadow: 'none',
+            '&:before': {
+              display: 'none',
+            },
+          }}
         >
-          <AccordionSummary expandIcon={<AccordionExpandIcon />}>
+          <AccordionSummary 
+            expandIcon={depth >= 2 ? <ExpandMoreIcon /> : <AccordionExpandIcon />}
+            onClick={(e) => {
+              // Manual click handler for nested accordions (depth >= 2) to ensure expansion works
+              if (depth >= 2 && onExpandedChange) {
+                // Use setTimeout to ensure state update happens after event propagation
+                setTimeout(() => {
+                  onExpandedChange(goal.id, !expanded);
+                }, 0);
+              }
+            }}
+          >
             <Typography variant="body2" sx={{ fontSize: depth > 0 ? '0.875rem' : 'inherit' }}>
               {goal.description}
             </Typography>
           </AccordionSummary>
-          <AccordionDetails>
+          <AccordionDetails 
+            sx={{ 
+              pt: 1,
+              '& .MuiAccordion-root': {
+                boxShadow: 'none',
+              },
+            }}
+          >
             {goalContent}
           </AccordionDetails>
         </Accordion>
@@ -207,6 +255,8 @@ export const SubGoalList: React.FC<SubGoalListProps> = ({
           depth={depth}
           expanded={expandedSubGoals.has(sub.id)}
           onExpandedChange={onSubGoalExpandedChange}
+          expandedSubGoals={expandedSubGoals}
+          onSubGoalExpandedChange={onSubGoalExpandedChange}
         />
       ))}
     </Box>
