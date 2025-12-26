@@ -327,6 +327,130 @@ function getFrequencyAlerts(school?: string): Reminder[] {
 }
 
 /**
+ * Get reminders for students with no goals
+ * Alert when active students don't have any goals
+ */
+function getNoGoalsReminders(school?: string): Reminder[] {
+  const reminders: Reminder[] = [];
+  const now = new Date();
+
+  // Get all active students
+  let studentsQuery = `
+    SELECT id, name, school, dateAdded
+    FROM students
+    WHERE status = 'active'
+    AND (archived IS NULL OR archived = 0)
+  `;
+  
+  const params: any[] = [];
+  if (school) {
+    studentsQuery += ' AND school = ?';
+    params.push(school);
+  }
+
+  const students = db.prepare(studentsQuery).all(...params) as any[];
+
+  // Get all goals for these students
+  const allGoals = db.prepare(`
+    SELECT studentId FROM goals
+  `).all() as any[];
+
+  const studentsWithGoals = new Set(allGoals.map(g => g.studentId));
+
+  // Find students without goals
+  for (const student of students) {
+    if (!studentsWithGoals.has(student.id)) {
+      const daysSinceAdded = daysBetween(now, new Date(student.dateAdded));
+      
+      reminders.push({
+        id: `no-goals-${student.id}`,
+        type: 'no-goals',
+        title: 'Add Goals for Student',
+        description: `Student has no goals. Click to add goals.`,
+        studentId: student.id,
+        studentName: student.name,
+        priority: daysSinceAdded >= 7 ? 'high' : 'medium',
+        dateCreated: now.toISOString(),
+      });
+    }
+  }
+
+  return reminders;
+}
+
+/**
+ * Extract percentage from target string (matches frontend logic)
+ */
+function extractPercentageFromTarget(target: string | null): string {
+  if (!target || !target.trim()) return '';
+  
+  // Try to find a number followed by optional % sign
+  const match = target.match(/(\d+(?:\.\d+)?)\s*%/);
+  if (match) {
+    return match[1];
+  }
+  
+  // If no % sign, try to parse as a plain number
+  const numMatch = target.match(/^(\d+(?:\.\d+)?)$/);
+  if (numMatch) {
+    return numMatch[1];
+  }
+  
+  return '';
+}
+
+/**
+ * Get reminders for goals with no target percentage
+ * Alert when active goals don't have a target percentage set
+ */
+function getNoTargetReminders(school?: string): Reminder[] {
+  const reminders: Reminder[] = [];
+  const now = new Date();
+
+  // Get all active, in-progress goals
+  let goalsQuery = `
+    SELECT g.*, s.name as studentName, s.school
+    FROM goals g
+    INNER JOIN students s ON g.studentId = s.id
+    WHERE g.status = 'in-progress' 
+    AND s.status = 'active' 
+    AND (s.archived IS NULL OR s.archived = 0)
+  `;
+  
+  const params: any[] = [];
+  if (school) {
+    goalsQuery += ' AND s.school = ?';
+    params.push(school);
+  }
+
+  const goals = db.prepare(goalsQuery).all(...params) as any[];
+
+  // Find goals without target percentage
+  for (const goal of goals) {
+    const target = goal.target || '';
+    const percentage = extractPercentageFromTarget(target);
+    
+    if (!percentage) {
+      const daysSinceCreated = daysBetween(now, new Date(goal.dateCreated));
+      
+      reminders.push({
+        id: `no-target-${goal.id}`,
+        type: 'no-target',
+        title: 'Goal Missing Target Percentage',
+        description: `Goal needs a target percentage: "${goal.description.substring(0, 60)}${goal.description.length > 60 ? '...' : ''}"`,
+        studentId: goal.studentId,
+        studentName: goal.studentName,
+        relatedId: goal.id,
+        priority: daysSinceCreated >= 7 ? 'high' : 'medium',
+        dateCreated: now.toISOString(),
+      });
+    }
+  }
+
+  return reminders;
+}
+
+/**
  * Get all reminders for a school (or all schools if not specified)
  */
 export function getAllReminders(school?: string): Reminder[] {
@@ -337,6 +461,8 @@ export function getAllReminders(school?: string): Reminder[] {
   reminders.push(...getReportDeadlineReminders(school));
   reminders.push(...getAnnualReviewReminders(school));
   reminders.push(...getFrequencyAlerts(school));
+  reminders.push(...getNoGoalsReminders(school));
+  reminders.push(...getNoTargetReminders(school));
   
   // Sort by priority (high first) and then by days until due
   reminders.sort((a, b) => {

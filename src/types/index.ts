@@ -223,7 +223,7 @@ export interface DueDateItem {
 
 export interface Reminder {
   id: string;
-  type: 'goal-review' | 're-evaluation' | 'report-deadline' | 'annual-review' | 'frequency-alert';
+  type: 'goal-review' | 're-evaluation' | 'report-deadline' | 'annual-review' | 'frequency-alert' | 'no-goals' | 'no-target';
   title: string;
   description: string;
   studentId: string;

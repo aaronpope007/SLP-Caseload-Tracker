@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -58,6 +58,7 @@ import { copyGoalSubtree } from '../utils/goalSubtreeCopy';
 export const StudentDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { selectedSchool } = useSchool();
   const [student, setStudent] = useState<Student | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -146,6 +147,71 @@ export const StudentDetail = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, selectedSchool]);
+
+  // Check for addGoal query parameter and open dialog
+  useEffect(() => {
+    const addGoalParam = searchParams.get('addGoal');
+    if (addGoalParam === 'true' && student && goals.length === 0 && !dialogOpen) {
+      // Open the add goal dialog
+      setEditingGoal(null);
+      setFormData({
+        description: '',
+        baseline: '',
+        target: '',
+        status: 'in-progress',
+        domain: '',
+        priority: 'medium',
+        parentGoalId: '',
+      });
+      setInitialFormData({
+        description: '',
+        baseline: '',
+        target: '',
+        status: 'in-progress',
+        domain: '',
+        priority: 'medium',
+        parentGoalId: '',
+      });
+      setSelectedTemplate(null);
+      setDialogOpen(true);
+      // Remove the query parameter from URL
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, student, goals.length, dialogOpen, setSearchParams]);
+
+  // Check for goalId query parameter and open edit dialog for that goal
+  useEffect(() => {
+    const goalIdParam = searchParams.get('goalId');
+    if (goalIdParam && student && goals.length > 0 && !dialogOpen) {
+      const goalToEdit = goals.find(g => g.id === goalIdParam);
+      if (goalToEdit) {
+        // Open the edit goal dialog
+        setEditingGoal(goalToEdit);
+        setFormData({
+          description: goalToEdit.description,
+          baseline: goalToEdit.baseline,
+          target: goalToEdit.target,
+          status: goalToEdit.status,
+          domain: goalToEdit.domain || '',
+          priority: goalToEdit.priority || 'medium',
+          parentGoalId: goalToEdit.parentGoalId || '',
+        });
+        setInitialFormData({
+          description: goalToEdit.description,
+          baseline: goalToEdit.baseline,
+          target: goalToEdit.target,
+          status: goalToEdit.status,
+          domain: goalToEdit.domain || '',
+          priority: goalToEdit.priority || 'medium',
+          parentGoalId: goalToEdit.parentGoalId || '',
+        });
+        setSelectedTemplate(null);
+        setDialogOpen(true);
+        // Remove the query parameter from URL
+        setSearchParams({}, { replace: true });
+      }
+    }
+  }, [searchParams, student, goals.length, dialogOpen, setSearchParams, goals]);
 
 
   const loadStudent = async () => {

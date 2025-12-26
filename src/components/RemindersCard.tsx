@@ -38,6 +38,10 @@ const getReminderIcon = (type: Reminder['type']) => {
       return <EventIcon fontSize="small" />;
     case 'frequency-alert':
       return <EventIcon fontSize="small" />;
+    case 'no-goals':
+      return <AssignmentIcon fontSize="small" />;
+    case 'no-target':
+      return <AssignmentIcon fontSize="small" />;
     default:
       return null;
   }
@@ -56,6 +60,10 @@ const getReminderPath = (reminder: Reminder): string => {
       return `/students/${reminder.studentId}`;
     case 'frequency-alert':
       return `/students/${reminder.studentId}`;
+    case 'no-goals':
+      return `/students/${reminder.studentId}?addGoal=true`;
+    case 'no-target':
+      return `/students/${reminder.studentId}?goalId=${reminder.relatedId || ''}`;
     default:
       return '/';
   }
