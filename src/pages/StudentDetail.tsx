@@ -52,6 +52,7 @@ import { StudentInfoCard } from '../components/StudentInfoCard';
 import { GoalActionsBar } from '../components/GoalActionsBar';
 import { GoalsList } from '../components/GoalsList';
 import { CopySubtreeDialog } from '../components/CopySubtreeDialog';
+import { QuickGoalsDialog } from '../components/QuickGoalsDialog';
 import { copyGoalSubtree } from '../utils/goalSubtreeCopy';
 
 export const StudentDetail = () => {
@@ -105,6 +106,9 @@ export const StudentDetail = () => {
   // Copy subtree dialog state
   const [copySubtreeDialogOpen, setCopySubtreeDialogOpen] = useState(false);
   const [goalToCopySubtree, setGoalToCopySubtree] = useState<Goal | null>(null);
+
+  // Quick goals dialog state
+  const [quickGoalsDialogOpen, setQuickGoalsDialogOpen] = useState(false);
   
   // Snackbar state
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity?: 'success' | 'error' | 'info' | 'warning' }>({
@@ -702,6 +706,7 @@ export const StudentDetail = () => {
 
       <GoalActionsBar
         onAddGoal={() => handleOpenDialog()}
+        onQuickGoal={() => setQuickGoalsDialogOpen(true)}
         onGenerateIEPGoals={() => {
           setAssessmentData('');
           setIepGoals('');
@@ -795,6 +800,80 @@ export const StudentDetail = () => {
           setGoalToCopySubtree(null);
         }}
         onConfirm={handleConfirmCopySubtree}
+      />
+
+      <QuickGoalsDialog
+        open={quickGoalsDialogOpen}
+        studentId={id || ''}
+        onClose={() => setQuickGoalsDialogOpen(false)}
+        onSave={async (newGoals: Goal[]) => {
+          if (!id) return;
+
+          try {
+            // Ensure all goals have the correct studentId
+            for (const goal of newGoals) {
+              goal.studentId = id;
+            }
+
+            // Save all goals first (they're already in top-down order from the generator)
+            for (const goal of newGoals) {
+              try {
+                await addGoal(goal);
+              } catch (error) {
+                console.error(`Failed to add goal ${goal.id}:`, error);
+                throw new Error(`Failed to add goal: ${error instanceof Error ? error.message : String(error)}`);
+              }
+            }
+
+            // Then update parent's subGoalIds for all goals that have a parent
+            // Group by parent to avoid multiple updates to the same parent
+            const goalsByParent = new Map<string, string[]>();
+            for (const goal of newGoals) {
+              if (goal.parentGoalId) {
+                if (!goalsByParent.has(goal.parentGoalId)) {
+                  goalsByParent.set(goal.parentGoalId, []);
+                }
+                goalsByParent.get(goal.parentGoalId)!.push(goal.id);
+              }
+            }
+
+            // Update each parent's subGoalIds
+            // Reload goals to get the latest parent data
+            const updatedAllGoals = await getGoals();
+            for (const [parentId, newSubGoalIds] of goalsByParent.entries()) {
+              const parent = updatedAllGoals.find(g => g.id === parentId);
+              if (parent) {
+                const existingSubGoalIds = parent.subGoalIds || [];
+                // Only add IDs that aren't already in the list
+                const idsToAdd = newSubGoalIds.filter(id => !existingSubGoalIds.includes(id));
+                if (idsToAdd.length > 0) {
+                  const updatedSubGoalIds = [...existingSubGoalIds, ...idsToAdd];
+                  try {
+                    await updateGoal(parent.id, { subGoalIds: updatedSubGoalIds });
+                  } catch (error) {
+                    console.error(`Failed to update parent goal ${parent.id}:`, error);
+                    throw new Error(`Failed to update parent goal: ${error instanceof Error ? error.message : String(error)}`);
+                  }
+                }
+              }
+            }
+
+            // Reload goals to show the new goals
+            await loadGoals();
+            await loadSessions();
+
+            setSnackbar({
+              open: true,
+              message: `Successfully created ${newGoals.length} goal(s).`,
+              severity: 'success',
+            });
+          } catch (error) {
+            console.error('Failed to create quick goals:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            alert(`Failed to create quick goals: ${errorMessage}. Please check the console for more details.`);
+            throw error; // Re-throw so dialog can handle it
+          }
+        }}
       />
 
       {/* Confirmation dialog for unsaved changes */}
