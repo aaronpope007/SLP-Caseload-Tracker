@@ -277,10 +277,7 @@ export const Schools = () => {
         schoolHours: formData.schoolHours,
       };
       
-      console.log('Saving school with data:', schoolData);
-      
       if (editingSchool) {
-        console.log('Updating school:', editingSchool.id, schoolData);
         await updateSchool(editingSchool.id, schoolData);
         setSnackbar({
           open: true,

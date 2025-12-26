@@ -170,8 +170,6 @@ function AppContent() {
 }
 
 function App() {
-  console.log('App component rendering...');
-  
   return (
     <ErrorBoundary>
       <ThemeProvider>

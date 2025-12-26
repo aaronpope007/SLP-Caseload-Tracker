@@ -33,7 +33,10 @@ export const generateTreatmentIdeas = async (
   
   // First, try to get available models
   let availableModels = await getAvailableModels(apiKey);
-  console.log('Available models:', availableModels);
+  
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Available models:', availableModels);
+  }
   
   // If we couldn't get the list, use default model names to try
   if (availableModels.length === 0) {
@@ -64,16 +67,22 @@ Format the response in a clear, easy-to-read way. Make the activities fun and ap
 
   for (const modelName of availableModels) {
     try {
-      console.log(`Trying model: ${modelName}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Trying model: ${modelName}`);
+      }
       const model = genAI.getGenerativeModel({ model: modelName });
       const result = await model.generateContent(prompt);
       const response = await result.response;
-      console.log(`Success with model: ${modelName}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Success with model: ${modelName}`);
+      }
       return response.text();
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       const errorStatus = (error as { status?: number })?.status;
-      console.log(`Model ${modelName} failed:`, errorMessage);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Model ${modelName} failed:`, errorMessage);
+      }
       lastError = error instanceof Error ? error : new Error(errorMessage);
       
       // If it's a 404, try the next model

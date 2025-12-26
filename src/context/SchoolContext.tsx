@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { getSchools, addSchool as addSchoolStorage, getSchoolByName, type School, getStudents } from '../utils/storage-api';
 import { generateId } from '../utils/helpers';
 
@@ -20,10 +20,17 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
   const [selectedSchool, setSelectedSchoolState] = useState<string>(DEFAULT_SCHOOL_NAME);
   const [availableSchools, setAvailableSchools] = useState<string[]>([DEFAULT_SCHOOL_NAME]);
   const [schools, setSchools] = useState<School[]>([]);
+  const isRefreshingRef = useRef(false);
 
   // Get available schools from School objects and students
   const refreshAvailableSchools = useCallback(async () => {
+    // Prevent multiple simultaneous calls
+    if (isRefreshingRef.current) {
+      return;
+    }
+    
     try {
+      isRefreshingRef.current = true;
       const schoolNames = new Set<string>();
       
       // Add schools from School objects
@@ -59,9 +66,11 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
       
       const sorted = Array.from(schoolNames).sort();
       setAvailableSchools(sorted);
-    } catch {
-      setAvailableSchools([DEFAULT_SCHOOL_NAME]);
-      setSchools([]);
+    } catch (error) {
+      console.error('Error refreshing available schools:', error);
+      // Don't clear schools on error, just keep existing state
+    } finally {
+      isRefreshingRef.current = false;
     }
   }, []);
 
@@ -79,11 +88,42 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
   }, [refreshAvailableSchools]);
 
   // Refresh schools periodically (since we don't have storage sync events with API)
+  // Only refresh when tab is visible to save resources
   useEffect(() => {
-    const interval = setInterval(() => {
-      refreshAvailableSchools();
-    }, 5000); // Refresh every 5 seconds
-    return () => clearInterval(interval);
+    let interval: number | null = null;
+    
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // Clear interval when tab is hidden
+        if (interval !== null) {
+          clearInterval(interval);
+          interval = null;
+        }
+      } else {
+        // Resume interval when tab becomes visible, and refresh immediately
+        refreshAvailableSchools();
+        interval = window.setInterval(() => {
+          refreshAvailableSchools();
+        }, 30000); // Refresh every 30 seconds (increased from 5 seconds)
+      }
+    };
+    
+    // Start interval if tab is visible
+    if (!document.hidden) {
+      interval = window.setInterval(() => {
+        refreshAvailableSchools();
+      }, 30000); // Refresh every 30 seconds
+    }
+    
+    // Listen for visibility changes
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      if (interval !== null) {
+        clearInterval(interval);
+      }
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [refreshAvailableSchools]);
 
   const setSelectedSchool = (school: string) => {

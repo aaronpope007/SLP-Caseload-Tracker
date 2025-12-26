@@ -44,75 +44,17 @@ if (typeof window !== 'undefined') {
 // Students
 export const getStudents = (school?: string): Student[] => {
   const data = localStorage.getItem(STORAGE_KEYS.STUDENTS);
-  console.log('Raw localStorage data for students:', data ? `Found ${data.length} characters` : 'No data found');
-  console.log('Storage key being used:', STORAGE_KEYS.STUDENTS);
   
-  // If no data found, check for alternative keys that might have been used
-  if (!data || data === '[]' || data === 'null') {
-    console.warn('⚠️ No SLP students data found in localStorage!');
-    console.log('This could mean:');
-    console.log('1. Data was never saved');
-    console.log('2. localStorage was cleared');
-    console.log('3. Data is stored under a different key');
-    console.log('You may need to re-enter your students or import from a backup.');
-  }
-  
-  // Check ALL localStorage keys to see what's actually stored
-  console.log('=== ALL LOCALSTORAGE KEYS ===');
-  const slpKeys: string[] = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key) {
-      // Check if it's an SLP-related key
-      if (key.toLowerCase().includes('slp') || key === STORAGE_KEYS.STUDENTS || key === STORAGE_KEYS.GOALS || key === STORAGE_KEYS.SESSIONS) {
-        slpKeys.push(key);
-      }
-      const value = localStorage.getItem(key);
-      if (value) {
-        try {
-          const parsed = JSON.parse(value);
-          if (Array.isArray(parsed)) {
-            console.log(`Key: "${key}" - Array with ${parsed.length} items`);
-            if (parsed.length > 0 && parsed[0] && typeof parsed[0] === 'object') {
-              console.log(`  Sample item keys:`, Object.keys(parsed[0]));
-            }
-          } else {
-            console.log(`Key: "${key}" - Non-array value:`, typeof parsed);
-          }
-        } catch (e) {
-          console.log(`Key: "${key}" - Not JSON, length: ${value.length}`);
-        }
-      }
+  // Only log warning in development and only once
+  if (process.env.NODE_ENV === 'development' && (!data || data === '[]' || data === 'null')) {
+    const hasWarned = sessionStorage.getItem('slp_students_warned');
+    if (!hasWarned) {
+      console.warn('⚠️ No SLP students data found in localStorage!');
+      sessionStorage.setItem('slp_students_warned', 'true');
     }
   }
-  console.log('=== SLP-RELATED KEYS FOUND ===', slpKeys);
-  console.log('=== END LOCALSTORAGE INSPECTION ===');
   
   let students: Student[] = data ? JSON.parse(data) : [];
-  console.log('Parsed students count:', students.length);
-  
-  // Check all localStorage keys that might contain students
-  if (students.length === 0) {
-    console.log('No students found in slp_students key, checking all localStorage keys:');
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.toLowerCase().includes('student')) {
-        console.log(`Found potential student key: ${key}`);
-        const value = localStorage.getItem(key);
-        if (value) {
-          try {
-            const parsed = JSON.parse(value);
-            console.log(`  Contains ${Array.isArray(parsed) ? parsed.length : 'non-array'} items`);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              console.log(`  First item:`, parsed[0]);
-            }
-          } catch (e) {
-            console.log(`  Could not parse as JSON`);
-          }
-        }
-      }
-    }
-  }
   
   // Migrate on each get to ensure all students have school
   const migrated = students.map((student) => {
@@ -135,8 +77,6 @@ export const getStudents = (school?: string): Student[] => {
       const studentSchool = (s.school || DEFAULT_SCHOOL).trim();
       return studentSchool === normalizedSchool;
     });
-    console.log(`Filtering students: looking for "${normalizedSchool}", found ${filtered.length} out of ${migrated.length} total students`);
-    console.log('Sample student schools:', migrated.slice(0, 3).map(s => s.school));
     return filtered;
   }
   

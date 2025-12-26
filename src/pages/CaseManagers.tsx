@@ -115,7 +115,6 @@ export const CaseManagers = () => {
   });
 
   const filterCaseManagers = () => {
-    console.log(`[CaseManagers] filterCaseManagers called. caseManagers.length: ${caseManagers.length}, searchTerm: "${searchTerm}"`);
     let filtered = caseManagers;
     
     // Filter by search term if provided
@@ -141,38 +140,23 @@ export const CaseManagers = () => {
       return nameA.localeCompare(nameB);
     });
     
-    console.log(`[CaseManagers] Setting filteredCaseManagers with ${filtered.length} items`);
     setFilteredCaseManagers(filtered);
   };
 
   const loadCaseManagers = async () => {
     if (!selectedSchool) {
-      console.log('[CaseManagers] No school selected, clearing case managers');
       setCaseManagers([]);
       return;
     }
     try {
-      console.log(`[CaseManagers] Loading case managers for school: "${selectedSchool}"`);
       const allCaseManagers = await getCaseManagers(selectedSchool);
-      console.log(`[CaseManagers] Received ${allCaseManagers.length} case managers from API`);
-      if (allCaseManagers.length > 0) {
-        console.log(`[CaseManagers] First case manager:`, allCaseManagers[0]);
-        console.log(`[CaseManagers] All received case managers:`, allCaseManagers.map(cm => ({
-          id: cm.id,
-          name: cm.name,
-          school: cm.school,
-          schoolMatch: cm.school?.trim().toLowerCase() === selectedSchool?.trim().toLowerCase()
-        })));
-      } else {
-        console.log(`[CaseManagers] No case managers received. Selected school: "${selectedSchool}"`);
-      }
+      
       // Sort alphabetically by name
       const sortedCaseManagers = [...allCaseManagers].sort((a, b) => {
         const nameA = a.name.toLowerCase();
         const nameB = b.name.toLowerCase();
         return nameA.localeCompare(nameB);
       });
-      console.log(`[CaseManagers] Setting caseManagers state with ${sortedCaseManagers.length} items`);
       setCaseManagers(sortedCaseManagers);
     } catch (error) {
       console.error('[CaseManagers] Failed to load case managers:', error);
@@ -185,28 +169,9 @@ export const CaseManagers = () => {
   }, [selectedSchool]);
 
   useEffect(() => {
-    console.log(`[CaseManagers] caseManagers state changed. Length: ${caseManagers.length}`);
-    if (caseManagers.length > 0) {
-      console.log(`[CaseManagers] caseManagers in state:`, caseManagers.map(cm => ({
-        id: cm.id,
-        name: cm.name,
-        school: cm.school
-      })));
-    }
     filterCaseManagers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, caseManagers]);
-
-  useEffect(() => {
-    console.log(`[CaseManagers] filteredCaseManagers state changed. Length: ${filteredCaseManagers.length}`);
-    if (filteredCaseManagers.length > 0) {
-      console.log(`[CaseManagers] filteredCaseManagers in state:`, filteredCaseManagers.map(cm => ({
-        id: cm.id,
-        name: cm.name,
-        school: cm.school
-      })));
-    }
-  }, [filteredCaseManagers]);
 
   useEffect(() => {
     // Clean up expanded state for case managers that are no longer visible
@@ -296,11 +261,7 @@ export const CaseManagers = () => {
         emailAddress: emailTrimmed || undefined,
       };
 
-      console.log('[CaseManagers] Saving case manager:', caseManagerData);
-      console.log('[CaseManagers] Selected school:', selectedSchool);
-
       if (editingCaseManager) {
-        console.log('[CaseManagers] Updating existing case manager:', editingCaseManager.id);
         await updateCaseManager(editingCaseManager.id, caseManagerData);
         setSnackbar({
           open: true,
@@ -313,7 +274,6 @@ export const CaseManagers = () => {
           ...caseManagerData,
           dateCreated: new Date().toISOString(),
         };
-        console.log('[CaseManagers] Creating new case manager:', newCaseManager);
         await addCaseManager(newCaseManager);
         setSnackbar({
           open: true,
@@ -322,9 +282,7 @@ export const CaseManagers = () => {
         });
       }
       
-      console.log('[CaseManagers] Case manager saved, reloading list...');
       await loadCaseManagers();
-      console.log('[CaseManagers] List reloaded');
       resetDirty();
       setDialogOpen(false);
       setEditingCaseManager(null);
@@ -406,17 +364,19 @@ export const CaseManagers = () => {
             onClick={async () => {
               // Debug: Load all case managers without school filter
               try {
-                console.log('[Debug] Current selected school:', selectedSchool);
                 const all = await getCaseManagers();
-                console.log('[Debug] All case managers (no filter):', all);
                 const withSchool = await getCaseManagers(selectedSchool);
-                console.log('[Debug] Case managers for selected school:', withSchool);
                 
                 // Also try the debug endpoint
                 try {
                   const debugResponse = await fetch('http://localhost:3001/api/case-managers/debug/all');
                   const debugData = await debugResponse.json();
-                  console.log('[Debug] Debug endpoint response:', debugData);
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log('[Debug] Current selected school:', selectedSchool);
+                    console.log('[Debug] All case managers (no filter):', all);
+                    console.log('[Debug] Case managers for selected school:', withSchool);
+                    console.log('[Debug] Debug endpoint response:', debugData);
+                  }
                   
                   let message = `Found ${all.length} case managers total (no filter).\n`;
                   message += `Found ${withSchool.length} for school "${selectedSchool}".\n`;

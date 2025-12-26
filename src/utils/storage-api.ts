@@ -342,11 +342,9 @@ export const saveCaseManagers = async (caseManagers: CaseManager[]): Promise<voi
 };
 
 export const addCaseManager = async (caseManager: CaseManager): Promise<void> => {
-  console.log('[storage-api] Adding case manager:', caseManager);
   try {
     // The API expects the full object including id and dateCreated
     await api.caseManagers.create(caseManager);
-    console.log('[storage-api] Case manager added successfully');
   } catch (error) {
     console.error('[storage-api] Error adding case manager:', error);
     throw error;

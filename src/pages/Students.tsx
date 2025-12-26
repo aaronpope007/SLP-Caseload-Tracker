@@ -171,22 +171,19 @@ export const Students = () => {
       setStudents([]);
       return;
     }
-    console.log('Loading students for school:', selectedSchool);
-    
     try {
       // First, check if ANY students exist (without school filter)
       const allStudentsUnfiltered = await getStudents();
-      console.log('Total students in storage (no filter):', allStudentsUnfiltered.length);
       
       // Then filter by school
       const allStudents = await getStudents(selectedSchool);
-      console.log('Found students:', allStudents.length, 'for school:', selectedSchool);
       
       // If no students found for this school but students exist, show a warning
-      if (allStudents.length === 0 && allStudentsUnfiltered.length > 0) {
-        console.warn('⚠️ Students exist but none match the selected school!');
-        console.log('Selected school:', selectedSchool);
-        console.log('Available school names in students:', [...new Set(allStudentsUnfiltered.map(s => s.school || 'NO SCHOOL'))]);
+      if (process.env.NODE_ENV === 'development' && allStudents.length === 0 && allStudentsUnfiltered.length > 0) {
+        console.warn('⚠️ Students exist but none match the selected school!', {
+          selectedSchool,
+          availableSchools: [...new Set(allStudentsUnfiltered.map(s => s.school || 'NO SCHOOL'))]
+        });
       }
       
       // Sort alphabetically by first name
