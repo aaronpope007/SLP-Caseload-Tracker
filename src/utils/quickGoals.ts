@@ -107,9 +107,10 @@ export function generateArticulationGoalTree(
     // If this is the word level and there are multiple levels, add position breakdown sub-goals
     if (isWordLevel && levelsToGenerate.length > 1) {
       const positions = [
-        { name: 'initial', label: 'initial position' },
-        { name: 'medial', label: 'medial position' },
-        { name: 'final', label: 'final position' },
+        { name: 'initial', label: 'initial position', description: (phoneme: string) => `${phoneme} initial position of words` },
+        { name: 'medial', label: 'medial position', description: (phoneme: string) => `${phoneme} medial position of words` },
+        { name: 'final', label: 'final position', description: (phoneme: string) => `${phoneme} final position of words` },
+        { name: 'isolation', label: 'in isolation', description: (phoneme: string) => `${phoneme} in isolation` },
       ];
 
       positions.forEach((position) => {
@@ -117,7 +118,7 @@ export function generateArticulationGoalTree(
         const positionGoal: Goal = {
           id: positionGoalId,
           studentId,
-          description: `${cleanPhoneme} ${position.label} of words`,
+          description: position.description(cleanPhoneme),
           baseline: '',
           target: targetPercentage.toString(),
           status: 'in-progress',
