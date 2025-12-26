@@ -111,6 +111,7 @@ export const StudentDetail = () => {
   const [quickGoalsDialogOpen, setQuickGoalsDialogOpen] = useState(false);
   const [quickSubGoalParentId, setQuickSubGoalParentId] = useState<string | undefined>(undefined);
   const [quickSubGoalParentDomain, setQuickSubGoalParentDomain] = useState<string | undefined>(undefined);
+  const [quickSubGoalParentTarget, setQuickSubGoalParentTarget] = useState<string | undefined>(undefined);
   
   // Snackbar state
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity?: 'success' | 'error' | 'info' | 'warning' }>({
@@ -229,20 +230,22 @@ export const StudentDetail = () => {
       };
     } else {
       setEditingGoal(null);
-      // If creating a sub-goal, inherit domain and priority from parent
+      // If creating a sub-goal, inherit domain, priority, and target (accuracy) from parent
       let inheritedDomain = '';
       let inheritedPriority: 'high' | 'medium' | 'low' = 'medium';
+      let inheritedTarget = '';
       if (parentGoalId) {
         const parentGoal = goals.find(g => g.id === parentGoalId);
         if (parentGoal) {
           inheritedDomain = parentGoal.domain || '';
           inheritedPriority = parentGoal.priority || 'medium';
+          inheritedTarget = parentGoal.target || '';
         }
       }
       newFormData = {
         description: '',
         baseline: '',
-        target: '',
+        target: inheritedTarget,
         status: 'in-progress',
         domain: inheritedDomain,
         priority: inheritedPriority,
@@ -734,6 +737,7 @@ export const StudentDetail = () => {
             const parentGoal = goals.find(g => g.id === parentId);
             setQuickSubGoalParentId(parentId);
             setQuickSubGoalParentDomain(parentGoal?.domain);
+            setQuickSubGoalParentTarget(parentGoal?.target);
             setQuickGoalsDialogOpen(true);
           }}
           onEditSubGoal={handleOpenDialog}
@@ -815,10 +819,12 @@ export const StudentDetail = () => {
         studentId={id || ''}
         parentGoalId={quickSubGoalParentId}
         parentGoalDomain={quickSubGoalParentDomain}
+        parentGoalTarget={quickSubGoalParentTarget}
         onClose={() => {
           setQuickGoalsDialogOpen(false);
           setQuickSubGoalParentId(undefined);
           setQuickSubGoalParentDomain(undefined);
+          setQuickSubGoalParentTarget(undefined);
         }}
         onSave={async (newGoals: Goal[]) => {
           if (!id) return;

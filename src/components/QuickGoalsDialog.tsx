@@ -14,6 +14,7 @@ import {
 import type { Goal } from '../types';
 import { generateArticulationGoalTree, type ArticulationLevel } from '../utils/quickGoals';
 import { getUniqueDomains } from '../utils/goalTemplates';
+import { extractPercentageFromTarget } from '../utils/helpers';
 
 interface QuickGoalsDialogProps {
   open: boolean;
@@ -22,6 +23,7 @@ interface QuickGoalsDialogProps {
   onSave: (goals: Goal[]) => Promise<void>;
   parentGoalId?: string; // Optional parent goal ID for creating subgoals
   parentGoalDomain?: string; // Optional parent goal domain to inherit
+  parentGoalTarget?: string; // Optional parent goal target (accuracy) to inherit
 }
 
 export const QuickGoalsDialog: React.FC<QuickGoalsDialogProps> = ({
@@ -31,6 +33,7 @@ export const QuickGoalsDialog: React.FC<QuickGoalsDialogProps> = ({
   onSave,
   parentGoalId,
   parentGoalDomain,
+  parentGoalTarget,
 }) => {
   const [domain, setDomain] = useState<string>('');
   const [phoneme, setPhoneme] = useState<string>('');
@@ -40,15 +43,23 @@ export const QuickGoalsDialog: React.FC<QuickGoalsDialogProps> = ({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>('');
 
-  // When dialog opens with a parent goal, inherit the domain
+  // When dialog opens with a parent goal, inherit the domain and target percentage
   useEffect(() => {
     if (open && parentGoalId && parentGoalDomain) {
       setDomain(parentGoalDomain);
+      // Extract percentage from parent goal's target if available
+      if (parentGoalTarget) {
+        const extractedPercentage = extractPercentageFromTarget(parentGoalTarget);
+        if (extractedPercentage) {
+          setTargetPercentage(extractedPercentage);
+        }
+      }
     } else if (open && !parentGoalId) {
-      // Reset domain when opening for a new top-level goal
+      // Reset domain and target percentage when opening for a new top-level goal
       setDomain('');
+      setTargetPercentage('90');
     }
-  }, [open, parentGoalId, parentGoalDomain]);
+  }, [open, parentGoalId, parentGoalDomain, parentGoalTarget]);
 
   const handleClose = () => {
     setDomain('');

@@ -129,3 +129,27 @@ export const getPriorityBorderColor = (
   return 'success.main';
 };
 
+/**
+ * Extracts the percentage number from a target string
+ * Handles formats like "80", "80%", "80% accuracy", "with 80% accuracy", etc.
+ * @param target - Target string that may contain a percentage
+ * @returns The percentage number as a string, or empty string if not found
+ */
+export const extractPercentageFromTarget = (target: string): string => {
+  if (!target || !target.trim()) return '';
+  
+  // Try to find a number followed by optional % sign
+  const match = target.match(/(\d+(?:\.\d+)?)\s*%/);
+  if (match) {
+    return match[1];
+  }
+  
+  // If no % sign, try to parse as a plain number
+  const numMatch = target.match(/^(\d+(?:\.\d+)?)$/);
+  if (numMatch) {
+    return numMatch[1];
+  }
+  
+  return '';
+};
+
