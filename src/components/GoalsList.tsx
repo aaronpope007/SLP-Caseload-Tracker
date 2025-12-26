@@ -28,6 +28,7 @@ interface GoalsListProps {
   onDelete: (goalId: string) => void;
   onCopyToSubGoal: (goal: Goal) => void;
   onAddSubGoal: (parentGoalId: string) => void;
+  onQuickSubGoal?: (parentGoalId: string) => void;
   onEditSubGoal: (goal: Goal) => void;
   onDuplicateSubGoal: (goal: Goal) => void;
   onCopySubtree?: (goal: Goal) => void;
@@ -40,6 +41,7 @@ export const GoalsList = ({
   onDelete,
   onCopyToSubGoal,
   onAddSubGoal,
+  onQuickSubGoal,
   onEditSubGoal,
   onDuplicateSubGoal,
   onCopySubtree,
@@ -224,6 +226,7 @@ export const GoalsList = ({
                     onDelete={onDelete}
                     onCopyToSubGoal={onCopyToSubGoal}
                     onAddSubGoal={onAddSubGoal}
+                    onQuickSubGoal={onQuickSubGoal}
                     onEditSubGoal={onEditSubGoal}
                     onDuplicateSubGoal={onDuplicateSubGoal}
                     onCopySubtree={onCopySubtree}
@@ -259,6 +262,7 @@ export const GoalsList = ({
                     onDelete={onDelete}
                     onCopyToSubGoal={onCopyToSubGoal}
                     onAddSubGoal={onAddSubGoal}
+                    onQuickSubGoal={onQuickSubGoal}
                     onEditSubGoal={onEditSubGoal}
                     onDuplicateSubGoal={onDuplicateSubGoal}
                     onCopySubtree={onCopySubtree}

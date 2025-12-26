@@ -8,17 +8,19 @@ export interface ArticulationQuickGoalParams {
   level: ArticulationLevel;
   targetPercentage: number;
   priority?: 'high' | 'medium' | 'low';
+  parentGoalId?: string; // Optional parent goal ID for creating subgoals
 }
 
 /**
  * Generates a hierarchical goal tree for articulation goals
  * Based on the selected level, generates all levels from that level down to word level
+ * If parentGoalId is provided, the top-level goal will be a subgoal of that parent
  */
 export function generateArticulationGoalTree(
   studentId: string,
   params: ArticulationQuickGoalParams
 ): Goal[] {
-  const { phoneme, level, targetPercentage, priority = 'medium' } = params;
+  const { phoneme, level, targetPercentage, priority = 'medium', parentGoalId: providedParentGoalId } = params;
   const goals: Goal[] = [];
   const now = new Date().toISOString();
   const domain = 'Articulation';
@@ -46,7 +48,9 @@ export function generateArticulationGoalTree(
   }
 
 
-  let parentGoalId: string | undefined = undefined;
+  // If parentGoalId is provided, the top-level goal should be a subgoal
+  // Otherwise, start with undefined (creating top-level goals)
+  let parentGoalId: string | undefined = providedParentGoalId;
   const goalMap = new Map<string, Goal>();
 
   // Create goals for each level (top-down: from selected level to word level)

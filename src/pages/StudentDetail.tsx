@@ -109,6 +109,8 @@ export const StudentDetail = () => {
 
   // Quick goals dialog state
   const [quickGoalsDialogOpen, setQuickGoalsDialogOpen] = useState(false);
+  const [quickSubGoalParentId, setQuickSubGoalParentId] = useState<string | undefined>(undefined);
+  const [quickSubGoalParentDomain, setQuickSubGoalParentDomain] = useState<string | undefined>(undefined);
   
   // Snackbar state
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity?: 'success' | 'error' | 'info' | 'warning' }>({
@@ -728,6 +730,12 @@ export const StudentDetail = () => {
           onDelete={handleDelete}
           onCopyToSubGoal={handleCopyMainGoalToSubGoal}
           onAddSubGoal={(parentId) => handleOpenDialog(undefined, parentId)}
+          onQuickSubGoal={(parentId) => {
+            const parentGoal = goals.find(g => g.id === parentId);
+            setQuickSubGoalParentId(parentId);
+            setQuickSubGoalParentDomain(parentGoal?.domain);
+            setQuickGoalsDialogOpen(true);
+          }}
           onEditSubGoal={handleOpenDialog}
           onDuplicateSubGoal={handleDuplicateSubGoal}
           onCopySubtree={handleCopySubtree}
@@ -805,7 +813,13 @@ export const StudentDetail = () => {
       <QuickGoalsDialog
         open={quickGoalsDialogOpen}
         studentId={id || ''}
-        onClose={() => setQuickGoalsDialogOpen(false)}
+        parentGoalId={quickSubGoalParentId}
+        parentGoalDomain={quickSubGoalParentDomain}
+        onClose={() => {
+          setQuickGoalsDialogOpen(false);
+          setQuickSubGoalParentId(undefined);
+          setQuickSubGoalParentDomain(undefined);
+        }}
         onSave={async (newGoals: Goal[]) => {
           if (!id) return;
 

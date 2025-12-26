@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Typography, Button, Accordion, AccordionSummary, AccordionDetails, Chip } from '@mui/material';
-import { Add as AddIcon } from '@mui/icons-material';
+import { Add as AddIcon, FlashOn as FlashOnIcon } from '@mui/icons-material';
 import type { Goal } from '../types';
 import { organizeGoalsHierarchy } from '../utils/goalHierarchy';
 import { StatusChip } from './StatusChip';
@@ -27,6 +27,7 @@ interface SubGoalListProps {
   onCopySubtree?: (goal: Goal) => void;
   onDelete?: (goalId: string) => void;
   onAddSubGoal: (parentGoalId: string) => void;
+  onQuickSubGoal?: (parentGoalId: string) => void; // Optional callback for quick subgoal creation
   depth?: number; // Track nesting depth for recursive rendering
   label?: string; // Custom label for the list (e.g., "Sub-goals", "Breakdown-sub-goals")
   expandedSubGoals?: Set<string>;
@@ -43,6 +44,7 @@ const NestedGoalItem: React.FC<{
   onCopySubtree?: (goal: Goal) => void;
   onDelete?: (goalId: string) => void;
   onAddSubGoal: (parentGoalId: string) => void;
+  onQuickSubGoal?: (parentGoalId: string) => void;
   depth: number;
   expanded?: boolean;
   onExpandedChange?: (goalId: string, expanded: boolean) => void;
@@ -58,6 +60,7 @@ const NestedGoalItem: React.FC<{
   onCopySubtree,
   onDelete,
   onAddSubGoal,
+  onQuickSubGoal,
   depth,
   expanded = false,
   onExpandedChange,
@@ -110,6 +113,7 @@ const NestedGoalItem: React.FC<{
           onCopySubtree={onCopySubtree}
           onDelete={onDelete}
           onAddSubGoal={onAddSubGoal}
+          onQuickSubGoal={onQuickSubGoal}
           depth={depth + 1}
           label={`Breakdown-sub-goals (${subGoals.length})`}
           expandedSubGoals={expandedSubGoals}
@@ -117,22 +121,39 @@ const NestedGoalItem: React.FC<{
         />
       )}
       
-      {/* Add Sub-goal button */}
-      <Button
-        size="small"
-        startIcon={<AddIcon />}
-        onClick={() => {
-          // Automatically expand this goal when adding a sub-goal so the new sub-goal is visible
-          if (onExpandedChange && !expanded) {
-            onExpandedChange(goal.id, true);
-          }
-          onAddSubGoal(goal.id);
-        }}
-        sx={{ mt: 1, ml: depth > 0 ? 2 : 0 }}
-        variant="outlined"
-      >
-        Add {depth > 0 ? 'breakdown-' : ''}sub-goal
-      </Button>
+      {/* Add Sub-goal and Quick Sub-goal buttons */}
+      <Box sx={{ display: 'flex', gap: 1, mt: 1, ml: depth > 0 ? 2 : 0, flexWrap: 'wrap' }}>
+        <Button
+          size="small"
+          startIcon={<AddIcon />}
+          onClick={() => {
+            // Automatically expand this goal when adding a sub-goal so the new sub-goal is visible
+            if (onExpandedChange && !expanded) {
+              onExpandedChange(goal.id, true);
+            }
+            onAddSubGoal(goal.id);
+          }}
+          variant="outlined"
+        >
+          Add {depth > 0 ? 'breakdown-' : ''}sub-goal
+        </Button>
+        {onQuickSubGoal && (
+          <Button
+            size="small"
+            startIcon={<FlashOnIcon />}
+            onClick={() => {
+              // Automatically expand this goal when adding a quick sub-goal so the new sub-goal is visible
+              if (onExpandedChange && !expanded) {
+                onExpandedChange(goal.id, true);
+              }
+              onQuickSubGoal(goal.id);
+            }}
+            variant="outlined"
+          >
+            Quick {depth > 0 ? 'breakdown-' : ''}sub-goal
+          </Button>
+        )}
+      </Box>
     </>
   );
 
@@ -214,6 +235,7 @@ export const SubGoalList: React.FC<SubGoalListProps> = ({
   onCopySubtree,
   onDelete,
   onAddSubGoal,
+  onQuickSubGoal,
   depth = 0,
   label,
   expandedSubGoals = new Set(),
@@ -252,6 +274,7 @@ export const SubGoalList: React.FC<SubGoalListProps> = ({
           onCopySubtree={onCopySubtree}
           onDelete={onDelete}
           onAddSubGoal={onAddSubGoal}
+          onQuickSubGoal={onQuickSubGoal}
           depth={depth}
           expanded={expandedSubGoals.has(sub.id)}
           onExpandedChange={onSubGoalExpandedChange}

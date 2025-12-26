@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -20,6 +20,8 @@ interface QuickGoalsDialogProps {
   studentId: string;
   onClose: () => void;
   onSave: (goals: Goal[]) => Promise<void>;
+  parentGoalId?: string; // Optional parent goal ID for creating subgoals
+  parentGoalDomain?: string; // Optional parent goal domain to inherit
 }
 
 export const QuickGoalsDialog: React.FC<QuickGoalsDialogProps> = ({
@@ -27,6 +29,8 @@ export const QuickGoalsDialog: React.FC<QuickGoalsDialogProps> = ({
   studentId,
   onClose,
   onSave,
+  parentGoalId,
+  parentGoalDomain,
 }) => {
   const [domain, setDomain] = useState<string>('');
   const [phoneme, setPhoneme] = useState<string>('');
@@ -35,6 +39,16 @@ export const QuickGoalsDialog: React.FC<QuickGoalsDialogProps> = ({
   const [priority, setPriority] = useState<'high' | 'medium' | 'low'>('medium');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>('');
+
+  // When dialog opens with a parent goal, inherit the domain
+  useEffect(() => {
+    if (open && parentGoalId && parentGoalDomain) {
+      setDomain(parentGoalDomain);
+    } else if (open && !parentGoalId) {
+      // Reset domain when opening for a new top-level goal
+      setDomain('');
+    }
+  }, [open, parentGoalId, parentGoalDomain]);
 
   const handleClose = () => {
     setDomain('');
@@ -73,6 +87,7 @@ export const QuickGoalsDialog: React.FC<QuickGoalsDialogProps> = ({
           level,
           targetPercentage: targetNum,
           priority,
+          parentGoalId,
         });
         await onSave(goals);
         handleClose();
@@ -97,7 +112,7 @@ export const QuickGoalsDialog: React.FC<QuickGoalsDialogProps> = ({
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Quick Goal</DialogTitle>
+      <DialogTitle>{parentGoalId ? 'Quick Sub-goal' : 'Quick Goal'}</DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
           {error && (
@@ -210,7 +225,7 @@ export const QuickGoalsDialog: React.FC<QuickGoalsDialogProps> = ({
           variant="contained"
           disabled={saving || !domain || (domain === 'Articulation' && !phoneme.trim())}
         >
-          {saving ? 'Creating...' : 'Create Goals'}
+          {saving ? 'Creating...' : parentGoalId ? 'Create Sub-goals' : 'Create Goals'}
         </Button>
       </DialogActions>
     </Dialog>

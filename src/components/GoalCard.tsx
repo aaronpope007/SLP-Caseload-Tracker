@@ -19,6 +19,7 @@ import {
   Delete as DeleteIcon,
   ContentCopy as ContentCopyIcon,
   AccountTree as AccountTreeIcon,
+  FlashOn as FlashOnIcon,
 } from '@mui/icons-material';
 import type { Goal } from '../types';
 import { getPriorityBorderColor } from '../utils/helpers';
@@ -45,6 +46,7 @@ interface GoalCardProps {
   onDelete: (goalId: string) => void;
   onCopyToSubGoal: (goal: Goal) => void;
   onAddSubGoal: (parentGoalId: string) => void;
+  onQuickSubGoal?: (parentGoalId: string) => void;
   onEditSubGoal: (goal: Goal) => void;
   onDuplicateSubGoal: (goal: Goal) => void;
   onCopySubtree?: (goal: Goal) => void;
@@ -63,6 +65,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
   onDelete,
   onCopyToSubGoal,
   onAddSubGoal,
+  onQuickSubGoal,
   onEditSubGoal,
   onDuplicateSubGoal,
   onCopySubtree,
@@ -125,17 +128,30 @@ export const GoalCard: React.FC<GoalCardProps> = ({
         onCopySubtree={onCopySubtree}
         onDelete={onDelete}
         onAddSubGoal={onAddSubGoal}
+        onQuickSubGoal={onQuickSubGoal}
         expandedSubGoals={expandedSubGoals}
         onSubGoalExpandedChange={onSubGoalExpandedChange}
       />
-      <Button
-        size="small"
-        startIcon={<AddIcon />}
-        onClick={() => onAddSubGoal(goal.id)}
-        sx={{ mt: 1 }}
-      >
-        Add Sub-goal
-      </Button>
+      <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+        <Button
+          size="small"
+          startIcon={<AddIcon />}
+          onClick={() => onAddSubGoal(goal.id)}
+          variant="outlined"
+        >
+          Add Sub-goal
+        </Button>
+        {onQuickSubGoal && (
+          <Button
+            size="small"
+            startIcon={<FlashOnIcon />}
+            onClick={() => onQuickSubGoal(goal.id)}
+            variant="outlined"
+          >
+            Quick Sub-goal
+          </Button>
+        )}
+      </Box>
       <GoalDateInfo
         dateCreated={goal.dateCreated}
         status={goal.status}
