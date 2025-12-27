@@ -377,6 +377,27 @@ export function initDatabase() {
     )
   `);
 
+  // Communications table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS communications (
+      id TEXT PRIMARY KEY,
+      studentId TEXT,
+      contactType TEXT NOT NULL CHECK(contactType IN ('teacher', 'parent', 'case-manager')),
+      contactId TEXT,
+      contactName TEXT NOT NULL,
+      contactEmail TEXT,
+      subject TEXT NOT NULL,
+      body TEXT NOT NULL,
+      method TEXT NOT NULL CHECK(method IN ('email', 'phone', 'in-person', 'other')),
+      date TEXT NOT NULL,
+      sessionId TEXT,
+      relatedTo TEXT,
+      dateCreated TEXT NOT NULL,
+      FOREIGN KEY (studentId) REFERENCES students(id) ON DELETE SET NULL,
+      FOREIGN KEY (sessionId) REFERENCES sessions(id) ON DELETE SET NULL
+    )
+  `);
+
   // Create indexes for better query performance
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_students_school ON students(school);
@@ -398,6 +419,10 @@ export function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_due_date_items_studentId ON due_date_items(studentId);
     CREATE INDEX IF NOT EXISTS idx_due_date_items_dueDate ON due_date_items(dueDate);
     CREATE INDEX IF NOT EXISTS idx_due_date_items_status ON due_date_items(status);
+    CREATE INDEX IF NOT EXISTS idx_communications_studentId ON communications(studentId);
+    CREATE INDEX IF NOT EXISTS idx_communications_contactType ON communications(contactType);
+    CREATE INDEX IF NOT EXISTS idx_communications_date ON communications(date);
+    CREATE INDEX IF NOT EXISTS idx_communications_sessionId ON communications(sessionId);
   `);
 
   // Drop lunches table if it exists (removed feature)

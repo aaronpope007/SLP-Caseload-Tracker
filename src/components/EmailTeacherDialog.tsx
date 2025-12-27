@@ -397,9 +397,11 @@ export const EmailTeacherDialog = ({
 
     try {
       const userName = localStorage.getItem('user_name') || 'Aaron Pope';
+      const emailSubject = `Speech Therapy Session - ${student?.name || 'Student'}`;
+      
       await api.email.send({
         to: teacher.emailAddress,
-        subject: `Speech Therapy Session - ${student?.name || 'Student'}`,
+        subject: emailSubject,
         body: emailText,
         fromEmail: emailAddress,
         fromName: userName,
@@ -408,6 +410,87 @@ export const EmailTeacherDialog = ({
         smtpUser: emailAddress,
         smtpPassword: emailPassword,
       });
+
+      // Automatically log the communication
+      try {
+        // Determine if this is related to a missed session
+        const relatedTo = sessionDate || sessionStartTime ? 'Missed Session' : undefined;
+        
+        // Parse date - handle both ISO strings and datetime-local format (YYYY-MM-DDTHH:mm)
+        let communicationDate: string;
+        if (sessionStartTime) {
+          // sessionStartTime is already an ISO string from fromLocalDateTimeString
+          communicationDate = sessionStartTime;
+        } else if (sessionDate) {
+          // sessionDate might be datetime-local format, convert to ISO
+          const dateObj = new Date(sessionDate);
+          if (isNaN(dateObj.getTime())) {
+            // If parsing fails, use current date
+            communicationDate = new Date().toISOString();
+          } else {
+            communicationDate = dateObj.toISOString();
+          }
+        } else {
+          // Use current date/time when email is sent
+          communicationDate = new Date().toISOString();
+        }
+
+        // Ensure we have all required fields
+        if (!student?.id) {
+          console.warn('⚠️ No student ID available when logging communication');
+        }
+        if (!teacher?.id) {
+          console.warn('⚠️ No teacher ID available when logging communication');
+        }
+
+        // Ensure we have a valid student ID
+        if (!student?.id) {
+          console.error('❌ Cannot log communication: student is null or has no ID', {
+            student,
+            studentName: student?.name,
+          });
+        }
+
+        const communicationData = {
+          studentId: student?.id || undefined,
+          contactType: 'teacher' as const,
+          contactId: teacher.id,
+          contactName: teacher.name,
+          contactEmail: teacher.emailAddress,
+          subject: emailSubject,
+          body: emailText,
+          method: 'email' as const,
+          date: communicationDate,
+          relatedTo: relatedTo || undefined,
+        };
+
+        // Validate data before sending
+        if (!communicationDate) {
+          console.error('❌ Communication date is missing!');
+        }
+        if (!communicationData.contactName) {
+          console.error('❌ Contact name is missing!');
+        }
+        if (!communicationData.subject) {
+          console.error('❌ Subject is missing!');
+        }
+
+        console.log('📧 Logging communication with data:', {
+          ...communicationData,
+          body: communicationData.body.substring(0, 50) + '...', // Truncate body for logging
+        });
+        const result = await api.communications.create(communicationData);
+        console.log('✅ Communication logged successfully:', result);
+        console.log('📋 Full communication data saved:', communicationData);
+      } catch (logError: any) {
+        // Don't fail the email send if logging fails, but log the error
+        console.error('Failed to log communication:', logError);
+        console.error('Error details:', {
+          message: logError?.message,
+          stack: logError?.stack,
+          response: logError?.response,
+        });
+      }
 
       setSendSuccess(true);
       setTimeout(() => {

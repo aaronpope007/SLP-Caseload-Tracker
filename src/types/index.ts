@@ -234,3 +234,19 @@ export interface Reminder {
   daysUntilDue?: number; // Days until the related item is due (negative if overdue)
   dateCreated: string;
 }
+
+export interface Communication {
+  id: string;
+  studentId?: string; // Optional - communication may be about a student
+  contactType: 'teacher' | 'parent' | 'case-manager';
+  contactId?: string; // ID of teacher, case manager, or parent (if stored)
+  contactName: string; // Name of the person communicated with
+  contactEmail?: string; // Email address
+  subject: string;
+  body: string;
+  method: 'email' | 'phone' | 'in-person' | 'other';
+  date: string; // ISO string - when communication occurred
+  sessionId?: string; // Optional - link to session if related to missed session
+  relatedTo?: string; // Optional - description of what this is related to (e.g., "Missed Session")
+  dateCreated: string;
+}

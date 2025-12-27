@@ -5,7 +5,7 @@
  * Set VITE_API_URL in your .env file or it defaults to http://localhost:3001
  */
 
-import type { Student, Goal, Session, Activity, Evaluation, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Reminder } from '../types';
+import type { Student, Goal, Session, Activity, Evaluation, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Reminder, Communication } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
@@ -397,6 +397,33 @@ export const api = {
       request<{ success: boolean; messageId?: string; message: string }>('/email/send', {
         method: 'POST',
         body: JSON.stringify(data),
+      }),
+  },
+
+  // Communications
+  communications: {
+    getAll: (studentId?: string, contactType?: string, school?: string) => {
+      const params = new URLSearchParams();
+      if (studentId) params.append('studentId', studentId);
+      if (contactType) params.append('contactType', contactType);
+      if (school) params.append('school', school);
+      return request<Communication[]>(`/communications${params.toString() ? `?${params}` : ''}`);
+    },
+    getById: (id: string) => 
+      request<Communication>(`/communications/${id}`),
+    create: (communication: Omit<Communication, 'id' | 'dateCreated'>) => 
+      request<{ id: string; message: string }>('/communications', {
+        method: 'POST',
+        body: JSON.stringify(communication),
+      }),
+    update: (id: string, updates: Partial<Communication>) => 
+      request<{ message: string }>(`/communications/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      }),
+    delete: (id: string) => 
+      request<{ message: string }>(`/communications/${id}`, {
+        method: 'DELETE',
       }),
   },
 };

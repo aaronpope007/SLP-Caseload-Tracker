@@ -19,6 +19,7 @@ import { SOAPNotes } from './pages/SOAPNotes';
 import { ProgressReports } from './pages/ProgressReports';
 import { DueDateItems } from './pages/DueDateItems';
 import { SessionCalendar } from './pages/SessionCalendar';
+import { Communications } from './pages/Communications';
 import { SchoolProvider } from './context/SchoolContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { SessionDialogProvider } from './context/SessionDialogContext';
@@ -149,6 +150,14 @@ const router = createBrowserRouter([
     element: (
       <Layout>
         <SessionCalendar />
+      </Layout>
+    ),
+  },
+  {
+    path: '/communications',
+    element: (
+      <Layout>
+        <Communications />
       </Layout>
     ),
   },

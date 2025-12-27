@@ -46,6 +46,7 @@ import {
   Event as EventIcon,
   CalendarToday as CalendarTodayIcon,
   Person as PersonIcon,
+  Email as EmailIcon,
 } from '@mui/icons-material';
 import { SettingsDialog } from './SettingsDialog';
 import { useSchool } from '../context/SchoolContext';
@@ -67,6 +68,7 @@ const menuItems = [
   { text: 'Evaluations', icon: <AssessmentIcon />, path: '/evaluations' },
   { text: 'Treatment Ideas', icon: <LightbulbIcon />, path: '/ideas' },
   { text: 'Documentation', icon: <DescriptionIcon />, path: '/documentation' },
+  { text: 'Communications', icon: <EmailIcon />, path: '/communications' },
   { text: 'Time Tracking', icon: <AccessTimeIcon />, path: '/time-tracking' },
 ];
 
