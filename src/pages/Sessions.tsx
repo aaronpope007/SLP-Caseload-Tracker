@@ -36,6 +36,7 @@ import { SessionFormDialog } from '../components/SessionFormDialog';
 import { SOAPNoteDialog } from '../components/SOAPNoteDialog';
 import type { SOAPNote } from '../types';
 import { getSOAPNotesBySession, addSOAPNote, updateSOAPNote } from '../utils/storage-api';
+import { generateSOAPNote, generateGroupSOAPNote } from '../utils/soapNoteGenerator';
 import { api } from '../utils/api';
 
 export const Sessions = () => {
@@ -85,6 +86,7 @@ export const Sessions = () => {
     missedSession: false, // Whether this was a missed session (only for Direct Services)
     selectedSubjectiveStatements: [] as string[],
     customSubjective: '',
+    plan: '', // Plan for next session (required for direct services)
   });
 
   useEffect(() => {
@@ -222,6 +224,7 @@ export const Sessions = () => {
           missedSession: session.missedSession || false,
           selectedSubjectiveStatements: session.selectedSubjectiveStatements || [],
           customSubjective: session.customSubjective || '',
+          plan: session.plan || '',
         };
         setFormData(newFormData);
         initialFormDataRef.current = JSON.parse(JSON.stringify(newFormData));
@@ -245,6 +248,7 @@ export const Sessions = () => {
         missedSession: false,
         selectedSubjectiveStatements: [],
         customSubjective: '',
+        plan: '',
       };
       setFormData(newFormData);
       initialFormDataRef.current = JSON.parse(JSON.stringify(newFormData));
@@ -277,6 +281,7 @@ export const Sessions = () => {
       formData.missedSession !== initial.missedSession ||
       JSON.stringify(formData.selectedSubjectiveStatements.sort()) !== JSON.stringify(initial.selectedSubjectiveStatements.sort()) ||
       formData.customSubjective !== initial.customSubjective ||
+      formData.plan !== initial.plan ||
       JSON.stringify(formData.performanceData) !== JSON.stringify(initial.performanceData);
     
     return hasChanges;
@@ -306,11 +311,12 @@ export const Sessions = () => {
     initialFormDataRef.current = null;
   };
 
-  const handleStudentToggle = (studentId: string) => {
+  const handleStudentToggle = async (studentId: string) => {
     const isSelected = formData.studentIds.includes(studentId);
     let newStudentIds: string[];
     let newGoalsTargeted: string[] = [...formData.goalsTargeted];
     let newPerformanceData = [...formData.performanceData];
+    let newPlan = formData.plan;
 
     if (isSelected) {
       // Remove student
@@ -322,6 +328,23 @@ export const Sessions = () => {
     } else {
       // Add student
       newStudentIds = [...formData.studentIds, studentId];
+      
+      // If this is the first student selected and we're creating a new session, fetch last session's plan
+      if (formData.studentIds.length === 0 && !editingSession && !editingGroupSessionId) {
+        try {
+          const studentSessions = await getSessionsByStudent(studentId);
+          // Get the most recent direct services session that wasn't missed and has a plan
+          const lastSession = studentSessions
+            .filter(s => s.isDirectServices && !s.missedSession && s.plan)
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+          
+          if (lastSession && lastSession.plan) {
+            newPlan = lastSession.plan;
+          }
+        } catch (error) {
+          console.error('Failed to fetch last session plan:', error);
+        }
+      }
     }
 
     setFormData({
@@ -329,6 +352,7 @@ export const Sessions = () => {
       studentIds: newStudentIds,
       goalsTargeted: newGoalsTargeted,
       performanceData: newPerformanceData,
+      plan: newPlan,
     });
   };
 
@@ -396,8 +420,36 @@ export const Sessions = () => {
 
   const handleSave = async () => {
     if (formData.studentIds.length === 0) {
-      alert('Please select at least one student');
+      setSnackbar({
+        open: true,
+        message: 'Please select at least one student',
+        severity: 'error',
+      });
       return;
+    }
+
+    // Validate required fields for direct services
+    if (formData.isDirectServices) {
+      // Subjective is required: either checkbox selected OR custom text entered
+      const hasSubjective = formData.selectedSubjectiveStatements.length > 0 || formData.customSubjective.trim().length > 0;
+      if (!hasSubjective) {
+        setSnackbar({
+          open: true,
+          message: 'Please select at least one subjective statement or enter a custom subjective statement.',
+          severity: 'error',
+        });
+        return;
+      }
+      
+      // Plan is required for direct services
+      if (!formData.plan.trim()) {
+        setSnackbar({
+          open: true,
+          message: 'Please enter a plan for the next session.',
+          severity: 'error',
+        });
+        return;
+      }
     }
 
     // Reset initial form data before saving to prevent dirty check from triggering
@@ -413,6 +465,9 @@ export const Sessions = () => {
       const groupSessionId = formData.studentIds.length > 1 
         ? editingGroupSessionId // Preserve existing group ID
         : undefined; // Convert to individual session if only one student
+      
+      // Store created/updated sessions for group SOAP note generation
+      const groupSessions: Session[] = [];
       
       // Update or create sessions for each selected student
       for (const studentId of formData.studentIds) {
@@ -430,6 +485,7 @@ export const Sessions = () => {
             correctTrials: p.correctTrials,
             incorrectTrials: p.incorrectTrials,
             notes: p.notes,
+            cuingLevels: p.cuingLevels,
           }));
 
         const sessionData: Session = {
@@ -447,12 +503,71 @@ export const Sessions = () => {
           missedSession: formData.isDirectServices ? (formData.missedSession || false) : undefined,
           selectedSubjectiveStatements: formData.selectedSubjectiveStatements.length > 0 ? formData.selectedSubjectiveStatements : undefined,
           customSubjective: formData.customSubjective.trim() || undefined,
+          plan: formData.plan.trim() || undefined,
         };
 
         if (existingSession) {
           await updateSession(existingSession.id, sessionData);
+          groupSessions.push(sessionData);
         } else {
           await addSession(sessionData);
+          groupSessions.push(sessionData);
+        }
+      }
+      
+      // For group sessions, generate ONE SOAP note that includes all students
+      if (groupSessionId && groupSessions.length > 0 && formData.isDirectServices && !formData.missedSession) {
+        try {
+          // Check if a SOAP note already exists for this group session
+          const firstSessionId = groupSessions[0].id;
+          const existingSOAPNotes = await getSOAPNotesBySession(firstSessionId);
+          const existingGroupSOAPNote = existingSOAPNotes.find(note => {
+            // Check if this note is for any session in the group
+            return groupSessions.some(s => s.id === note.sessionId);
+          });
+          
+          const generated = generateGroupSOAPNote(
+            groupSessions,
+            students,
+            goals,
+            formData.selectedSubjectiveStatements,
+            formData.customSubjective,
+            formData.plan.trim() || undefined
+          );
+          
+          // Use the first student's ID for the SOAP note (since SOAP notes require a studentId)
+          const firstStudentId = groupSessions[0].studentId;
+          
+          if (existingGroupSOAPNote) {
+            // Update existing SOAP note
+            const updatedSOAPNote: SOAPNote = {
+              ...existingGroupSOAPNote,
+              subjective: generated.subjective,
+              objective: generated.objective,
+              assessment: generated.assessment,
+              plan: generated.plan,
+              dateUpdated: new Date().toISOString(),
+            };
+            await updateSOAPNote(existingGroupSOAPNote.id, updatedSOAPNote);
+          } else {
+            // Create new SOAP note
+            const soapNote: SOAPNote = {
+              id: generateId(),
+              sessionId: firstSessionId, // Link to first session in the group
+              studentId: firstStudentId, // Use first student's ID
+              date: groupSessions[0].date,
+              subjective: generated.subjective,
+              objective: generated.objective,
+              assessment: generated.assessment,
+              plan: generated.plan,
+              dateCreated: new Date().toISOString(),
+              dateUpdated: new Date().toISOString(),
+            };
+            await addSOAPNote(soapNote);
+          }
+        } catch (error) {
+          console.error('Failed to auto-generate group SOAP note:', error);
+          // Don't fail the session save if SOAP note generation fails
         }
       }
       
@@ -474,6 +589,9 @@ export const Sessions = () => {
         : (isEditingSingleSession && editingSession.groupSessionId) 
           ? editingSession.groupSessionId 
           : undefined;
+
+      // Store created sessions for group SOAP note generation
+      const createdSessions: Session[] = [];
 
       // Create a session for each selected student
       for (const studentId of formData.studentIds) {
@@ -508,12 +626,85 @@ export const Sessions = () => {
           missedSession: formData.isDirectServices ? (formData.missedSession || false) : undefined, // Only set for Direct Services
           selectedSubjectiveStatements: formData.selectedSubjectiveStatements.length > 0 ? formData.selectedSubjectiveStatements : undefined,
           customSubjective: formData.customSubjective.trim() || undefined,
+          plan: formData.plan.trim() || undefined,
         };
 
         if (isEditingSingleSession) {
           await updateSession(editingSession.id, sessionData);
         } else {
           await addSession(sessionData);
+          createdSessions.push(sessionData);
+          
+          // For individual sessions, auto-generate SOAP note
+          if (!groupSessionId && sessionData.isDirectServices && !sessionData.missedSession) {
+            try {
+              const student = students.find(s => s.id === studentId);
+              if (student) {
+                const studentGoals = goals.filter(g => g.studentId === studentId);
+                const generated = generateSOAPNote(
+                  sessionData,
+                  student,
+                  studentGoals,
+                  sessionData.selectedSubjectiveStatements || [],
+                  sessionData.customSubjective || ''
+                );
+                
+                const soapNote: SOAPNote = {
+                  id: generateId(),
+                  sessionId: sessionData.id,
+                  studentId: studentId,
+                  date: sessionData.date,
+                  subjective: generated.subjective,
+                  objective: generated.objective,
+                  assessment: generated.assessment,
+                  plan: generated.plan,
+                  dateCreated: new Date().toISOString(),
+                  dateUpdated: new Date().toISOString(),
+                };
+                
+                await addSOAPNote(soapNote);
+              }
+            } catch (error) {
+              console.error('Failed to auto-generate SOAP note:', error);
+              // Don't fail the session save if SOAP note generation fails
+            }
+          }
+        }
+      }
+
+      // For group sessions, generate ONE SOAP note that includes all students
+      if (groupSessionId && createdSessions.length > 0 && formData.isDirectServices && !formData.missedSession) {
+        try {
+          const generated = generateGroupSOAPNote(
+            createdSessions,
+            students,
+            goals,
+            formData.selectedSubjectiveStatements,
+            formData.customSubjective,
+            formData.plan.trim() || undefined
+          );
+          
+          // Use the first student's ID for the SOAP note (since SOAP notes require a studentId)
+          const firstStudentId = createdSessions[0].studentId;
+          const firstSessionId = createdSessions[0].id;
+          
+          const soapNote: SOAPNote = {
+            id: generateId(),
+            sessionId: firstSessionId, // Link to first session in the group
+            studentId: firstStudentId, // Use first student's ID
+            date: createdSessions[0].date,
+            subjective: generated.subjective,
+            objective: generated.objective,
+            assessment: generated.assessment,
+            plan: generated.plan,
+            dateCreated: new Date().toISOString(),
+            dateUpdated: new Date().toISOString(),
+          };
+          
+          await addSOAPNote(soapNote);
+        } catch (error) {
+          console.error('Failed to auto-generate group SOAP note:', error);
+          // Don't fail the session save if SOAP note generation fails
         }
       }
     }

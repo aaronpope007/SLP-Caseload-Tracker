@@ -38,6 +38,7 @@ sessionsRouter.get('/', (req, res) => {
       missedSession: s.missedSession === 1,
       selectedSubjectiveStatements: s.selectedSubjectiveStatements ? JSON.parse(s.selectedSubjectiveStatements) : undefined,
       customSubjective: s.customSubjective || undefined,
+      plan: s.plan || undefined,
     }));
     
     res.json(parsed);
@@ -65,6 +66,7 @@ sessionsRouter.get('/:id', (req, res) => {
       missedSession: session.missedSession === 1,
       selectedSubjectiveStatements: session.selectedSubjectiveStatements ? JSON.parse(session.selectedSubjectiveStatements) : undefined,
       customSubjective: session.customSubjective || undefined,
+      plan: session.plan || undefined,
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -79,8 +81,8 @@ sessionsRouter.post('/', (req, res) => {
     db.prepare(`
       INSERT INTO sessions (id, studentId, date, endTime, goalsTargeted, activitiesUsed, 
                            performanceData, notes, isDirectServices, indirectServicesNotes, 
-                           groupSessionId, missedSession, selectedSubjectiveStatements, customSubjective)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                           groupSessionId, missedSession, selectedSubjectiveStatements, customSubjective, plan)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       session.id,
       session.studentId,
@@ -95,7 +97,8 @@ sessionsRouter.post('/', (req, res) => {
       session.groupSessionId || null,
       session.missedSession ? 1 : 0,
       session.selectedSubjectiveStatements ? JSON.stringify(session.selectedSubjectiveStatements) : null,
-      session.customSubjective || null
+      session.customSubjective || null,
+      session.plan || null
     );
     
     res.status(201).json({ id: session.id, message: 'Session created' });
@@ -121,7 +124,7 @@ sessionsRouter.put('/:id', (req, res) => {
       UPDATE sessions 
       SET studentId = ?, date = ?, endTime = ?, goalsTargeted = ?, activitiesUsed = ?, 
           performanceData = ?, notes = ?, isDirectServices = ?, indirectServicesNotes = ?, 
-          groupSessionId = ?, missedSession = ?, selectedSubjectiveStatements = ?, customSubjective = ?
+          groupSessionId = ?, missedSession = ?, selectedSubjectiveStatements = ?, customSubjective = ?, plan = ?
       WHERE id = ?
     `).run(
       session.studentId,
@@ -137,6 +140,7 @@ sessionsRouter.put('/:id', (req, res) => {
       session.missedSession ? 1 : 0,
       session.selectedSubjectiveStatements ? JSON.stringify(session.selectedSubjectiveStatements) : null,
       session.customSubjective || null,
+      session.plan || null,
       id
     );
     

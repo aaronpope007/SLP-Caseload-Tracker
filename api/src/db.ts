@@ -124,6 +124,7 @@ export function initDatabase() {
       missedSession INTEGER DEFAULT 0,
       selectedSubjectiveStatements TEXT,
       customSubjective TEXT,
+      plan TEXT,
       FOREIGN KEY (studentId) REFERENCES students(id) ON DELETE CASCADE
     )
   `);
@@ -140,6 +141,10 @@ export function initDatabase() {
     
     if (!columnNames.includes('customSubjective')) {
       db.exec(`ALTER TABLE sessions ADD COLUMN customSubjective TEXT`);
+    }
+    
+    if (!columnNames.includes('plan')) {
+      db.exec(`ALTER TABLE sessions ADD COLUMN plan TEXT`);
     }
   } catch (e: any) {
     // If table doesn't exist yet, columns will be added via CREATE TABLE above

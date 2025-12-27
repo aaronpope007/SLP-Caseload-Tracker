@@ -53,6 +53,7 @@ interface SessionFormData {
   missedSession: boolean;
   selectedSubjectiveStatements: string[];
   customSubjective: string;
+  plan: string;
 }
 
 interface SessionFormDialogProps {
@@ -102,6 +103,17 @@ export const SessionFormDialog = ({
 }: SessionFormDialogProps) => {
   const [emailTeacherDialogOpen, setEmailTeacherDialogOpen] = useState(false);
   const [selectedStudentForEmail, setSelectedStudentForEmail] = useState<Student | null>(null);
+
+  // Get last session's plan for the first selected student (for new sessions only, and only if plan is empty)
+  const lastSessionPlan = !editingSession && !editingGroupSessionId && formData.studentIds.length > 0 && !formData.plan.trim()
+    ? (() => {
+        const firstStudentId = formData.studentIds[0];
+        const studentSessions = sessions
+          .filter(s => s.studentId === firstStudentId && s.isDirectServices && !s.missedSession && s.plan)
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        return studentSessions[0]?.plan;
+      })()
+    : null;
 
   // Get goals for all selected students, grouped by student, separated into active and completed
   const availableGoalsByStudent = formData.studentIds.length > 0
@@ -203,31 +215,55 @@ export const SessionFormDialog = ({
           </Box>
 
           {formData.isDirectServices && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Checkbox
-                  checked={formData.missedSession}
-                  onChange={(e) => handleFormDataChange({ missedSession: e.target.checked })}
-                />
-                <Typography variant="body2">Missed Session</Typography>
-              </Box>
-              {formData.missedSession && formData.studentIds.length === 1 && (
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<EmailIcon />}
-                  onClick={() => {
-                    const student = students.find(s => s.id === formData.studentIds[0]);
-                    if (student) {
-                      setSelectedStudentForEmail(student);
-                      setEmailTeacherDialogOpen(true);
-                    }
-                  }}
-                >
-                  Email Teacher
-                </Button>
+            <>
+              {/* Show last session's plan at the top */}
+              {lastSessionPlan && formData.studentIds.length === 1 && (
+                <Paper sx={{ p: 2, bgcolor: 'info.light', color: 'info.contrastText' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                      Plan from Last Session:
+                    </Typography>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      onClick={() => handleFormDataChange({ plan: lastSessionPlan })}
+                      sx={{ ml: 2, minWidth: 'auto' }}
+                    >
+                      Use This Plan
+                    </Button>
+                  </Box>
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                    {lastSessionPlan}
+                  </Typography>
+                </Paper>
               )}
-            </Box>
+
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Checkbox
+                    checked={formData.missedSession}
+                    onChange={(e) => handleFormDataChange({ missedSession: e.target.checked })}
+                  />
+                  <Typography variant="body2">Missed Session</Typography>
+                </Box>
+                {formData.missedSession && formData.studentIds.length === 1 && (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<EmailIcon />}
+                    onClick={() => {
+                      const student = students.find(s => s.id === formData.studentIds[0]);
+                      if (student) {
+                        setSelectedStudentForEmail(student);
+                        setEmailTeacherDialogOpen(true);
+                      }
+                    }}
+                  >
+                    Email Teacher
+                  </Button>
+                )}
+              </Box>
+            </>
           )}
 
           {formData.isDirectServices ? (
@@ -387,11 +423,14 @@ export const SessionFormDialog = ({
                 <Accordion>
                   <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                     <Typography variant="subtitle2">
-                      Subjective Statements (for SOAP notes):
+                      Subjective Statements (for SOAP notes) *
                     </Typography>
                   </AccordionSummary>
                   <AccordionDetails>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <Typography variant="caption" color="text.secondary">
+                        * Required: Select at least one statement or enter a custom statement
+                      </Typography>
                       <FormGroup>
                         <Grid container spacing={1}>
                           {COMMON_SUBJECTIVE_STATEMENTS.map((statement) => (
@@ -426,6 +465,8 @@ export const SessionFormDialog = ({
                         value={formData.customSubjective}
                         onChange={(e) => handleFormDataChange({ customSubjective: e.target.value })}
                         placeholder="Enter your own subjective statement..."
+                        error={formData.selectedSubjectiveStatements.length === 0 && formData.customSubjective.trim().length === 0}
+                        helperText={formData.selectedSubjectiveStatements.length === 0 && formData.customSubjective.trim().length === 0 ? "Required: Select a statement above or enter a custom statement" : ""}
                       />
                     </Box>
                   </AccordionDetails>
@@ -453,6 +494,19 @@ export const SessionFormDialog = ({
                 rows={4}
                 value={formData.notes}
                 onChange={(e) => handleFormDataChange({ notes: e.target.value })}
+              />
+
+              <TextField
+                label="Plan for Next Session *"
+                fullWidth
+                multiline
+                rows={4}
+                value={formData.plan}
+                onChange={(e) => handleFormDataChange({ plan: e.target.value })}
+                placeholder="Enter the plan for the next session..."
+                required
+                error={!formData.plan.trim()}
+                helperText={!formData.plan.trim() ? "Required: Enter a plan for the next session" : ""}
               />
             </>
           ) : (

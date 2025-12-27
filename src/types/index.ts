@@ -103,6 +103,7 @@ export interface Session {
   selectedSubjectiveStatements?: string[]; // Selected subjective statements for SOAP notes
   customSubjective?: string; // Custom subjective statement for SOAP notes
   scheduledSessionId?: string; // ID of the scheduled session template this was created from
+  plan?: string; // Plan for next session (required for direct services)
 }
 
 export interface ScheduledSession {

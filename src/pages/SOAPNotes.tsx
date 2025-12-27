@@ -25,6 +25,7 @@ import {
   Delete as DeleteIcon,
   Description as DescriptionIcon,
   ExpandMore as ExpandMoreIcon,
+  Group as GroupIcon,
 } from '@mui/icons-material';
 import type { SOAPNote, Session, Student } from '../types';
 import {
@@ -88,6 +89,35 @@ export const SOAPNotes = () => {
 
   const getSession = (sessionId: string): Session | undefined => {
     return sessions.find(s => s.id === sessionId);
+  };
+
+  const getGroupSessions = (groupSessionId: string): Session[] => {
+    return sessions.filter(s => s.groupSessionId === groupSessionId);
+  };
+
+  const isGroupSOAPNote = (note: SOAPNote): boolean => {
+    const session = getSession(note.sessionId);
+    return session ? !!session.groupSessionId : false;
+  };
+
+  const getGroupSOAPNoteInfo = (note: SOAPNote): { isGroup: boolean; studentCount: number; studentNames: string[] } => {
+    const session = getSession(note.sessionId);
+    if (session?.groupSessionId) {
+      const groupSessions = getGroupSessions(session.groupSessionId);
+      const studentNames = groupSessions
+        .map(s => getStudent(s.studentId)?.name)
+        .filter((name): name is string => name !== undefined);
+      return {
+        isGroup: true,
+        studentCount: groupSessions.length,
+        studentNames,
+      };
+    }
+    return {
+      isGroup: false,
+      studentCount: 1,
+      studentNames: [],
+    };
   };
 
   const handleEdit = (note: SOAPNote) => {
@@ -181,6 +211,7 @@ export const SOAPNotes = () => {
           soapNotes.map((note) => {
             const student = getStudent(note.studentId);
             const session = getSession(note.sessionId);
+            const groupInfo = getGroupSOAPNoteInfo(note);
 
             return (
               <Accordion key={note.id}>
@@ -195,9 +226,23 @@ export const SOAPNotes = () => {
                 >
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', pr: 2 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1 }}>
-                      <Typography variant="h6" sx={{ minWidth: 200 }}>
-                        {student?.name || 'Unknown Student'}
-                      </Typography>
+                      {groupInfo.isGroup ? (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, flex: 1 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <GroupIcon color="primary" />
+                            <Typography variant="h6">
+                              Group SOAP Note ({groupInfo.studentCount} {groupInfo.studentCount === 1 ? 'student' : 'students'})
+                            </Typography>
+                          </Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Students: {groupInfo.studentNames.join(', ')}
+                          </Typography>
+                        </Box>
+                      ) : (
+                        <Typography variant="h6" sx={{ minWidth: 200 }}>
+                          {student?.name || 'Unknown Student'}
+                        </Typography>
+                      )}
                       <Typography color="text.secondary" variant="body2">
                         {formatDateTime(note.date)}
                       </Typography>
@@ -206,6 +251,14 @@ export const SOAPNotes = () => {
                           label={session.isDirectServices ? 'Direct Services' : 'Indirect Services'}
                           size="small"
                           color={session.isDirectServices ? 'primary' : 'secondary'}
+                        />
+                      )}
+                      {groupInfo.isGroup && (
+                        <Chip
+                          label="Group"
+                          size="small"
+                          color="primary"
+                          variant="outlined"
                         />
                       )}
                     </Box>

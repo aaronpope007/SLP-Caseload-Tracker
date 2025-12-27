@@ -165,39 +165,263 @@ export const generateSOAPNote = (
     : 'Student participated in therapy session.';
 
   // PLAN
-  const planParts: string[] = [];
+  // Use session plan if available, otherwise generate one
+  let plan: string;
   
-  if (session.goalsTargeted.length > 0) {
-    planParts.push('Continue targeting current goals in next session.');
-    
-    // Add specific recommendations based on performance
-    session.performanceData.forEach(perf => {
-      const goal = goals.find(g => g.id === perf.goalId);
-      if (goal && perf.accuracy !== undefined) {
-        if (perf.accuracy < 60) {
-          planParts.push(`Modify approach for ${goal.description} to increase support and scaffolding.`);
-        } else if (perf.cuingLevels && perf.cuingLevels.length > 0 && !perf.cuingLevels.includes('independent')) {
-          planParts.push(`Gradually reduce cuing for ${goal.description} to promote independence.`);
-        }
-      }
-    });
+  if (session.plan && session.plan.trim()) {
+    plan = session.plan.trim();
   } else {
-    planParts.push('Continue therapy services as indicated.');
+    const planParts: string[] = [];
+    
+    if (session.goalsTargeted.length > 0) {
+      planParts.push('Continue targeting current goals in next session.');
+      
+      // Add specific recommendations based on performance
+      session.performanceData.forEach(perf => {
+        const goal = goals.find(g => g.id === perf.goalId);
+        if (goal && perf.accuracy !== undefined) {
+          if (perf.accuracy < 60) {
+            planParts.push(`Modify approach for ${goal.description} to increase support and scaffolding.`);
+          } else if (perf.cuingLevels && perf.cuingLevels.length > 0 && !perf.cuingLevels.includes('independent')) {
+            planParts.push(`Gradually reduce cuing for ${goal.description} to promote independence.`);
+          }
+        }
+      });
+    } else {
+      planParts.push('Continue therapy services as indicated.');
+    }
+    
+    if (session.activitiesUsed.length > 0) {
+      planParts.push(`Consider continuing with similar activities: ${session.activitiesUsed.slice(0, 2).join(', ')}.`);
+    }
+    
+    plan = planParts.length > 0
+      ? planParts.join(' ')
+      : 'Continue therapy services as indicated.';
   }
-  
-  if (session.activitiesUsed.length > 0) {
-    planParts.push(`Consider continuing with similar activities: ${session.activitiesUsed.slice(0, 2).join(', ')}.`);
-  }
-  
-  const plan = planParts.length > 0
-    ? planParts.join(' ')
-    : 'Continue therapy services as indicated.';
 
   return {
     subjective,
     objective,
     assessment,
     plan,
+  };
+};
+
+/**
+ * Generate a SOAP note for a group session including all students
+ */
+export const generateGroupSOAPNote = (
+  groupSessions: Session[],
+  students: Student[],
+  goals: Goal[],
+  selectedSubjectiveStatements: string[] = [],
+  customSubjective: string = '',
+  plan?: string
+): { subjective: string; objective: string; assessment: string; plan: string } => {
+  // SUBJECTIVE
+  const subjectiveParts: string[] = [];
+  
+  // Add selected common statements
+  if (selectedSubjectiveStatements.length > 0) {
+    subjectiveParts.push(...selectedSubjectiveStatements);
+  }
+  
+  // Add custom subjective notes
+  if (customSubjective.trim()) {
+    subjectiveParts.push(customSubjective.trim());
+  }
+  
+  // Add session notes if available (use first session's notes)
+  const firstSession = groupSessions[0];
+  if (firstSession?.notes && firstSession.notes.trim()) {
+    subjectiveParts.push(`Session notes: ${firstSession.notes.trim()}`);
+  }
+  
+  const subjective = subjectiveParts.length > 0 
+    ? subjectiveParts.join('. ') + '.'
+    : 'No subjective information provided.';
+
+  // OBJECTIVE
+  const objectiveParts: string[] = [];
+  
+  // Session duration (use first session)
+  if (firstSession?.endTime) {
+    const startTime = new Date(firstSession.date);
+    const endTime = new Date(firstSession.endTime);
+    const durationMinutes = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
+    objectiveParts.push(`Session duration: ${durationMinutes} minutes`);
+  }
+  
+  // List all students in the group
+  const studentNames = groupSessions
+    .map(s => students.find(st => st.id === s.studentId)?.name)
+    .filter((name): name is string => name !== undefined);
+  
+  if (studentNames.length > 0) {
+    objectiveParts.push(`Students: ${studentNames.join(', ')}`);
+  }
+  
+  // Activities used (use first session - should be same for all)
+  if (firstSession?.activitiesUsed && firstSession.activitiesUsed.length > 0) {
+    objectiveParts.push(`Activities: ${firstSession.activitiesUsed.join(', ')}`);
+  }
+  
+  // Performance data for each student (each student on a new line)
+  const performanceParts: string[] = [];
+  
+  groupSessions.forEach(session => {
+    const student = students.find(s => s.id === session.studentId);
+    const studentName = student?.name || 'Unknown Student';
+    
+    if (session.performanceData.length > 0) {
+      const studentPerfParts: string[] = [];
+      
+      session.performanceData.forEach(perf => {
+        const goal = goals.find(g => g.id === perf.goalId);
+        if (goal) {
+          const perfParts: string[] = [];
+          
+          if (perf.accuracy !== undefined) {
+            perfParts.push(`${perf.accuracy}% accuracy`);
+          }
+          
+          if (perf.correctTrials !== undefined && perf.incorrectTrials !== undefined) {
+            const total = perf.correctTrials + perf.incorrectTrials;
+            perfParts.push(`${perf.correctTrials}/${total} trials correct`);
+          }
+          
+          if (perf.cuingLevels && perf.cuingLevels.length > 0) {
+            const cuingLabels: Record<string, string> = {
+              independent: 'Independent',
+              verbal: 'Verbal cuing',
+              visual: 'Visual cuing',
+              tactile: 'Tactile cuing',
+              physical: 'Physical cuing',
+            };
+            const cuingText = perf.cuingLevels.map(c => cuingLabels[c] || c).join(', ');
+            perfParts.push(`Cuing levels: ${cuingText}`);
+          }
+          
+          if (perf.notes && perf.notes.trim()) {
+            perfParts.push(`Notes: ${perf.notes.trim()}`);
+          }
+          
+          if (perfParts.length > 0) {
+            studentPerfParts.push(`${goal.description}: ${perfParts.join('; ')}`);
+          }
+        }
+      });
+      
+      if (studentPerfParts.length > 0) {
+        // Each student starts on a new line
+        performanceParts.push(`\n${studentName}:\n${studentPerfParts.join('. ')}`);
+      }
+    } else if (session.goalsTargeted.length > 0) {
+      // If no performance data but goals were targeted, still include the student
+      const goalDescriptions = session.goalsTargeted
+        .map(goalId => {
+          const goal = goals.find(g => g.id === goalId);
+          return goal ? goal.description : null;
+        })
+        .filter((desc): desc is string => desc !== null);
+      
+      if (goalDescriptions.length > 0) {
+        performanceParts.push(`\n${studentName}:\nGoals targeted - ${goalDescriptions.join('; ')}`);
+      }
+    }
+  });
+  
+  if (performanceParts.length > 0) {
+    objectiveParts.push(`Performance data:${performanceParts.join('')}`);
+  }
+  
+  const objective = objectiveParts.length > 0
+    ? objectiveParts.join('. ') + '.'
+    : 'No objective data recorded.';
+
+  // ASSESSMENT
+  const assessmentParts: string[] = [];
+  
+  groupSessions.forEach(session => {
+    const student = students.find(s => s.id === session.studentId);
+    const studentName = student?.name || 'Unknown Student';
+    
+    if (session.performanceData.length > 0) {
+      session.performanceData.forEach(perf => {
+        const goal = goals.find(g => g.id === perf.goalId);
+        if (goal && perf.accuracy !== undefined) {
+          if (perf.accuracy >= 80) {
+            assessmentParts.push(`${studentName} - ${goal.description}: demonstrated strong performance (${perf.accuracy}% accuracy).`);
+          } else if (perf.accuracy >= 60) {
+            assessmentParts.push(`${studentName} - ${goal.description}: demonstrated moderate progress (${perf.accuracy}% accuracy).`);
+          } else {
+            assessmentParts.push(`${studentName} - ${goal.description}: demonstrated emerging skills (${perf.accuracy}% accuracy). Continued support needed.`);
+          }
+        } else if (goal) {
+          assessmentParts.push(`${studentName} - ${goal.description}: progress observed during session.`);
+        }
+      });
+    } else if (session.goalsTargeted.length > 0) {
+      const goalDescriptions = session.goalsTargeted
+        .map(goalId => {
+          const goal = goals.find(g => g.id === goalId);
+          return goal ? goal.description : null;
+        })
+        .filter((desc): desc is string => desc !== null);
+      
+      if (goalDescriptions.length > 0) {
+        assessmentParts.push(`${studentName}: participated in therapy activities targeting ${goalDescriptions.join('; ')}.`);
+      }
+    }
+  });
+  
+  const assessment = assessmentParts.length > 0
+    ? assessmentParts.join(' ')
+    : 'All students participated in therapy session.';
+
+  // PLAN
+  // Use provided plan if available, otherwise generate one
+  let finalPlan: string;
+  
+  if (plan && plan.trim()) {
+    finalPlan = plan.trim();
+  } else {
+    const planParts: string[] = [];
+    
+    planParts.push('Continue targeting current goals in next session for all students.');
+    
+    // Add specific recommendations based on performance
+    groupSessions.forEach(session => {
+      const student = students.find(s => s.id === session.studentId);
+      const studentName = student?.name || 'Unknown Student';
+      
+      session.performanceData.forEach(perf => {
+        const goal = goals.find(g => g.id === perf.goalId);
+        if (goal && perf.accuracy !== undefined) {
+          if (perf.accuracy < 60) {
+            planParts.push(`${studentName} - ${goal.description}: modify approach to increase support and scaffolding.`);
+          } else if (perf.cuingLevels && perf.cuingLevels.length > 0 && !perf.cuingLevels.includes('independent')) {
+            planParts.push(`${studentName} - ${goal.description}: gradually reduce cuing to promote independence.`);
+          }
+        }
+      });
+    });
+    
+    if (firstSession?.activitiesUsed && firstSession.activitiesUsed.length > 0) {
+      planParts.push(`Consider continuing with similar activities: ${firstSession.activitiesUsed.slice(0, 2).join(', ')}.`);
+    }
+    
+    finalPlan = planParts.length > 0
+      ? planParts.join(' ')
+      : 'Continue therapy services as indicated for all students.';
+  }
+
+  return {
+    subjective,
+    objective,
+    assessment,
+    plan: finalPlan,
   };
 };
 
