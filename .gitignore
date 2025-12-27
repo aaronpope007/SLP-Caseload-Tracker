@@ -23,3 +23,11 @@ dist-ssr
 *.sln
 *.sw?
 .cursorrules
+
+# Environment variables and secrets
+.env
+.env.local
+.env.*.local
+*.env
+api/.env
+api/.env.local

@@ -380,6 +380,25 @@ export const api = {
       return request<Reminder[]>(`/reminders${params.toString() ? `?${params}` : ''}`);
     },
   },
+
+  // Email
+  email: {
+    send: (data: {
+      to: string;
+      subject: string;
+      body: string;
+      fromEmail?: string;
+      fromName?: string;
+      smtpHost?: string;
+      smtpPort?: number;
+      smtpUser?: string;
+      smtpPassword?: string;
+    }) =>
+      request<{ success: boolean; messageId?: string; message: string }>('/email/send', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+  },
 };
 
 // Check if API is available

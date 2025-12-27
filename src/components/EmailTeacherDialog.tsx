@@ -19,6 +19,7 @@ import type { Student, Teacher, ScheduledSession, Session } from '../types';
 import { getTeachers, getSessionsBySchool, getSchoolByName } from '../utils/storage-api';
 import { getScheduledSessions } from '../utils/storage';
 import { format, isBefore, isAfter, addMinutes, parse, isSameDay, startOfDay } from 'date-fns';
+import { api } from '../utils/api';
 
 interface EmailTeacherDialogProps {
   open: boolean;
@@ -41,6 +42,9 @@ export const EmailTeacherDialog = ({
   const [emailText, setEmailText] = useState('');
   const [copied, setCopied] = useState(false);
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [sendSuccess, setSendSuccess] = useState(false);
 
   useEffect(() => {
     if (open && student) {
@@ -373,11 +377,48 @@ export const EmailTeacherDialog = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleEmail = () => {
-    if (teacher?.emailAddress) {
-      const subject = encodeURIComponent(`Speech Therapy Session - ${student?.name || 'Student'}`);
-      const body = encodeURIComponent(emailText);
-      window.location.href = `mailto:${teacher.emailAddress}?subject=${subject}&body=${body}`;
+  const handleEmail = async () => {
+    if (!teacher?.emailAddress) {
+      setSendError('No email address found for teacher');
+      return;
+    }
+
+    const emailAddress = localStorage.getItem('email_address');
+    const emailPassword = localStorage.getItem('email_password');
+
+    if (!emailAddress || !emailPassword) {
+      setSendError('Email credentials not configured. Please add your Gmail address and App Password in Settings.');
+      return;
+    }
+
+    setSending(true);
+    setSendError(null);
+    setSendSuccess(false);
+
+    try {
+      const userName = localStorage.getItem('user_name') || 'Aaron Pope';
+      await api.email.send({
+        to: teacher.emailAddress,
+        subject: `Speech Therapy Session - ${student?.name || 'Student'}`,
+        body: emailText,
+        fromEmail: emailAddress,
+        fromName: userName,
+        smtpHost: 'smtp.gmail.com',
+        smtpPort: 587,
+        smtpUser: emailAddress,
+        smtpPassword: emailPassword,
+      });
+
+      setSendSuccess(true);
+      setTimeout(() => {
+        setSendSuccess(false);
+        onClose();
+      }, 2000);
+    } catch (error: any) {
+      console.error('Error sending email:', error);
+      setSendError(error.message || 'Failed to send email. Please check your email settings and try again.');
+    } finally {
+      setSending(false);
     }
   };
 
@@ -419,13 +460,24 @@ export const EmailTeacherDialog = ({
             Email text copied to clipboard!
           </Alert>
         )}
+        {sendSuccess && (
+          <Alert severity="success" sx={{ mt: 1 }}>
+            Email sent successfully!
+          </Alert>
+        )}
+        {sendError && (
+          <Alert severity="error" sx={{ mt: 1 }}>
+            {sendError}
+          </Alert>
+        )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose} disabled={sending}>Close</Button>
         <Button
           onClick={handleCopy}
           startIcon={<ContentCopyIcon />}
           variant="outlined"
+          disabled={sending}
         >
           Copy
         </Button>
@@ -434,8 +486,9 @@ export const EmailTeacherDialog = ({
             onClick={handleEmail}
             startIcon={<EmailIcon />}
             variant="contained"
+            disabled={sending}
           >
-            Open Email
+            {sending ? 'Sending...' : 'Send Email'}
           </Button>
         )}
       </DialogActions>

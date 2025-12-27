@@ -25,6 +25,8 @@ export const SettingsDialog = ({ open, onClose }: SettingsDialogProps) => {
   const [exportOpen, setExportOpen] = useState(false);
   const [userName, setUserName] = useState('');
   const [zoomLink, setZoomLink] = useState('');
+  const [emailAddress, setEmailAddress] = useState('');
+  const [emailPassword, setEmailPassword] = useState('');
   const { mode, toggleMode } = useTheme();
 
   useEffect(() => {
@@ -63,6 +65,14 @@ Join by SIP
 Join instructions
 https://zoom.us/meetings/3185217495/invitations?signature=VXHC8Lky81IvfhAC-MjZnRBWgZj9Itl7ZZxepgETBLE`);
     }
+    const savedEmailAddress = localStorage.getItem('email_address');
+    if (savedEmailAddress) {
+      setEmailAddress(savedEmailAddress);
+    }
+    const savedEmailPassword = localStorage.getItem('email_password');
+    if (savedEmailPassword) {
+      setEmailPassword(savedEmailPassword);
+    }
   }, []);
 
   const handleSave = () => {
@@ -74,6 +84,16 @@ https://zoom.us/meetings/3185217495/invitations?signature=VXHC8Lky81IvfhAC-MjZnR
     localStorage.setItem('user_name', userName.trim() || 'Aaron Pope');
     // Don't trim zoom link - preserve newlines and formatting
     localStorage.setItem('zoom_link', zoomLink);
+    if (emailAddress.trim()) {
+      localStorage.setItem('email_address', emailAddress.trim());
+    } else {
+      localStorage.removeItem('email_address');
+    }
+    if (emailPassword.trim()) {
+      localStorage.setItem('email_password', emailPassword.trim());
+    } else {
+      localStorage.removeItem('email_password');
+    }
     onClose();
   };
 
@@ -140,6 +160,34 @@ https://zoom.us/meetings/3185217495/invitations?signature=VXHC8Lky81IvfhAC-MjZnR
             helperText="Your Zoom meeting invitation text"
             margin="normal"
           />
+        </Box>
+        <Divider sx={{ my: 2 }} />
+        <Box sx={{ mt: 1 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            Email Settings (Gmail SMTP)
+          </Typography>
+          <TextField
+            fullWidth
+            type="email"
+            label="Email Address"
+            value={emailAddress}
+            onChange={(e) => setEmailAddress(e.target.value)}
+            helperText="Your Gmail address for sending emails"
+            margin="normal"
+          />
+          <TextField
+            fullWidth
+            type="password"
+            label="App Password"
+            value={emailPassword}
+            onChange={(e) => setEmailPassword(e.target.value)}
+            helperText="Gmail App Password (not your regular password). Generate one in your Google Account settings."
+            margin="normal"
+          />
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+            Your email credentials are stored locally and only used to send emails through the app. 
+            For Gmail, you'll need to create an App Password in your Google Account settings.
+          </Typography>
         </Box>
         <Divider sx={{ my: 2 }} />
         <Box>
