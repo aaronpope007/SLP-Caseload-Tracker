@@ -36,6 +36,7 @@ import { api } from '../utils/api';
 import { formatDate } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
 import { useConfirm } from '../hooks/useConfirm';
+import { SendEmailDialog } from '../components/SendEmailDialog';
 
 const getContactTypeColor = (type: Communication['contactType']) => {
   switch (type) {
@@ -77,6 +78,7 @@ export const Communications = () => {
   const [editingCommunication, setEditingCommunication] = useState<Communication | null>(null);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [viewingCommunication, setViewingCommunication] = useState<Communication | null>(null);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   
   // Filters
   const [contactTypeFilter, setContactTypeFilter] = useState<string>('');
@@ -367,13 +369,22 @@ export const Communications = () => {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">Communications</Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => handleOpenDialog()}
-        >
-          Log Communication
-        </Button>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button
+            variant="outlined"
+            startIcon={<EmailIcon />}
+            onClick={() => setEmailDialogOpen(true)}
+          >
+            Send Email
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpenDialog()}
+          >
+            Log Communication
+          </Button>
+        </Box>
       </Box>
 
       <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
@@ -660,6 +671,18 @@ export const Communications = () => {
       </Snackbar>
 
       <ConfirmDialog />
+
+      <SendEmailDialog
+        open={emailDialogOpen}
+        onClose={() => setEmailDialogOpen(false)}
+        students={students}
+        teachers={teachers}
+        caseManagers={caseManagers}
+        selectedSchool={selectedSchool}
+        onEmailSent={() => {
+          loadData();
+        }}
+      />
     </Box>
   );
 };
