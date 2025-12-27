@@ -357,8 +357,6 @@ export const EmailTeacherDialog = ({
       email += `\n`;
     }
 
-    email += `Thank you,\n\n`;
-    email += `${userName}\n\n`;
     email += `Zoom link:\n`;
     // Preserve the zoom link formatting - ensure newlines are preserved
     // The zoom link from localStorage should already have newlines as \n characters
@@ -367,6 +365,8 @@ export const EmailTeacherDialog = ({
     } else {
       email += '[Zoom link not configured. Please add it in Settings.]';
     }
+
+    email += `\n\nThank you,\nAaron Pope, MS, CCC-SLP\nc. (612) 310-9661`;
 
     setEmailText(email);
   };
@@ -399,10 +399,38 @@ export const EmailTeacherDialog = ({
       const userName = localStorage.getItem('user_name') || 'Aaron Pope';
       const emailSubject = `Speech Therapy Session - ${student?.name || 'Student'}`;
       
+      // Ensure zoom link and signature are always included
+      const zoomLink = localStorage.getItem('zoom_link') || '';
+      const signature = '\n\nThank you,\nAaron Pope, MS, CCC-SLP\nc. (612) 310-9661';
+      
+      let finalEmailBody = emailText.trim();
+      
+      // Check if zoom link is already in the email
+      const hasZoomLink = zoomLink && (
+        finalEmailBody.includes('Zoom link:') || 
+        finalEmailBody.includes(zoomLink) ||
+        finalEmailBody.toLowerCase().includes('zoom')
+      );
+      
+      // Check if signature is already in the email
+      const hasSignature = finalEmailBody.includes('Aaron Pope, MS, CCC-SLP');
+      
+      // Add zoom link if not present
+      if (!hasZoomLink && zoomLink) {
+        finalEmailBody += '\n\nZoom link:\n' + zoomLink;
+      } else if (!hasZoomLink && !zoomLink) {
+        finalEmailBody += '\n\nZoom link:\n[Zoom link not configured. Please add it in Settings.]';
+      }
+      
+      // Add signature if not present
+      if (!hasSignature) {
+        finalEmailBody += signature;
+      }
+      
       await api.email.send({
         to: teacher.emailAddress,
         subject: emailSubject,
-        body: emailText,
+        body: finalEmailBody,
         fromEmail: emailAddress,
         fromName: userName,
         smtpHost: 'smtp.gmail.com',
@@ -451,6 +479,7 @@ export const EmailTeacherDialog = ({
           });
         }
 
+        // Use the final email body (with zoom link and signature) for logging
         const communicationData = {
           studentId: student?.id || undefined,
           contactType: 'teacher' as const,
@@ -458,7 +487,7 @@ export const EmailTeacherDialog = ({
           contactName: teacher.name,
           contactEmail: teacher.emailAddress,
           subject: emailSubject,
-          body: emailText,
+          body: finalEmailBody,
           method: 'email' as const,
           date: communicationDate,
           relatedTo: relatedTo || undefined,

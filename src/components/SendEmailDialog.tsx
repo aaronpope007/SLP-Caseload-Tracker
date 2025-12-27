@@ -185,11 +185,15 @@ export const SendEmailDialog = ({
     try {
       const userName = localStorage.getItem('user_name') || 'Aaron Pope';
       
+      // Add signature to email body
+      const emailSignature = '\n\nThank you,\nAaron Pope, MS, CCC-SLP\nc. (612) 310-9661';
+      const bodyWithSignature = body.trim() + emailSignature;
+      
       // Send email
       await api.email.send({
         to: contactEmail,
         subject: subject,
-        body: body,
+        body: bodyWithSignature,
         fromEmail: emailAddress,
         fromName: userName,
         smtpHost: 'smtp.gmail.com',
@@ -207,7 +211,7 @@ export const SendEmailDialog = ({
           contactName: contactName,
           contactEmail: contactEmail || undefined,
           subject: subject,
-          body: body,
+          body: bodyWithSignature,
           method: 'email' as const,
           date: new Date().toISOString(),
           relatedTo: relatedTo || undefined,
