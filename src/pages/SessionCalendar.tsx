@@ -20,6 +20,9 @@ import {
   Alert,
   ToggleButton,
   ToggleButtonGroup,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material';
 import {
   ChevronLeft,
@@ -31,6 +34,7 @@ import {
   Edit as EditIcon,
   Close as CloseIcon,
   EventBusy as EventBusyIcon,
+  ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material';
 import {
   startOfMonth,
@@ -177,19 +181,32 @@ export const SessionCalendar = () => {
     return student.grade ? `${student.name} (${student.grade})` : student.name;
   };
 
+  // Helper function to parse date string (handles both ISO strings and yyyy-MM-dd format)
+  const parseDateString = (dateStr: string): Date => {
+    // If it's an ISO string, extract just the date part (yyyy-MM-dd)
+    if (dateStr.includes('T')) {
+      const datePart = dateStr.split('T')[0];
+      return parse(datePart, 'yyyy-MM-dd', new Date());
+    }
+    // Otherwise, parse as yyyy-MM-dd
+    return parse(dateStr, 'yyyy-MM-dd', new Date());
+  };
+
   // Generate calendar events from scheduled sessions
   const calendarEvents = useMemo((): CalendarEvent[] => {
     const events: CalendarEvent[] = [];
     const today = startOfDay(new Date());
-    const endDate = addMonths(currentDate, 2); // Show events up to 2 months ahead
+    const viewStart = startOfMonth(currentDate);
+    const viewEnd = endOfMonth(addMonths(currentDate, 2)); // Show events up to 2 months ahead
 
     scheduledSessions.forEach(scheduled => {
       if (scheduled.active === false) return;
 
-      const start = parse(scheduled.startDate, 'yyyy-MM-dd', new Date());
-      const end = scheduled.endDate ? parse(scheduled.endDate, 'yyyy-MM-dd', new Date()) : endDate;
+      const start = parseDateString(scheduled.startDate);
+      const end = scheduled.endDate ? parseDateString(scheduled.endDate) : viewEnd;
 
-      if (isBefore(end, today)) return;
+      // Skip if the scheduled session has ended before the view start
+      if (isBefore(end, viewStart)) return;
 
       const [startHour, startMinute] = scheduled.startTime.split(':').map(Number);
       let endTimeStr: string;
@@ -283,15 +300,22 @@ export const SessionCalendar = () => {
         });
       } else if (scheduled.recurrencePattern === 'none') {
         // One-time event
-        const dateStr = scheduled.startDate;
+        const eventDate = parseDateString(scheduled.startDate);
+        const dateStr = format(eventDate, 'yyyy-MM-dd');
+        
         // Skip if cancelled
-        if (!scheduled.cancelledDates || !scheduled.cancelledDates.includes(dateStr)) {
-          const date = parse(dateStr, 'yyyy-MM-dd', new Date());
+        if (scheduled.cancelledDates && scheduled.cancelledDates.includes(dateStr)) {
+          return;
+        }
+        
+        // Only include if the event date is within the visible range
+        if ((isAfter(eventDate, viewStart) || isSameDay(eventDate, viewStart)) && 
+            (isBefore(eventDate, viewEnd) || isSameDay(eventDate, viewEnd))) {
           events.push({
             id: scheduled.id,
             scheduledSessionId: scheduled.id,
             studentIds: scheduled.studentIds,
-            date: date,
+            date: eventDate,
             startTime: scheduled.startTime,
             endTime: scheduled.endTime || endTimeStr,
             title: `${scheduled.startTime}-${scheduled.endTime || endTimeStr} ${scheduled.studentIds.map(id => formatStudentNameWithGrade(id)).join(', ')}`,
@@ -506,7 +530,62 @@ export const SessionCalendar = () => {
       event.matchedSessions = matchedSessions.length > 0 ? matchedSessions : undefined;
     });
 
-    return events;
+    // Add logged sessions that don't have a corresponding scheduled session
+    const scheduledSessionIds = new Set(scheduledSessions.map(ss => ss.id));
+    const loggedSessionsWithoutSchedule: CalendarEvent[] = [];
+    
+    sessions.forEach(session => {
+      // Skip if this session is already matched to a scheduled session
+      const alreadyMatched = events.some(event => 
+        event.matchedSessions?.some(ms => ms.id === session.id)
+      );
+      if (alreadyMatched) return;
+      
+      // Skip if this session has a scheduledSessionId that exists
+      if (session.scheduledSessionId && scheduledSessionIds.has(session.scheduledSessionId)) {
+        return;
+      }
+      
+      // Check if session date is within visible range
+      const sessionDate = startOfDay(new Date(session.date));
+      if (isBefore(sessionDate, viewStart) || isAfter(sessionDate, viewEnd)) {
+        return;
+      }
+      
+      // Get session time
+      const sessionTime = new Date(session.date);
+      const startTime = format(sessionTime, 'HH:mm');
+      let endTime: string;
+      if (session.endTime) {
+        const endTimeDate = new Date(session.endTime);
+        endTime = format(endTimeDate, 'HH:mm');
+      } else {
+        // Default to 30 minutes if no end time
+        const defaultEnd = addMinutes(sessionTime, 30);
+        endTime = format(defaultEnd, 'HH:mm');
+      }
+      
+      // Get student name
+      const student = students.find(s => s.id === session.studentId);
+      const studentName = student ? (student.grade ? `${student.name} (${student.grade})` : student.name) : 'Unknown';
+      
+      loggedSessionsWithoutSchedule.push({
+        id: `logged-${session.id}`,
+        scheduledSessionId: session.scheduledSessionId || '',
+        studentIds: [session.studentId],
+        date: sessionDate,
+        startTime: startTime,
+        endTime: endTime,
+        title: `${startTime}-${endTime} ${studentName}`,
+        hasConflict: false,
+        isLogged: true,
+        isMissed: session.missedSession || false,
+        matchedSessions: [session],
+      });
+    });
+    
+    // Combine scheduled events with logged sessions without schedule
+    return [...events, ...loggedSessionsWithoutSchedule];
   }, [scheduledSessions, students, currentDate, sessions]);
 
   const monthStart = startOfMonth(currentDate);
@@ -2089,65 +2168,72 @@ export const SessionCalendar = () => {
         </CardContent>
       </Card>
 
-      {/* Scheduled Sessions List */}
+      {/* Scheduled Recurring Sessions List */}
       <Card>
         <CardContent>
-          <Typography variant="h6" gutterBottom>
-            Scheduled Sessions
-          </Typography>
-          {scheduledSessions.length === 0 ? (
-            <Typography color="text.secondary">
-              No scheduled sessions. Click "Schedule Session" to create one.
-            </Typography>
-          ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              {scheduledSessions.map(scheduled => {
-                const studentNames = scheduled.studentIds.map(id => formatStudentNameWithGrade(id)).join(', ');
-                return (
-                  <Card key={scheduled.id} variant="outlined">
-                    <CardContent sx={{ '&:last-child': { pb: 2 } }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                        <Box sx={{ flex: 1 }}>
-                          <Typography variant="subtitle1" fontWeight="bold">
-                            {studentNames}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {scheduled.startTime} {scheduled.endTime && `- ${scheduled.endTime}`}
-                            {' • '}
-                            {scheduled.recurrencePattern === 'weekly' && scheduled.dayOfWeek && (
-                              <>Weekly on {scheduled.dayOfWeek.map(d => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d]).join(', ')}</>
-                            )}
-                            {scheduled.recurrencePattern === 'daily' && 'Daily'}
-                            {scheduled.recurrencePattern === 'specific-dates' && `${scheduled.specificDates?.length || 0} specific dates`}
-                            {scheduled.recurrencePattern === 'none' && 'One-time'}
-                          </Typography>
-                          {scheduled.notes && (
-                            <Typography variant="body2" sx={{ mt: 1 }}>
-                              {scheduled.notes}
-                            </Typography>
-                          )}
-                        </Box>
-                        <Box>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleOpenDialog(undefined, scheduled)}
-                          >
-                            <EditIcon />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleDelete(scheduled.id)}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </Box>
-                      </Box>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </Box>
-          )}
+          <Accordion defaultExpanded={false}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography variant="h6">
+                Scheduled Recurring Sessions
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              {scheduledSessions.filter(s => s.recurrencePattern !== 'none').length === 0 ? (
+                <Typography color="text.secondary">
+                  No scheduled recurring sessions. Click "Schedule Session" to create one.
+                </Typography>
+              ) : (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  {scheduledSessions
+                    .filter(s => s.recurrencePattern !== 'none')
+                    .map(scheduled => {
+                      const studentNames = scheduled.studentIds.map(id => formatStudentNameWithGrade(id)).join(', ');
+                      return (
+                        <Card key={scheduled.id} variant="outlined">
+                          <CardContent sx={{ '&:last-child': { pb: 2 } }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                              <Box sx={{ flex: 1 }}>
+                                <Typography variant="subtitle1" fontWeight="bold">
+                                  {studentNames}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  {scheduled.startTime} {scheduled.endTime && `- ${scheduled.endTime}`}
+                                  {' • '}
+                                  {scheduled.recurrencePattern === 'weekly' && scheduled.dayOfWeek && (
+                                    <>Weekly on {scheduled.dayOfWeek.map(d => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d]).join(', ')}</>
+                                  )}
+                                  {scheduled.recurrencePattern === 'daily' && 'Daily'}
+                                  {scheduled.recurrencePattern === 'specific-dates' && `${scheduled.specificDates?.length || 0} specific dates`}
+                                </Typography>
+                                {scheduled.notes && (
+                                  <Typography variant="body2" sx={{ mt: 1 }}>
+                                    {scheduled.notes}
+                                  </Typography>
+                                )}
+                              </Box>
+                              <Box>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleOpenDialog(undefined, scheduled)}
+                                >
+                                  <EditIcon />
+                                </IconButton>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleDelete(scheduled.id)}
+                                >
+                                  <DeleteIcon />
+                                </IconButton>
+                              </Box>
+                            </Box>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                </Box>
+              )}
+            </AccordionDetails>
+          </Accordion>
         </CardContent>
       </Card>
 

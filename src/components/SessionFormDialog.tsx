@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Box,
   Button,
@@ -22,12 +23,14 @@ import {
   Delete as DeleteIcon,
 } from '@mui/icons-material';
 import type { Student, Goal, Session } from '../types';
-import { formatDate, toLocalDateTimeString } from '../utils/helpers';
+import { formatDate, toLocalDateTimeString, fromLocalDateTimeString } from '../utils/helpers';
 import { StudentSelector } from './StudentSelector';
 import { ServiceTypeSelector } from './ServiceTypeSelector';
 import { GoalHierarchy } from './GoalHierarchy';
 import { organizeGoalsHierarchy } from '../utils/goalHierarchy';
 import { COMMON_SUBJECTIVE_STATEMENTS } from '../utils/soapNoteGenerator';
+import { EmailTeacherDialog } from './EmailTeacherDialog';
+import { Email as EmailIcon } from '@mui/icons-material';
 
 interface SessionFormData {
   studentIds: string[];
@@ -97,6 +100,9 @@ export const SessionFormDialog = ({
   getRecentPerformance,
   isGoalAchieved,
 }: SessionFormDialogProps) => {
+  const [emailTeacherDialogOpen, setEmailTeacherDialogOpen] = useState(false);
+  const [selectedStudentForEmail, setSelectedStudentForEmail] = useState<Student | null>(null);
+
   // Get goals for all selected students, grouped by student, separated into active and completed
   const availableGoalsByStudent = formData.studentIds.length > 0
     ? formData.studentIds.map(studentId => {
@@ -197,12 +203,30 @@ export const SessionFormDialog = ({
           </Box>
 
           {formData.isDirectServices && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Checkbox
-                checked={formData.missedSession}
-                onChange={(e) => handleFormDataChange({ missedSession: e.target.checked })}
-              />
-              <Typography variant="body2">Missed Session</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Checkbox
+                  checked={formData.missedSession}
+                  onChange={(e) => handleFormDataChange({ missedSession: e.target.checked })}
+                />
+                <Typography variant="body2">Missed Session</Typography>
+              </Box>
+              {formData.missedSession && formData.studentIds.length === 1 && (
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<EmailIcon />}
+                  onClick={() => {
+                    const student = students.find(s => s.id === formData.studentIds[0]);
+                    if (student) {
+                      setSelectedStudentForEmail(student);
+                      setEmailTeacherDialogOpen(true);
+                    }
+                  }}
+                >
+                  Email Teacher
+                </Button>
+              )}
             </Box>
           )}
 
@@ -464,6 +488,17 @@ export const SessionFormDialog = ({
           Save
         </Button>
       </DialogActions>
+      <EmailTeacherDialog
+        open={emailTeacherDialogOpen}
+        onClose={() => {
+          setEmailTeacherDialogOpen(false);
+          setSelectedStudentForEmail(null);
+        }}
+        student={selectedStudentForEmail}
+        sessionDate={formData.date}
+        sessionStartTime={formData.date ? fromLocalDateTimeString(formData.date) : undefined}
+        sessionEndTime={formData.endTime ? fromLocalDateTimeString(formData.endTime) : undefined}
+      />
     </Dialog>
   );
 };
