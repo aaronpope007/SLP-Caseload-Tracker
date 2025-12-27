@@ -1,4 +1,4 @@
-import type { Session, Student, School, Evaluation } from '../types';
+import type { Session, Student, School, Evaluation, Communication } from '../types';
 
 interface TimeTrackingItem {
   id: string;
@@ -10,6 +10,7 @@ interface TimeTrackingItem {
 interface GenerateTimesheetNoteParams {
   filteredItems: TimeTrackingItem[];
   sessions: Session[];
+  communications: Communication[];
   getStudent: (studentId: string) => Student | undefined;
   getStudentInitials: (studentId: string) => string;
   getGroupSessions: (groupSessionId: string) => Session[];
@@ -22,6 +23,7 @@ interface GenerateTimesheetNoteParams {
 export const generateTimesheetNote = ({
   filteredItems,
   sessions,
+  communications,
   getStudent,
   getStudentInitials,
   getGroupSessions,
@@ -225,54 +227,71 @@ export const generateTimesheetNote = ({
     noteParts.push(''); // Empty line after service
   }
 
-  // Build indirect services entry - include ALL students from direct, missed, and indirect services
-  // Collect all unique student IDs from all service types
-  const allStudentIds = new Set<string>();
+  // Build indirect services entry with sub-sections
+  // Collect students for each sub-section
+  
+  // Documentation: Students who completed a session today (not missed)
+  const documentationStudentIds = new Set<string>();
   directServices.forEach(session => {
-    allStudentIds.add(session.studentId);
+    documentationStudentIds.add(session.studentId);
+  });
+  
+  // Email Correspondence: Students from communications
+  const emailCorrespondenceStudentIds = new Set<string>();
+  communications.forEach(comm => {
+    if (comm.studentId) {
+      emailCorrespondenceStudentIds.add(comm.studentId);
+    }
+  });
+  
+  // Lesson Planning: All students from all sessions (missed and attended)
+  const lessonPlanningStudentIds = new Set<string>();
+  directServices.forEach(session => {
+    lessonPlanningStudentIds.add(session.studentId);
   });
   missedDirectServices.forEach(session => {
-    allStudentIds.add(session.studentId);
+    lessonPlanningStudentIds.add(session.studentId);
   });
   indirectServices.forEach(session => {
-    allStudentIds.add(session.studentId);
+    lessonPlanningStudentIds.add(session.studentId);
   });
 
-  // Build student entries list from all students
-  const studentEntries = Array.from(allStudentIds).map(studentId => {
-    const student = getStudent(studentId);
-    const initials = getStudentInitials(studentId);
-    const grade = student?.grade || '';
-    return `${initials} (${grade})`;
-  });
+  // Build student entries for each sub-section
+  const buildStudentEntries = (studentIds: Set<string>): string[] => {
+    return Array.from(studentIds).map(studentId => {
+      const student = getStudent(studentId);
+      const initials = getStudentInitials(studentId);
+      const grade = student?.grade || '';
+      return `${initials} (${grade})`;
+    }).sort();
+  };
 
-  // Sort by initials for consistency
-  studentEntries.sort();
+  const documentationEntries = buildStudentEntries(documentationStudentIds);
+  const emailCorrespondenceEntries = buildStudentEntries(emailCorrespondenceStudentIds);
+  const lessonPlanningEntries = buildStudentEntries(lessonPlanningStudentIds);
 
-  // Collect all unique activities from indirect services sessions
-  const allActivities = new Set<string>();
-  indirectServices.forEach(session => {
-    session.activitiesUsed?.forEach(activity => {
-      if (activity.trim()) {
-        allActivities.add(activity.trim());
-      }
-    });
-  });
-
-  // Always include the default 3 activities
-  allActivities.add('Email Correspondence');
-  allActivities.add('Documentation');
-  allActivities.add('Lesson Planning');
-
-  // Convert to array and sort
-  const activitiesArray = Array.from(allActivities).sort();
-
-  const indirectServiceLabel = isTeletherapy ? 'Offsite Indirect services:' : 'Indirect services:';
+  // Build indirect services section with sub-sections
+  const indirectServiceLabel = isTeletherapy ? 'Offsite Indirect services including:' : 'Indirect services including:';
   noteParts.push(indirectServiceLabel);
-  noteParts.push(studentEntries.join(', '));
-  activitiesArray.forEach(activity => {
-    noteParts.push(activity);
-  });
+  
+  // Documentation sub-section
+  if (documentationEntries.length > 0) {
+    noteParts.push('Documentation:');
+    noteParts.push(documentationEntries.join(', '));
+  }
+  
+  // Email Correspondence sub-section
+  if (emailCorrespondenceEntries.length > 0) {
+    noteParts.push('Email Correspondence:');
+    noteParts.push(emailCorrespondenceEntries.join(', '));
+  }
+  
+  // Lesson Planning sub-section
+  if (lessonPlanningEntries.length > 0) {
+    noteParts.push('Lesson Planning:');
+    noteParts.push(lessonPlanningEntries.join(', '));
+  }
+  
   noteParts.push(''); // Empty line after service
 
   // Remove trailing empty line if present

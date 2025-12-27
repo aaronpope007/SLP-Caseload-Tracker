@@ -7,12 +7,13 @@ import {
   Alert,
   Typography,
 } from '@mui/material';
-import type { Session, Evaluation, Student } from '../types';
+import type { Session, Evaluation, Student, Communication } from '../types';
 import {
   getSessionsBySchool,
   getEvaluations,
   getStudents,
 } from '../utils/storage-api';
+import { api } from '../utils/api';
 import { formatDate, generateId } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
 import { getSchoolByName } from '../utils/storage-api';
@@ -63,6 +64,7 @@ export const TimeTracking = () => {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
+  const [communications, setCommunications] = useState<Communication[]>([]);
   // Get current date in YYYY-MM-DD format for date input
   const getCurrentDateString = () => {
     const today = new Date();
@@ -92,6 +94,15 @@ export const TimeTracking = () => {
     setSessions(schoolSessions);
     setEvaluations(schoolEvaluations);
     setStudents(schoolStudents);
+    
+    // Load communications for the school
+    try {
+      const allCommunications = await api.communications.getAll(undefined, undefined, selectedSchool);
+      setCommunications(allCommunications);
+    } catch (error) {
+      console.error('Failed to fetch communications:', error);
+      setCommunications([]);
+    }
   };
 
   useEffect(() => {
@@ -181,6 +192,28 @@ export const TimeTracking = () => {
     });
   }, [allItems, selectedDate]);
 
+  // Filter communications by selected date
+  const filteredCommunications = useMemo(() => {
+    if (!selectedDate) return [];
+    
+    // Parse selected date in local time (YYYY-MM-DD format from date input)
+    const [year, month, day] = selectedDate.split('-').map(Number);
+    const selectedDateLocal = new Date(year, month - 1, day);
+    const selectedYear = selectedDateLocal.getFullYear();
+    const selectedMonth = selectedDateLocal.getMonth();
+    const selectedDay = selectedDateLocal.getDate();
+    
+    return communications.filter(comm => {
+      if (!comm.date) return false;
+      const commDate = new Date(comm.date);
+      return (
+        commDate.getFullYear() === selectedYear &&
+        commDate.getMonth() === selectedMonth &&
+        commDate.getDate() === selectedDay
+      );
+    });
+  }, [communications, selectedDate]);
+
   const getStudentName = (studentId: string) => {
     return students.find(s => s.id === studentId)?.name || 'Unknown';
   };
@@ -236,6 +269,7 @@ export const TimeTracking = () => {
     const note = generateTimesheetNote({
       filteredItems,
       sessions,
+      communications: filteredCommunications,
       getStudent,
       getStudentInitials,
       getGroupSessions,
