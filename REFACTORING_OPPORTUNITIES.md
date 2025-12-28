@@ -180,10 +180,20 @@ function buildQueryString(params: Record<string, string | number | undefined>): 
 
 **Status:** All 16 API routes now have proper TypeScript interfaces for database rows. No more `any` types!
 
-### 2. Type Assertions
+### 2. Type Assertions ✅ COMPLETED
 **Location:** Multiple files
 
-**Issue:** Some unsafe type assertions that could be validated
+**Status:** ✅ Complete
+- ✅ Created runtime validation utilities (`src/utils/validators.ts`)
+- ✅ Fixed all `error: any` → `error: unknown` with proper type-safe error handling
+- ✅ Removed all `as any` type assertions (ProgressReports.tsx, DueDateItems.tsx)
+- ✅ Added `getErrorMessage()` utility for type-safe error message extraction
+- ✅ Improved API client type safety (errorData: any → unknown)
+- ✅ Updated 8 files with type-safe error handling:
+  - Students.tsx, Teachers.tsx, CaseManagers.tsx
+  - Communications.tsx (3 instances)
+  - EmailTeacherDialog.tsx, ExportDialog.tsx
+  - ProgressReports.tsx, DueDateItems.tsx
 
 **Recommendation:** Add runtime validation where needed, especially for API responses
 
