@@ -11,6 +11,93 @@ import { logError } from './logger';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
+/**
+ * Custom API Error class for better error handling
+ * Provides status code, endpoint, and user-friendly error messages
+ */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status?: number,
+    public endpoint?: string,
+    public originalError?: unknown
+  ) {
+    super(message);
+    this.name = 'ApiError';
+    
+    // Maintains proper stack trace for where our error was thrown (only available on V8)
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, ApiError);
+    }
+  }
+
+  /**
+   * Get a user-friendly error message based on status code
+   */
+  getUserMessage(): string {
+    if (this.status) {
+      switch (this.status) {
+        case 400:
+          return 'Invalid request. Please check your input and try again.';
+        case 401:
+          return 'Authentication required. Please log in and try again.';
+        case 403:
+          return 'You do not have permission to perform this action.';
+        case 404:
+          return 'The requested resource was not found.';
+        case 409:
+          return 'This resource already exists. Please check for duplicates.';
+        case 422:
+          return 'The request could not be processed. Please check your input.';
+        case 500:
+          return 'A server error occurred. Please try again later.';
+        case 503:
+          return 'The service is temporarily unavailable. Please try again later.';
+        default:
+          if (this.status >= 500) {
+            return 'A server error occurred. Please try again later.';
+          } else if (this.status >= 400) {
+            return 'An error occurred with your request. Please check your input.';
+          }
+      }
+    }
+    
+    // Network errors
+    if (this.message.includes('Failed to fetch') || this.message.includes('NetworkError')) {
+      return 'Cannot connect to the server. Make sure the API server is running on http://localhost:3001';
+    }
+    
+    // Return the original message if no specific handling
+    return this.message;
+  }
+
+  /**
+   * Check if this is a network/connection error
+   */
+  isNetworkError(): boolean {
+    return (
+      !this.status &&
+      (this.message.includes('Failed to fetch') ||
+       this.message.includes('NetworkError') ||
+       this.message.includes('Network request failed'))
+    );
+  }
+
+  /**
+   * Check if this is a client error (4xx)
+   */
+  isClientError(): boolean {
+    return this.status !== undefined && this.status >= 400 && this.status < 500;
+  }
+
+  /**
+   * Check if this is a server error (5xx)
+   */
+  isServerError(): boolean {
+    return this.status !== undefined && this.status >= 500;
+  }
+}
+
 async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${API_URL}${endpoint}`;
   
@@ -24,19 +111,57 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: response.statusText }));
-      throw new Error(error.error || `HTTP ${response.status}`);
+      // Try to parse error response
+      let errorMessage = response.statusText;
+      let errorData: any = null;
+      
+      try {
+        errorData = await response.json();
+        errorMessage = errorData.message || errorData.error || errorMessage;
+      } catch {
+        // If JSON parsing fails, use status text
+      }
+
+      // Create ApiError with status code and endpoint
+      throw new ApiError(
+        errorMessage || `HTTP ${response.status}`,
+        response.status,
+        endpoint,
+        errorData
+      );
     }
 
     return response.json();
   } catch (error: unknown) {
-    logError(`API request failed: ${endpoint}`, error);
-    // Provide more helpful error messages
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
-      throw new Error('Cannot connect to API server. Make sure the server is running on http://localhost:3001');
+    // If it's already an ApiError, just log and re-throw
+    if (error instanceof ApiError) {
+      logError(`API request failed: ${endpoint}`, error);
+      throw error;
     }
-    throw error;
+
+    // Handle network errors
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logError(`API request failed: ${endpoint}`, error);
+
+    // Create ApiError for network errors
+    if (errorMessage.includes('Failed to fetch') || 
+        errorMessage.includes('NetworkError') ||
+        errorMessage.includes('Network request failed')) {
+      throw new ApiError(
+        'Cannot connect to API server. Make sure the server is running on http://localhost:3001',
+        undefined,
+        endpoint,
+        error
+      );
+    }
+
+    // For other errors, wrap in ApiError
+    throw new ApiError(
+      errorMessage || 'An unknown error occurred',
+      undefined,
+      endpoint,
+      error
+    );
   }
 }
 
