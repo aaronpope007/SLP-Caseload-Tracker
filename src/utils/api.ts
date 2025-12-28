@@ -113,11 +113,15 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
     if (!response.ok) {
       // Try to parse error response
       let errorMessage = response.statusText;
-      let errorData: any = null;
+      let errorData: unknown = null;
       
       try {
         errorData = await response.json();
-        errorMessage = errorData.message || errorData.error || errorMessage;
+        if (errorData && typeof errorData === 'object' && 'message' in errorData) {
+          errorMessage = String(errorData.message);
+        } else if (errorData && typeof errorData === 'object' && 'error' in errorData) {
+          errorMessage = String(errorData.error);
+        }
       } catch {
         // If JSON parsing fails, use status text
       }

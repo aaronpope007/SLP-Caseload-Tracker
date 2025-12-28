@@ -273,7 +273,7 @@ export const ProgressReports = () => {
         <Chip
           label={params.value.charAt(0).toUpperCase() + params.value.slice(1).replace('-', ' ')}
           size="small"
-          color={getStatusColor(params.value) as any}
+          color={getStatusColor(params.value) as 'success' | 'error' | 'warning' | 'info' | 'default'}
         />
       ),
     },

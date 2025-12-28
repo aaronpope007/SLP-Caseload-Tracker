@@ -248,7 +248,7 @@ export const DueDateItems = () => {
         <Chip
           label={params.value.charAt(0).toUpperCase() + params.value.slice(1)}
           size="small"
-          color={getPriorityColor(params.value) as any}
+          color={getPriorityColor(params.value) as 'success' | 'error' | 'warning' | 'info' | 'default'}
         />
       ) : <Typography variant="body2" color="text.secondary">—</Typography>,
     },
@@ -271,7 +271,7 @@ export const DueDateItems = () => {
         <Chip
           label={params.value.charAt(0).toUpperCase() + params.value.slice(1)}
           size="small"
-          color={getStatusColor(params.value) as any}
+          color={getStatusColor(params.value) as 'success' | 'error' | 'warning' | 'info' | 'default'}
         />
       ),
     },

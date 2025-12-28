@@ -38,6 +38,7 @@ import { useDirty } from '../hooks/useDirty';
 import { SearchBar } from '../components/SearchBar';
 import { StudentAccordionCard } from '../components/StudentAccordionCard';
 import { logError, logWarn } from '../utils/logger';
+import { getErrorMessage } from '../utils/validators';
 
 export const Students = () => {
   const navigate = useNavigate();
@@ -354,9 +355,9 @@ export const Students = () => {
       resetDirty();
       studentDialog.closeDialog();
       setEditingStudent(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Failed to save student', error);
-      const errorMessage = error?.message || 'Unknown error';
+      const errorMessage = getErrorMessage(error);
       alert(`Failed to save student: ${errorMessage}\n\nMake sure the API server is running on http://localhost:3001`);
     }
   };

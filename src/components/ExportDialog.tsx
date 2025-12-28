@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { logError } from '../utils/logger';
+import { getErrorMessage } from '../utils/validators';
 import {
   Dialog,
   DialogTitle,
@@ -85,8 +86,8 @@ export const ExportDialog = ({ open, onClose, onImportSuccess }: ExportDialogPro
       }
       onClose();
       window.location.reload(); // Reload to refresh all data
-    } catch (error: any) {
-      setImportError(error.message || 'Invalid JSON data');
+    } catch (error: unknown) {
+      setImportError(getErrorMessage(error) || 'Invalid JSON data');
     }
   };
 

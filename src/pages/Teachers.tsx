@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { logError } from '../utils/logger';
+import { getErrorMessage } from '../utils/validators';
 import {
   Box,
   Button,
@@ -258,9 +259,9 @@ export const Teachers = () => {
       resetDirty();
       teacherDialog.closeDialog();
       setEditingTeacher(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Failed to save teacher', error);
-      const errorMessage = error?.message || 'Unknown error';
+      const errorMessage = getErrorMessage(error);
       alert(`Failed to save teacher: ${errorMessage}\n\nMake sure the API server is running on http://localhost:3001`);
     }
   };

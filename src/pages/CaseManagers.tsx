@@ -266,13 +266,9 @@ export const CaseManagers = () => {
       resetDirty();
       setDialogOpen(false);
       setEditingCaseManager(null);
-    } catch (error: any) {
-      logError('[CaseManagers] Failed to save case manager', error, {
-        message: error?.message,
-        stack: error?.stack,
-        response: error?.response
-      });
-      const errorMessage = error?.message || 'Unknown error';
+    } catch (error: unknown) {
+      logError('[CaseManagers] Failed to save case manager', error);
+      const errorMessage = getErrorMessage(error);
       alert(`Failed to save case manager: ${errorMessage}\n\nMake sure the API server is running on http://localhost:3001`);
     }
   };

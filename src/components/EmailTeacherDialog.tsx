@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { logError, logWarn, logInfo } from '../utils/logger';
+import { getErrorMessage } from '../utils/validators';
 import {
   Dialog,
   DialogTitle,
@@ -526,9 +527,9 @@ export const EmailTeacherDialog = ({
         setSendSuccess(false);
         onClose();
       }, 2000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Error sending email', error);
-      setSendError(error.message || 'Failed to send email. Please check your email settings and try again.');
+      setSendError(getErrorMessage(error) || 'Failed to send email. Please check your email settings and try again.');
     } finally {
       setSending(false);
     }

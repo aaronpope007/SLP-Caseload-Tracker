@@ -38,6 +38,7 @@ import { useSchool } from '../context/SchoolContext';
 import { useConfirm, useSnackbar, useDialog } from '../hooks';
 import { SendEmailDialog } from '../components/SendEmailDialog';
 import { logError, logInfo } from '../utils/logger';
+import { getErrorMessage } from '../utils/validators';
 
 const getContactTypeColor = (type: Communication['contactType']) => {
   switch (type) {
@@ -128,13 +129,9 @@ export const Communications = () => {
       logInfo('📋 Loaded communications', communicationsWithStudentNames);
       
       setCommunications(communicationsWithStudentNames);
-    } catch (error: any) {
-      logError('Failed to load communications', error, {
-        message: error?.message,
-        stack: error?.stack,
-        response: error?.response,
-      });
-      showSnackbar(error?.message || 'Failed to load communications', 'error');
+    } catch (error: unknown) {
+      logError('Failed to load communications', error);
+      showSnackbar(getErrorMessage(error) || 'Failed to load communications', 'error');
     }
   }, [selectedSchool, contactTypeFilter, studentFilter]);
 
@@ -210,9 +207,9 @@ export const Communications = () => {
       
       handleCloseDialog();
       loadData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Failed to save communication', error);
-      showSnackbar(error.message || 'Failed to save communication', 'error');
+      showSnackbar(getErrorMessage(error) || 'Failed to save communication', 'error');
     }
   };
 
@@ -227,9 +224,9 @@ export const Communications = () => {
         await api.communications.delete(id);
         showSnackbar('Communication deleted successfully', 'success');
         loadData();
-      } catch (error: any) {
+      } catch (error: unknown) {
         logError('Failed to delete communication', error);
-        showSnackbar(error.message || 'Failed to delete communication', 'error');
+        showSnackbar(getErrorMessage(error) || 'Failed to delete communication', 'error');
       }
     }
   };
