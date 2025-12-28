@@ -105,7 +105,7 @@ export const SessionFormDialog = ({
   const [selectedStudentForEmail, setSelectedStudentForEmail] = useState<Student | null>(null);
 
   // Get last session's plan for the first selected student (for new sessions only, and only if plan is empty)
-  const lastSessionPlan = !editingSession && !editingGroupSessionId && formData.studentIds.length > 0 && !formData.plan.trim()
+  const lastSessionPlan = !editingSession && !editingGroupSessionId && formData.studentIds.length > 0 && !(formData.plan || '').trim()
     ? (() => {
         const firstStudentId = formData.studentIds[0];
         const studentSessions = sessions
@@ -462,11 +462,11 @@ export const SessionFormDialog = ({
                       <TextField
                         label="Custom Subjective Statement"
                         fullWidth
-                        value={formData.customSubjective}
+                        value={formData.customSubjective || ''}
                         onChange={(e) => handleFormDataChange({ customSubjective: e.target.value })}
                         placeholder="Enter your own subjective statement..."
-                        error={formData.selectedSubjectiveStatements.length === 0 && formData.customSubjective.trim().length === 0}
-                        helperText={formData.selectedSubjectiveStatements.length === 0 && formData.customSubjective.trim().length === 0 ? "Required: Select a statement above or enter a custom statement" : ""}
+                        error={formData.selectedSubjectiveStatements.length === 0 && (formData.customSubjective || '').trim().length === 0}
+                        helperText={formData.selectedSubjectiveStatements.length === 0 && (formData.customSubjective || '').trim().length === 0 ? "Required: Select a statement above or enter a custom statement" : ""}
                       />
                     </Box>
                   </AccordionDetails>
@@ -501,12 +501,12 @@ export const SessionFormDialog = ({
                 fullWidth
                 multiline
                 rows={4}
-                value={formData.plan}
+                value={formData.plan || ''}
                 onChange={(e) => handleFormDataChange({ plan: e.target.value })}
                 placeholder="Enter the plan for the next session..."
                 required
-                error={!formData.plan.trim()}
-                helperText={!formData.plan.trim() ? "Required: Enter a plan for the next session" : ""}
+                error={!(formData.plan || '').trim()}
+                helperText={!(formData.plan || '').trim() ? "Required: Enter a plan for the next session" : ""}
               />
             </>
           ) : (

@@ -17,7 +17,7 @@ import {
 } from '@mui/icons-material';
 import type { Student, Teacher, ScheduledSession, Session } from '../types';
 import { getTeachers, getSessionsBySchool, getSchoolByName } from '../utils/storage-api';
-import { getScheduledSessions } from '../utils/storage';
+import { getScheduledSessions } from '../utils/storage-api';
 import { format, isBefore, isAfter, addMinutes, parse, isSameDay, startOfDay } from 'date-fns';
 import { api } from '../utils/api';
 

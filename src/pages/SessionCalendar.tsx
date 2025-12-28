@@ -61,7 +61,7 @@ import {
   addScheduledSession,
   updateScheduledSession,
   deleteScheduledSession,
-} from '../utils/storage';
+} from '../utils/storage-api';
 import {
   getStudents,
   getSessions,
@@ -160,7 +160,7 @@ export const SessionCalendar = () => {
       setSessions(allSessions.filter(s => studentIds.has(s.studentId)));
       const allGoals = await getGoals();
       setGoals(allGoals.filter(g => studentIds.has(g.studentId)));
-      const scheduled = getScheduledSessions(selectedSchool);
+      const scheduled = await getScheduledSessions(selectedSchool);
       setScheduledSessions(scheduled);
     } catch (error) {
       console.error('Failed to load data:', error);
@@ -198,6 +198,11 @@ export const SessionCalendar = () => {
     const today = startOfDay(new Date());
     const viewStart = startOfMonth(currentDate);
     const viewEnd = endOfMonth(addMonths(currentDate, 2)); // Show events up to 2 months ahead
+
+    // Ensure scheduledSessions is an array
+    if (!Array.isArray(scheduledSessions)) {
+      return events;
+    }
 
     scheduledSessions.forEach(scheduled => {
       if (scheduled.active === false) return;
@@ -531,7 +536,7 @@ export const SessionCalendar = () => {
     });
 
     // Add logged sessions that don't have a corresponding scheduled session
-    const scheduledSessionIds = new Set(scheduledSessions.map(ss => ss.id));
+    const scheduledSessionIds = new Set(Array.isArray(scheduledSessions) ? scheduledSessions.map(ss => ss.id) : []);
     const loggedSessionsWithoutSchedule: CalendarEvent[] = [];
     
     sessions.forEach(session => {
@@ -819,6 +824,7 @@ export const SessionCalendar = () => {
   };
 
   const handleOpenSessionDialog = (event: CalendarEvent) => {
+    if (!Array.isArray(scheduledSessions)) return;
     const scheduled = scheduledSessions.find(s => s.id === event.scheduledSessionId);
     if (!scheduled) return;
 
@@ -1335,6 +1341,7 @@ export const SessionCalendar = () => {
     const event = calendarEvents.find(e => e.id === draggedSession);
     if (!event) return;
 
+    if (!Array.isArray(scheduledSessions)) return;
     const scheduled = scheduledSessions.find(s => s.id === event.scheduledSessionId);
     if (!scheduled) return;
 
@@ -1361,6 +1368,7 @@ export const SessionCalendar = () => {
   };
 
   const handleCancelEvent = (event: CalendarEvent) => {
+    if (!Array.isArray(scheduledSessions)) return;
     const scheduled = scheduledSessions.find(s => s.id === event.scheduledSessionId);
     if (!scheduled) return;
 
@@ -1409,6 +1417,7 @@ export const SessionCalendar = () => {
       cancelText: 'Keep Scheduled',
       onConfirm: () => {
         // Update each scheduled session to include this date in cancelledDates
+        if (!Array.isArray(scheduledSessions)) return;
         scheduledSessionMap.forEach((events, scheduledSessionId) => {
           const scheduled = scheduledSessions.find(s => s.id === scheduledSessionId);
           if (!scheduled) return;
@@ -2178,13 +2187,13 @@ export const SessionCalendar = () => {
               </Typography>
             </AccordionSummary>
             <AccordionDetails>
-              {scheduledSessions.filter(s => s.recurrencePattern !== 'none').length === 0 ? (
+              {(!Array.isArray(scheduledSessions) || scheduledSessions.filter(s => s.recurrencePattern !== 'none').length === 0) ? (
                 <Typography color="text.secondary">
                   No scheduled recurring sessions. Click "Schedule Session" to create one.
                 </Typography>
               ) : (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  {scheduledSessions
+                  {(Array.isArray(scheduledSessions) ? scheduledSessions : [])
                     .filter(s => s.recurrencePattern !== 'none')
                     .map(scheduled => {
                       const studentNames = scheduled.studentIds.map(id => formatStudentNameWithGrade(id)).join(', ');

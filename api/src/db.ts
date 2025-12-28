@@ -403,6 +403,29 @@ export function initDatabase() {
     )
   `);
 
+  // Scheduled Sessions table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS scheduled_sessions (
+      id TEXT PRIMARY KEY,
+      studentIds TEXT NOT NULL,
+      startTime TEXT NOT NULL,
+      endTime TEXT,
+      duration INTEGER,
+      dayOfWeek TEXT,
+      specificDates TEXT,
+      recurrencePattern TEXT NOT NULL CHECK(recurrencePattern IN ('weekly', 'daily', 'specific-dates', 'none')),
+      startDate TEXT NOT NULL,
+      endDate TEXT,
+      goalsTargeted TEXT NOT NULL,
+      notes TEXT,
+      isDirectServices INTEGER DEFAULT 1,
+      dateCreated TEXT NOT NULL,
+      dateUpdated TEXT NOT NULL,
+      active INTEGER DEFAULT 1,
+      cancelledDates TEXT
+    )
+  `);
+
   // Create indexes for better query performance
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_students_school ON students(school);
@@ -428,6 +451,8 @@ export function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_communications_contactType ON communications(contactType);
     CREATE INDEX IF NOT EXISTS idx_communications_date ON communications(date);
     CREATE INDEX IF NOT EXISTS idx_communications_sessionId ON communications(sessionId);
+    CREATE INDEX IF NOT EXISTS idx_scheduled_sessions_active ON scheduled_sessions(active);
+    CREATE INDEX IF NOT EXISTS idx_scheduled_sessions_startDate ON scheduled_sessions(startDate);
   `);
 
   // Drop lunches table if it exists (removed feature)

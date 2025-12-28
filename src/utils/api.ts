@@ -5,7 +5,9 @@
  * Set VITE_API_URL in your .env file or it defaults to http://localhost:3001
  */
 
-import type { Student, Goal, Session, Activity, Evaluation, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Reminder, Communication } from '../types';
+import type { Student, Goal, Session, Activity, Evaluation, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Reminder, Communication, ScheduledSession } from '../types';
+import { buildQueryString } from './queryHelpers';
+import { logError } from './logger';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
@@ -28,7 +30,7 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
 
     return response.json();
   } catch (error: unknown) {
-    console.error(`API request failed: ${endpoint}`, error);
+    logError(`API request failed: ${endpoint}`, error);
     // Provide more helpful error messages
     const errorMessage = error instanceof Error ? error.message : String(error);
     if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
@@ -43,7 +45,7 @@ export const api = {
   // Students
   students: {
     getAll: (school?: string) => 
-      request<Student[]>(`/students${school ? `?school=${encodeURIComponent(school)}` : ''}`),
+      request<Student[]>(`/students${buildQueryString({ school })}`),
     getById: (id: string) => 
       request<Student>(`/students/${id}`),
     create: (student: Omit<Student, 'id' | 'dateAdded'>) => 
@@ -64,12 +66,8 @@ export const api = {
 
   // Goals
   goals: {
-    getAll: (studentId?: string, school?: string) => {
-      const params = new URLSearchParams();
-      if (studentId) params.append('studentId', studentId);
-      if (school) params.append('school', school);
-      return request<Goal[]>(`/goals${params.toString() ? `?${params}` : ''}`);
-    },
+    getAll: (studentId?: string, school?: string) => 
+      request<Goal[]>(`/goals${buildQueryString({ studentId, school })}`),
     getById: (id: string) => 
       request<Goal>(`/goals/${id}`),
     create: (goal: Omit<Goal, 'id' | 'dateCreated'>) => 
@@ -90,12 +88,8 @@ export const api = {
 
   // Sessions
   sessions: {
-    getAll: (studentId?: string, school?: string) => {
-      const params = new URLSearchParams();
-      if (studentId) params.append('studentId', studentId);
-      if (school) params.append('school', school);
-      return request<Session[]>(`/sessions${params.toString() ? `?${params}` : ''}`);
-    },
+    getAll: (studentId?: string, school?: string) => 
+      request<Session[]>(`/sessions${buildQueryString({ studentId, school })}`),
     getById: (id: string) => 
       request<Session>(`/sessions/${id}`),
     create: (session: Omit<Session, 'id'>) => 
@@ -138,12 +132,8 @@ export const api = {
 
   // Evaluations
   evaluations: {
-    getAll: (studentId?: string, school?: string) => {
-      const params = new URLSearchParams();
-      if (studentId) params.append('studentId', studentId);
-      if (school) params.append('school', school);
-      return request<Evaluation[]>(`/evaluations${params.toString() ? `?${params}` : ''}`);
-    },
+    getAll: (studentId?: string, school?: string) => 
+      request<Evaluation[]>(`/evaluations${buildQueryString({ studentId, school })}`),
     getById: (id: string) => 
       request<Evaluation>(`/evaluations/${id}`),
     create: (evaluation: Omit<Evaluation, 'id' | 'dateCreated' | 'dateUpdated'>) => 
@@ -189,7 +179,7 @@ export const api = {
   // Teachers
   teachers: {
     getAll: (school?: string) => 
-      request<Teacher[]>(`/teachers${school ? `?school=${encodeURIComponent(school)}` : ''}`),
+      request<Teacher[]>(`/teachers${buildQueryString({ school })}`),
     getById: (id: string) => 
       request<Teacher>(`/teachers/${id}`),
     create: (teacher: Omit<Teacher, 'id' | 'dateCreated'>) => 
@@ -211,7 +201,7 @@ export const api = {
   // Case Managers
   caseManagers: {
     getAll: (school?: string) => 
-      request<CaseManager[]>(`/case-managers${school ? `?school=${encodeURIComponent(school)}` : ''}`),
+      request<CaseManager[]>(`/case-managers${buildQueryString({ school })}`),
     getById: (id: string) => 
       request<CaseManager>(`/case-managers/${id}`),
     create: (caseManager: CaseManager) => 
@@ -232,12 +222,8 @@ export const api = {
 
   // SOAP Notes
   soapNotes: {
-    getAll: (studentId?: string, sessionId?: string) => {
-      const params = new URLSearchParams();
-      if (studentId) params.append('studentId', studentId);
-      if (sessionId) params.append('sessionId', sessionId);
-      return request<SOAPNote[]>(`/soap-notes${params.toString() ? `?${params}` : ''}`);
-    },
+    getAll: (studentId?: string, sessionId?: string) => 
+      request<SOAPNote[]>(`/soap-notes${buildQueryString({ studentId, sessionId })}`),
     getById: (id: string) => 
       request<SOAPNote>(`/soap-notes/${id}`),
     create: (soapNote: SOAPNote) => 
@@ -264,21 +250,10 @@ export const api = {
 
   // Progress Reports
   progressReports: {
-    getAll: (studentId?: string, school?: string, status?: string, startDate?: string, endDate?: string) => {
-      const params = new URLSearchParams();
-      if (studentId) params.append('studentId', studentId);
-      if (school) params.append('school', school);
-      if (status) params.append('status', status);
-      if (startDate) params.append('startDate', startDate);
-      if (endDate) params.append('endDate', endDate);
-      return request<ProgressReport[]>(`/progress-reports${params.toString() ? `?${params}` : ''}`);
-    },
-    getUpcoming: (days?: number, school?: string) => {
-      const params = new URLSearchParams();
-      if (days) params.append('days', days.toString());
-      if (school) params.append('school', school);
-      return request<ProgressReport[]>(`/progress-reports/upcoming${params.toString() ? `?${params}` : ''}`);
-    },
+    getAll: (studentId?: string, school?: string, status?: string, startDate?: string, endDate?: string) => 
+      request<ProgressReport[]>(`/progress-reports${buildQueryString({ studentId, school, status, startDate, endDate })}`),
+    getUpcoming: (days?: number, school?: string) => 
+      request<ProgressReport[]>(`/progress-reports/upcoming${buildQueryString({ days, school })}`),
     getById: (id: string) => 
       request<ProgressReport>(`/progress-reports/${id}`),
     create: (report: ProgressReport) => 
@@ -309,7 +284,7 @@ export const api = {
   // Progress Report Templates
   progressReportTemplates: {
     getAll: (reportType?: 'quarterly' | 'annual') => 
-      request<ProgressReportTemplate[]>(`/progress-report-templates${reportType ? `?reportType=${reportType}` : ''}`),
+      request<ProgressReportTemplate[]>(`/progress-report-templates${buildQueryString({ reportType })}`),
     getById: (id: string) => 
       request<ProgressReportTemplate>(`/progress-report-templates/${id}`),
     create: (template: Omit<ProgressReportTemplate, 'id' | 'dateCreated' | 'dateUpdated'>) => 
@@ -334,22 +309,10 @@ export const api = {
 
   // Due Date Items
   dueDateItems: {
-    getAll: (studentId?: string, status?: string, category?: string, startDate?: string, endDate?: string, school?: string) => {
-      const params = new URLSearchParams();
-      if (studentId) params.append('studentId', studentId);
-      if (status) params.append('status', status);
-      if (category) params.append('category', category);
-      if (startDate) params.append('startDate', startDate);
-      if (endDate) params.append('endDate', endDate);
-      if (school) params.append('school', school);
-      return request<DueDateItem[]>(`/due-date-items${params.toString() ? `?${params}` : ''}`);
-    },
-    getUpcoming: (days?: number, school?: string) => {
-      const params = new URLSearchParams();
-      if (days) params.append('days', days.toString());
-      if (school) params.append('school', school);
-      return request<DueDateItem[]>(`/due-date-items/upcoming${params.toString() ? `?${params}` : ''}`);
-    },
+    getAll: (studentId?: string, status?: string, category?: string, startDate?: string, endDate?: string, school?: string) => 
+      request<DueDateItem[]>(`/due-date-items${buildQueryString({ studentId, status, category, startDate, endDate, school })}`),
+    getUpcoming: (days?: number, school?: string) => 
+      request<DueDateItem[]>(`/due-date-items/upcoming${buildQueryString({ days, school })}`),
     getById: (id: string) => 
       request<DueDateItem>(`/due-date-items/${id}`),
     create: (item: Omit<DueDateItem, 'id' | 'dateCreated' | 'dateUpdated'>) => 
@@ -374,11 +337,8 @@ export const api = {
 
   // Reminders
   reminders: {
-    getAll: (school?: string) => {
-      const params = new URLSearchParams();
-      if (school) params.append('school', school);
-      return request<Reminder[]>(`/reminders${params.toString() ? `?${params}` : ''}`);
-    },
+    getAll: (school?: string) => 
+      request<Reminder[]>(`/reminders${buildQueryString({ school })}`),
   },
 
   // Email
@@ -402,13 +362,8 @@ export const api = {
 
   // Communications
   communications: {
-    getAll: (studentId?: string, contactType?: string, school?: string) => {
-      const params = new URLSearchParams();
-      if (studentId) params.append('studentId', studentId);
-      if (contactType) params.append('contactType', contactType);
-      if (school) params.append('school', school);
-      return request<Communication[]>(`/communications${params.toString() ? `?${params}` : ''}`);
-    },
+    getAll: (studentId?: string, contactType?: string, school?: string) => 
+      request<Communication[]>(`/communications${buildQueryString({ studentId, contactType, school })}`),
     getById: (id: string) => 
       request<Communication>(`/communications/${id}`),
     create: (communication: Omit<Communication, 'id' | 'dateCreated'>) => 
@@ -423,6 +378,28 @@ export const api = {
       }),
     delete: (id: string) => 
       request<{ message: string }>(`/communications/${id}`, {
+        method: 'DELETE',
+      }),
+  },
+
+  // Scheduled Sessions
+  scheduledSessions: {
+    getAll: (school?: string) => 
+      request<ScheduledSession[]>(`/scheduled-sessions${buildQueryString({ school })}`),
+    getById: (id: string) => 
+      request<ScheduledSession>(`/scheduled-sessions/${id}`),
+    create: (session: ScheduledSession) => 
+      request<{ id: string; message: string }>('/scheduled-sessions', {
+        method: 'POST',
+        body: JSON.stringify(session),
+      }),
+    update: (id: string, updates: Partial<ScheduledSession>) => 
+      request<{ message: string }>(`/scheduled-sessions/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      }),
+    delete: (id: string) => 
+      request<{ message: string }>(`/scheduled-sessions/${id}`, {
         method: 'DELETE',
       }),
   },

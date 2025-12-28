@@ -3,7 +3,7 @@
  * This replaces localStorage with API calls to the Express + SQLite backend
  */
 
-import type { Student, Goal, Session, Activity, Evaluation, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Reminder } from '../types';
+import type { Student, Goal, Session, Activity, Evaluation, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Reminder, ScheduledSession } from '../types';
 import { api } from './api';
 
 const DEFAULT_SCHOOL = 'Noble Academy';
@@ -606,5 +606,36 @@ export const getReminders = async (school?: string): Promise<Reminder[]> => {
     console.error('Failed to fetch reminders:', error);
     return [];
   }
+};
+
+// Scheduled Sessions
+export const getScheduledSessions = async (school?: string): Promise<ScheduledSession[]> => {
+  try {
+    return await api.scheduledSessions.getAll(school);
+  } catch (error) {
+    console.error('Failed to fetch scheduled sessions:', error);
+    return [];
+  }
+};
+
+export const getScheduledSession = async (id: string): Promise<ScheduledSession | undefined> => {
+  try {
+    return await api.scheduledSessions.getById(id);
+  } catch (error) {
+    console.error('Failed to fetch scheduled session:', error);
+    return undefined;
+  }
+};
+
+export const addScheduledSession = async (session: ScheduledSession): Promise<void> => {
+  await api.scheduledSessions.create(session);
+};
+
+export const updateScheduledSession = async (id: string, updates: Partial<ScheduledSession>): Promise<void> => {
+  await api.scheduledSessions.update(id, updates);
+};
+
+export const deleteScheduledSession = async (id: string): Promise<void> => {
+  await api.scheduledSessions.delete(id);
 };
 
