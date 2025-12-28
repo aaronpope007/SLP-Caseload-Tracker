@@ -25,9 +25,8 @@ import { generateSessionPlan } from '../utils/gemini';
 import { useSchool } from '../context/SchoolContext';
 import { useConfirm, useSnackbar, useDialog, useSessionManagement, useSessionForm, useSOAPNoteManagement, useSessionPlanning } from '../hooks';
 import { useSessionDialog } from '../context/SessionDialogContext';
-import { SessionCard } from '../components/SessionCard';
+import { SessionsList } from '../components/SessionsList';
 import { SessionPlanDialog } from '../components/SessionPlanDialog';
-import { GroupSessionAccordion } from '../components/GroupSessionAccordion';
 import { LogActivityMenu } from '../components/LogActivityMenu';
 import { SessionFormDialog } from '../components/SessionFormDialog';
 import { SOAPNoteDialog } from '../components/SOAPNoteDialog';
@@ -804,101 +803,16 @@ export const Sessions = () => {
               </CardContent>
             </Card>
           </Grid>
-        ) : (() => {
-          // Group sessions by groupSessionId
-          const groupedSessions = new Map<string, Session[]>();
-          const individualSessions: Session[] = [];
-
-          sessions.forEach((session) => {
-            if (session.groupSessionId) {
-              if (!groupedSessions.has(session.groupSessionId)) {
-                groupedSessions.set(session.groupSessionId, []);
-              }
-              groupedSessions.get(session.groupSessionId)!.push(session);
-            } else {
-              individualSessions.push(session);
-            }
-          });
-
-          // Create a combined array of all session entries, sorted chronologically (most recent first)
-          interface SessionDisplayItem {
-            type: 'group' | 'individual';
-            groupSessionId?: string;
-            groupSessions?: Session[];
-            session?: Session;
-            date: string; // For sorting
-          }
-
-          const allSessionItems: SessionDisplayItem[] = [];
-
-          // Add group sessions (one entry per group)
-          groupedSessions.forEach((groupSessions, groupSessionId) => {
-            const firstSession = groupSessions[0];
-            allSessionItems.push({
-              type: 'group',
-              groupSessionId,
-              groupSessions,
-              date: firstSession.date,
-            });
-          });
-
-          // Add individual sessions
-          individualSessions.forEach((session) => {
-            allSessionItems.push({
-              type: 'individual',
-              session,
-              date: session.date,
-            });
-          });
-
-          // Sort all items by date (most recent first)
-          allSessionItems.sort((a, b) => {
-            const dateA = new Date(a.date).getTime();
-            const dateB = new Date(b.date).getTime();
-            return dateB - dateA; // Most recent first
-          });
-
-          // Helper function to render a single session
-          const renderSession = (session: Session) => (
-            <SessionCard
-              key={session.id}
-              session={session}
-              getStudentName={getStudentName}
-              getGoalDescription={getGoalDescription}
-              onEdit={handleOpenDialog}
-              onDelete={handleDelete}
-              onGenerateSOAP={handleGenerateSOAP}
-            />
-          );
-
-          return (
-            <>
-              {/* All Sessions - Group and Individual intermingled chronologically */}
-              {allSessionItems.map((item) => {
-                if (item.type === 'group' && item.groupSessions && item.groupSessionId) {
-                  return (
-                    <Grid item xs={12} key={item.groupSessionId}>
-                      <GroupSessionAccordion
-                        groupSessionId={item.groupSessionId}
-                        groupSessions={item.groupSessions}
-                        getStudentName={getStudentName}
-                        renderSession={renderSession}
-                        onEdit={(groupSessionId) => handleOpenDialog(undefined, groupSessionId)}
-                      />
-                    </Grid>
-                  );
-                } else if (item.type === 'individual' && item.session) {
-                  return (
-                    <Grid item xs={12} key={item.session.id}>
-                      {renderSession(item.session)}
-                    </Grid>
-                  );
-                }
-                return null;
-              })}
-            </>
-          );
-        })()}
+        ) : (
+          <SessionsList
+            sessions={sessions}
+            getStudentName={getStudentName}
+            getGoalDescription={getGoalDescription}
+            onEdit={handleOpenDialog}
+            onDelete={handleDelete}
+            onGenerateSOAP={handleGenerateSOAP}
+          />
+        )}
       </Grid>
 
       <SessionFormDialog

@@ -21,7 +21,7 @@ import {
   Psychology as PsychologyIcon,
   School as SchoolIcon,
 } from '@mui/icons-material';
-import type { Student, Goal, Session } from '../types';
+import type { Student, Goal, Session, GoalTemplate } from '../types';
 import {
   getStudents,
   getSessionsByStudent,
@@ -29,7 +29,7 @@ import {
 } from '../utils/storage-api';
 import { generateId } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
-import { useConfirm, useSnackbar, useGoalManagement, useGoalForm, useAIFeatures, useDialog } from '../hooks';
+import { useConfirm, useSnackbar, useGoalManagement, useGoalForm, useGoalTemplate, useGoalSubtree, useQuickGoals, useAIFeatures, useDialog } from '../hooks';
 import { useDirty } from '../hooks/useDirty';
 import {
   generateGoalSuggestions,
@@ -37,8 +37,6 @@ import {
   generateIEPGoals,
   type GoalProgressData,
 } from '../utils/gemini';
-import { goalTemplates } from '../utils/goalTemplates';
-import { GoalCard } from '../components/GoalCard';
 import { GoalFormDialog } from '../components/GoalFormDialog';
 import { GoalSuggestionsDialog } from '../components/GoalSuggestionsDialog';
 import { TreatmentRecommendationsDialog } from '../components/TreatmentRecommendationsDialog';
@@ -49,7 +47,6 @@ import { GoalActionsBar } from '../components/GoalActionsBar';
 import { GoalsList } from '../components/GoalsList';
 import { CopySubtreeDialog } from '../components/CopySubtreeDialog';
 import { QuickGoalsDialog } from '../components/QuickGoalsDialog';
-import { copyGoalSubtree } from '../utils/goalSubtreeCopy';
 import { logError } from '../utils/logger';
 
 export const StudentDetail = () => {
@@ -99,18 +96,28 @@ export const StudentDetail = () => {
     message: 'You have unsaved changes to this goal. Are you sure you want to leave?',
   });
   
-  // Goal template selection
-  const [selectedTemplate, setSelectedTemplate] = useState<typeof goalTemplates[0] | null>(null);
-  const [templateFilterDomain, setTemplateFilterDomain] = useState<string>('');
-  const [showRecommendedTemplates, setShowRecommendedTemplates] = useState(true);
+  // Goal template selection hook
+  const goalTemplate = useGoalTemplate(updateFormField);
 
-  // Copy subtree dialog state
-  const [goalToCopySubtree, setGoalToCopySubtree] = useState<Goal | null>(null);
+  // Copy subtree hook
+  const goalSubtree = useGoalSubtree({
+    studentId: id || '',
+    createGoal,
+    updateGoal: updateGoalById,
+    loadGoals,
+    loadSessions,
+    showSnackbar,
+  });
 
-  // Quick goals dialog state
-  const [quickSubGoalParentId, setQuickSubGoalParentId] = useState<string | undefined>(undefined);
-  const [quickSubGoalParentDomain, setQuickSubGoalParentDomain] = useState<string | undefined>(undefined);
-  const [quickSubGoalParentTarget, setQuickSubGoalParentTarget] = useState<string | undefined>(undefined);
+  // Quick goals hook
+  const quickGoals = useQuickGoals({
+    studentId: id || '',
+    createGoal,
+    updateGoal: updateGoalById,
+    loadGoals,
+    loadSessions,
+    showSnackbar,
+  });
 
   // AI Features Hook
   const apiKey = localStorage.getItem('gemini_api_key') || '';
@@ -135,7 +142,7 @@ export const StudentDetail = () => {
     const addGoalParam = searchParams.get('addGoal');
     if (addGoalParam === 'true' && student && goals.length === 0 && !goalFormDialog.open) {
       initializeForm();
-      setSelectedTemplate(null);
+      goalTemplate.clearTemplate();
       goalFormDialog.openDialog();
       setSearchParams({}, { replace: true });
     }
@@ -148,12 +155,12 @@ export const StudentDetail = () => {
       const goalToEdit = goals.find(g => g.id === goalIdParam);
       if (goalToEdit) {
         initializeForm(goalToEdit);
-        setSelectedTemplate(null);
+        goalTemplate.clearTemplate();
         goalFormDialog.openDialog();
         setSearchParams({}, { replace: true });
       }
     }
-  }, [searchParams, student, goals.length, goalFormDialog.open, setSearchParams, goals, initializeForm, goalFormDialog]);
+  }, [searchParams, student, goals.length, goalFormDialog.open, setSearchParams, goals, initializeForm, goalFormDialog, goalTemplate]);
 
 
   const loadStudent = async () => {
@@ -209,7 +216,7 @@ export const StudentDetail = () => {
   const handleOpenDialog = (goal?: Goal, parentGoalId?: string) => {
     const parentGoal = parentGoalId ? goals.find(g => g.id === parentGoalId) : undefined;
     initializeForm(goal, parentGoal);
-    setSelectedTemplate(null);
+    goalTemplate.clearTemplate();
     goalFormDialog.openDialog();
   };
 
@@ -245,7 +252,7 @@ export const StudentDetail = () => {
         domain: formData.domain || undefined,
         priority: formData.priority,
         parentGoalId: formData.parentGoalId || undefined,
-        templateId: selectedTemplate?.id || undefined,
+        templateId: goalTemplate.selectedTemplate?.id || undefined,
       };
 
       // Set dateAchieved if status is 'achieved' and it wasn't already set
@@ -309,12 +316,8 @@ export const StudentDetail = () => {
     }
   };
 
-  const handleUseTemplate = (template: typeof goalTemplates[0]) => {
-    setSelectedTemplate(template);
-    updateFormField('description', template.description);
-    updateFormField('baseline', template.suggestedBaseline || '');
-    updateFormField('target', template.suggestedTarget || '');
-    updateFormField('domain', template.domain);
+  const handleUseTemplate = (template: GoalTemplate) => {
+    goalTemplate.useTemplate(template);
     templateDialog.closeDialog();
   };
 
@@ -349,7 +352,7 @@ export const StudentDetail = () => {
     updateFormField('status', subGoal.status as 'in-progress' | 'achieved' | 'modified');
     updateFormField('domain', subGoal.domain || '');
     updateFormField('priority', subGoal.priority || 'medium');
-    setSelectedTemplate(null);
+    goalTemplate.clearTemplate();
     goalFormDialog.openDialog();
   };
 
@@ -364,103 +367,13 @@ export const StudentDetail = () => {
     updateFormField('domain', mainGoal.domain || '');
     updateFormField('priority', mainGoal.priority || 'medium');
     updateFormField('parentGoalId', mainGoal.id);
-    setSelectedTemplate(null);
+    goalTemplate.clearTemplate();
     goalFormDialog.openDialog();
   };
 
   const handleCopySubtree = (goal: Goal) => {
-    setGoalToCopySubtree(goal);
+    goalSubtree.startCopySubtree(goal);
     copySubtreeDialog.openDialog();
-  };
-
-  const handleConfirmCopySubtree = async (replacements: Array<{ from: string; to: string }>) => {
-    if (!goalToCopySubtree || !id) return;
-
-    try {
-      // Get all goals to pass to the copy function
-      // We need all goals (not just for this student) to properly map parent relationships
-      const allGoals = await getGoals();
-      
-      // Determine the parent for the copied subtree
-      // If the goal being copied has a parent, the new subtree should have the same parent
-      // Otherwise, it will be a top-level goal
-      const newParentGoalId = goalToCopySubtree.parentGoalId;
-
-      // Copy the subtree - use allGoals to ensure we can find all parent relationships
-      const { newGoals } = await copyGoalSubtree(
-        goalToCopySubtree,
-        allGoals,
-        replacements,
-        newParentGoalId
-      );
-
-      if (newGoals.length === 0) {
-        alert('No goals were created. The selected goal may not have any sub-goals to copy.');
-        return;
-      }
-
-      // Ensure all new goals have the correct studentId
-      for (const newGoal of newGoals) {
-        newGoal.studentId = id;
-      }
-
-      // Save all new goals first
-      for (const newGoal of newGoals) {
-        try {
-          await createGoal(newGoal);
-        } catch (error) {
-          logError(`Failed to add goal ${newGoal.id}`, error);
-          throw new Error(`Failed to add goal: ${error instanceof Error ? error.message : String(error)}`);
-        }
-      }
-
-      // Then update parent's subGoalIds for all new goals that have a parent
-      // Group by parent to avoid multiple updates to the same parent
-      const goalsByParent = new Map<string, string[]>();
-      for (const newGoal of newGoals) {
-        if (newGoal.parentGoalId) {
-          if (!goalsByParent.has(newGoal.parentGoalId)) {
-            goalsByParent.set(newGoal.parentGoalId, []);
-          }
-          goalsByParent.get(newGoal.parentGoalId)!.push(newGoal.id);
-        }
-      }
-
-      // Update each parent's subGoalIds
-      // Reload goals to get the latest parent data
-      const updatedAllGoals = await getGoals();
-      for (const [parentId, newSubGoalIds] of goalsByParent.entries()) {
-        const parent = updatedAllGoals.find(g => g.id === parentId);
-        if (parent) {
-          const existingSubGoalIds = parent.subGoalIds || [];
-          // Only add IDs that aren't already in the list
-          const idsToAdd = newSubGoalIds.filter(id => !existingSubGoalIds.includes(id));
-          if (idsToAdd.length > 0) {
-            const updatedSubGoalIds = [...existingSubGoalIds, ...idsToAdd];
-            try {
-              await updateGoalById(parent.id, { subGoalIds: updatedSubGoalIds });
-            } catch (error) {
-              logError(`Failed to update parent goal ${parent.id}`, error);
-              throw new Error(`Failed to update parent goal: ${error instanceof Error ? error.message : String(error)}`);
-            }
-          }
-        }
-      }
-
-      // Reload goals to show the new subtree
-      await loadGoals();
-      await loadSessions();
-      
-      copySubtreeDialog.closeDialog();
-      setGoalToCopySubtree(null);
-      
-      // Show success message
-      showSnackbar(`Successfully copied ${newGoals.length} goal(s) with replacements applied.`, 'success');
-    } catch (error) {
-      logError('Failed to copy subtree', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      alert(`Failed to copy subtree: ${errorMessage}. Please check the console for more details.`);
-    }
   };
 
   // AI Feature Handlers - now using useAIFeatures hook
@@ -572,9 +485,7 @@ export const StudentDetail = () => {
           onAddSubGoal={(parentId) => handleOpenDialog(undefined, parentId)}
           onQuickSubGoal={(parentId) => {
             const parentGoal = goals.find(g => g.id === parentId);
-            setQuickSubGoalParentId(parentId);
-            setQuickSubGoalParentDomain(parentGoal?.domain);
-            setQuickSubGoalParentTarget(parentGoal?.target);
+            quickGoals.setQuickSubGoalParent(parentId, parentGoal?.domain, parentGoal?.target);
             quickGoalsDialog.openDialog();
           }}
           onEditSubGoal={handleOpenDialog}
@@ -588,7 +499,7 @@ export const StudentDetail = () => {
         editingGoal={editingGoal}
         formData={formData}
         allGoals={goals}
-        selectedTemplate={selectedTemplate}
+        selectedTemplate={goalTemplate.selectedTemplate}
         onClose={handleCloseDialog}
         onSave={handleSave}
         onFormDataChange={(data) => {
@@ -636,100 +547,35 @@ export const StudentDetail = () => {
       <GoalTemplateDialog
         open={templateDialog.open}
         student={student}
-        filterDomain={templateFilterDomain}
-        showRecommendedTemplates={showRecommendedTemplates}
+        filterDomain={goalTemplate.templateFilterDomain}
+        showRecommendedTemplates={goalTemplate.showRecommendedTemplates}
         onClose={templateDialog.closeDialog}
-        onFilterDomainChange={setTemplateFilterDomain}
-        onShowRecommendedTemplatesChange={setShowRecommendedTemplates}
+        onFilterDomainChange={goalTemplate.setTemplateFilterDomain}
+        onShowRecommendedTemplatesChange={goalTemplate.setShowRecommendedTemplates}
         onUseTemplate={handleUseTemplate}
       />
 
       <CopySubtreeDialog
         open={copySubtreeDialog.open}
-        goal={goalToCopySubtree}
+        goal={goalSubtree.goalToCopy}
         onClose={() => {
           copySubtreeDialog.closeDialog();
-          setGoalToCopySubtree(null);
+          goalSubtree.cancelCopySubtree();
         }}
-        onConfirm={handleConfirmCopySubtree}
+        onConfirm={goalSubtree.confirmCopySubtree}
       />
 
       <QuickGoalsDialog
         open={quickGoalsDialog.open}
         studentId={id || ''}
-        parentGoalId={quickSubGoalParentId}
-        parentGoalDomain={quickSubGoalParentDomain}
-        parentGoalTarget={quickSubGoalParentTarget}
+        parentGoalId={quickGoals.parentId}
+        parentGoalDomain={quickGoals.parentDomain}
+        parentGoalTarget={quickGoals.parentTarget}
         onClose={() => {
           quickGoalsDialog.closeDialog();
-          setQuickSubGoalParentId(undefined);
-          setQuickSubGoalParentDomain(undefined);
-          setQuickSubGoalParentTarget(undefined);
+          quickGoals.clearQuickSubGoalParent();
         }}
-        onSave={async (newGoals: Goal[]) => {
-          if (!id) return;
-
-          try {
-            // Ensure all goals have the correct studentId
-            for (const goal of newGoals) {
-              goal.studentId = id;
-            }
-
-            // Save all goals first (they're already in top-down order from the generator)
-            for (const goal of newGoals) {
-              try {
-                await createGoal(goal);
-              } catch (error) {
-                logError(`Failed to add goal ${goal.id}`, error);
-                throw new Error(`Failed to add goal: ${error instanceof Error ? error.message : String(error)}`);
-              }
-            }
-
-            // Then update parent's subGoalIds for all goals that have a parent
-            // Group by parent to avoid multiple updates to the same parent
-            const goalsByParent = new Map<string, string[]>();
-            for (const goal of newGoals) {
-              if (goal.parentGoalId) {
-                if (!goalsByParent.has(goal.parentGoalId)) {
-                  goalsByParent.set(goal.parentGoalId, []);
-                }
-                goalsByParent.get(goal.parentGoalId)!.push(goal.id);
-              }
-            }
-
-            // Update each parent's subGoalIds
-            // Reload goals to get the latest parent data
-            const updatedAllGoals = await getGoals();
-            for (const [parentId, newSubGoalIds] of goalsByParent.entries()) {
-              const parent = updatedAllGoals.find(g => g.id === parentId);
-              if (parent) {
-                const existingSubGoalIds = parent.subGoalIds || [];
-                // Only add IDs that aren't already in the list
-                const idsToAdd = newSubGoalIds.filter(id => !existingSubGoalIds.includes(id));
-                if (idsToAdd.length > 0) {
-                  const updatedSubGoalIds = [...existingSubGoalIds, ...idsToAdd];
-                  try {
-                    await updateGoalById(parent.id, { subGoalIds: updatedSubGoalIds });
-                  } catch (error) {
-                    logError(`Failed to update parent goal ${parent.id}`, error);
-                    throw new Error(`Failed to update parent goal: ${error instanceof Error ? error.message : String(error)}`);
-                  }
-                }
-              }
-            }
-
-            // Reload goals to show the new goals
-            await loadGoals();
-            await loadSessions();
-
-            showSnackbar(`Successfully created ${newGoals.length} goal(s).`, 'success');
-          } catch (error) {
-            logError('Failed to create quick goals', error);
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-            alert(`Failed to create quick goals: ${errorMessage}. Please check the console for more details.`);
-            throw error; // Re-throw so dialog can handle it
-          }
-        }}
+        onSave={quickGoals.handleSaveQuickGoals}
       />
 
       {/* Confirmation dialog for unsaved changes */}
