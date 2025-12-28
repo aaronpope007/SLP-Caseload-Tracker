@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react';
 import { Grid } from '@mui/material';
 import type { Session } from '../types';
 import { SessionCard } from './SessionCard';
@@ -12,7 +13,7 @@ interface SessionsListProps {
   onGenerateSOAP: (session: Session) => void;
 }
 
-export const SessionsList = ({
+export const SessionsList = memo(({
   sessions,
   getStudentName,
   getGoalDescription,
@@ -20,21 +21,6 @@ export const SessionsList = ({
   onDelete,
   onGenerateSOAP,
 }: SessionsListProps) => {
-  // Group sessions by groupSessionId
-  const groupedSessions = new Map<string, Session[]>();
-  const individualSessions: Session[] = [];
-
-  sessions.forEach((session) => {
-    if (session.groupSessionId) {
-      if (!groupedSessions.has(session.groupSessionId)) {
-        groupedSessions.set(session.groupSessionId, []);
-      }
-      groupedSessions.get(session.groupSessionId)!.push(session);
-    } else {
-      individualSessions.push(session);
-    }
-  });
-
   // Create a combined array of all session entries, sorted chronologically (most recent first)
   interface SessionDisplayItem {
     type: 'group' | 'individual';
@@ -44,34 +30,54 @@ export const SessionsList = ({
     date: string; // For sorting
   }
 
-  const allSessionItems: SessionDisplayItem[] = [];
+  // Memoize the expensive grouping and sorting operation
+  const allSessionItems = useMemo<SessionDisplayItem[]>(() => {
+    // Group sessions by groupSessionId
+    const groupedSessions = new Map<string, Session[]>();
+    const individualSessions: Session[] = [];
 
-  // Add group sessions (one entry per group)
-  groupedSessions.forEach((groupSessions, groupSessionId) => {
-    const firstSession = groupSessions[0];
-    allSessionItems.push({
-      type: 'group',
-      groupSessionId,
-      groupSessions,
-      date: firstSession.date,
+    sessions.forEach((session) => {
+      if (session.groupSessionId) {
+        if (!groupedSessions.has(session.groupSessionId)) {
+          groupedSessions.set(session.groupSessionId, []);
+        }
+        groupedSessions.get(session.groupSessionId)!.push(session);
+      } else {
+        individualSessions.push(session);
+      }
     });
-  });
 
-  // Add individual sessions
-  individualSessions.forEach((session) => {
-    allSessionItems.push({
-      type: 'individual',
-      session,
-      date: session.date,
+    const items: SessionDisplayItem[] = [];
+
+    // Add group sessions (one entry per group)
+    groupedSessions.forEach((groupSessions, groupSessionId) => {
+      const firstSession = groupSessions[0];
+      items.push({
+        type: 'group',
+        groupSessionId,
+        groupSessions,
+        date: firstSession.date,
+      });
     });
-  });
 
-  // Sort all items by date (most recent first)
-  allSessionItems.sort((a, b) => {
-    const dateA = new Date(a.date).getTime();
-    const dateB = new Date(b.date).getTime();
-    return dateB - dateA; // Most recent first
-  });
+    // Add individual sessions
+    individualSessions.forEach((session) => {
+      items.push({
+        type: 'individual',
+        session,
+        date: session.date,
+      });
+    });
+
+    // Sort all items by date (most recent first)
+    items.sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      return dateB - dateA; // Most recent first
+    });
+
+    return items;
+  }, [sessions]);
 
   // Helper function to render a single session
   const renderSession = (session: Session) => (
@@ -112,5 +118,5 @@ export const SessionsList = ({
       })}
     </>
   );
-};
+});
 

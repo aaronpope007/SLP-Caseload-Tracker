@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Chip } from '@mui/material';
 import { getStatusChipColor } from '../utils/helpers';
 
@@ -7,7 +7,7 @@ interface StatusChipProps {
   size?: 'small' | 'medium';
 }
 
-export const StatusChip: React.FC<StatusChipProps> = ({ status, size = 'small' }) => {
+export const StatusChip: React.FC<StatusChipProps> = memo(({ status, size = 'small' }) => {
   return (
     <Chip
       label={status}
@@ -15,5 +15,5 @@ export const StatusChip: React.FC<StatusChipProps> = ({ status, size = 'small' }
       color={getStatusChipColor(status)}
     />
   );
-};
+});
 

@@ -1,35 +1,48 @@
+import { lazy, Suspense } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
+import { Box, CircularProgress } from '@mui/material';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Layout } from './components/Layout';
-import { Dashboard } from './pages/Dashboard';
-import { Students } from './pages/Students';
-import { StudentDetail } from './pages/StudentDetail';
-import { Teachers } from './pages/Teachers';
-import { CaseManagers } from './pages/CaseManagers';
-import { Sessions } from './pages/Sessions';
-import { Progress } from './pages/Progress';
-import { TreatmentIdeas } from './pages/TreatmentIdeas';
-import { DocumentationTemplates } from './pages/DocumentationTemplates';
-import { Evaluations } from './pages/Evaluations';
-import { Schools } from './pages/Schools';
-import { TimeTracking } from './pages/TimeTracking';
-import { SOAPNotes } from './pages/SOAPNotes';
-import { ProgressReports } from './pages/ProgressReports';
-import { DueDateItems } from './pages/DueDateItems';
-import { SessionCalendar } from './pages/SessionCalendar';
-import { Communications } from './pages/Communications';
 import { SchoolProvider } from './context/SchoolContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { SessionDialogProvider } from './context/SessionDialogContext';
+
+// Lazy load page components for better initial load performance
+const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })));
+const Students = lazy(() => import('./pages/Students').then(m => ({ default: m.Students })));
+const StudentDetail = lazy(() => import('./pages/StudentDetail').then(m => ({ default: m.StudentDetail })));
+const Teachers = lazy(() => import('./pages/Teachers').then(m => ({ default: m.Teachers })));
+const CaseManagers = lazy(() => import('./pages/CaseManagers').then(m => ({ default: m.CaseManagers })));
+const Sessions = lazy(() => import('./pages/Sessions').then(m => ({ default: m.Sessions })));
+const Progress = lazy(() => import('./pages/Progress').then(m => ({ default: m.Progress })));
+const TreatmentIdeas = lazy(() => import('./pages/TreatmentIdeas').then(m => ({ default: m.TreatmentIdeas })));
+const DocumentationTemplates = lazy(() => import('./pages/DocumentationTemplates').then(m => ({ default: m.DocumentationTemplates })));
+const Evaluations = lazy(() => import('./pages/Evaluations').then(m => ({ default: m.Evaluations })));
+const Schools = lazy(() => import('./pages/Schools').then(m => ({ default: m.Schools })));
+const TimeTracking = lazy(() => import('./pages/TimeTracking').then(m => ({ default: m.TimeTracking })));
+const SOAPNotes = lazy(() => import('./pages/SOAPNotes').then(m => ({ default: m.SOAPNotes })));
+const ProgressReports = lazy(() => import('./pages/ProgressReports').then(m => ({ default: m.ProgressReports })));
+const DueDateItems = lazy(() => import('./pages/DueDateItems').then(m => ({ default: m.DueDateItems })));
+const SessionCalendar = lazy(() => import('./pages/SessionCalendar').then(m => ({ default: m.SessionCalendar })));
+const Communications = lazy(() => import('./pages/Communications').then(m => ({ default: m.Communications })));
+
+// Loading fallback component
+const PageLoader = () => (
+  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+    <CircularProgress />
+  </Box>
+);
 
 const router = createBrowserRouter([
   {
     path: '/',
     element: (
       <Layout>
-        <Dashboard />
+        <Suspense fallback={<PageLoader />}>
+          <Dashboard />
+        </Suspense>
       </Layout>
     ),
   },
@@ -37,7 +50,9 @@ const router = createBrowserRouter([
     path: '/students',
     element: (
       <Layout>
-        <Students />
+        <Suspense fallback={<PageLoader />}>
+          <Students />
+        </Suspense>
       </Layout>
     ),
   },
@@ -45,7 +60,9 @@ const router = createBrowserRouter([
     path: '/students/:id',
     element: (
       <Layout>
-        <StudentDetail />
+        <Suspense fallback={<PageLoader />}>
+          <StudentDetail />
+        </Suspense>
       </Layout>
     ),
   },
@@ -53,7 +70,9 @@ const router = createBrowserRouter([
     path: '/teachers',
     element: (
       <Layout>
-        <Teachers />
+        <Suspense fallback={<PageLoader />}>
+          <Teachers />
+        </Suspense>
       </Layout>
     ),
   },
@@ -61,7 +80,9 @@ const router = createBrowserRouter([
     path: '/case-managers',
     element: (
       <Layout>
-        <CaseManagers />
+        <Suspense fallback={<PageLoader />}>
+          <CaseManagers />
+        </Suspense>
       </Layout>
     ),
   },
@@ -69,7 +90,9 @@ const router = createBrowserRouter([
     path: '/sessions',
     element: (
       <Layout>
-        <Sessions />
+        <Suspense fallback={<PageLoader />}>
+          <Sessions />
+        </Suspense>
       </Layout>
     ),
   },
@@ -77,7 +100,9 @@ const router = createBrowserRouter([
     path: '/progress',
     element: (
       <Layout>
-        <Progress />
+        <Suspense fallback={<PageLoader />}>
+          <Progress />
+        </Suspense>
       </Layout>
     ),
   },
@@ -85,7 +110,9 @@ const router = createBrowserRouter([
     path: '/ideas',
     element: (
       <Layout>
-        <TreatmentIdeas />
+        <Suspense fallback={<PageLoader />}>
+          <TreatmentIdeas />
+        </Suspense>
       </Layout>
     ),
   },
@@ -93,7 +120,9 @@ const router = createBrowserRouter([
     path: '/documentation',
     element: (
       <Layout>
-        <DocumentationTemplates />
+        <Suspense fallback={<PageLoader />}>
+          <DocumentationTemplates />
+        </Suspense>
       </Layout>
     ),
   },
@@ -101,7 +130,9 @@ const router = createBrowserRouter([
     path: '/time-tracking',
     element: (
       <Layout>
-        <TimeTracking />
+        <Suspense fallback={<PageLoader />}>
+          <TimeTracking />
+        </Suspense>
       </Layout>
     ),
   },
@@ -109,7 +140,9 @@ const router = createBrowserRouter([
     path: '/evaluations',
     element: (
       <Layout>
-        <Evaluations />
+        <Suspense fallback={<PageLoader />}>
+          <Evaluations />
+        </Suspense>
       </Layout>
     ),
   },
@@ -117,7 +150,9 @@ const router = createBrowserRouter([
     path: '/schools',
     element: (
       <Layout>
-        <Schools />
+        <Suspense fallback={<PageLoader />}>
+          <Schools />
+        </Suspense>
       </Layout>
     ),
   },
@@ -125,7 +160,9 @@ const router = createBrowserRouter([
     path: '/soap-notes',
     element: (
       <Layout>
-        <SOAPNotes />
+        <Suspense fallback={<PageLoader />}>
+          <SOAPNotes />
+        </Suspense>
       </Layout>
     ),
   },
@@ -133,7 +170,9 @@ const router = createBrowserRouter([
     path: '/progress-reports',
     element: (
       <Layout>
-        <ProgressReports />
+        <Suspense fallback={<PageLoader />}>
+          <ProgressReports />
+        </Suspense>
       </Layout>
     ),
   },
@@ -141,7 +180,9 @@ const router = createBrowserRouter([
     path: '/due-date-items',
     element: (
       <Layout>
-        <DueDateItems />
+        <Suspense fallback={<PageLoader />}>
+          <DueDateItems />
+        </Suspense>
       </Layout>
     ),
   },
@@ -149,7 +190,9 @@ const router = createBrowserRouter([
     path: '/session-calendar',
     element: (
       <Layout>
-        <SessionCalendar />
+        <Suspense fallback={<PageLoader />}>
+          <SessionCalendar />
+        </Suspense>
       </Layout>
     ),
   },
@@ -157,7 +200,9 @@ const router = createBrowserRouter([
     path: '/communications',
     element: (
       <Layout>
-        <Communications />
+        <Suspense fallback={<PageLoader />}>
+          <Communications />
+        </Suspense>
       </Layout>
     ),
   },

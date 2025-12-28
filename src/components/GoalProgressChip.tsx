@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Chip } from '@mui/material';
 import { getGoalProgressChipProps } from '../utils/helpers';
 
@@ -8,7 +8,7 @@ interface GoalProgressChipProps {
   size?: 'small' | 'medium';
 }
 
-export const GoalProgressChip: React.FC<GoalProgressChipProps> = ({
+export const GoalProgressChip: React.FC<GoalProgressChipProps> = memo(({
   average,
   target,
   size = 'small',
@@ -22,5 +22,5 @@ export const GoalProgressChip: React.FC<GoalProgressChipProps> = ({
       variant={chipProps.variant}
     />
   );
-};
+});
 

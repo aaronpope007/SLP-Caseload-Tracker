@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Typography } from '@mui/material';
 import { formatDate } from '../utils/helpers';
 
@@ -8,7 +8,7 @@ interface GoalDateInfoProps {
   dateAchieved?: string;
 }
 
-export const GoalDateInfo: React.FC<GoalDateInfoProps> = ({
+export const GoalDateInfo: React.FC<GoalDateInfoProps> = memo(({
   dateCreated,
   status,
   dateAchieved,
@@ -24,5 +24,5 @@ export const GoalDateInfo: React.FC<GoalDateInfoProps> = ({
       )}
     </Typography>
   );
-};
+});
 

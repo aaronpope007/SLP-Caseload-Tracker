@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import {
   Box,
   Card,
@@ -17,7 +18,7 @@ interface StudentInfoCardProps {
   frequencyType?: 'per-week' | 'per-month';
 }
 
-export const StudentInfoCard = ({
+export const StudentInfoCard = memo(({
   name,
   age,
   grade,
@@ -63,5 +64,5 @@ export const StudentInfoCard = ({
       </CardContent>
     </Card>
   );
-};
+});
 

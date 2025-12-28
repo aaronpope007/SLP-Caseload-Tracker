@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Chip } from '@mui/material';
 import { getPriorityChipColor } from '../utils/helpers';
 
@@ -8,7 +8,7 @@ interface PriorityChipProps {
   variant?: 'filled' | 'outlined';
 }
 
-export const PriorityChip: React.FC<PriorityChipProps> = ({ 
+export const PriorityChip: React.FC<PriorityChipProps> = memo(({ 
   priority, 
   size = 'small',
   variant = 'outlined'
@@ -21,5 +21,5 @@ export const PriorityChip: React.FC<PriorityChipProps> = ({
       variant={variant}
     />
   );
-};
+});
 
