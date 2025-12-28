@@ -23,13 +23,11 @@ import {
 } from '@mui/icons-material';
 import type { Student, Goal, Session, GoalTemplate } from '../types';
 import {
-  getStudents,
-  getSessionsByStudent,
   getGoals,
 } from '../utils/storage-api';
 import { generateId } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
-import { useConfirm, useSnackbar, useGoalManagement, useGoalForm, useGoalTemplate, useGoalSubtree, useQuickGoals, useAIFeatures, useDialog } from '../hooks';
+import { useConfirm, useSnackbar, useGoalManagement, useGoalForm, useGoalTemplate, useGoalSubtree, useQuickGoals, useGoalSave, useGoalDialogHandlers, useGoalDelete, useTreatmentRecommendations, useAIFeatures, useDialog, useStudentData, useSessionData, usePerformanceHelpers, useGoalTemplateHandler, useGoalSubtreeHandler } from '../hooks';
 import { useDirty } from '../hooks/useDirty';
 import {
   generateGoalSuggestions,
@@ -119,6 +117,46 @@ export const StudentDetail = () => {
     showSnackbar,
   });
 
+  // Goal dialog handlers hook
+  const goalDialogHandlers = useGoalDialogHandlers({
+    goals,
+    initializeForm,
+    updateFormField,
+    clearTemplate: goalTemplate.clearTemplate,
+    openDialog: goalFormDialog.openDialog,
+    closeDialog: goalFormDialog.closeDialog,
+    resetForm,
+    resetDirty,
+    isDirty,
+    confirm,
+  });
+
+  // Goal save hook
+  const { handleSave } = useGoalSave({
+    studentId: id || '',
+    formData,
+    editingGoal,
+    selectedTemplateId: goalTemplate.selectedTemplate?.id,
+    createGoal,
+    updateGoal: updateGoalById,
+    loadGoals,
+    loadSessions,
+    closeDialog: goalFormDialog.closeDialog,
+    resetForm,
+    resetDirty,
+    showSnackbar,
+  });
+
+  // Treatment recommendations hook
+  const { handleGenerateTreatmentRecommendations } = useTreatmentRecommendations({
+    studentId: id || '',
+    selectedSchool,
+    goals,
+    apiKey,
+    setError: aiFeatures.setTreatmentRecsError,
+    generateTreatmentRecs: aiFeatures.generateTreatmentRecs,
+  });
+
   // AI Features Hook
   const apiKey = localStorage.getItem('gemini_api_key') || '';
   const aiFeatures = useAIFeatures({
@@ -163,270 +201,39 @@ export const StudentDetail = () => {
   }, [searchParams, student, goals.length, goalFormDialog.open, setSearchParams, goals, initializeForm, goalFormDialog, goalTemplate]);
 
 
-  const loadStudent = async () => {
-    if (id) {
-      try {
-        const students = await getStudents(selectedSchool);
-        const found = students.find((s) => s.id === id);
-        setStudent(found || null);
-      } catch (error) {
-        logError('Failed to load student', error);
-      }
-    }
-  };
+  // Student data loading hook
+  const { loadStudent } = useStudentData({
+    studentId: id,
+    selectedSchool,
+    setStudent,
+  });
 
-  // loadGoals is now provided by useGoalManagement hook
+  // Session data loading hook
+  const { loadSessions } = useSessionData({
+    studentId: id,
+    selectedSchool,
+    setSessions,
+  });
 
-  const loadSessions = async () => {
-    if (id) {
-      try {
-        const studentSessions = await getSessionsByStudent(id, selectedSchool);
-        setSessions(studentSessions);
-      } catch (error) {
-        logError('Failed to load sessions', error);
-      }
-    }
-  };
+  // Performance helpers hook
+  const { getRecentPerformance } = usePerformanceHelpers({
+    sessions,
+    goals,
+    studentId: id,
+  });
 
-  // Helper to get recent performance for a goal (uses sessions from state)
-  const getRecentPerformance = (goalId: string) => {
-    if (!id) return { recentSessions: [], average: null };
-    const goalSessions = sessions
-      .filter(s => s.goalsTargeted.includes(goalId))
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 3);
-    
-    const recentData = goalSessions.map(s => {
-      const perf = s.performanceData.find((p: { goalId: string }) => p.goalId === goalId);
-      return {
-        date: s.date,
-        accuracy: perf?.accuracy,
-        correctTrials: perf?.correctTrials,
-        incorrectTrials: perf?.incorrectTrials,
-      };
-    }).filter(d => d.accuracy !== undefined);
+  // Goal template handler hook
+  const { handleUseTemplate } = useGoalTemplateHandler({
+    useTemplate: goalTemplate.useTemplate,
+    closeDialog: templateDialog.closeDialog,
+  });
 
-    const average = recentData.length > 0
-      ? recentData.reduce((sum, d) => sum + (d.accuracy || 0), 0) / recentData.length
-      : null;
+  // Goal subtree handler hook
+  const { handleCopySubtree } = useGoalSubtreeHandler({
+    startCopySubtree: goalSubtree.startCopySubtree,
+    openDialog: copySubtreeDialog.openDialog,
+  });
 
-    return { recentSessions: recentData, average };
-  };
-
-  const handleOpenDialog = (goal?: Goal, parentGoalId?: string) => {
-    const parentGoal = parentGoalId ? goals.find(g => g.id === parentGoalId) : undefined;
-    initializeForm(goal, parentGoal);
-    goalTemplate.clearTemplate();
-    goalFormDialog.openDialog();
-  };
-
-  const handleCloseDialog = () => {
-    if (isDirty()) {
-      confirm({
-        title: 'Unsaved Changes',
-        message: 'You have unsaved changes to this goal. Are you sure you want to close?',
-        confirmText: 'Discard Changes',
-        cancelText: 'Cancel',
-        onConfirm: () => {
-          goalFormDialog.closeDialog();
-          resetForm();
-          resetDirty();
-        },
-      });
-    } else {
-      goalFormDialog.closeDialog();
-      resetForm();
-      resetDirty();
-    }
-  };
-
-  const handleSave = async () => {
-    if (!id) return;
-
-    try {
-      const goalData: Partial<Goal> = {
-        description: formData.description,
-        baseline: formData.baseline,
-        target: formData.target,
-        status: formData.status,
-        domain: formData.domain || undefined,
-        priority: formData.priority,
-        parentGoalId: formData.parentGoalId || undefined,
-        templateId: goalTemplate.selectedTemplate?.id || undefined,
-      };
-
-      // Set dateAchieved if status is 'achieved' and it wasn't already set
-      if (formData.status === 'achieved') {
-        if (editingGoal && !editingGoal.dateAchieved) {
-          // Goal is being marked as achieved for the first time
-          goalData.dateAchieved = new Date().toISOString();
-        } else if (!editingGoal) {
-          // New goal created as achieved
-          goalData.dateAchieved = new Date().toISOString();
-        } else {
-          // Goal already has dateAchieved, preserve it
-          goalData.dateAchieved = editingGoal.dateAchieved;
-        }
-      } else if (editingGoal && editingGoal.dateAchieved) {
-        // If status changed from achieved to something else, preserve the dateAchieved
-        goalData.dateAchieved = editingGoal.dateAchieved;
-      }
-
-      if (editingGoal) {
-        await updateGoalById(editingGoal.id, goalData);
-        
-        // If this goal now has a parent, update parent's subGoalIds
-        if (goalData.parentGoalId) {
-          const allGoals = await getGoals();
-          const parent = allGoals.find(g => g.id === goalData.parentGoalId);
-          if (parent) {
-            const subGoalIds = parent.subGoalIds || [];
-            if (!subGoalIds.includes(editingGoal.id)) {
-              await updateGoalById(parent.id, { subGoalIds: [...subGoalIds, editingGoal.id] });
-            }
-          }
-        }
-        showSnackbar('Goal updated successfully', 'success');
-      } else {
-        const newGoal = await createGoal({
-          ...goalData,
-          studentId: id,
-          dateCreated: new Date().toISOString(),
-        } as Goal);
-        
-        // If this is a sub-goal, update parent's subGoalIds
-        if (newGoal && newGoal.parentGoalId) {
-          const allGoals = await getGoals();
-          const parent = allGoals.find(g => g.id === newGoal.parentGoalId);
-          if (parent) {
-            const subGoalIds = parent.subGoalIds || [];
-            await updateGoalById(parent.id, { subGoalIds: [...subGoalIds, newGoal.id] });
-          }
-        }
-        showSnackbar('Goal created successfully', 'success');
-      }
-      await loadGoals();
-      await loadSessions();
-      resetDirty();
-      goalFormDialog.closeDialog();
-      resetForm();
-    } catch (error) {
-      logError('Failed to save goal', error);
-      showSnackbar('Failed to save goal. Please try again.', 'error');
-    }
-  };
-
-  const handleUseTemplate = (template: GoalTemplate) => {
-    goalTemplate.useTemplate(template);
-    templateDialog.closeDialog();
-  };
-
-  const handleDelete = (goalId: string) => {
-    confirm({
-      title: 'Delete Goal',
-      message: 'Are you sure you want to delete this goal? This action cannot be undone.',
-      confirmText: 'Delete',
-      cancelText: 'Cancel',
-      onConfirm: async () => {
-        try {
-          await removeGoal(goalId);
-          await loadGoals();
-          await loadSessions();
-          showSnackbar('Goal deleted successfully', 'success');
-        } catch (error) {
-          logError('Failed to delete goal', error);
-          showSnackbar('Failed to delete goal. Please try again.', 'error');
-        }
-      },
-    });
-  };
-
-  const handleDuplicateSubGoal = (subGoal: Goal) => {
-    // Duplicate the sub-goal by pre-filling the form with its data
-    const parentGoal = subGoal.parentGoalId ? goals.find(g => g.id === subGoal.parentGoalId) : undefined;
-    initializeForm(undefined, parentGoal);
-    // Override with subGoal data
-    updateFormField('description', subGoal.description);
-    updateFormField('baseline', subGoal.baseline);
-    updateFormField('target', subGoal.target);
-    updateFormField('status', subGoal.status as 'in-progress' | 'achieved' | 'modified');
-    updateFormField('domain', subGoal.domain || '');
-    updateFormField('priority', subGoal.priority || 'medium');
-    goalTemplate.clearTemplate();
-    goalFormDialog.openDialog();
-  };
-
-  const handleCopyMainGoalToSubGoal = (mainGoal: Goal) => {
-    // Copy the main goal as a new sub-goal with the main goal as parent
-    initializeForm(undefined, mainGoal);
-    // Override with mainGoal data
-    updateFormField('description', mainGoal.description);
-    updateFormField('baseline', mainGoal.baseline);
-    updateFormField('target', mainGoal.target);
-    updateFormField('status', mainGoal.status as 'in-progress' | 'achieved' | 'modified');
-    updateFormField('domain', mainGoal.domain || '');
-    updateFormField('priority', mainGoal.priority || 'medium');
-    updateFormField('parentGoalId', mainGoal.id);
-    goalTemplate.clearTemplate();
-    goalFormDialog.openDialog();
-  };
-
-  const handleCopySubtree = (goal: Goal) => {
-    goalSubtree.startCopySubtree(goal);
-    copySubtreeDialog.openDialog();
-  };
-
-  // AI Feature Handlers - now using useAIFeatures hook
-  // Treatment recommendations need session data, so we'll handle it inline
-  const handleGenerateTreatmentRecommendations = async () => {
-    if (!apiKey) {
-      aiFeatures.setTreatmentRecsError('Please set your Gemini API key in Settings');
-      return;
-    }
-
-    try {
-      // Convert goals to GoalProgressData format
-      const studentSessions = id ? await getSessionsByStudent(id, selectedSchool) : [];
-      const goalProgressData: GoalProgressData[] = goals.map(goal => {
-        const goalSessions = studentSessions.filter(s => s.goalsTargeted.includes(goal.id));
-        const latestPerf = goalSessions
-          .flatMap(s => s.performanceData.filter(p => p.goalId === goal.id))
-          .filter(p => p.accuracy !== undefined)
-          .sort((a, b) => {
-            const dateA = studentSessions.find(s => s.performanceData.includes(a))?.date || '';
-            const dateB = studentSessions.find(s => s.performanceData.includes(b))?.date || '';
-            return dateB.localeCompare(dateA);
-          })[0];
-
-        const baselineNum = parseFloat(goal.baseline) || 0;
-        const targetNum = parseFloat(goal.target) || 100;
-        const currentNum = latestPerf?.accuracy || baselineNum;
-
-        return {
-          goalDescription: goal.description,
-          baseline: baselineNum,
-          target: targetNum,
-          current: currentNum,
-          sessions: goalSessions.length,
-          status: goal.status,
-          performanceHistory: goalSessions.slice(0, 5).map(s => {
-            const perf = s.performanceData.find(p => p.goalId === goal.id);
-            return {
-              date: s.date,
-              accuracy: perf?.accuracy || 0,
-              correctTrials: perf?.correctTrials,
-              incorrectTrials: perf?.incorrectTrials,
-              notes: perf?.notes || s.notes,
-            };
-          }),
-        };
-      });
-
-      await aiFeatures.generateTreatmentRecs(goalProgressData);
-    } catch (err) {
-      aiFeatures.setTreatmentRecsError(err instanceof Error ? err.message : 'Failed to generate treatment recommendations');
-    }
-  };
 
   if (!student) {
     return (
@@ -460,7 +267,7 @@ export const StudentDetail = () => {
       />
 
       <GoalActionsBar
-        onAddGoal={() => handleOpenDialog()}
+        onAddGoal={() => goalDialogHandlers.handleOpenDialog()}
         onQuickGoal={() => quickGoalsDialog.openDialog()}
         onGenerateIEPGoals={() => {
           aiFeatures.setAssessmentData('');
@@ -479,17 +286,17 @@ export const StudentDetail = () => {
         <GoalsList
           goals={goals}
           getRecentPerformance={getRecentPerformance}
-          onEdit={handleOpenDialog}
+          onEdit={goalDialogHandlers.handleOpenDialog}
           onDelete={handleDelete}
-          onCopyToSubGoal={handleCopyMainGoalToSubGoal}
-          onAddSubGoal={(parentId) => handleOpenDialog(undefined, parentId)}
+          onCopyToSubGoal={goalDialogHandlers.handleCopyMainGoalToSubGoal}
+          onAddSubGoal={(parentId) => goalDialogHandlers.handleOpenDialog(undefined, parentId)}
           onQuickSubGoal={(parentId) => {
             const parentGoal = goals.find(g => g.id === parentId);
             quickGoals.setQuickSubGoalParent(parentId, parentGoal?.domain, parentGoal?.target);
             quickGoalsDialog.openDialog();
           }}
-          onEditSubGoal={handleOpenDialog}
-          onDuplicateSubGoal={handleDuplicateSubGoal}
+          onEditSubGoal={goalDialogHandlers.handleOpenDialog}
+          onDuplicateSubGoal={goalDialogHandlers.handleDuplicateSubGoal}
           onCopySubtree={handleCopySubtree}
         />
       </Grid>
@@ -500,7 +307,7 @@ export const StudentDetail = () => {
         formData={formData}
         allGoals={goals}
         selectedTemplate={goalTemplate.selectedTemplate}
-        onClose={handleCloseDialog}
+        onClose={goalDialogHandlers.handleCloseDialog}
         onSave={handleSave}
         onFormDataChange={(data) => {
           Object.entries(data).forEach(([key, value]) => {
