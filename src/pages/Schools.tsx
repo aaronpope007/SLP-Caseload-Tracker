@@ -39,7 +39,7 @@ import {
 } from '../utils/storage-api';
 import { generateId } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
-import { useConfirm } from '../hooks/useConfirm';
+import { useConfirm, useDialog, useSnackbar } from '../hooks';
 import { getStudents } from '../utils/storage-api';
 import { SchoolCard } from '../components/SchoolCard';
 import { SchoolFormDialog } from '../components/SchoolFormDialog';
@@ -105,14 +105,12 @@ export const Schools = () => {
   const [schools, setSchools] = useState<School[]>([]);
   const [filteredSchools, setFilteredSchools] = useState<School[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSchool, setEditingSchool] = useState<School | null>(null);
+  
+  // Dialog and snackbar hooks
+  const schoolDialog = useDialog();
+  const { showSnackbar, SnackbarComponent } = useSnackbar();
   const { confirm, ConfirmDialog } = useConfirm();
-  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity?: 'success' | 'error' | 'info' | 'warning' }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  });
 
   const [formData, setFormData] = useState({
     name: '',
@@ -248,11 +246,11 @@ export const Schools = () => {
         },
       });
     }
-    setDialogOpen(true);
+    schoolDialog.openDialog();
   };
 
   const handleCloseDialog = () => {
-    setDialogOpen(false);
+    schoolDialog.closeDialog();
     setEditingSchool(null);
     setFormData({
       name: '',
@@ -280,22 +278,14 @@ export const Schools = () => {
       
       if (editingSchool) {
         await updateSchool(editingSchool.id, schoolData);
-        setSnackbar({
-          open: true,
-          message: 'School updated successfully',
-          severity: 'success',
-        });
+        showSnackbar('School updated successfully', 'success');
       } else {
         await addSchool({
           id: generateId(),
           ...schoolData,
           dateCreated: new Date().toISOString(),
         });
-        setSnackbar({
-          open: true,
-          message: 'School created successfully',
-          severity: 'success',
-        });
+        showSnackbar('School created successfully', 'success');
       }
       await loadSchools();
       handleCloseDialog();
@@ -317,11 +307,7 @@ export const Schools = () => {
           await deleteSchool(id);
           // Reload schools after deletion
           await loadSchools();
-          setSnackbar({
-            open: true,
-            message: 'School deleted successfully',
-            severity: 'success',
-          });
+          showSnackbar('School deleted successfully', 'success');
         } catch (error) {
           logError('Failed to delete school', error);
           alert(`Failed to delete school: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -385,7 +371,7 @@ export const Schools = () => {
       </Grid>
 
       <SchoolFormDialog
-        open={dialogOpen}
+        open={schoolDialog.open}
         editingSchool={editingSchool}
         formData={formData}
         states={US_STATES}
@@ -396,20 +382,7 @@ export const Schools = () => {
 
       <ConfirmDialog />
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity || 'success'}
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+      <SnackbarComponent />
     </Box>
   );
 };

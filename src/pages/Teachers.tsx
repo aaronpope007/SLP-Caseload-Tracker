@@ -28,7 +28,7 @@ import {
   deleteTeacher,
 } from '../utils/storage-api';
 import { generateId } from '../utils/helpers';
-import { useConfirm } from '../hooks/useConfirm';
+import { useConfirm, useDialog, useSnackbar } from '../hooks';
 import { useDirty } from '../hooks/useDirty';
 import { useSchool } from '../context/SchoolContext';
 import { SearchBar } from '../components/SearchBar';
@@ -68,19 +68,7 @@ export const Teachers = () => {
   const [filteredTeachers, setFilteredTeachers] = useState<Teacher[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedTeachers, setExpandedTeachers] = useState<Set<string>>(new Set());
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
-  const [confirmDialog, setConfirmDialog] = useState<{
-    open: boolean;
-    title: string;
-    message: string;
-    onConfirm: () => void;
-  }>({
-    open: false,
-    title: '',
-    message: '',
-    onConfirm: () => {},
-  });
 
   const [formData, setFormData] = useState({
     name: '',
@@ -90,16 +78,15 @@ export const Teachers = () => {
     emailAddress: '',
   });
   const [initialFormData, setInitialFormData] = useState(formData);
-  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity?: 'success' | 'error' | 'info' | 'warning' }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  });
+  
+  // Dialog and snackbar hooks
+  const teacherDialog = useDialog();
+  const { showSnackbar, SnackbarComponent } = useSnackbar();
   const { confirm, ConfirmDialog } = useConfirm();
 
   // Check if form is dirty
   const isFormDirty = () => {
-    if (!dialogOpen) return false;
+    if (!teacherDialog.open) return false;
     return (
       formData.name !== initialFormData.name ||
       formData.grade !== initialFormData.grade ||
@@ -204,7 +191,7 @@ export const Teachers = () => {
     }
     setFormData(newFormData);
     setInitialFormData(newFormData);
-    setDialogOpen(true);
+    teacherDialog.openDialog();
   };
 
   const handleCloseDialog = () => {
@@ -215,13 +202,13 @@ export const Teachers = () => {
         confirmText: 'Discard Changes',
         cancelText: 'Cancel',
         onConfirm: () => {
-          setDialogOpen(false);
+          teacherDialog.closeDialog();
           setEditingTeacher(null);
           resetDirty();
         },
       });
     } else {
-      setDialogOpen(false);
+      teacherDialog.closeDialog();
       setEditingTeacher(null);
       resetDirty();
     }
@@ -258,26 +245,18 @@ export const Teachers = () => {
 
       if (editingTeacher) {
         await updateTeacher(editingTeacher.id, teacherData);
-        setSnackbar({
-          open: true,
-          message: 'Teacher updated successfully',
-          severity: 'success',
-        });
+        showSnackbar('Teacher updated successfully', 'success');
       } else {
         await addTeacher({
           id: generateId(),
           ...teacherData,
           dateCreated: new Date().toISOString(),
         });
-        setSnackbar({
-          open: true,
-          message: 'Teacher created successfully',
-          severity: 'success',
-        });
+        showSnackbar('Teacher created successfully', 'success');
       }
       await loadTeachers();
       resetDirty();
-      setDialogOpen(false);
+      teacherDialog.closeDialog();
       setEditingTeacher(null);
     } catch (error: any) {
       logError('Failed to save teacher', error);
@@ -319,11 +298,7 @@ export const Teachers = () => {
           await deleteTeacher(id);
           await loadTeachers();
           setConfirmDialog({ ...confirmDialog, open: false });
-          setSnackbar({
-            open: true,
-            message: 'Teacher deleted successfully',
-            severity: 'success',
-          });
+          showSnackbar('Teacher deleted successfully', 'success');
         } catch (error) {
           logError('Failed to delete teacher', error);
           alert('Failed to delete teacher. Please try again.');
@@ -397,7 +372,7 @@ export const Teachers = () => {
         )}
       </Grid>
 
-      <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+      <Dialog open={teacherDialog.open} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>
           {editingTeacher ? 'Edit Teacher' : 'Add New Teacher'}
         </DialogTitle>
@@ -530,20 +505,7 @@ export const Teachers = () => {
         </Dialog>
       )}
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity || 'success'}
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+      <SnackbarComponent />
     </Box>
   );
 };

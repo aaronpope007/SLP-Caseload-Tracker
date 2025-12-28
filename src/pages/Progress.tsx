@@ -35,6 +35,7 @@ import { getStudents, getGoals, getSessions } from '../utils/storage-api';
 import { formatDate } from '../utils/helpers';
 import { generateProgressNote, type GoalProgressData } from '../utils/gemini';
 import { useSchool } from '../context/SchoolContext';
+import { useAsyncOperation } from '../hooks';
 import type { Student } from '../types';
 
 interface TimelineDataItem {

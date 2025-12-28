@@ -27,7 +27,7 @@ import {
   deleteCaseManager,
 } from '../utils/storage-api';
 import { generateId } from '../utils/helpers';
-import { useConfirm } from '../hooks/useConfirm';
+import { useConfirm, useDialog, useSnackbar } from '../hooks';
 import { useDirty } from '../hooks/useDirty';
 import { useSchool } from '../context/SchoolContext';
 import { SearchBar } from '../components/SearchBar';
@@ -68,24 +68,7 @@ export const CaseManagers = () => {
   const [filteredCaseManagers, setFilteredCaseManagers] = useState<CaseManager[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedCaseManagers, setExpandedCaseManagers] = useState<Set<string>>(new Set());
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCaseManager, setEditingCaseManager] = useState<CaseManager | null>(null);
-  const [confirmDialog, setConfirmDialog] = useState<{
-    open: boolean;
-    title: string;
-    message: string;
-    onConfirm: () => void;
-  }>({
-    open: false,
-    title: '',
-    message: '',
-    onConfirm: () => {},
-  });
-  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity?: 'success' | 'error' | 'info' | 'warning' }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  });
 
   const [formData, setFormData] = useState({
     name: '',
@@ -95,11 +78,15 @@ export const CaseManagers = () => {
     emailAddress: '',
   });
   const [initialFormData, setInitialFormData] = useState(formData);
+  
+  // Dialog and snackbar hooks
+  const caseManagerDialog = useDialog();
+  const { showSnackbar, SnackbarComponent } = useSnackbar();
   const { confirm, ConfirmDialog } = useConfirm();
 
   // Check if form is dirty
   const isFormDirty = () => {
-    if (!dialogOpen) return false;
+    if (!caseManagerDialog.open) return false;
     return (
       formData.name !== initialFormData.name ||
       formData.role !== initialFormData.role ||
@@ -205,7 +192,7 @@ export const CaseManagers = () => {
     }
     setFormData(newFormData);
     setInitialFormData(newFormData);
-    setDialogOpen(true);
+    caseManagerDialog.openDialog();
   };
 
   const handleCloseDialog = () => {
@@ -216,13 +203,13 @@ export const CaseManagers = () => {
         confirmText: 'Discard Changes',
         cancelText: 'Cancel',
         onConfirm: () => {
-          setDialogOpen(false);
+          caseManagerDialog.closeDialog();
           setEditingCaseManager(null);
           resetDirty();
         },
       });
     } else {
-      setDialogOpen(false);
+      caseManagerDialog.closeDialog();
       setEditingCaseManager(null);
       resetDirty();
     }
@@ -264,11 +251,7 @@ export const CaseManagers = () => {
 
       if (editingCaseManager) {
         await updateCaseManager(editingCaseManager.id, caseManagerData);
-        setSnackbar({
-          open: true,
-          message: 'Case manager updated successfully',
-          severity: 'success',
-        });
+        showSnackbar('Case manager updated successfully', 'success');
       } else {
         const newCaseManager = {
           id: generateId(),
@@ -276,11 +259,7 @@ export const CaseManagers = () => {
           dateCreated: new Date().toISOString(),
         };
         await addCaseManager(newCaseManager);
-        setSnackbar({
-          open: true,
-          message: 'Case manager created successfully',
-          severity: 'success',
-        });
+        showSnackbar('Case manager created successfully', 'success');
       }
       
       await loadCaseManagers();
@@ -331,11 +310,7 @@ export const CaseManagers = () => {
           await deleteCaseManager(id);
           await loadCaseManagers();
           setConfirmDialog({ ...confirmDialog, open: false });
-          setSnackbar({
-            open: true,
-            message: 'Case manager deleted successfully',
-            severity: 'success',
-          });
+          showSnackbar('Case manager deleted successfully', 'success');
         } catch (error) {
           logError('Failed to delete case manager', error);
           alert('Failed to delete case manager. Please try again.');
@@ -453,7 +428,7 @@ export const CaseManagers = () => {
         )}
       </Grid>
 
-      <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+      <Dialog open={caseManagerDialog.open} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>
           {editingCaseManager ? 'Edit Case Manager' : 'Add New Case Manager'}
         </DialogTitle>
@@ -589,20 +564,7 @@ export const CaseManagers = () => {
         </Dialog>
       )}
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity || 'success'}
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+      <SnackbarComponent />
     </Box>
   );
 };

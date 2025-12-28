@@ -33,7 +33,7 @@ import {
 } from '../utils/storage-api';
 import { generateId } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
-import { useConfirm } from '../hooks/useConfirm';
+import { useConfirm, useDialog, useSnackbar } from '../hooks';
 import { useDirty } from '../hooks/useDirty';
 import { SearchBar } from '../components/SearchBar';
 import { StudentAccordionCard } from '../components/StudentAccordionCard';
@@ -49,25 +49,12 @@ export const Students = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [studentsWithNoGoals, setStudentsWithNoGoals] = useState<Set<string>>(new Set());
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [expandedStudents, setExpandedStudents] = useState<Set<string>>(new Set());
-  const [confirmDialog, setConfirmDialog] = useState<{
-    open: boolean;
-    title: string;
-    message: string;
-    onConfirm: () => void;
-  }>({
-    open: false,
-    title: '',
-    message: '',
-    onConfirm: () => {},
-  });
-  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity?: 'success' | 'error' | 'info' | 'warning' }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  });
+  
+  // Dialog and snackbar hooks
+  const studentDialog = useDialog();
+  const { showSnackbar, SnackbarComponent } = useSnackbar();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -90,7 +77,7 @@ export const Students = () => {
 
   // Check if form is dirty
   const isFormDirty = () => {
-    if (!dialogOpen) return false;
+    if (!studentDialog.open) return false;
     return (
       formData.name !== initialFormData.name ||
       formData.age !== initialFormData.age ||
@@ -287,7 +274,7 @@ export const Students = () => {
     }
     setFormData(newFormData);
     setInitialFormData(newFormData);
-    setDialogOpen(true);
+    studentDialog.openDialog();
   };
 
   const handleCloseDialog = () => {
@@ -298,13 +285,13 @@ export const Students = () => {
         confirmText: 'Discard Changes',
         cancelText: 'Cancel',
         onConfirm: () => {
-          setDialogOpen(false);
+          studentDialog.closeDialog();
           setEditingStudent(null);
           resetDirty();
         },
       });
     } else {
-      setDialogOpen(false);
+      studentDialog.closeDialog();
       setEditingStudent(null);
       resetDirty();
     }
@@ -354,26 +341,18 @@ export const Students = () => {
 
       if (editingStudent) {
         await updateStudent(editingStudent.id, studentData);
-        setSnackbar({
-          open: true,
-          message: 'Student updated successfully',
-          severity: 'success',
-        });
+        showSnackbar('Student updated successfully', 'success');
       } else {
         await addStudent({
           id: generateId(),
           ...studentData,
           dateAdded: new Date().toISOString(),
         });
-        setSnackbar({
-          open: true,
-          message: 'Student created successfully',
-          severity: 'success',
-        });
+        showSnackbar('Student created successfully', 'success');
       }
       await loadStudents(); // This will also update the studentsWithNoGoals set
       resetDirty();
-      setDialogOpen(false);
+      studentDialog.closeDialog();
       setEditingStudent(null);
     } catch (error: any) {
       logError('Failed to save student', error);
@@ -393,11 +372,7 @@ export const Students = () => {
           await deleteStudent(id);
           await loadStudents();
           setConfirmDialog({ ...confirmDialog, open: false });
-          setSnackbar({
-            open: true,
-            message: 'Student deleted successfully',
-            severity: 'success',
-          });
+          showSnackbar('Student deleted successfully', 'success');
         } catch (error) {
           logError('Failed to delete student', error);
           alert('Failed to delete student. Please try again.');
@@ -540,7 +515,7 @@ export const Students = () => {
                             caseManagerId: '',
                           });
                           setEditingStudent(null);
-                          setDialogOpen(true);
+                          studentDialog.openDialog();
                         }}
                       >
                         Create New Student: {searchTerm.trim()}
@@ -571,7 +546,7 @@ export const Students = () => {
         )}
       </Grid>
 
-      <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+      <Dialog open={studentDialog.open} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>
           {editingStudent ? 'Edit Student' : 'Add New Student'}
         </DialogTitle>
@@ -847,20 +822,7 @@ export const Students = () => {
         </Dialog>
       )}
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity || 'success'}
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+      <SnackbarComponent />
     </Box>
   );
 };
