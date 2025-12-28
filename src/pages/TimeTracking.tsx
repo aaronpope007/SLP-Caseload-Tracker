@@ -4,8 +4,6 @@ import {
   Box,
   Card,
   CardContent,
-  Snackbar,
-  Alert,
   Typography,
 } from '@mui/material';
 import type { Session, Evaluation, Student, Communication } from '../types';
@@ -24,7 +22,7 @@ import { TimesheetNoteDialog } from '../components/TimesheetNoteDialog';
 import { SavedNotesDialog, type TimesheetNote } from '../components/SavedNotesDialog';
 import { TimeTrackingFilter } from '../components/TimeTrackingFilter';
 import { generateTimesheetNote } from '../utils/timesheetNoteGenerator';
-import { useConfirm } from '../hooks/useConfirm';
+import { useConfirm, useSnackbar, useDialog } from '../hooks';
 
 interface TimeTrackingItem {
   id: string;
@@ -62,6 +60,9 @@ const deleteTimesheetNote = (id: string): void => {
 export const TimeTracking = () => {
   const { selectedSchool } = useSchool();
   const { confirm, ConfirmDialog } = useConfirm();
+  const { showSnackbar, SnackbarComponent } = useSnackbar();
+  const timesheetDialog = useDialog();
+  const savedNotesDialog = useDialog();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -77,15 +78,8 @@ export const TimeTracking = () => {
 
   const [selectedDate, setSelectedDate] = useState<string>(getCurrentDateString());
   const [useSpecificTimes, setUseSpecificTimes] = useState(false);
-  const [timesheetDialogOpen, setTimesheetDialogOpen] = useState(false);
   const [timesheetNote, setTimesheetNote] = useState('');
-  const [savedNotesDialogOpen, setSavedNotesDialogOpen] = useState(false);
   const [savedNotes, setSavedNotes] = useState<TimesheetNote[]>([]);
-  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity?: 'success' | 'error' | 'info' | 'warning' }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  });
 
   const loadData = async () => {
     const schoolSessions = await getSessionsBySchool(selectedSchool);
@@ -281,16 +275,12 @@ export const TimeTracking = () => {
     });
     
     setTimesheetNote(note);
-    setTimesheetDialogOpen(true);
+    timesheetDialog.openDialog();
   };
 
   const handleSaveNote = () => {
     if (!timesheetNote.trim()) {
-      setSnackbar({
-        open: true,
-        message: 'Cannot save empty note',
-        severity: 'error',
-      });
+      showSnackbar('Cannot save empty note', 'error');
       return;
     }
 
@@ -304,11 +294,7 @@ export const TimeTracking = () => {
 
     saveTimesheetNote(note);
     loadSavedNotes();
-    setSnackbar({
-      open: true,
-      message: 'Timesheet note saved!',
-      severity: 'success',
-    });
+    showSnackbar('Timesheet note saved!', 'success');
   };
 
   const handleLoadNote = (note: TimesheetNote) => {
@@ -316,8 +302,8 @@ export const TimeTracking = () => {
     if (note.dateFor) {
       setSelectedDate(note.dateFor);
     }
-    setSavedNotesDialogOpen(false);
-    setTimesheetDialogOpen(true);
+    savedNotesDialog.closeDialog();
+    timesheetDialog.openDialog();
   };
 
   const handleDeleteNote = (id: string) => {
@@ -329,11 +315,7 @@ export const TimeTracking = () => {
       onConfirm: () => {
         deleteTimesheetNote(id);
         loadSavedNotes();
-        setSnackbar({
-          open: true,
-          message: 'Saved note deleted successfully',
-          severity: 'success',
-        });
+        showSnackbar('Saved note deleted successfully', 'success');
       },
     });
   };
@@ -352,7 +334,7 @@ export const TimeTracking = () => {
         selectedDate={selectedDate}
         onDateChange={setSelectedDate}
         onGenerateTimesheet={handleGenerateTimesheetNote}
-        onOpenSavedNotes={() => setSavedNotesDialogOpen(true)}
+        onOpenSavedNotes={() => savedNotesDialog.openDialog()}
         hasItems={filteredItems.length > 0}
         useSpecificTimes={useSpecificTimes}
         onUseSpecificTimesChange={setUseSpecificTimes}
@@ -399,37 +381,23 @@ export const TimeTracking = () => {
       </Box>
 
       <TimesheetNoteDialog
-        open={timesheetDialogOpen}
+        open={timesheetDialog.open}
         note={timesheetNote}
-        onClose={() => setTimesheetDialogOpen(false)}
+        onClose={timesheetDialog.closeDialog}
         onSave={handleSaveNote}
         onNoteChange={setTimesheetNote}
       />
 
       <SavedNotesDialog
-        open={savedNotesDialogOpen}
+        open={savedNotesDialog.open}
         notes={savedNotes}
-        onClose={() => setSavedNotesDialogOpen(false)}
+        onClose={savedNotesDialog.closeDialog}
         onLoadNote={handleLoadNote}
         onDeleteNote={handleDeleteNote}
       />
 
       <ConfirmDialog />
-
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity || 'success'}
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+      <SnackbarComponent />
     </Box>
   );
 };

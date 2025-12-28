@@ -301,15 +301,15 @@ export const CaseManagers = () => {
 
   const handleDelete = (id: string) => {
     const caseManager = caseManagers.find(cm => cm.id === id);
-    setConfirmDialog({
-      open: true,
+    confirm({
       title: 'Delete Case Manager',
       message: `Are you sure you want to delete ${caseManager?.name || 'this case manager'}? This action cannot be undone.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
       onConfirm: async () => {
         try {
           await deleteCaseManager(id);
           await loadCaseManagers();
-          setConfirmDialog({ ...confirmDialog, open: false });
           showSnackbar('Case manager deleted successfully', 'success');
         } catch (error) {
           logError('Failed to delete case manager', error);
@@ -510,33 +510,6 @@ export const CaseManagers = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Confirmation Dialog */}
-      <Dialog
-        open={confirmDialog.open}
-        onClose={() => setConfirmDialog({ ...confirmDialog, open: false })}
-      >
-        <DialogTitle>{confirmDialog.title}</DialogTitle>
-        <DialogContent>
-          <Typography>{confirmDialog.message}</Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmDialog({ ...confirmDialog, open: false })}>
-            Cancel
-          </Button>
-          <Button
-            onClick={() => {
-              confirmDialog.onConfirm();
-              setConfirmDialog({ ...confirmDialog, open: false });
-            }}
-            variant="contained"
-            color="error"
-          >
-            Confirm
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Confirmation dialog for unsaved changes */}
       <ConfirmDialog />
 
       {/* Navigation blocker confirmation */}

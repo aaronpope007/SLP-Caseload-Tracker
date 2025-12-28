@@ -35,7 +35,7 @@ import type { Communication, Student, Teacher, CaseManager } from '../types';
 import { api } from '../utils/api';
 import { formatDate } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
-import { useConfirm } from '../hooks/useConfirm';
+import { useConfirm, useSnackbar, useDialog } from '../hooks';
 import { SendEmailDialog } from '../components/SendEmailDialog';
 import { logError, logInfo } from '../utils/logger';
 
@@ -66,20 +66,16 @@ const getMethodIcon = (method: Communication['method']) => {
 export const Communications = () => {
   const { selectedSchool } = useSchool();
   const { confirm, ConfirmDialog } = useConfirm();
+  const { showSnackbar, SnackbarComponent } = useSnackbar();
+  const communicationDialog = useDialog();
+  const viewDialog = useDialog();
+  const emailDialog = useDialog();
   const [communications, setCommunications] = useState<Communication[]>([]);
-  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity?: 'success' | 'error' | 'info' | 'warning' }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  });
   const [students, setStudents] = useState<Student[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [caseManagers, setCaseManagers] = useState<CaseManager[]>([]);
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCommunication, setEditingCommunication] = useState<Communication | null>(null);
-  const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [viewingCommunication, setViewingCommunication] = useState<Communication | null>(null);
-  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   
   // Filters
   const [contactTypeFilter, setContactTypeFilter] = useState<string>('');
@@ -138,7 +134,7 @@ export const Communications = () => {
         stack: error?.stack,
         response: error?.response,
       });
-      setSnackbar({ open: true, message: error?.message || 'Failed to load communications', severity: 'error' });
+      showSnackbar(error?.message || 'Failed to load communications', 'error');
     }
   }, [selectedSchool, contactTypeFilter, studentFilter]);
 
@@ -178,11 +174,11 @@ export const Communications = () => {
         relatedTo: '',
       });
     }
-    setDialogOpen(true);
+    communicationDialog.openDialog();
   };
 
   const handleCloseDialog = () => {
-    setDialogOpen(false);
+    communicationDialog.closeDialog();
     setEditingCommunication(null);
   };
 
@@ -206,17 +202,17 @@ export const Communications = () => {
 
       if (editingCommunication) {
         await api.communications.update(editingCommunication.id, communicationData);
-        setSnackbar({ open: true, message: 'Communication updated successfully', severity: 'success' });
+        showSnackbar('Communication updated successfully', 'success');
       } else {
         await api.communications.create(communicationData);
-        setSnackbar({ open: true, message: 'Communication logged successfully', severity: 'success' });
+        showSnackbar('Communication logged successfully', 'success');
       }
       
       handleCloseDialog();
       loadData();
     } catch (error: any) {
       logError('Failed to save communication', error);
-      setSnackbar({ open: true, message: error.message || 'Failed to save communication', severity: 'error' });
+      showSnackbar(error.message || 'Failed to save communication', 'error');
     }
   };
 
@@ -229,18 +225,18 @@ export const Communications = () => {
     if (confirmed) {
       try {
         await api.communications.delete(id);
-        setSnackbar({ open: true, message: 'Communication deleted successfully', severity: 'success' });
+        showSnackbar('Communication deleted successfully', 'success');
         loadData();
       } catch (error: any) {
         logError('Failed to delete communication', error);
-        setSnackbar({ open: true, message: error.message || 'Failed to delete communication', severity: 'error' });
+        showSnackbar(error.message || 'Failed to delete communication', 'error');
       }
     }
   };
 
   const handleView = (comm: Communication) => {
     setViewingCommunication(comm);
-    setViewDialogOpen(true);
+    viewDialog.openDialog();
   };
 
   const handleContactTypeChange = (contactType: Communication['contactType']) => {
@@ -373,7 +369,7 @@ export const Communications = () => {
           <Button
             variant="outlined"
             startIcon={<EmailIcon />}
-            onClick={() => setEmailDialogOpen(true)}
+            onClick={() => emailDialog.openDialog()}
           >
             Send Email
           </Button>
@@ -441,7 +437,7 @@ export const Communications = () => {
       </Paper>
 
       {/* Create/Edit Dialog */}
-      <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="md" fullWidth>
+      <Dialog open={communicationDialog.open} onClose={handleCloseDialog} maxWidth="md" fullWidth>
         <DialogTitle>
           {editingCommunication ? 'Edit Communication' : 'Log Communication'}
         </DialogTitle>
@@ -595,7 +591,7 @@ export const Communications = () => {
       </Dialog>
 
       {/* View Dialog */}
-      <Dialog open={viewDialogOpen} onClose={() => setViewDialogOpen(false)} maxWidth="md" fullWidth>
+      <Dialog open={viewDialog.open} onClose={viewDialog.closeDialog} maxWidth="md" fullWidth>
         <DialogTitle>
           {viewingCommunication?.subject}
         </DialogTitle>
@@ -656,25 +652,17 @@ export const Communications = () => {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setViewDialogOpen(false)}>Close</Button>
+          <Button onClick={viewDialog.closeDialog}>Close</Button>
         </DialogActions>
       </Dialog>
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-      >
-        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+      <SnackbarComponent />
 
       <ConfirmDialog />
 
       <SendEmailDialog
-        open={emailDialogOpen}
-        onClose={() => setEmailDialogOpen(false)}
+        open={emailDialog.open}
+        onClose={emailDialog.closeDialog}
         students={students}
         teachers={teachers}
         caseManagers={caseManagers}

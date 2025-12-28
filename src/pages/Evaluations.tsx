@@ -17,8 +17,6 @@ import {
   FormControl,
   InputLabel,
   Select,
-  Snackbar,
-  Alert,
 } from '@mui/material';
 import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid';
 import type { GridColDef, GridRowParams } from '@mui/x-data-grid';
@@ -38,21 +36,17 @@ import {
 } from '../utils/storage-api';
 import { generateId, formatDate } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
-import { useConfirm } from '../hooks/useConfirm';
+import { useConfirm, useSnackbar, useDialog } from '../hooks';
 
 export const Evaluations = () => {
   const navigate = useNavigate();
   const { selectedSchool } = useSchool();
   const { confirm, ConfirmDialog } = useConfirm();
+  const { showSnackbar, SnackbarComponent } = useSnackbar();
+  const evaluationDialog = useDialog();
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvaluation, setEditingEvaluation] = useState<Evaluation | null>(null);
-  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity?: 'success' | 'error' | 'info' | 'warning' }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  });
   const [formData, setFormData] = useState({
     studentId: '',
     grade: '',
@@ -114,11 +108,11 @@ export const Evaluations = () => {
         meetingDate: '',
       });
     }
-    setDialogOpen(true);
+    evaluationDialog.openDialog();
   };
 
   const handleCloseDialog = () => {
-    setDialogOpen(false);
+    evaluationDialog.closeDialog();
     setEditingEvaluation(null);
   };
 
@@ -165,17 +159,9 @@ export const Evaluations = () => {
     loadData();
     handleCloseDialog();
     if (editingEvaluation) {
-      setSnackbar({
-        open: true,
-        message: 'Evaluation updated successfully',
-        severity: 'success',
-      });
+      showSnackbar('Evaluation updated successfully', 'success');
     } else {
-      setSnackbar({
-        open: true,
-        message: 'Evaluation created successfully',
-        severity: 'success',
-      });
+      showSnackbar('Evaluation created successfully', 'success');
     }
   };
 
@@ -189,11 +175,7 @@ export const Evaluations = () => {
       onConfirm: async () => {
         await deleteEvaluation(id);
         loadData();
-        setSnackbar({
-          open: true,
-          message: 'Evaluation deleted successfully',
-          severity: 'success',
-        });
+        showSnackbar('Evaluation deleted successfully', 'success');
       },
     });
   };
@@ -367,7 +349,7 @@ export const Evaluations = () => {
         />
       </Box>
 
-      <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="md" fullWidth>
+      <Dialog open={evaluationDialog.open} onClose={handleCloseDialog} maxWidth="md" fullWidth>
         <DialogTitle>
           {editingEvaluation ? 'Edit Evaluation' : 'Add New Evaluation'}
         </DialogTitle>
@@ -474,20 +456,7 @@ export const Evaluations = () => {
 
       <ConfirmDialog />
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity || 'success'}
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+      <SnackbarComponent />
     </Box>
   );
 };

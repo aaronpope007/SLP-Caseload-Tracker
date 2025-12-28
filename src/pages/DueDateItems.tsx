@@ -16,9 +16,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Alert,
   Stack,
-  Snackbar,
 } from '@mui/material';
 import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid';
 import type { GridColDef, GridRowParams } from '@mui/x-data-grid';
@@ -40,7 +38,7 @@ import {
 } from '../utils/storage-api';
 import { generateId, formatDate } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
-import { useConfirm } from '../hooks/useConfirm';
+import { useConfirm, useSnackbar, useDialog } from '../hooks';
 
 const getStatusColor = (status: DueDateItem['status']) => {
   switch (status) {
@@ -71,14 +69,10 @@ const getPriorityColor = (priority?: DueDateItem['priority']) => {
 export const DueDateItems = () => {
   const { selectedSchool } = useSchool();
   const { confirm, ConfirmDialog } = useConfirm();
+  const { showSnackbar, SnackbarComponent } = useSnackbar();
+  const itemDialog = useDialog();
   const [items, setItems] = useState<DueDateItem[]>([]);
-  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity?: 'success' | 'error' | 'info' | 'warning' }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  });
   const [students, setStudents] = useState<Student[]>([]);
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<DueDateItem | null>(null);
   
   // Filters
@@ -146,11 +140,11 @@ export const DueDateItems = () => {
         priority: 'medium',
       });
     }
-    setDialogOpen(true);
+    itemDialog.openDialog();
   };
 
   const handleCloseDialog = () => {
-    setDialogOpen(false);
+    itemDialog.closeDialog();
     setEditingItem(null);
   };
 
@@ -188,17 +182,9 @@ export const DueDateItems = () => {
     loadData();
     handleCloseDialog();
     if (editingItem) {
-      setSnackbar({
-        open: true,
-        message: 'Due date item updated successfully',
-        severity: 'success',
-      });
+      showSnackbar('Due date item updated successfully', 'success');
     } else {
-      setSnackbar({
-        open: true,
-        message: 'Due date item created successfully',
-        severity: 'success',
-      });
+      showSnackbar('Due date item created successfully', 'success');
     }
   };
 
@@ -221,11 +207,7 @@ export const DueDateItems = () => {
       onConfirm: async () => {
         await deleteDueDateItem(id);
         loadData();
-        setSnackbar({
-          open: true,
-          message: 'Due date item deleted successfully',
-          severity: 'success',
-        });
+        showSnackbar('Due date item deleted successfully', 'success');
       },
     });
   };
@@ -466,7 +448,7 @@ export const DueDateItems = () => {
         />
       </Box>
 
-      <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="md" fullWidth>
+      <Dialog open={itemDialog.open} onClose={handleCloseDialog} maxWidth="md" fullWidth>
         <DialogTitle>
           {editingItem ? 'Edit Due Date Item' : 'Add New Due Date Item'}
         </DialogTitle>
@@ -550,20 +532,7 @@ export const DueDateItems = () => {
 
       <ConfirmDialog />
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity || 'success'}
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+      <SnackbarComponent />
     </Box>
   );
 };

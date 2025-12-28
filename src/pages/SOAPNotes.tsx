@@ -17,8 +17,6 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Snackbar,
-  Alert,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -41,7 +39,7 @@ import { formatDateTime } from '../utils/helpers';
 import { logError } from '../utils/logger';
 import { SOAPNoteDialog } from '../components/SOAPNoteDialog';
 import { useSchool } from '../context/SchoolContext';
-import { useConfirm } from '../hooks/useConfirm';
+import { useConfirm, useSnackbar, useDialog } from '../hooks';
 
 export const SOAPNotes = () => {
   const { selectedSchool } = useSchool();
@@ -50,13 +48,9 @@ export const SOAPNotes = () => {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [goals, setGoals] = useState<any[]>([]);
+  const { showSnackbar, SnackbarComponent } = useSnackbar();
+  const soapNoteDialog = useDialog();
   const [selectedNote, setSelectedNote] = useState<SOAPNote | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity?: 'success' | 'error' | 'info' | 'warning' }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  });
 
   useEffect(() => {
     loadData();
@@ -125,7 +119,7 @@ export const SOAPNotes = () => {
     const session = getSession(note.sessionId);
     if (session) {
       setSelectedNote(note);
-      setDialogOpen(true);
+      soapNoteDialog.openDialog();
     }
   };
 
@@ -139,11 +133,7 @@ export const SOAPNotes = () => {
         try {
           await deleteSOAPNote(id);
           await loadData();
-          setSnackbar({
-            open: true,
-            message: 'SOAP note deleted successfully',
-            severity: 'success',
-          });
+          showSnackbar('SOAP note deleted successfully', 'success');
         } catch (error) {
           logError('Failed to delete SOAP note', error);
           alert('Failed to delete SOAP note. Please try again.');
@@ -163,21 +153,13 @@ export const SOAPNotes = () => {
           plan: soapNote.plan,
           dateUpdated: soapNote.dateUpdated,
         });
-        setSnackbar({
-          open: true,
-          message: 'SOAP note updated successfully',
-          severity: 'success',
-        });
+        showSnackbar('SOAP note updated successfully', 'success');
       } else {
         await addSOAPNote(soapNote);
-        setSnackbar({
-          open: true,
-          message: 'SOAP note created successfully',
-          severity: 'success',
-        });
+        showSnackbar('SOAP note created successfully', 'success');
       }
       await loadData();
-      setDialogOpen(false);
+      soapNoteDialog.closeDialog();
       setSelectedNote(null);
     } catch (error) {
       logError('Failed to save SOAP note', error);
@@ -341,7 +323,7 @@ export const SOAPNotes = () => {
         const studentGoals = goals.filter(g => g.studentId === student.id);
         return (
           <SOAPNoteDialog
-            open={dialogOpen}
+            open={soapNoteDialog.open}
             session={session}
             student={student}
             goals={studentGoals}
@@ -354,20 +336,7 @@ export const SOAPNotes = () => {
 
       <ConfirmDialog />
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity || 'success'}
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+      <SnackbarComponent />
     </Box>
   );
 };

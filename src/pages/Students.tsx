@@ -363,15 +363,15 @@ export const Students = () => {
 
   const handleDelete = (id: string) => {
     const student = students.find(s => s.id === id);
-    setConfirmDialog({
-      open: true,
+    confirm({
       title: 'Delete Student',
       message: `Are you sure you want to delete ${student?.name || 'this student'}? This action cannot be undone.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
       onConfirm: async () => {
         try {
           await deleteStudent(id);
           await loadStudents();
-          setConfirmDialog({ ...confirmDialog, open: false });
           showSnackbar('Student deleted successfully', 'success');
         } catch (error) {
           logError('Failed to delete student', error);
@@ -383,12 +383,13 @@ export const Students = () => {
 
   const handleArchive = (id: string, archive: boolean) => {
     const student = students.find(s => s.id === id);
-    setConfirmDialog({
-      open: true,
+    confirm({
       title: archive ? 'Archive Student' : 'Unarchive Student',
       message: archive
         ? `Are you sure you want to archive ${student?.name || 'this student'}? Archived students can be viewed in the Archived view.`
         : `Are you sure you want to unarchive ${student?.name || 'this student'}?`,
+      confirmText: archive ? 'Archive' : 'Unarchive',
+      cancelText: 'Cancel',
       onConfirm: async () => {
         try {
           await updateStudent(id, {
@@ -396,7 +397,6 @@ export const Students = () => {
             dateArchived: archive ? new Date().toISOString() : undefined,
           });
           await loadStudents();
-          setConfirmDialog({ ...confirmDialog, open: false });
         } catch (error) {
           logError('Failed to archive student', error);
           alert('Failed to archive student. Please try again.');
@@ -768,33 +768,6 @@ export const Students = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Confirmation Dialog */}
-      <Dialog
-        open={confirmDialog.open}
-        onClose={() => setConfirmDialog({ ...confirmDialog, open: false })}
-      >
-        <DialogTitle>{confirmDialog.title}</DialogTitle>
-        <DialogContent>
-          <Typography>{confirmDialog.message}</Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmDialog({ ...confirmDialog, open: false })}>
-            Cancel
-          </Button>
-          <Button
-            onClick={() => {
-              confirmDialog.onConfirm();
-              setConfirmDialog({ ...confirmDialog, open: false });
-            }}
-            variant="contained"
-            color={confirmDialog.title.includes('Delete') ? 'error' : 'primary'}
-          >
-            Confirm
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Confirmation dialog for unsaved changes */}
       <ConfirmDialog />
 
       {/* Navigation blocker confirmation */}

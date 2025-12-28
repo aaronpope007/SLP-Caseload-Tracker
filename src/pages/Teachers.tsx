@@ -289,15 +289,15 @@ export const Teachers = () => {
 
   const handleDelete = (id: string) => {
     const teacher = teachers.find(t => t.id === id);
-    setConfirmDialog({
-      open: true,
+    confirm({
       title: 'Delete Teacher',
       message: `Are you sure you want to delete ${teacher?.name || 'this teacher'}? This action cannot be undone.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
       onConfirm: async () => {
         try {
           await deleteTeacher(id);
           await loadTeachers();
-          setConfirmDialog({ ...confirmDialog, open: false });
           showSnackbar('Teacher deleted successfully', 'success');
         } catch (error) {
           logError('Failed to delete teacher', error);
@@ -451,33 +451,6 @@ export const Teachers = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Confirmation Dialog */}
-      <Dialog
-        open={confirmDialog.open}
-        onClose={() => setConfirmDialog({ ...confirmDialog, open: false })}
-      >
-        <DialogTitle>{confirmDialog.title}</DialogTitle>
-        <DialogContent>
-          <Typography>{confirmDialog.message}</Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmDialog({ ...confirmDialog, open: false })}>
-            Cancel
-          </Button>
-          <Button
-            onClick={() => {
-              confirmDialog.onConfirm();
-              setConfirmDialog({ ...confirmDialog, open: false });
-            }}
-            variant="contained"
-            color="error"
-          >
-            Confirm
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Confirmation dialog for unsaved changes */}
       <ConfirmDialog />
 
       {/* Navigation blocker confirmation */}

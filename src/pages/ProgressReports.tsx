@@ -20,7 +20,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Snackbar,
 } from '@mui/material';
 import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid';
 import type { GridColDef, GridRowParams } from '@mui/x-data-grid';
@@ -43,7 +42,7 @@ import {
 } from '../utils/storage-api';
 import { formatDate, generateId } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
-import { useConfirm } from '../hooks/useConfirm';
+import { useConfirm, useSnackbar, useDialog } from '../hooks';
 import { logError } from '../utils/logger';
 
 const getStatusColor = (status: ProgressReport['status']) => {
@@ -67,14 +66,10 @@ export const ProgressReports = () => {
   const { confirm, ConfirmDialog } = useConfirm();
   const [reports, setReports] = useState<ProgressReport[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
+  const { showSnackbar, SnackbarComponent } = useSnackbar();
+  const reportDialog = useDialog();
   const [loading, setLoading] = useState(false);
   const [scheduling, setScheduling] = useState(false);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity?: 'success' | 'error' | 'info' | 'warning' }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  });
   
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>('');
@@ -156,11 +151,11 @@ export const ProgressReports = () => {
       periodEnd: '',
       dueDate: '',
     });
-    setDialogOpen(true);
+    reportDialog.openDialog();
   };
 
   const handleCloseDialog = () => {
-    setDialogOpen(false);
+    reportDialog.closeDialog();
     setFormData({
       studentId: '',
       reportType: 'quarterly',
@@ -195,11 +190,7 @@ export const ProgressReports = () => {
       });
       await loadData();
       handleCloseDialog();
-      setSnackbar({
-        open: true,
-        message: 'Progress report created successfully',
-        severity: 'success',
-      });
+      showSnackbar('Progress report created successfully', 'success');
     } catch (error) {
       logError('Failed to create report', error);
       alert('Failed to create report. Please try again.');
@@ -225,11 +216,7 @@ export const ProgressReports = () => {
       onConfirm: async () => {
         await deleteProgressReport(id);
         loadData();
-        setSnackbar({
-          open: true,
-          message: 'Progress report deleted successfully',
-          severity: 'success',
-        });
+        showSnackbar('Progress report deleted successfully', 'success');
       },
     });
   };
@@ -469,7 +456,7 @@ export const ProgressReports = () => {
         />
       </Box>
 
-      <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+      <Dialog open={reportDialog.open} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>Add New Progress Report</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
@@ -554,20 +541,7 @@ export const ProgressReports = () => {
 
       <ConfirmDialog />
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity || 'success'}
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+      <SnackbarComponent />
     </Box>
   );
 };
