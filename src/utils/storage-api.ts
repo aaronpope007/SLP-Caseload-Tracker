@@ -5,6 +5,7 @@
 
 import type { Student, Goal, Session, Activity, Evaluation, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Reminder, ScheduledSession } from '../types';
 import { api } from './api';
+import { logError } from './logger';
 
 const DEFAULT_SCHOOL = 'Noble Academy';
 
@@ -14,7 +15,7 @@ export const getStudents = async (school?: string): Promise<Student[]> => {
     const students = await api.students.getAll(school);
     return students;
   } catch (error) {
-    console.error('Failed to fetch students:', error);
+    logError('Failed to fetch students', error);
     return [];
   }
 };
@@ -30,7 +31,7 @@ export const saveStudents = async (students: Student[]): Promise<void> => {
       try {
         await api.students.create(student);
       } catch (error) {
-        console.error(`Failed to save student ${student.id}:`, error);
+        logError(`Failed to save student ${student.id}`, error);
       }
     }
   }
@@ -53,7 +54,7 @@ export const getGoals = async (): Promise<Goal[]> => {
   try {
     return await api.goals.getAll();
   } catch (error) {
-    console.error('Failed to fetch goals:', error);
+    logError('Failed to fetch goals', error);
     return [];
   }
 };
@@ -62,7 +63,7 @@ export const getGoalsByStudent = async (studentId: string, school?: string): Pro
   try {
     return await api.goals.getAll(studentId, school);
   } catch (error) {
-    console.error('Failed to fetch goals:', error);
+    logError('Failed to fetch goals', error);
     return [];
   }
 };
@@ -71,7 +72,7 @@ export const getGoalsBySchool = async (school: string): Promise<Goal[]> => {
   try {
     return await api.goals.getAll(undefined, school);
   } catch (error) {
-    console.error('Failed to fetch goals:', error);
+    logError('Failed to fetch goals', error);
     return [];
   }
 };
@@ -84,7 +85,7 @@ export const saveGoals = async (goals: Goal[]): Promise<void> => {
       try {
         await api.goals.create(goal);
       } catch (error) {
-        console.error(`Failed to save goal ${goal.id}:`, error);
+        logError(`Failed to save goal ${goal.id}`, error);
       }
     }
   }
@@ -107,7 +108,7 @@ export const getSessions = async (): Promise<Session[]> => {
   try {
     return await api.sessions.getAll();
   } catch (error) {
-    console.error('Failed to fetch sessions:', error);
+    logError('Failed to fetch sessions', error);
     return [];
   }
 };
@@ -116,7 +117,7 @@ export const getSessionsByStudent = async (studentId: string, school?: string): 
   try {
     return await api.sessions.getAll(studentId, school);
   } catch (error) {
-    console.error('Failed to fetch sessions:', error);
+    logError('Failed to fetch sessions', error);
     return [];
   }
 };
@@ -125,7 +126,7 @@ export const getSessionsBySchool = async (school: string): Promise<Session[]> =>
   try {
     return await api.sessions.getAll(undefined, school);
   } catch (error) {
-    console.error('Failed to fetch sessions:', error);
+    logError('Failed to fetch sessions', error);
     return [];
   }
 };
@@ -138,7 +139,7 @@ export const saveSessions = async (sessions: Session[]): Promise<void> => {
       try {
         await api.sessions.create(session);
       } catch (error) {
-        console.error(`Failed to save session ${session.id}:`, error);
+        logError(`Failed to save session ${session.id}`, error);
       }
     }
   }
@@ -161,7 +162,7 @@ export const getActivities = async (): Promise<Activity[]> => {
   try {
     return await api.activities.getAll();
   } catch (error) {
-    console.error('Failed to fetch activities:', error);
+    logError('Failed to fetch activities', error);
     return [];
   }
 };
@@ -174,7 +175,7 @@ export const saveActivities = async (activities: Activity[]): Promise<void> => {
       try {
         await api.activities.create(activity);
       } catch (error) {
-        console.error(`Failed to save activity ${activity.id}:`, error);
+        logError(`Failed to save activity ${activity.id}`, error);
       }
     }
   }
@@ -197,7 +198,7 @@ export const getEvaluations = async (school?: string): Promise<Evaluation[]> => 
   try {
     return await api.evaluations.getAll(undefined, school);
   } catch (error) {
-    console.error('Failed to fetch evaluations:', error);
+    logError('Failed to fetch evaluations', error);
     return [];
   }
 };
@@ -206,7 +207,7 @@ export const getEvaluationsByStudent = async (studentId: string): Promise<Evalua
   try {
     return await api.evaluations.getAll(studentId);
   } catch (error) {
-    console.error('Failed to fetch evaluations:', error);
+    logError('Failed to fetch evaluations', error);
     return [];
   }
 };
@@ -219,7 +220,7 @@ export const saveEvaluations = async (evaluations: Evaluation[]): Promise<void> 
       try {
         await api.evaluations.create(evaluation);
       } catch (error) {
-        console.error(`Failed to save evaluation ${evaluation.id}:`, error);
+        logError(`Failed to save evaluation ${evaluation.id}`, error);
       }
     }
   }
@@ -242,7 +243,7 @@ export const getSchools = async (): Promise<School[]> => {
   try {
     return await api.schools.getAll();
   } catch (error) {
-    console.error('Failed to fetch schools:', error);
+    logError('Failed to fetch schools', error);
     return [];
   }
 };
@@ -255,7 +256,7 @@ export const saveSchools = async (schools: School[]): Promise<void> => {
       try {
         await api.schools.create(school);
       } catch (error) {
-        console.error(`Failed to save school ${school.id}:`, error);
+        logError(`Failed to save school ${school.id}`, error);
       }
     }
   }
@@ -286,7 +287,7 @@ export const getTeachers = async (school?: string): Promise<Teacher[]> => {
   try {
     return await api.teachers.getAll(school);
   } catch (error) {
-    console.error('Failed to fetch teachers:', error);
+    logError('Failed to fetch teachers', error);
     return [];
   }
 };
@@ -299,7 +300,7 @@ export const saveTeachers = async (teachers: Teacher[]): Promise<void> => {
       try {
         await api.teachers.create(teacher);
       } catch (error) {
-        console.error(`Failed to save teacher ${teacher.id}:`, error);
+        logError(`Failed to save teacher ${teacher.id}`, error);
       }
     }
   }
@@ -322,7 +323,7 @@ export const getCaseManagers = async (school?: string): Promise<CaseManager[]> =
   try {
     return await api.caseManagers.getAll(school);
   } catch (error) {
-    console.error('Failed to fetch case managers:', error);
+    logError('Failed to fetch case managers', error);
     return [];
   }
 };
@@ -346,7 +347,7 @@ export const addCaseManager = async (caseManager: CaseManager): Promise<void> =>
     // The API expects the full object including id and dateCreated
     await api.caseManagers.create(caseManager);
   } catch (error) {
-    console.error('[storage-api] Error adding case manager:', error);
+    logError('[storage-api] Error adding case manager', error);
     throw error;
   }
 };
@@ -365,7 +366,7 @@ export const exportData = async (): Promise<string> => {
     const data = await api.export.getAll();
     return JSON.stringify(data, null, 2);
   } catch (error) {
-    console.error('Failed to export data:', error);
+    logError('Failed to export data', error);
     throw error;
   }
 };
@@ -421,7 +422,7 @@ export const getSOAPNotes = async (): Promise<SOAPNote[]> => {
   try {
     return await api.soapNotes.getAll();
   } catch (error) {
-    console.error('Failed to fetch SOAP notes:', error);
+    logError('Failed to fetch SOAP notes', error);
     return [];
   }
 };
@@ -430,7 +431,7 @@ export const getSOAPNotesBySession = async (sessionId: string): Promise<SOAPNote
   try {
     return await api.soapNotes.getAll(undefined, sessionId);
   } catch (error) {
-    console.error('Failed to fetch SOAP notes by session:', error);
+    logError('Failed to fetch SOAP notes by session', error);
     return [];
   }
 };
@@ -439,7 +440,7 @@ export const getSOAPNotesByStudent = async (studentId: string): Promise<SOAPNote
   try {
     return await api.soapNotes.getAll(studentId);
   } catch (error) {
-    console.error('Failed to fetch SOAP notes by student:', error);
+    logError('Failed to fetch SOAP notes by student', error);
     return [];
   }
 };
@@ -448,7 +449,7 @@ export const getSOAPNote = async (id: string): Promise<SOAPNote | undefined> => 
   try {
     return await api.soapNotes.getById(id);
   } catch (error) {
-    console.error('Failed to fetch SOAP note:', error);
+    logError('Failed to fetch SOAP note', error);
     return undefined;
   }
 };
@@ -470,7 +471,7 @@ export const getProgressReports = async (studentId?: string, school?: string, st
   try {
     return await api.progressReports.getAll(studentId, school, status, startDate, endDate);
   } catch (error) {
-    console.error('Failed to fetch progress reports:', error);
+    logError('Failed to fetch progress reports', error);
     return [];
   }
 };
@@ -479,7 +480,7 @@ export const getUpcomingProgressReports = async (days?: number, school?: string)
   try {
     return await api.progressReports.getUpcoming(days, school);
   } catch (error) {
-    console.error('Failed to fetch upcoming progress reports:', error);
+    logError('Failed to fetch upcoming progress reports', error);
     return [];
   }
 };
@@ -488,7 +489,7 @@ export const getProgressReport = async (id: string): Promise<ProgressReport | un
   try {
     return await api.progressReports.getById(id);
   } catch (error) {
-    console.error('Failed to fetch progress report:', error);
+    logError('Failed to fetch progress report', error);
     return undefined;
   }
 };
@@ -510,7 +511,7 @@ export const scheduleProgressReports = async (studentId?: string, school?: strin
     const result = await api.progressReports.scheduleAuto(studentId, school);
     return result.reports;
   } catch (error) {
-    console.error('Failed to schedule progress reports:', error);
+    logError('Failed to schedule progress reports', error);
     return [];
   }
 };
@@ -524,7 +525,7 @@ export const getProgressReportTemplates = async (reportType?: 'quarterly' | 'ann
   try {
     return await api.progressReportTemplates.getAll(reportType);
   } catch (error) {
-    console.error('Failed to fetch progress report templates:', error);
+    logError('Failed to fetch progress report templates', error);
     return [];
   }
 };
@@ -533,7 +534,7 @@ export const getProgressReportTemplate = async (id: string): Promise<ProgressRep
   try {
     return await api.progressReportTemplates.getById(id);
   } catch (error) {
-    console.error('Failed to fetch progress report template:', error);
+    logError('Failed to fetch progress report template', error);
     return undefined;
   }
 };
@@ -559,7 +560,7 @@ export const getDueDateItems = async (studentId?: string, status?: string, categ
   try {
     return await api.dueDateItems.getAll(studentId, status, category, startDate, endDate, school);
   } catch (error) {
-    console.error('Failed to fetch due date items:', error);
+    logError('Failed to fetch due date items', error);
     return [];
   }
 };
@@ -568,7 +569,7 @@ export const getUpcomingDueDateItems = async (days?: number, school?: string): P
   try {
     return await api.dueDateItems.getUpcoming(days, school);
   } catch (error) {
-    console.error('Failed to fetch upcoming due date items:', error);
+    logError('Failed to fetch upcoming due date items', error);
     return [];
   }
 };
@@ -577,7 +578,7 @@ export const getDueDateItem = async (id: string): Promise<DueDateItem | undefine
   try {
     return await api.dueDateItems.getById(id);
   } catch (error) {
-    console.error('Failed to fetch due date item:', error);
+    logError('Failed to fetch due date item', error);
     return undefined;
   }
 };
@@ -603,7 +604,7 @@ export const getReminders = async (school?: string): Promise<Reminder[]> => {
   try {
     return await api.reminders.getAll(school);
   } catch (error) {
-    console.error('Failed to fetch reminders:', error);
+    logError('Failed to fetch reminders', error);
     return [];
   }
 };
@@ -613,7 +614,7 @@ export const getScheduledSessions = async (school?: string): Promise<ScheduledSe
   try {
     return await api.scheduledSessions.getAll(school);
   } catch (error) {
-    console.error('Failed to fetch scheduled sessions:', error);
+    logError('Failed to fetch scheduled sessions', error);
     return [];
   }
 };
@@ -622,7 +623,7 @@ export const getScheduledSession = async (id: string): Promise<ScheduledSession 
   try {
     return await api.scheduledSessions.getById(id);
   } catch (error) {
-    console.error('Failed to fetch scheduled session:', error);
+    logError('Failed to fetch scheduled session', error);
     return undefined;
   }
 };

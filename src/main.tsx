@@ -1,3 +1,5 @@
+import { logError } from './utils/logger';
+
 // Use dynamic imports to catch which one fails
 async function initApp() {
   try {
@@ -13,7 +15,7 @@ async function initApp() {
     const rootElement = document.getElementById('root');
     
     if (!rootElement) {
-      console.error('=== ROOT ELEMENT NOT FOUND ===');
+      logError('=== ROOT ELEMENT NOT FOUND ===', new Error('Root element not found'));
       document.body.innerHTML = '<div style="padding: 20px; color: red; font-size: 24px;">Error: Root element not found!</div>';
       return;
     }
@@ -23,7 +25,7 @@ async function initApp() {
         StrictMode ? <StrictMode><App /></StrictMode> : <App />
       );
     } catch (error: unknown) {
-      console.error('=== ERROR RENDERING APP ===', error);
+      logError('=== ERROR RENDERING APP ===', error as Error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       const errorStack = error instanceof Error ? error.stack : '';
       rootElement.innerHTML = `
@@ -34,7 +36,7 @@ async function initApp() {
       `;
     }
   } catch (error: unknown) {
-    console.error('=== ERROR IN INIT APP ===', error);
+    logError('=== ERROR IN INIT APP ===', error as Error);
     const root = document.getElementById('root');
     if (root) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';

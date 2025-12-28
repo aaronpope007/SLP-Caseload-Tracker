@@ -23,9 +23,11 @@ The following improvements have been implemented:
    - Replaced console.error with `logError` from logger utility
 
 4. **Improved API Routes** ✅
-   - Updated `goals.ts` route to use async handler, JSON helpers, and proper types
-   - Added error handler middleware to server
-   - Created example pattern for other routes to follow
+   - **ALL 16 API routes** now use async handler pattern
+   - All routes use JSON helpers for safe parsing/stringifying
+   - All routes have proper TypeScript types (removed `any` types)
+   - Added global error handler middleware to server
+   - Routes updated: students, goals, sessions, activities, evaluations, schools, teachers, case-managers, soap-notes, progress-reports, progress-report-templates, due-date-items, reminders, email, communications, export, scheduled-sessions
 
 5. **Migrated Scheduled Sessions to API** ✅
    - Added `scheduled_sessions` table to database schema
@@ -34,6 +36,20 @@ The following improvements have been implemented:
    - Added storage-api functions for scheduled sessions
    - Updated `EmailTeacherDialog.tsx` and `SessionCalendar.tsx` to use API
    - **Note:** `storage.ts` can now be removed after verification
+
+6. **Created Reusable React Hooks** ✅
+   - `src/hooks/useDialog.ts` - Simple dialog open/close state management
+   - `src/hooks/useAsyncOperation.ts` - Async operations with loading/error/data states
+   - `src/hooks/useSnackbar.ts` - Snackbar notification management
+   - `src/hooks/index.ts` - Centralized hook exports
+   - These hooks reduce code duplication across components
+
+7. **Improved Logging** ✅
+   - Replaced console statements in critical files:
+     - `src/utils/storage-api.ts` - All 39 console.error statements replaced
+     - `src/main.tsx` - Error logging updated
+     - `src/components/ErrorBoundary.tsx` - Error logging updated
+   - All API routes now use centralized error handling
 
 ---
 
@@ -69,35 +85,15 @@ The app has migrated to an API backend, but old localStorage-based files remain:
 
 ## 🔄 Code Duplication
 
-### 1. API Route Error Handling
+### 1. API Route Error Handling ✅ COMPLETED
 **Location:** `api/src/routes/*.ts`
 
-**Issue:** Repetitive try-catch blocks in every route handler:
-```typescript
-try {
-  // route logic
-} catch (error: any) {
-  res.status(500).json({ error: error.message });
-}
-```
+**Status:** All routes now use `asyncHandler` middleware. No more repetitive try-catch blocks!
 
-**Recommendation:** Create an async error wrapper middleware:
-```typescript
-// api/src/middleware/asyncHandler.ts
-export const asyncHandler = (fn: Function) => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    Promise.resolve(fn(req, res, next)).catch(next);
-  };
-};
-
-// Usage:
-goalsRouter.get('/', asyncHandler(async (req, res) => {
-  // route logic without try-catch
-}));
-```
-
-### 2. Query Parameter Building
+### 2. Query Parameter Building ✅ COMPLETED
 **Location:** `src/utils/api.ts`
+
+**Status:** All query parameter building now uses `buildQueryString` helper from `src/utils/queryHelpers.ts`
 
 **Issue:** Repetitive URLSearchParams building across multiple API methods:
 ```typescript
@@ -121,36 +117,21 @@ function buildQueryString(params: Record<string, string | number | undefined>): 
 }
 ```
 
-### 3. JSON Parsing in API Routes
+### 3. JSON Parsing in API Routes ✅ COMPLETED
 **Location:** `api/src/routes/*.ts`
 
-**Issue:** Repeated JSON parsing patterns:
-```typescript
-concerns: s.concerns ? JSON.parse(s.concerns) : [],
-exceptionality: s.exceptionality ? JSON.parse(s.exceptionality) : undefined,
-```
-
-**Recommendation:** Create a utility function:
-```typescript
-function parseJsonField<T>(value: string | null, defaultValue: T): T {
-  if (!value) return defaultValue;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return defaultValue;
-  }
-}
-```
+**Status:** All routes now use `parseJsonField` and `stringifyJsonField` from `api/src/utils/jsonHelpers.ts`
 
 ## 🐛 Error Handling Improvements
 
-### 1. Inconsistent Error Handling
+### 1. Inconsistent Error Handling ⚠️ PARTIALLY COMPLETED
 **Location:** Throughout `src/` components
 
-**Issue:** 
-- 30 files contain `console.log/error/warn` statements
-- Many errors are logged but not shown to users
-- Inconsistent error message patterns
+**Status:**
+- ✅ Created centralized logger utility (`src/utils/logger.ts`)
+- ✅ Updated critical files: `storage-api.ts`, `main.tsx`, `ErrorBoundary.tsx`
+- ⚠️ ~24 frontend component files still have console statements (can be updated incrementally)
+- ✅ All API routes use centralized error handling
 
 **Recommendation:**
 - Create a centralized error handling utility
@@ -180,26 +161,10 @@ class ApiError extends Error {
 
 ## 📝 Type Safety Improvements
 
-### 1. `any` Types in API Routes
+### 1. `any` Types in API Routes ✅ COMPLETED
 **Location:** `api/src/routes/*.ts`
 
-**Issue:** Using `any` types:
-```typescript
-const students = db.prepare(query).all(...params);
-const parsed = students.map((s: any) => ({ ... }));
-```
-
-**Recommendation:** Create proper database row types:
-```typescript
-interface StudentRow {
-  id: string;
-  name: string;
-  concerns: string; // JSON string
-  // ... other fields
-}
-
-const students = db.prepare(query).all(...params) as StudentRow[];
-```
+**Status:** All 16 API routes now have proper TypeScript interfaces for database rows. No more `any` types!
 
 ### 2. Type Assertions
 **Location:** Multiple files
