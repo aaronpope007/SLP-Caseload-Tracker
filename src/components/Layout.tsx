@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useDialog } from '../hooks';
 import {
   AppBar,
   Box,
@@ -133,8 +134,8 @@ const US_STATES = [
 
 export const Layout = ({ children }: LayoutProps) => {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [addSchoolOpen, setAddSchoolOpen] = useState(false);
+  const settingsDialog = useDialog();
+  const addSchoolDialog = useDialog();
   const [newSchoolName, setNewSchoolName] = useState('');
   const [newSchoolState, setNewSchoolState] = useState('');
   const [newSchoolTeletherapy, setNewSchoolTeletherapy] = useState(false);
@@ -149,11 +150,11 @@ export const Layout = ({ children }: LayoutProps) => {
   };
 
   const handleAddSchool = () => {
-    setAddSchoolOpen(true);
+    addSchoolDialog.openDialog();
   };
 
   const handleCloseAddSchool = () => {
-    setAddSchoolOpen(false);
+    addSchoolDialog.closeDialog();
     setNewSchoolName('');
     setNewSchoolState('');
     setNewSchoolTeletherapy(false);
@@ -248,7 +249,7 @@ export const Layout = ({ children }: LayoutProps) => {
           <Button
             color="inherit"
             startIcon={<SettingsIcon />}
-            onClick={() => setSettingsOpen(true)}
+            onClick={settingsDialog.openDialog}
           >
             Settings
           </Button>
@@ -301,10 +302,10 @@ export const Layout = ({ children }: LayoutProps) => {
         {children}
       </Box>
       <SettingsDialog
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
+        open={settingsDialog.open}
+        onClose={settingsDialog.closeDialog}
       />
-      <Dialog open={addSchoolOpen} onClose={handleCloseAddSchool} maxWidth="sm" fullWidth>
+      <Dialog open={addSchoolDialog.open} onClose={handleCloseAddSchool} maxWidth="sm" fullWidth>
         <DialogTitle>Add New School</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>

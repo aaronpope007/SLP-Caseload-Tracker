@@ -15,18 +15,15 @@ import {
 } from '@mui/icons-material';
 import type { Session, Student, Goal } from '../types';
 import {
-  getSessions,
   getStudents,
   getGoals,
-  addSession,
-  updateSession,
-  deleteSession,
   getSessionsByStudent,
+  getSessions, // Needed for group session logic
 } from '../utils/storage-api';
 import { generateId, formatDateTime, toLocalDateTimeString, fromLocalDateTimeString } from '../utils/helpers';
 import { generateSessionPlan } from '../utils/gemini';
 import { useSchool } from '../context/SchoolContext';
-import { useConfirm } from '../hooks/useConfirm';
+import { useConfirm, useSnackbar, useDialog, useSessionManagement, useSessionForm, useSOAPNoteManagement, useSessionPlanning } from '../hooks';
 import { useSessionDialog } from '../context/SessionDialogContext';
 import { SessionCard } from '../components/SessionCard';
 import { SessionPlanDialog } from '../components/SessionPlanDialog';
@@ -35,7 +32,7 @@ import { LogActivityMenu } from '../components/LogActivityMenu';
 import { SessionFormDialog } from '../components/SessionFormDialog';
 import { SOAPNoteDialog } from '../components/SOAPNoteDialog';
 import type { SOAPNote } from '../types';
-import { getSOAPNotesBySession, addSOAPNote, updateSOAPNote } from '../utils/storage-api';
+import { getSOAPNotesBySession } from '../utils/storage-api';
 import { generateSOAPNote, generateGroupSOAPNote } from '../utils/soapNoteGenerator';
 import { api } from '../utils/api';
 import { logError } from '../utils/logger';
@@ -45,50 +42,49 @@ export const Sessions = () => {
   const { confirm, ConfirmDialog } = useConfirm();
   const { registerHandler } = useSessionDialog();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [sessions, setSessions] = useState<Session[]>([]);
+  const { showSnackbar, SnackbarComponent } = useSnackbar();
+  
+  // Session management hook
+  const {
+    sessions,
+    loadSessions,
+    createSession,
+    updateSession: updateSessionById,
+    deleteSession: removeSession,
+  } = useSessionManagement({
+    school: selectedSchool,
+  });
+
+  // Session form hook
+  const {
+    formData,
+    editingSession,
+    editingGroupSessionId,
+    isDirty,
+    initializeForm,
+    updateFormField,
+    resetForm,
+    setEditingGroupSessionId,
+  } = useSessionForm();
+
+  // Dialog management
+  const sessionFormDialog = useDialog();
+  const sessionPlanDialog = useDialog();
+  const soapNoteDialog = useDialog();
+
+  // SOAP Note management
+  const soapNoteManagement = useSOAPNoteManagement();
+
+  // Session planning
+  const apiKey = localStorage.getItem('gemini_api_key') || '';
+  const sessionPlanning = useSessionPlanning({ apiKey });
+
+  // Local state
   const [students, setStudents] = useState<Student[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingSession, setEditingSession] = useState<Session | null>(null);
-  const [editingGroupSessionId, setEditingGroupSessionId] = useState<string | null>(null);
-  const initialFormDataRef = useRef<typeof formData | null>(null);
-
-  // Session Planning State
-  const [sessionPlanDialogOpen, setSessionPlanDialogOpen] = useState(false);
-  const [planStudentId, setPlanStudentId] = useState('');
-  const [sessionPlan, setSessionPlan] = useState('');
-  const [loadingSessionPlan, setLoadingSessionPlan] = useState(false);
-  const [sessionPlanError, setSessionPlanError] = useState('');
-  
-  // Student search state
   const [studentSearch, setStudentSearch] = useState('');
-  
-
-  // SOAP Note dialog state
-  const [soapNoteDialogOpen, setSoapNoteDialogOpen] = useState(false);
   const [selectedSessionForSOAP, setSelectedSessionForSOAP] = useState<Session | null>(null);
   const [existingSOAPNote, setExistingSOAPNote] = useState<SOAPNote | undefined>(undefined);
-  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity?: 'success' | 'error' | 'info' | 'warning' }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  });
-
-  const [formData, setFormData] = useState({
-    studentIds: [] as string[], // Changed to support multiple students
-    date: toLocalDateTimeString(new Date()),
-    endTime: '',
-    goalsTargeted: [] as string[],
-    activitiesUsed: [] as string[],
-    performanceData: [] as { goalId: string; studentId: string; accuracy?: string; correctTrials?: number; incorrectTrials?: number; notes?: string; cuingLevels?: ('independent' | 'verbal' | 'visual' | 'tactile' | 'physical')[] }[], // Added studentId to track which student's goal
-    notes: '',
-    isDirectServices: true, // Default to Direct Services
-    indirectServicesNotes: '',
-    missedSession: false, // Whether this was a missed session (only for Direct Services)
-    selectedSubjectiveStatements: [] as string[],
-    customSubjective: '',
-    plan: '', // Plan for next session (required for direct services)
-  });
 
   useEffect(() => {
     loadData();
@@ -98,24 +94,20 @@ export const Sessions = () => {
   // Check for URL parameter to open add session dialog
   useEffect(() => {
     const addParam = searchParams.get('add');
-    if (addParam === 'true' && !dialogOpen && students.length > 0) {
+    if (addParam === 'true' && !sessionFormDialog.open && students.length > 0) {
       // Open dialog after data has loaded
       handleOpenDialog();
       // Clear the URL parameter
       setSearchParams({});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, students.length, dialogOpen]);
+  }, [searchParams, students.length, sessionFormDialog.open]);
 
   const loadData = async () => {
     try {
       const schoolStudents = await getStudents(selectedSchool);
       const studentIds = new Set(schoolStudents.map(s => s.id));
-      const allSessions = await getSessions();
-      const schoolSessions = allSessions
-        .filter(s => studentIds.has(s.studentId))
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      setSessions(schoolSessions);
+      await loadSessions();
       // Filter out archived students (archived is optional for backward compatibility)
       setStudents(schoolStudents.filter(s => s.archived !== true));
       const allGoals = await getGoals();
@@ -134,7 +126,6 @@ export const Sessions = () => {
         
         if (groupSessions.length > 0) {
           const firstSession = groupSessions[0];
-          setEditingSession(firstSession);
           setEditingGroupSessionId(groupSessionId);
           
           // Collect all student IDs from the group
@@ -186,14 +177,13 @@ export const Sessions = () => {
             indirectServicesNotes: firstSession.indirectServicesNotes || '',
             missedSession: firstSession.missedSession || false,
             selectedSubjectiveStatements: firstSession.selectedSubjectiveStatements || [],
+            customSubjective: firstSession.customSubjective || '',
+            plan: firstSession.plan || '',
           };
           setFormData(newFormData);
-          initialFormDataRef.current = JSON.parse(JSON.stringify(newFormData));
         }
       } else if (session) {
         // Editing a single session
-        setEditingSession(session);
-        setEditingGroupSessionId(null);
         const startDate = new Date(session.date);
         const endDate = session.endTime ? new Date(session.endTime) : null;
         // Filter out achieved goals when editing
@@ -202,59 +192,13 @@ export const Sessions = () => {
           return goal && !isGoalAchieved(goal);
         });
         
-        const newFormData = {
-          studentIds: [session.studentId], // Convert single student to array for editing
-          date: toLocalDateTimeString(startDate),
-          endTime: endDate ? toLocalDateTimeString(endDate) : '',
-          goalsTargeted: activeGoalsTargeted,
-          activitiesUsed: session.activitiesUsed,
-          performanceData: session.performanceData
-            .filter(p => activeGoalsTargeted.includes(p.goalId))
-            .map(p => ({
-              goalId: p.goalId,
-              studentId: session.studentId, // Add studentId to performance data
-              accuracy: p.accuracy?.toString() || '',
-              correctTrials: p.correctTrials || 0,
-              incorrectTrials: p.incorrectTrials || 0,
-              notes: p.notes || '',
-              cuingLevels: p.cuingLevels,
-            })),
-          notes: session.notes,
-          isDirectServices: session.isDirectServices === true, // Explicitly check for true
-          indirectServicesNotes: session.indirectServicesNotes || '',
-          missedSession: session.missedSession || false,
-          selectedSubjectiveStatements: session.selectedSubjectiveStatements || [],
-          customSubjective: session.customSubjective || '',
-          plan: session.plan || '',
-        };
-        setFormData(newFormData);
-        initialFormDataRef.current = JSON.parse(JSON.stringify(newFormData));
+        initializeForm(session, null);
       }
     } else {
       // Creating a new session
-      const now = new Date();
-      const defaultEndTime = new Date(now.getTime() + 30 * 60000); // Default to 30 minutes later
-      setEditingSession(null);
-      setEditingGroupSessionId(null);
-      const newFormData = {
-        studentIds: [],
-        date: toLocalDateTimeString(now),
-        endTime: toLocalDateTimeString(defaultEndTime),
-        goalsTargeted: [],
-        activitiesUsed: [],
-        performanceData: [],
-        notes: '',
-        isDirectServices: true,
-        indirectServicesNotes: '',
-        missedSession: false,
-        selectedSubjectiveStatements: [],
-        customSubjective: '',
-        plan: '',
-      };
-      setFormData(newFormData);
-      initialFormDataRef.current = JSON.parse(JSON.stringify(newFormData));
+      initializeForm();
     }
-    setDialogOpen(true);
+    sessionFormDialog.openDialog();
   };
 
   // Register the handler to open the dialog from context
@@ -265,51 +209,26 @@ export const Sessions = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [registerHandler]);
 
-  const isFormDirty = () => {
-    if (!initialFormDataRef.current) return false;
-    const initial = initialFormDataRef.current;
-    
-    // Compare form data with initial state
-    const hasChanges = 
-      JSON.stringify(formData.studentIds.sort()) !== JSON.stringify(initial.studentIds.sort()) ||
-      formData.date !== initial.date ||
-      formData.endTime !== initial.endTime ||
-      JSON.stringify(formData.goalsTargeted.sort()) !== JSON.stringify(initial.goalsTargeted.sort()) ||
-      JSON.stringify(formData.activitiesUsed.sort()) !== JSON.stringify(initial.activitiesUsed.sort()) ||
-      formData.notes !== initial.notes ||
-      formData.isDirectServices !== initial.isDirectServices ||
-      formData.indirectServicesNotes !== initial.indirectServicesNotes ||
-      formData.missedSession !== initial.missedSession ||
-      JSON.stringify(formData.selectedSubjectiveStatements.sort()) !== JSON.stringify(initial.selectedSubjectiveStatements.sort()) ||
-      formData.customSubjective !== initial.customSubjective ||
-      formData.plan !== initial.plan ||
-      JSON.stringify(formData.performanceData) !== JSON.stringify(initial.performanceData);
-    
-    return hasChanges;
-  };
+  // isDirty is now provided by useSessionForm hook
 
   const handleCloseDialog = (forceClose = false) => {
-    if (!forceClose && isFormDirty()) {
+    if (!forceClose && isDirty()) {
       confirm({
         title: 'Unsaved Changes',
         message: 'You have unsaved changes. Are you sure you want to close without saving?',
         confirmText: 'Discard Changes',
         cancelText: 'Cancel',
         onConfirm: () => {
-          doCloseDialog();
+          sessionFormDialog.closeDialog();
+          resetForm();
+          setStudentSearch('');
         },
       });
     } else {
-      doCloseDialog();
+      sessionFormDialog.closeDialog();
+      resetForm();
+      setStudentSearch('');
     }
-  };
-
-  const doCloseDialog = () => {
-    setDialogOpen(false);
-    setEditingSession(null);
-    setEditingGroupSessionId(null);
-    setStudentSearch('');
-    initialFormDataRef.current = null;
   };
 
   const handleStudentToggle = async (studentId: string) => {
@@ -348,13 +267,10 @@ export const Sessions = () => {
       }
     }
 
-    setFormData({
-      ...formData,
-      studentIds: newStudentIds,
-      goalsTargeted: newGoalsTargeted,
-      performanceData: newPerformanceData,
-      plan: newPlan,
-    });
+    updateFormField('studentIds', newStudentIds);
+    updateFormField('goalsTargeted', newGoalsTargeted);
+    updateFormField('performanceData', newPerformanceData);
+    updateFormField('plan', newPlan);
   };
 
   const handleGoalToggle = (goalId: string, studentId: string) => {
@@ -370,62 +286,46 @@ export const Sessions = () => {
       newPerformanceData.push({ goalId, studentId, notes: '', cuingLevels: [] }); // Don't initialize accuracy - let it be undefined so calculated shows
     }
 
-    setFormData({
-      ...formData,
-      goalsTargeted: newGoalsTargeted,
-      performanceData: newPerformanceData,
-    });
+    updateFormField('goalsTargeted', newGoalsTargeted);
+    updateFormField('performanceData', newPerformanceData);
   };
 
   const handlePerformanceUpdate = (goalId: string, studentId: string, field: 'accuracy' | 'notes', value: string) => {
-    setFormData({
-      ...formData,
-      performanceData: formData.performanceData.map((p) =>
-        p.goalId === goalId && p.studentId === studentId ? { ...p, [field]: value } : p
-      ),
-    });
+    updateFormField('performanceData', formData.performanceData.map((p) =>
+      p.goalId === goalId && p.studentId === studentId ? { ...p, [field]: value } : p
+    ));
   };
 
   const handleCuingLevelToggle = (goalId: string, studentId: string, cuingLevel: 'independent' | 'verbal' | 'visual' | 'tactile' | 'physical') => {
-    setFormData({
-      ...formData,
-      performanceData: formData.performanceData.map((p) => {
-        if (p.goalId !== goalId || p.studentId !== studentId) return p;
-        const currentLevels = p.cuingLevels || [];
-        const newLevels = currentLevels.includes(cuingLevel)
-          ? currentLevels.filter(l => l !== cuingLevel)
-          : [...currentLevels, cuingLevel];
-        return { ...p, cuingLevels: newLevels };
-      }),
-    });
+    updateFormField('performanceData', formData.performanceData.map((p) => {
+      if (p.goalId !== goalId || p.studentId !== studentId) return p;
+      const currentLevels = p.cuingLevels || [];
+      const newLevels = currentLevels.includes(cuingLevel)
+        ? currentLevels.filter(l => l !== cuingLevel)
+        : [...currentLevels, cuingLevel];
+      return { ...p, cuingLevels: newLevels };
+    }));
   };
 
   const handleTrialUpdate = (goalId: string, studentId: string, isCorrect: boolean) => {
-    setFormData({
-      ...formData,
-      performanceData: formData.performanceData.map((p) => {
-        if (p.goalId !== goalId || p.studentId !== studentId) return p;
-        const correctTrials = (p.correctTrials || 0) + (isCorrect ? 1 : 0);
-        const incorrectTrials = (p.incorrectTrials || 0) + (isCorrect ? 0 : 1);
-        const totalTrials = correctTrials + incorrectTrials;
-        const accuracy = totalTrials > 0 ? Math.round((correctTrials / totalTrials) * 100) : 0;
-        return {
-          ...p,
-          correctTrials,
-          incorrectTrials,
-          accuracy: accuracy.toString(),
-        };
-      }),
-    });
+    updateFormField('performanceData', formData.performanceData.map((p) => {
+      if (p.goalId !== goalId || p.studentId !== studentId) return p;
+      const correctTrials = (p.correctTrials || 0) + (isCorrect ? 1 : 0);
+      const incorrectTrials = (p.incorrectTrials || 0) + (isCorrect ? 0 : 1);
+      const totalTrials = correctTrials + incorrectTrials;
+      const accuracy = totalTrials > 0 ? Math.round((correctTrials / totalTrials) * 100) : 0;
+      return {
+        ...p,
+        correctTrials,
+        incorrectTrials,
+        accuracy: accuracy.toString(),
+      };
+    }));
   };
 
   const handleSave = async () => {
     if (formData.studentIds.length === 0) {
-      setSnackbar({
-        open: true,
-        message: 'Please select at least one student',
-        severity: 'error',
-      });
+      showSnackbar('Please select at least one student', 'error');
       return;
     }
 
@@ -434,27 +334,16 @@ export const Sessions = () => {
       // Subjective is required: either checkbox selected OR custom text entered
       const hasSubjective = formData.selectedSubjectiveStatements.length > 0 || formData.customSubjective.trim().length > 0;
       if (!hasSubjective) {
-        setSnackbar({
-          open: true,
-          message: 'Please select at least one subjective statement or enter a custom subjective statement.',
-          severity: 'error',
-        });
+        showSnackbar('Please select at least one subjective statement or enter a custom subjective statement.', 'error');
         return;
       }
       
       // Plan is required for direct services
       if (!formData.plan.trim()) {
-        setSnackbar({
-          open: true,
-          message: 'Please enter a plan for the next session.',
-          severity: 'error',
-        });
+        showSnackbar('Please enter a plan for the next session.', 'error');
         return;
       }
     }
-
-    // Reset initial form data before saving to prevent dirty check from triggering
-    initialFormDataRef.current = null;
 
     try {
       // If editing a group session, update all sessions in the group
@@ -508,10 +397,10 @@ export const Sessions = () => {
         };
 
         if (existingSession) {
-          await updateSession(existingSession.id, sessionData);
+          await updateSessionById(existingSession.id, sessionData);
           groupSessions.push(sessionData);
         } else {
-          await addSession(sessionData);
+          await createSession(sessionData);
           groupSessions.push(sessionData);
         }
       }
@@ -549,7 +438,7 @@ export const Sessions = () => {
               plan: generated.plan,
               dateUpdated: new Date().toISOString(),
             };
-            await updateSOAPNote(existingGroupSOAPNote.id, updatedSOAPNote);
+            await soapNoteManagement.updateSOAPNote(existingGroupSOAPNote.id, updatedSOAPNote);
           } else {
             // Create new SOAP note
             const soapNote: SOAPNote = {
@@ -564,7 +453,7 @@ export const Sessions = () => {
               dateCreated: new Date().toISOString(),
               dateUpdated: new Date().toISOString(),
             };
-            await addSOAPNote(soapNote);
+            await soapNoteManagement.createSOAPNote(soapNote);
           }
         } catch (error) {
           logError('Failed to auto-generate group SOAP note', error);
@@ -575,7 +464,7 @@ export const Sessions = () => {
       // Delete sessions for students that were removed from the group
       for (const existingSession of existingGroupSessions) {
         if (!formData.studentIds.includes(existingSession.studentId)) {
-          await deleteSession(existingSession.id);
+          await removeSession(existingSession.id);
         }
       }
     } else {
@@ -631,43 +520,45 @@ export const Sessions = () => {
         };
 
         if (isEditingSingleSession) {
-          await updateSession(editingSession.id, sessionData);
+          await updateSessionById(editingSession.id, sessionData);
         } else {
-          await addSession(sessionData);
-          createdSessions.push(sessionData);
-          
-          // For individual sessions, auto-generate SOAP note
-          if (!groupSessionId && sessionData.isDirectServices && !sessionData.missedSession) {
-            try {
-              const student = students.find(s => s.id === studentId);
-              if (student) {
-                const studentGoals = goals.filter(g => g.studentId === studentId);
-                const generated = generateSOAPNote(
-                  sessionData,
-                  student,
-                  studentGoals,
-                  sessionData.selectedSubjectiveStatements || [],
-                  sessionData.customSubjective || ''
-                );
-                
-                const soapNote: SOAPNote = {
-                  id: generateId(),
-                  sessionId: sessionData.id,
-                  studentId: studentId,
-                  date: sessionData.date,
-                  subjective: generated.subjective,
-                  objective: generated.objective,
-                  assessment: generated.assessment,
-                  plan: generated.plan,
-                  dateCreated: new Date().toISOString(),
-                  dateUpdated: new Date().toISOString(),
-                };
-                
-                await addSOAPNote(soapNote);
+          const newSession = await createSession(sessionData);
+          if (newSession) {
+            createdSessions.push(newSession);
+            
+            // For individual sessions, auto-generate SOAP note
+            if (!groupSessionId && sessionData.isDirectServices && !sessionData.missedSession) {
+              try {
+                const student = students.find(s => s.id === studentId);
+                if (student) {
+                  const studentGoals = goals.filter(g => g.studentId === studentId);
+                  const generated = generateSOAPNote(
+                    newSession,
+                    student,
+                    studentGoals,
+                    newSession.selectedSubjectiveStatements || [],
+                    newSession.customSubjective || ''
+                  );
+                  
+                  const soapNote: SOAPNote = {
+                    id: generateId(),
+                    sessionId: newSession.id,
+                    studentId: studentId,
+                    date: newSession.date,
+                    subjective: generated.subjective,
+                    objective: generated.objective,
+                    assessment: generated.assessment,
+                    plan: generated.plan,
+                    dateCreated: new Date().toISOString(),
+                    dateUpdated: new Date().toISOString(),
+                  };
+                  
+                  await soapNoteManagement.createSOAPNote(soapNote);
+                }
+              } catch (error) {
+                logError('Failed to auto-generate SOAP note', error);
+                // Don't fail the session save if SOAP note generation fails
               }
-            } catch (error) {
-              logError('Failed to auto-generate SOAP note', error);
-              // Don't fail the session save if SOAP note generation fails
             }
           }
         }
@@ -702,7 +593,7 @@ export const Sessions = () => {
             dateUpdated: new Date().toISOString(),
           };
           
-          await addSOAPNote(soapNote);
+          await soapNoteManagement.createSOAPNote(soapNote);
         } catch (error) {
           logError('Failed to auto-generate group SOAP note', error);
           // Don't fail the session save if SOAP note generation fails
@@ -711,15 +602,13 @@ export const Sessions = () => {
     }
 
       await loadData();
-      doCloseDialog(); // Use doCloseDialog directly since we've already saved
-      setSnackbar({
-        open: true,
-        message: editingSession ? 'Session updated successfully' : 'Session created successfully',
-        severity: 'success',
-      });
+      sessionFormDialog.closeDialog();
+      resetForm();
+      setStudentSearch('');
+      showSnackbar(editingSession ? 'Session updated successfully' : 'Session created successfully', 'success');
     } catch (error) {
       logError('Failed to save session', error);
-      alert('Failed to save session. Please try again.');
+      showSnackbar('Failed to save session. Please try again.', 'error');
     }
   };
 
@@ -731,16 +620,12 @@ export const Sessions = () => {
       cancelText: 'Cancel',
       onConfirm: async () => {
         try {
-          await deleteSession(id);
+          await removeSession(id);
           await loadData();
-          setSnackbar({
-            open: true,
-            message: 'Session deleted successfully',
-            severity: 'success',
-          });
+          showSnackbar('Session deleted successfully', 'success');
         } catch (error) {
           logError('Failed to delete session', error);
-          alert('Failed to delete session. Please try again.');
+          showSnackbar('Failed to delete session. Please try again.', 'error');
         }
       },
     });
@@ -805,7 +690,7 @@ export const Sessions = () => {
       } else {
         setExistingSOAPNote(undefined);
       }
-      setSoapNoteDialogOpen(true);
+      soapNoteDialog.openDialog();
     } catch (error) {
       logError('Failed to fetch latest session', error);
       // Fallback to using the session from state or parameter
@@ -817,55 +702,52 @@ export const Sessions = () => {
       } else {
         setExistingSOAPNote(undefined);
       }
-      setSoapNoteDialogOpen(true);
+      soapNoteDialog.openDialog();
     }
   };
 
   const handleSaveSOAPNote = async (soapNote: SOAPNote) => {
     try {
       if (existingSOAPNote) {
-        await updateSOAPNote(soapNote.id, soapNote);
+        await soapNoteManagement.updateSOAPNote(soapNote.id, soapNote);
       } else {
-        await addSOAPNote(soapNote);
+        await soapNoteManagement.createSOAPNote(soapNote);
       }
-      setSoapNoteDialogOpen(false);
+      soapNoteDialog.closeDialog();
       setSelectedSessionForSOAP(null);
       setExistingSOAPNote(undefined);
+      showSnackbar('SOAP note saved successfully', 'success');
     } catch (error) {
       logError('Failed to save SOAP note', error);
-      alert('Failed to save SOAP note. Please try again.');
+      showSnackbar('Failed to save SOAP note. Please try again.', 'error');
     }
   };
 
   const handleGenerateSessionPlan = async () => {
-    if (!planStudentId) {
-      setSessionPlanError('Please select a student');
+    if (!sessionPlanning.planStudentId) {
+      sessionPlanning.setError('Please select a student');
       return;
     }
 
-    const apiKey = localStorage.getItem('gemini_api_key');
     if (!apiKey) {
-      setSessionPlanError('Please set your Gemini API key in Settings');
+      sessionPlanning.setError('Please set your Gemini API key in Settings');
       return;
     }
 
-    const student = students.find(s => s.id === planStudentId);
+    const student = students.find(s => s.id === sessionPlanning.planStudentId);
     if (!student) {
-      setSessionPlanError('Student not found');
+      sessionPlanning.setError('Student not found');
       return;
     }
 
-    const studentGoals = goals.filter(g => g.studentId === planStudentId);
+    const studentGoals = goals.filter(g => g.studentId === sessionPlanning.planStudentId);
     if (studentGoals.length === 0) {
-      setSessionPlanError('Selected student has no goals. Please add goals first.');
+      sessionPlanning.setError('Selected student has no goals. Please add goals first.');
       return;
     }
-
-    setLoadingSessionPlan(true);
-    setSessionPlanError('');
 
     try {
-      const recentSessions = (await getSessionsByStudent(planStudentId))
+      const recentSessions = (await getSessionsByStudent(sessionPlanning.planStudentId))
         .slice(0, 3)
         .map(s => ({
           date: formatDateTime(s.date),
@@ -873,8 +755,7 @@ export const Sessions = () => {
           notes: s.notes,
         }));
 
-      const plan = await generateSessionPlan(
-        apiKey,
+      await sessionPlanning.generatePlan(
         student.name,
         student.age,
         studentGoals.map(g => ({
@@ -884,11 +765,8 @@ export const Sessions = () => {
         })),
         recentSessions
       );
-      setSessionPlan(plan);
     } catch (err) {
-      setSessionPlanError(err instanceof Error ? err.message : 'Failed to generate session plan');
-    } finally {
-      setLoadingSessionPlan(false);
+      sessionPlanning.setError(err instanceof Error ? err.message : 'Failed to generate session plan');
     }
   };
 
@@ -903,10 +781,8 @@ export const Sessions = () => {
             variant="outlined"
             startIcon={<PsychologyIcon />}
             onClick={() => {
-              setPlanStudentId('');
-              setSessionPlan('');
-              setSessionPlanError('');
-              setSessionPlanDialogOpen(true);
+              sessionPlanning.reset();
+              sessionPlanDialog.openDialog();
             }}
           >
             Generate Session Plan
@@ -1026,7 +902,7 @@ export const Sessions = () => {
       </Grid>
 
       <SessionFormDialog
-        open={dialogOpen}
+        open={sessionFormDialog.open}
         editingSession={editingSession}
         editingGroupSessionId={editingGroupSessionId}
         students={students}
@@ -1036,7 +912,11 @@ export const Sessions = () => {
         studentSearch={studentSearch}
         onClose={handleCloseDialog}
         onSave={handleSave}
-        onFormDataChange={(updates) => setFormData({ ...formData, ...updates })}
+        onFormDataChange={(updates) => {
+          Object.entries(updates).forEach(([key, value]) => {
+            updateFormField(key as keyof typeof formData, value);
+          });
+        }}
         onStudentSearchChange={setStudentSearch}
         onStudentToggle={handleStudentToggle}
         onGoalToggle={handleGoalToggle}
@@ -1048,14 +928,14 @@ export const Sessions = () => {
       />
 
       <SessionPlanDialog
-        open={sessionPlanDialogOpen}
-        onClose={() => setSessionPlanDialogOpen(false)}
+        open={sessionPlanDialog.open}
+        onClose={sessionPlanDialog.closeDialog}
         students={students}
-        planStudentId={planStudentId}
-        sessionPlan={sessionPlan}
-        sessionPlanError={sessionPlanError}
-        loadingSessionPlan={loadingSessionPlan}
-        onStudentChange={setPlanStudentId}
+        planStudentId={sessionPlanning.planStudentId}
+        sessionPlan={sessionPlanning.sessionPlan}
+        sessionPlanError={sessionPlanning.error}
+        loadingSessionPlan={sessionPlanning.loading}
+        onStudentChange={sessionPlanning.setPlanStudentId}
         onGenerate={handleGenerateSessionPlan}
       />
 
@@ -1082,20 +962,7 @@ export const Sessions = () => {
       })()}
       <ConfirmDialog />
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity || 'success'}
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+      <SnackbarComponent />
     </Box>
   );
 };

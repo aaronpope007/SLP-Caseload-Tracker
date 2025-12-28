@@ -24,16 +24,12 @@ import {
 import type { Student, Goal, Session } from '../types';
 import {
   getStudents,
-  getGoalsByStudent,
-  addGoal,
-  updateGoal,
-  deleteGoal,
   getSessionsByStudent,
   getGoals,
 } from '../utils/storage-api';
 import { generateId } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
-import { useConfirm } from '../hooks/useConfirm';
+import { useConfirm, useSnackbar, useGoalManagement, useGoalForm, useAIFeatures, useDialog } from '../hooks';
 import { useDirty } from '../hooks/useDirty';
 import {
   generateGoalSuggestions,
@@ -62,83 +58,68 @@ export const StudentDetail = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { selectedSchool } = useSchool();
   const [student, setStudent] = useState<Student | null>(null);
-  const [goals, setGoals] = useState<Goal[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
-
-  const [formData, setFormData] = useState({
-    description: '',
-    baseline: '',
-    target: '',
-    status: 'in-progress' as 'in-progress' | 'achieved' | 'modified',
-    domain: '',
-    priority: 'medium' as 'high' | 'medium' | 'low',
-    parentGoalId: '',
-  });
-  const [initialFormData, setInitialFormData] = useState(formData);
   const { confirm, ConfirmDialog } = useConfirm();
+  const { showSnackbar, SnackbarComponent } = useSnackbar();
+  
+  // Goal management hook
+  const {
+    goals,
+    loadGoals,
+    createGoal,
+    updateGoal: updateGoalById,
+    deleteGoal: removeGoal,
+  } = useGoalManagement({
+    studentId: id || '',
+    school: selectedSchool,
+  });
 
-  // Check if form is dirty
-  const isFormDirty = () => {
-    if (!dialogOpen) return false;
-    return (
-      formData.description !== initialFormData.description ||
-      formData.baseline !== initialFormData.baseline ||
-      formData.target !== initialFormData.target ||
-      formData.status !== initialFormData.status ||
-      formData.domain !== initialFormData.domain ||
-      formData.priority !== initialFormData.priority ||
-      formData.parentGoalId !== initialFormData.parentGoalId
-    );
-  };
+  // Goal form hook
+  const {
+    formData,
+    editingGoal,
+    isDirty,
+    initializeForm,
+    updateFormField,
+    resetForm,
+  } = useGoalForm();
+
+  // Dialog management
+  const goalFormDialog = useDialog();
+  const templateDialog = useDialog();
+  const copySubtreeDialog = useDialog();
+  const quickGoalsDialog = useDialog();
+  const goalSuggestionsDialog = useDialog();
+  const treatmentRecsDialog = useDialog();
+  const iepGoalsDialog = useDialog();
 
   // Use dirty hook to block navigation
   const { blocker, reset: resetDirty } = useDirty({
-    isDirty: isFormDirty(),
+    isDirty: goalFormDialog.open && isDirty(),
     message: 'You have unsaved changes to this goal. Are you sure you want to leave?',
   });
   
   // Goal template selection
-  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<typeof goalTemplates[0] | null>(null);
   const [templateFilterDomain, setTemplateFilterDomain] = useState<string>('');
   const [showRecommendedTemplates, setShowRecommendedTemplates] = useState(true);
 
   // Copy subtree dialog state
-  const [copySubtreeDialogOpen, setCopySubtreeDialogOpen] = useState(false);
   const [goalToCopySubtree, setGoalToCopySubtree] = useState<Goal | null>(null);
 
   // Quick goals dialog state
-  const [quickGoalsDialogOpen, setQuickGoalsDialogOpen] = useState(false);
   const [quickSubGoalParentId, setQuickSubGoalParentId] = useState<string | undefined>(undefined);
   const [quickSubGoalParentDomain, setQuickSubGoalParentDomain] = useState<string | undefined>(undefined);
   const [quickSubGoalParentTarget, setQuickSubGoalParentTarget] = useState<string | undefined>(undefined);
-  
-  // Snackbar state
-  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity?: 'success' | 'error' | 'info' | 'warning' }>({
-    open: false,
-    message: '',
-    severity: 'success',
+
+  // AI Features Hook
+  const apiKey = localStorage.getItem('gemini_api_key') || '';
+  const aiFeatures = useAIFeatures({
+    apiKey,
+    studentName: student?.name || '',
+    studentAge: student?.age || 0,
+    studentGrade: student?.grade || '',
   });
-
-  // AI Features State
-  const [goalSuggestionsDialogOpen, setGoalSuggestionsDialogOpen] = useState(false);
-  const [goalArea, setGoalArea] = useState('');
-  const [goalSuggestions, setGoalSuggestions] = useState('');
-  const [loadingGoalSuggestions, setLoadingGoalSuggestions] = useState(false);
-  const [goalSuggestionsError, setGoalSuggestionsError] = useState('');
-
-  const [treatmentRecsDialogOpen, setTreatmentRecsDialogOpen] = useState(false);
-  const [treatmentRecommendations, setTreatmentRecommendations] = useState('');
-  const [loadingTreatmentRecs, setLoadingTreatmentRecs] = useState(false);
-  const [treatmentRecsError, setTreatmentRecsError] = useState('');
-
-  const [iepGoalsDialogOpen, setIepGoalsDialogOpen] = useState(false);
-  const [assessmentData, setAssessmentData] = useState('');
-  const [iepGoals, setIepGoals] = useState('');
-  const [loadingIepGoals, setLoadingIepGoals] = useState(false);
-  const [iepGoalsError, setIepGoalsError] = useState('');
 
   useEffect(() => {
     if (id) {
@@ -152,67 +133,27 @@ export const StudentDetail = () => {
   // Check for addGoal query parameter and open dialog
   useEffect(() => {
     const addGoalParam = searchParams.get('addGoal');
-    if (addGoalParam === 'true' && student && goals.length === 0 && !dialogOpen) {
-      // Open the add goal dialog
-      setEditingGoal(null);
-      setFormData({
-        description: '',
-        baseline: '',
-        target: '',
-        status: 'in-progress',
-        domain: '',
-        priority: 'medium',
-        parentGoalId: '',
-      });
-      setInitialFormData({
-        description: '',
-        baseline: '',
-        target: '',
-        status: 'in-progress',
-        domain: '',
-        priority: 'medium',
-        parentGoalId: '',
-      });
+    if (addGoalParam === 'true' && student && goals.length === 0 && !goalFormDialog.open) {
+      initializeForm();
       setSelectedTemplate(null);
-      setDialogOpen(true);
-      // Remove the query parameter from URL
+      goalFormDialog.openDialog();
       setSearchParams({}, { replace: true });
     }
-  }, [searchParams, student, goals.length, dialogOpen, setSearchParams]);
+  }, [searchParams, student, goals.length, goalFormDialog.open, setSearchParams, initializeForm, goalFormDialog]);
 
   // Check for goalId query parameter and open edit dialog for that goal
   useEffect(() => {
     const goalIdParam = searchParams.get('goalId');
-    if (goalIdParam && student && goals.length > 0 && !dialogOpen) {
+    if (goalIdParam && student && goals.length > 0 && !goalFormDialog.open) {
       const goalToEdit = goals.find(g => g.id === goalIdParam);
       if (goalToEdit) {
-        // Open the edit goal dialog
-        setEditingGoal(goalToEdit);
-        setFormData({
-          description: goalToEdit.description,
-          baseline: goalToEdit.baseline,
-          target: goalToEdit.target,
-          status: goalToEdit.status,
-          domain: goalToEdit.domain || '',
-          priority: goalToEdit.priority || 'medium',
-          parentGoalId: goalToEdit.parentGoalId || '',
-        });
-        setInitialFormData({
-          description: goalToEdit.description,
-          baseline: goalToEdit.baseline,
-          target: goalToEdit.target,
-          status: goalToEdit.status,
-          domain: goalToEdit.domain || '',
-          priority: goalToEdit.priority || 'medium',
-          parentGoalId: goalToEdit.parentGoalId || '',
-        });
+        initializeForm(goalToEdit);
         setSelectedTemplate(null);
-        setDialogOpen(true);
-        // Remove the query parameter from URL
+        goalFormDialog.openDialog();
         setSearchParams({}, { replace: true });
       }
     }
-  }, [searchParams, student, goals.length, dialogOpen, setSearchParams, goals]);
+  }, [searchParams, student, goals.length, goalFormDialog.open, setSearchParams, goals, initializeForm, goalFormDialog]);
 
 
   const loadStudent = async () => {
@@ -227,16 +168,7 @@ export const StudentDetail = () => {
     }
   };
 
-  const loadGoals = async () => {
-    if (id) {
-      try {
-        const goals = await getGoalsByStudent(id, selectedSchool);
-        setGoals(goals);
-      } catch (error) {
-        logError('Failed to load goals', error);
-      }
-    }
-  };
+  // loadGoals is now provided by useGoalManagement hook
 
   const loadSessions = async () => {
     if (id) {
@@ -275,72 +207,28 @@ export const StudentDetail = () => {
   };
 
   const handleOpenDialog = (goal?: Goal, parentGoalId?: string) => {
-    let newFormData: {
-      description: string;
-      baseline: string;
-      target: string;
-      status: 'in-progress' | 'achieved' | 'modified';
-      domain: string;
-      priority: 'high' | 'medium' | 'low';
-      parentGoalId: string;
-    };
-    if (goal) {
-      setEditingGoal(goal);
-      newFormData = {
-        description: goal.description,
-        baseline: goal.baseline,
-        target: goal.target,
-        status: goal.status,
-        domain: goal.domain || '',
-        priority: goal.priority || 'medium',
-        parentGoalId: goal.parentGoalId || '',
-      };
-    } else {
-      setEditingGoal(null);
-      // If creating a sub-goal, inherit domain, priority, and target (accuracy) from parent
-      let inheritedDomain = '';
-      let inheritedPriority: 'high' | 'medium' | 'low' = 'medium';
-      let inheritedTarget = '';
-      if (parentGoalId) {
-        const parentGoal = goals.find(g => g.id === parentGoalId);
-        if (parentGoal) {
-          inheritedDomain = parentGoal.domain || '';
-          inheritedPriority = parentGoal.priority || 'medium';
-          inheritedTarget = parentGoal.target || '';
-        }
-      }
-      newFormData = {
-        description: '',
-        baseline: '',
-        target: inheritedTarget,
-        status: 'in-progress',
-        domain: inheritedDomain,
-        priority: inheritedPriority,
-        parentGoalId: parentGoalId || '',
-      };
-    }
-    setFormData(newFormData);
-    setInitialFormData(newFormData);
+    const parentGoal = parentGoalId ? goals.find(g => g.id === parentGoalId) : undefined;
+    initializeForm(goal, parentGoal);
     setSelectedTemplate(null);
-    setDialogOpen(true);
+    goalFormDialog.openDialog();
   };
 
   const handleCloseDialog = () => {
-    if (isFormDirty()) {
+    if (isDirty()) {
       confirm({
         title: 'Unsaved Changes',
         message: 'You have unsaved changes to this goal. Are you sure you want to close?',
         confirmText: 'Discard Changes',
         cancelText: 'Cancel',
         onConfirm: () => {
-          setDialogOpen(false);
-          setEditingGoal(null);
+          goalFormDialog.closeDialog();
+          resetForm();
           resetDirty();
         },
       });
     } else {
-      setDialogOpen(false);
-      setEditingGoal(null);
+      goalFormDialog.closeDialog();
+      resetForm();
       resetDirty();
     }
   };
@@ -378,7 +266,7 @@ export const StudentDetail = () => {
       }
 
       if (editingGoal) {
-        await updateGoal(editingGoal.id, goalData);
+        await updateGoalById(editingGoal.id, goalData);
         
         // If this goal now has a parent, update parent's subGoalIds
         if (goalData.parentGoalId) {
@@ -387,68 +275,47 @@ export const StudentDetail = () => {
           if (parent) {
             const subGoalIds = parent.subGoalIds || [];
             if (!subGoalIds.includes(editingGoal.id)) {
-              await updateGoal(parent.id, { subGoalIds: [...subGoalIds, editingGoal.id] });
+              await updateGoalById(parent.id, { subGoalIds: [...subGoalIds, editingGoal.id] });
             }
           }
         }
-        setSnackbar({
-          open: true,
-          message: 'Goal updated successfully',
-          severity: 'success',
-        });
+        showSnackbar('Goal updated successfully', 'success');
       } else {
-        const newGoal: Goal = {
-          id: generateId(),
+        const newGoal = await createGoal({
+          ...goalData,
           studentId: id,
-          description: formData.description,
-          baseline: formData.baseline,
-          target: formData.target,
-          status: formData.status,
           dateCreated: new Date().toISOString(),
-          dateAchieved: formData.status === 'achieved' ? new Date().toISOString() : undefined,
-          domain: formData.domain || undefined,
-          priority: formData.priority,
-          parentGoalId: formData.parentGoalId || undefined,
-          templateId: selectedTemplate?.id || undefined,
-        };
-        await addGoal(newGoal);
+        } as Goal);
         
         // If this is a sub-goal, update parent's subGoalIds
-        if (newGoal.parentGoalId) {
+        if (newGoal && newGoal.parentGoalId) {
           const allGoals = await getGoals();
           const parent = allGoals.find(g => g.id === newGoal.parentGoalId);
           if (parent) {
             const subGoalIds = parent.subGoalIds || [];
-            await updateGoal(parent.id, { subGoalIds: [...subGoalIds, newGoal.id] });
+            await updateGoalById(parent.id, { subGoalIds: [...subGoalIds, newGoal.id] });
           }
         }
-        setSnackbar({
-          open: true,
-          message: 'Goal created successfully',
-          severity: 'success',
-        });
+        showSnackbar('Goal created successfully', 'success');
       }
       await loadGoals();
-      await loadSessions(); // Reload sessions after goal changes
+      await loadSessions();
       resetDirty();
-      setDialogOpen(false);
-      setEditingGoal(null);
+      goalFormDialog.closeDialog();
+      resetForm();
     } catch (error) {
       logError('Failed to save goal', error);
-      alert('Failed to save goal. Please try again.');
+      showSnackbar('Failed to save goal. Please try again.', 'error');
     }
   };
 
   const handleUseTemplate = (template: typeof goalTemplates[0]) => {
     setSelectedTemplate(template);
-    setFormData({
-      ...formData,
-      description: template.description,
-      baseline: template.suggestedBaseline || '',
-      target: template.suggestedTarget || '',
-      domain: template.domain,
-    });
-    setTemplateDialogOpen(false);
+    updateFormField('description', template.description);
+    updateFormField('baseline', template.suggestedBaseline || '');
+    updateFormField('target', template.suggestedTarget || '');
+    updateFormField('domain', template.domain);
+    templateDialog.closeDialog();
   };
 
   const handleDelete = (goalId: string) => {
@@ -459,17 +326,13 @@ export const StudentDetail = () => {
       cancelText: 'Cancel',
       onConfirm: async () => {
         try {
-          await deleteGoal(goalId);
+          await removeGoal(goalId);
           await loadGoals();
-          await loadSessions(); // Reload sessions after goal deletion
-          setSnackbar({
-            open: true,
-            message: 'Goal deleted successfully',
-            severity: 'success',
-          });
+          await loadSessions();
+          showSnackbar('Goal deleted successfully', 'success');
         } catch (error) {
           logError('Failed to delete goal', error);
-          alert('Failed to delete goal. Please try again.');
+          showSnackbar('Failed to delete goal. Please try again.', 'error');
         }
       },
     });
@@ -477,45 +340,37 @@ export const StudentDetail = () => {
 
   const handleDuplicateSubGoal = (subGoal: Goal) => {
     // Duplicate the sub-goal by pre-filling the form with its data
-    // This opens the dialog as a new goal (not editing), so user can edit before saving
-    const newFormData = {
-      description: subGoal.description,
-      baseline: subGoal.baseline,
-      target: subGoal.target,
-      status: subGoal.status as 'in-progress' | 'achieved' | 'modified',
-      domain: subGoal.domain || '',
-      priority: subGoal.priority || 'medium',
-      parentGoalId: subGoal.parentGoalId || '', // Keep the same parent
-    };
-    setFormData(newFormData);
-    setInitialFormData(newFormData);
-    setEditingGoal(null); // Set to null so it's treated as a new goal
+    const parentGoal = subGoal.parentGoalId ? goals.find(g => g.id === subGoal.parentGoalId) : undefined;
+    initializeForm(undefined, parentGoal);
+    // Override with subGoal data
+    updateFormField('description', subGoal.description);
+    updateFormField('baseline', subGoal.baseline);
+    updateFormField('target', subGoal.target);
+    updateFormField('status', subGoal.status as 'in-progress' | 'achieved' | 'modified');
+    updateFormField('domain', subGoal.domain || '');
+    updateFormField('priority', subGoal.priority || 'medium');
     setSelectedTemplate(null);
-    setDialogOpen(true);
+    goalFormDialog.openDialog();
   };
 
   const handleCopyMainGoalToSubGoal = (mainGoal: Goal) => {
-    // Copy the main goal by pre-filling the form with its data
-    // This opens the dialog as a new sub-goal (with the main goal as parent)
-    const newFormData = {
-      description: mainGoal.description,
-      baseline: mainGoal.baseline,
-      target: mainGoal.target,
-      status: mainGoal.status as 'in-progress' | 'achieved' | 'modified',
-      domain: mainGoal.domain || '',
-      priority: mainGoal.priority || 'medium',
-      parentGoalId: mainGoal.id, // Set the main goal as the parent
-    };
-    setFormData(newFormData);
-    setInitialFormData(newFormData);
-    setEditingGoal(null); // Set to null so it's treated as a new goal
+    // Copy the main goal as a new sub-goal with the main goal as parent
+    initializeForm(undefined, mainGoal);
+    // Override with mainGoal data
+    updateFormField('description', mainGoal.description);
+    updateFormField('baseline', mainGoal.baseline);
+    updateFormField('target', mainGoal.target);
+    updateFormField('status', mainGoal.status as 'in-progress' | 'achieved' | 'modified');
+    updateFormField('domain', mainGoal.domain || '');
+    updateFormField('priority', mainGoal.priority || 'medium');
+    updateFormField('parentGoalId', mainGoal.id);
     setSelectedTemplate(null);
-    setDialogOpen(true);
+    goalFormDialog.openDialog();
   };
 
   const handleCopySubtree = (goal: Goal) => {
     setGoalToCopySubtree(goal);
-    setCopySubtreeDialogOpen(true);
+    copySubtreeDialog.openDialog();
   };
 
   const handleConfirmCopySubtree = async (replacements: Array<{ from: string; to: string }>) => {
@@ -552,7 +407,7 @@ export const StudentDetail = () => {
       // Save all new goals first
       for (const newGoal of newGoals) {
         try {
-          await addGoal(newGoal);
+          await createGoal(newGoal);
         } catch (error) {
           logError(`Failed to add goal ${newGoal.id}`, error);
           throw new Error(`Failed to add goal: ${error instanceof Error ? error.message : String(error)}`);
@@ -583,7 +438,7 @@ export const StudentDetail = () => {
           if (idsToAdd.length > 0) {
             const updatedSubGoalIds = [...existingSubGoalIds, ...idsToAdd];
             try {
-              await updateGoal(parent.id, { subGoalIds: updatedSubGoalIds });
+              await updateGoalById(parent.id, { subGoalIds: updatedSubGoalIds });
             } catch (error) {
               logError(`Failed to update parent goal ${parent.id}`, error);
               throw new Error(`Failed to update parent goal: ${error instanceof Error ? error.message : String(error)}`);
@@ -596,15 +451,11 @@ export const StudentDetail = () => {
       await loadGoals();
       await loadSessions();
       
-      setCopySubtreeDialogOpen(false);
+      copySubtreeDialog.closeDialog();
       setGoalToCopySubtree(null);
       
       // Show success message
-      setSnackbar({
-        open: true,
-        message: `Successfully copied ${newGoals.length} goal(s) with replacements applied.`,
-        severity: 'success',
-      });
+      showSnackbar(`Successfully copied ${newGoals.length} goal(s) with replacements applied.`, 'success');
     } catch (error) {
       logError('Failed to copy subtree', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -612,47 +463,13 @@ export const StudentDetail = () => {
     }
   };
 
-  // AI Feature Handlers
-  const handleGenerateGoalSuggestions = async () => {
-    if (!goalArea.trim()) {
-      setGoalSuggestionsError('Please enter a goal area');
-      return;
-    }
-
-    const apiKey = localStorage.getItem('gemini_api_key');
-    if (!apiKey) {
-      setGoalSuggestionsError('Please set your Gemini API key in Settings');
-      return;
-    }
-
-    setLoadingGoalSuggestions(true);
-    setGoalSuggestionsError('');
-
-    try {
-      const suggestions = await generateGoalSuggestions(
-        apiKey,
-        goalArea,
-        student?.age || 0,
-        student?.grade || '',
-        student?.concerns || []
-      );
-      setGoalSuggestions(suggestions);
-    } catch (err) {
-      setGoalSuggestionsError(err instanceof Error ? err.message : 'Failed to generate goal suggestions');
-    } finally {
-      setLoadingGoalSuggestions(false);
-    }
-  };
-
+  // AI Feature Handlers - now using useAIFeatures hook
+  // Treatment recommendations need session data, so we'll handle it inline
   const handleGenerateTreatmentRecommendations = async () => {
-    const apiKey = localStorage.getItem('gemini_api_key');
     if (!apiKey) {
-      setTreatmentRecsError('Please set your Gemini API key in Settings');
+      aiFeatures.setTreatmentRecsError('Please set your Gemini API key in Settings');
       return;
     }
-
-    setLoadingTreatmentRecs(true);
-    setTreatmentRecsError('');
 
     try {
       // Convert goals to GoalProgressData format
@@ -692,56 +509,9 @@ export const StudentDetail = () => {
         };
       });
 
-      const recentSessions = studentSessions.slice(0, 5).map(s => ({
-        date: s.date,
-        performanceData: s.performanceData,
-        notes: s.notes,
-      }));
-
-      const recommendations = await generateTreatmentRecommendations(
-        apiKey,
-        student?.name || '',
-        student?.age || 0,
-        goalProgressData,
-        recentSessions
-      );
-      setTreatmentRecommendations(recommendations);
+      await aiFeatures.generateTreatmentRecs(goalProgressData);
     } catch (err) {
-      setTreatmentRecsError(err instanceof Error ? err.message : 'Failed to generate treatment recommendations');
-    } finally {
-      setLoadingTreatmentRecs(false);
-    }
-  };
-
-  const handleGenerateIEPGoals = async () => {
-    if (!assessmentData.trim()) {
-      setIepGoalsError('Please enter assessment data');
-      return;
-    }
-
-    const apiKey = localStorage.getItem('gemini_api_key');
-    if (!apiKey) {
-      setIepGoalsError('Please set your Gemini API key in Settings');
-      return;
-    }
-
-    setLoadingIepGoals(true);
-    setIepGoalsError('');
-
-    try {
-      const iepGoalsResult = await generateIEPGoals(
-        apiKey,
-        student?.name || '',
-        student?.age || 0,
-        student?.grade || '',
-        assessmentData,
-        student?.concerns || []
-      );
-      setIepGoals(iepGoalsResult);
-    } catch (err) {
-      setIepGoalsError(err instanceof Error ? err.message : 'Failed to generate IEP goals');
-    } finally {
-      setLoadingIepGoals(false);
+      aiFeatures.setTreatmentRecsError(err instanceof Error ? err.message : 'Failed to generate treatment recommendations');
     }
   };
 
@@ -778,16 +548,16 @@ export const StudentDetail = () => {
 
       <GoalActionsBar
         onAddGoal={() => handleOpenDialog()}
-        onQuickGoal={() => setQuickGoalsDialogOpen(true)}
+        onQuickGoal={() => quickGoalsDialog.openDialog()}
         onGenerateIEPGoals={() => {
-          setAssessmentData('');
-          setIepGoals('');
-          setIepGoalsDialogOpen(true);
+          aiFeatures.setAssessmentData('');
+          aiFeatures.setIepGoals('');
+          iepGoalsDialog.openDialog();
         }}
-        onGenerateTreatmentRecommendations={() => {
-          setTreatmentRecommendations('');
-          handleGenerateTreatmentRecommendations();
-          setTreatmentRecsDialogOpen(true);
+        onGenerateTreatmentRecommendations={async () => {
+          aiFeatures.setTreatmentRecommendations('');
+          await handleGenerateTreatmentRecommendations();
+          treatmentRecsDialog.openDialog();
         }}
         hasGoals={goals.length > 0}
       />
@@ -805,7 +575,7 @@ export const StudentDetail = () => {
             setQuickSubGoalParentId(parentId);
             setQuickSubGoalParentDomain(parentGoal?.domain);
             setQuickSubGoalParentTarget(parentGoal?.target);
-            setQuickGoalsDialogOpen(true);
+            quickGoalsDialog.openDialog();
           }}
           onEditSubGoal={handleOpenDialog}
           onDuplicateSubGoal={handleDuplicateSubGoal}
@@ -814,81 +584,84 @@ export const StudentDetail = () => {
       </Grid>
 
       <GoalFormDialog
-        open={dialogOpen}
+        open={goalFormDialog.open}
         editingGoal={editingGoal}
         formData={formData}
         allGoals={goals}
         selectedTemplate={selectedTemplate}
         onClose={handleCloseDialog}
         onSave={handleSave}
-        onFormDataChange={(data) => setFormData({ ...formData, ...data })}
+        onFormDataChange={(data) => {
+          Object.entries(data).forEach(([key, value]) => {
+            updateFormField(key as keyof typeof formData, value);
+          });
+        }}
         onOpenGoalSuggestions={() => {
-          setGoalArea(formData.description || '');
-          setGoalSuggestions('');
-          setGoalSuggestionsError('');
-          setGoalSuggestionsDialogOpen(true);
+          aiFeatures.setGoalArea(formData.description || '');
+          aiFeatures.setGoalSuggestions('');
+          goalSuggestionsDialog.openDialog();
         }}
       />
 
       <GoalSuggestionsDialog
-        open={goalSuggestionsDialogOpen}
-        goalArea={goalArea}
-        goalSuggestions={goalSuggestions}
-        loading={loadingGoalSuggestions}
-        error={goalSuggestionsError}
-        onClose={() => setGoalSuggestionsDialogOpen(false)}
-        onGoalAreaChange={setGoalArea}
-        onGenerate={handleGenerateGoalSuggestions}
+        open={goalSuggestionsDialog.open}
+        goalArea={aiFeatures.goalArea}
+        goalSuggestions={aiFeatures.goalSuggestions}
+        loading={aiFeatures.loadingGoalSuggestions}
+        error={aiFeatures.goalSuggestionsError}
+        onClose={goalSuggestionsDialog.closeDialog}
+        onGoalAreaChange={aiFeatures.setGoalArea}
+        onGenerate={aiFeatures.generateSuggestions}
       />
 
       <TreatmentRecommendationsDialog
-        open={treatmentRecsDialogOpen}
-        recommendations={treatmentRecommendations}
-        loading={loadingTreatmentRecs}
-        error={treatmentRecsError}
-        onClose={() => setTreatmentRecsDialogOpen(false)}
+        open={treatmentRecsDialog.open}
+        recommendations={aiFeatures.treatmentRecommendations}
+        loading={aiFeatures.loadingTreatmentRecs}
+        error={aiFeatures.treatmentRecsError}
+        onClose={treatmentRecsDialog.closeDialog}
       />
 
       <IEPGoalsDialog
-        open={iepGoalsDialogOpen}
-        assessmentData={assessmentData}
-        iepGoals={iepGoals}
-        loading={loadingIepGoals}
-        error={iepGoalsError}
-        onClose={() => setIepGoalsDialogOpen(false)}
-        onAssessmentDataChange={setAssessmentData}
-        onGenerate={handleGenerateIEPGoals}
+        open={iepGoalsDialog.open}
+        assessmentData={aiFeatures.assessmentData}
+        iepGoals={aiFeatures.iepGoals}
+        loading={aiFeatures.loadingIepGoals}
+        error={aiFeatures.iepGoalsError}
+        onClose={iepGoalsDialog.closeDialog}
+        onAssessmentDataChange={aiFeatures.setAssessmentData}
+        onGenerate={aiFeatures.generateIEPGoalsFromAssessment}
       />
 
       <GoalTemplateDialog
-        open={templateDialogOpen}
+        open={templateDialog.open}
         student={student}
         filterDomain={templateFilterDomain}
         showRecommendedTemplates={showRecommendedTemplates}
-        onClose={() => setTemplateDialogOpen(false)}
+        onClose={templateDialog.closeDialog}
         onFilterDomainChange={setTemplateFilterDomain}
         onShowRecommendedTemplatesChange={setShowRecommendedTemplates}
         onUseTemplate={handleUseTemplate}
       />
 
       <CopySubtreeDialog
-        open={copySubtreeDialogOpen}
+        open={copySubtreeDialog.open}
         goal={goalToCopySubtree}
         onClose={() => {
-          setCopySubtreeDialogOpen(false);
+          copySubtreeDialog.closeDialog();
           setGoalToCopySubtree(null);
         }}
         onConfirm={handleConfirmCopySubtree}
       />
 
       <QuickGoalsDialog
-        open={quickGoalsDialogOpen}
+        open={quickGoalsDialog.open}
         studentId={id || ''}
         parentGoalId={quickSubGoalParentId}
         parentGoalDomain={quickSubGoalParentDomain}
         parentGoalTarget={quickSubGoalParentTarget}
         onClose={() => {
-          setQuickGoalsDialogOpen(false);
+          quickGoalsDialog.closeDialog();
           setQuickSubGoalParentId(undefined);
           setQuickSubGoalParentDomain(undefined);
           setQuickSubGoalParentTarget(undefined);
@@ -905,7 +678,7 @@ export const StudentDetail = () => {
             // Save all goals first (they're already in top-down order from the generator)
             for (const goal of newGoals) {
               try {
-                await addGoal(goal);
+                await createGoal(goal);
               } catch (error) {
                 logError(`Failed to add goal ${goal.id}`, error);
                 throw new Error(`Failed to add goal: ${error instanceof Error ? error.message : String(error)}`);
@@ -936,7 +709,7 @@ export const StudentDetail = () => {
                 if (idsToAdd.length > 0) {
                   const updatedSubGoalIds = [...existingSubGoalIds, ...idsToAdd];
                   try {
-                    await updateGoal(parent.id, { subGoalIds: updatedSubGoalIds });
+                    await updateGoalById(parent.id, { subGoalIds: updatedSubGoalIds });
                   } catch (error) {
                     logError(`Failed to update parent goal ${parent.id}`, error);
                     throw new Error(`Failed to update parent goal: ${error instanceof Error ? error.message : String(error)}`);
@@ -949,11 +722,7 @@ export const StudentDetail = () => {
             await loadGoals();
             await loadSessions();
 
-            setSnackbar({
-              open: true,
-              message: `Successfully created ${newGoals.length} goal(s).`,
-              severity: 'success',
-            });
+            showSnackbar(`Successfully created ${newGoals.length} goal(s).`, 'success');
           } catch (error) {
             logError('Failed to create quick goals', error);
             const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -967,20 +736,7 @@ export const StudentDetail = () => {
       <ConfirmDialog />
 
       {/* Snackbar for notifications */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity || 'success'}
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+      <SnackbarComponent />
 
       {/* Navigation blocker confirmation */}
       {blocker.state === 'blocked' && (

@@ -1,10 +1,12 @@
 import { useState, useCallback } from 'react';
-import { Snackbar, Alert, AlertColor } from '@mui/material';
+import { Snackbar, Alert } from '@mui/material';
+
+type Severity = 'success' | 'error' | 'info' | 'warning';
 
 interface SnackbarState {
   open: boolean;
   message: string;
-  severity: AlertColor;
+  severity: Severity;
 }
 
 /**
@@ -29,7 +31,7 @@ export const useSnackbar = () => {
     severity: 'success',
   });
 
-  const showSnackbar = useCallback((message: string, severity: AlertColor = 'success') => {
+  const showSnackbar = useCallback((message: string, severity: Severity = 'success') => {
     setSnackbar({
       open: true,
       message,
