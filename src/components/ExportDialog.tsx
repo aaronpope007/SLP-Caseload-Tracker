@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { logError } from '../utils/logger';
 import {
   Dialog,
   DialogTitle,
@@ -36,7 +37,7 @@ export const ExportDialog = ({ open, onClose, onImportSuccess }: ExportDialogPro
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Failed to export data:', error);
+      logError('Failed to export data', error);
       setImportError('Failed to export data. Please try again.');
     }
   };
@@ -69,7 +70,7 @@ export const ExportDialog = ({ open, onClose, onImportSuccess }: ExportDialogPro
     document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Failed to export CSV:', error);
+      logError('Failed to export CSV', error);
       setImportError('Failed to export CSV. Please try again.');
     }
   };

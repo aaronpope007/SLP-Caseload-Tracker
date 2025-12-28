@@ -32,6 +32,7 @@ import { useDirty } from '../hooks/useDirty';
 import { useSchool } from '../context/SchoolContext';
 import { SearchBar } from '../components/SearchBar';
 import { CaseManagerAccordionCard } from '../components/CaseManagerAccordionCard';
+import { logError, logInfo } from '../utils/logger';
 
 // Format phone number as user types: (XXX) XXX-XXXX
 const formatPhoneNumber = (value: string): string => {
@@ -159,7 +160,7 @@ export const CaseManagers = () => {
       });
       setCaseManagers(sortedCaseManagers);
     } catch (error) {
-      console.error('[CaseManagers] Failed to load case managers:', error);
+      logError('[CaseManagers] Failed to load case managers', error);
     }
   };
 
@@ -287,8 +288,7 @@ export const CaseManagers = () => {
       setDialogOpen(false);
       setEditingCaseManager(null);
     } catch (error: any) {
-      console.error('[CaseManagers] Failed to save case manager:', error);
-      console.error('[CaseManagers] Error details:', {
+      logError('[CaseManagers] Failed to save case manager', error, {
         message: error?.message,
         stack: error?.stack,
         response: error?.response
@@ -337,7 +337,7 @@ export const CaseManagers = () => {
             severity: 'success',
           });
         } catch (error) {
-          console.error('Failed to delete case manager:', error);
+          logError('Failed to delete case manager', error);
           alert('Failed to delete case manager. Please try again.');
         }
       },
@@ -372,10 +372,10 @@ export const CaseManagers = () => {
                   const debugResponse = await fetch('http://localhost:3001/api/case-managers/debug/all');
                   const debugData = await debugResponse.json();
                   if (process.env.NODE_ENV === 'development') {
-                    console.log('[Debug] Current selected school:', selectedSchool);
-                    console.log('[Debug] All case managers (no filter):', all);
-                    console.log('[Debug] Case managers for selected school:', withSchool);
-                    console.log('[Debug] Debug endpoint response:', debugData);
+                    logInfo('[Debug] Current selected school', selectedSchool);
+                    logInfo('[Debug] All case managers (no filter)', all);
+                    logInfo('[Debug] Case managers for selected school', withSchool);
+                    logInfo('[Debug] Debug endpoint response', debugData);
                   }
                   
                   let message = `Found ${all.length} case managers total (no filter).\n`;
@@ -384,11 +384,11 @@ export const CaseManagers = () => {
                   message += `Check browser console (F12) for full details.`;
                   alert(message);
                 } catch (debugError) {
-                  console.error('[Debug] Error calling debug endpoint:', debugError);
+                  logError('[Debug] Error calling debug endpoint', debugError);
                   alert(`Found ${all.length} case managers total. Check console for details.`);
                 }
               } catch (error) {
-                console.error('[Debug] Error loading all case managers:', error);
+                logError('[Debug] Error loading all case managers', error);
                 alert('Error loading case managers. Check console.');
               }
             }}

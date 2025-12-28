@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { logError } from '../utils/logger';
 import {
   Box,
   Button,
@@ -60,7 +61,7 @@ export const TreatmentIdeas = () => {
         new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime()
       ));
     } catch (error) {
-      console.error('Failed to load activities:', error);
+      logError('Failed to load activities', error);
     }
   };
 

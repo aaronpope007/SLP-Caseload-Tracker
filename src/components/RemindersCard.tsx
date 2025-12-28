@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { logError } from '../utils/logger';
 import { useNavigate } from 'react-router-dom';
 import {
   Card,
@@ -87,7 +88,7 @@ export const RemindersCard = ({ maxItems = 5, showViewAll = true }: RemindersCar
         const allReminders = await getReminders(selectedSchool);
         setReminders(allReminders.slice(0, maxItems));
       } catch (error) {
-        console.error('Failed to load reminders:', error);
+        logError('Failed to load reminders', error);
       } finally {
         setLoading(false);
       }

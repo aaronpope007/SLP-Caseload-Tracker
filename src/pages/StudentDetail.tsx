@@ -54,6 +54,7 @@ import { GoalsList } from '../components/GoalsList';
 import { CopySubtreeDialog } from '../components/CopySubtreeDialog';
 import { QuickGoalsDialog } from '../components/QuickGoalsDialog';
 import { copyGoalSubtree } from '../utils/goalSubtreeCopy';
+import { logError } from '../utils/logger';
 
 export const StudentDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -221,7 +222,7 @@ export const StudentDetail = () => {
         const found = students.find((s) => s.id === id);
         setStudent(found || null);
       } catch (error) {
-        console.error('Failed to load student:', error);
+        logError('Failed to load student', error);
       }
     }
   };
@@ -232,7 +233,7 @@ export const StudentDetail = () => {
         const goals = await getGoalsByStudent(id, selectedSchool);
         setGoals(goals);
       } catch (error) {
-        console.error('Failed to load goals:', error);
+        logError('Failed to load goals', error);
       }
     }
   };
@@ -243,7 +244,7 @@ export const StudentDetail = () => {
         const studentSessions = await getSessionsByStudent(id, selectedSchool);
         setSessions(studentSessions);
       } catch (error) {
-        console.error('Failed to load sessions:', error);
+        logError('Failed to load sessions', error);
       }
     }
   };
@@ -433,7 +434,7 @@ export const StudentDetail = () => {
       setDialogOpen(false);
       setEditingGoal(null);
     } catch (error) {
-      console.error('Failed to save goal:', error);
+      logError('Failed to save goal', error);
       alert('Failed to save goal. Please try again.');
     }
   };
@@ -467,7 +468,7 @@ export const StudentDetail = () => {
             severity: 'success',
           });
         } catch (error) {
-          console.error('Failed to delete goal:', error);
+          logError('Failed to delete goal', error);
           alert('Failed to delete goal. Please try again.');
         }
       },
@@ -553,7 +554,7 @@ export const StudentDetail = () => {
         try {
           await addGoal(newGoal);
         } catch (error) {
-          console.error(`Failed to add goal ${newGoal.id}:`, error);
+          logError(`Failed to add goal ${newGoal.id}`, error);
           throw new Error(`Failed to add goal: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
@@ -584,7 +585,7 @@ export const StudentDetail = () => {
             try {
               await updateGoal(parent.id, { subGoalIds: updatedSubGoalIds });
             } catch (error) {
-              console.error(`Failed to update parent goal ${parent.id}:`, error);
+              logError(`Failed to update parent goal ${parent.id}`, error);
               throw new Error(`Failed to update parent goal: ${error instanceof Error ? error.message : String(error)}`);
             }
           }
@@ -605,7 +606,7 @@ export const StudentDetail = () => {
         severity: 'success',
       });
     } catch (error) {
-      console.error('Failed to copy subtree:', error);
+      logError('Failed to copy subtree', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       alert(`Failed to copy subtree: ${errorMessage}. Please check the console for more details.`);
     }
@@ -906,7 +907,7 @@ export const StudentDetail = () => {
               try {
                 await addGoal(goal);
               } catch (error) {
-                console.error(`Failed to add goal ${goal.id}:`, error);
+                logError(`Failed to add goal ${goal.id}`, error);
                 throw new Error(`Failed to add goal: ${error instanceof Error ? error.message : String(error)}`);
               }
             }
@@ -937,7 +938,7 @@ export const StudentDetail = () => {
                   try {
                     await updateGoal(parent.id, { subGoalIds: updatedSubGoalIds });
                   } catch (error) {
-                    console.error(`Failed to update parent goal ${parent.id}:`, error);
+                    logError(`Failed to update parent goal ${parent.id}`, error);
                     throw new Error(`Failed to update parent goal: ${error instanceof Error ? error.message : String(error)}`);
                   }
                 }
@@ -954,7 +955,7 @@ export const StudentDetail = () => {
               severity: 'success',
             });
           } catch (error) {
-            console.error('Failed to create quick goals:', error);
+            logError('Failed to create quick goals', error);
             const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
             alert(`Failed to create quick goals: ${errorMessage}. Please check the console for more details.`);
             throw error; // Re-throw so dialog can handle it

@@ -336,7 +336,7 @@ export const saveCaseManagers = async (caseManagers: CaseManager[]): Promise<voi
       try {
         await api.caseManagers.create(caseManager);
       } catch (error) {
-        console.error(`Failed to save case manager ${caseManager.id}:`, error);
+        logError(`Failed to save case manager ${caseManager.id}`, error);
       }
     }
   }

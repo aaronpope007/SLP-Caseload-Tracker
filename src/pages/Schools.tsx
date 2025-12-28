@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { logError, logWarn } from '../utils/logger';
 import {
   Box,
   Button,
@@ -184,7 +185,7 @@ export const Schools = () => {
             allSchoolObjects = await getSchools();
           } catch (error) {
             // If school creation fails (e.g., duplicate), just continue
-            console.warn(`Failed to create school ${schoolName}:`, error);
+            logWarn(`Failed to create school ${schoolName}`, error);
           }
         }
       }
@@ -197,7 +198,7 @@ export const Schools = () => {
       );
       setSchools(sorted);
     } catch (error) {
-      console.error('Failed to load schools:', error);
+      logError('Failed to load schools', error);
     }
   };
 
@@ -299,7 +300,7 @@ export const Schools = () => {
       await loadSchools();
       handleCloseDialog();
     } catch (error) {
-      console.error('Failed to save school:', error);
+      logError('Failed to save school', error);
       alert(`Failed to save school: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
@@ -322,7 +323,7 @@ export const Schools = () => {
             severity: 'success',
           });
         } catch (error) {
-          console.error('Failed to delete school:', error);
+          logError('Failed to delete school', error);
           alert(`Failed to delete school: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       },

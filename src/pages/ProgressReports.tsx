@@ -44,6 +44,7 @@ import {
 import { formatDate, generateId } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
 import { useConfirm } from '../hooks/useConfirm';
+import { logError } from '../utils/logger';
 
 const getStatusColor = (status: ProgressReport['status']) => {
   switch (status) {
@@ -112,7 +113,7 @@ export const ProgressReports = () => {
       
       setReports(filteredReports);
     } catch (error) {
-      console.error('Failed to load progress reports:', error);
+      logError('Failed to load progress reports', error);
     } finally {
       setLoading(false);
     }
@@ -128,7 +129,7 @@ export const ProgressReports = () => {
       await scheduleProgressReports(undefined, selectedSchool);
       await loadData();
     } catch (error) {
-      console.error('Failed to schedule reports:', error);
+      logError('Failed to schedule reports', error);
       alert('Failed to schedule reports. Please try again.');
     } finally {
       setScheduling(false);
@@ -140,7 +141,7 @@ export const ProgressReports = () => {
       await scheduleProgressReports(studentId, selectedSchool);
       await loadData();
     } catch (error) {
-      console.error('Failed to schedule reports for student:', error);
+      logError('Failed to schedule reports for student', error);
       alert('Failed to schedule reports. Please try again.');
     }
   };
@@ -200,7 +201,7 @@ export const ProgressReports = () => {
         severity: 'success',
       });
     } catch (error) {
-      console.error('Failed to create report:', error);
+      logError('Failed to create report', error);
       alert('Failed to create report. Please try again.');
     }
   };
@@ -210,7 +211,7 @@ export const ProgressReports = () => {
       await completeProgressReport(id);
       await loadData();
     } catch (error) {
-      console.error('Failed to complete report:', error);
+      logError('Failed to complete report', error);
     }
   };
 

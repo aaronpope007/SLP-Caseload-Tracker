@@ -37,6 +37,7 @@ import { formatDate } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { SendEmailDialog } from '../components/SendEmailDialog';
+import { logError, logInfo } from '../utils/logger';
 
 const getContactTypeColor = (type: Communication['contactType']) => {
   switch (type) {
@@ -115,7 +116,7 @@ export const Communications = () => {
       if (contactTypeFilter) filters.contactType = contactTypeFilter;
       if (studentFilter) filters.studentId = studentFilter;
       
-      console.log('Loading communications with filters:', filters);
+      logInfo('Loading communications with filters', filters);
       const allCommunications = await api.communications.getAll(
         filters.studentId,
         filters.contactType,
@@ -128,12 +129,11 @@ export const Communications = () => {
         studentName: c.studentId ? allStudents.find(s => s.id === c.studentId)?.name || 'N/A' : 'N/A',
       }));
       
-      console.log('📋 Loaded communications:', communicationsWithStudentNames);
+      logInfo('📋 Loaded communications', communicationsWithStudentNames);
       
       setCommunications(communicationsWithStudentNames);
     } catch (error: any) {
-      console.error('Failed to load communications:', error);
-      console.error('Error details:', {
+      logError('Failed to load communications', error, {
         message: error?.message,
         stack: error?.stack,
         response: error?.response,
@@ -215,7 +215,7 @@ export const Communications = () => {
       handleCloseDialog();
       loadData();
     } catch (error: any) {
-      console.error('Failed to save communication:', error);
+      logError('Failed to save communication', error);
       setSnackbar({ open: true, message: error.message || 'Failed to save communication', severity: 'error' });
     }
   };
@@ -232,7 +232,7 @@ export const Communications = () => {
         setSnackbar({ open: true, message: 'Communication deleted successfully', severity: 'success' });
         loadData();
       } catch (error: any) {
-        console.error('Failed to delete communication:', error);
+        logError('Failed to delete communication', error);
         setSnackbar({ open: true, message: error.message || 'Failed to delete communication', severity: 'error' });
       }
     }

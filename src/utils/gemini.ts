@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { logError, logInfo } from './logger';
 
 // Helper function to get available models
 async function getAvailableModels(apiKey: string): Promise<string[]> {
@@ -13,7 +14,7 @@ async function getAvailableModels(apiKey: string): Promise<string[]> {
         .map((m) => m.name.replace('models/', ''));
     }
   } catch (e) {
-    console.error('Error fetching available models:', e);
+    logError('Error fetching available models', e);
   }
   return [];
 }
@@ -35,7 +36,7 @@ export const generateTreatmentIdeas = async (
   let availableModels = await getAvailableModels(apiKey);
   
   if (process.env.NODE_ENV === 'development') {
-    console.log('Available models:', availableModels);
+    logInfo('Available models', availableModels);
   }
   
   // If we couldn't get the list, use default model names to try
@@ -68,20 +69,20 @@ Format the response in a clear, easy-to-read way. Make the activities fun and ap
   for (const modelName of availableModels) {
     try {
       if (process.env.NODE_ENV === 'development') {
-        console.log(`Trying model: ${modelName}`);
+        logInfo(`Trying model: ${modelName}`);
       }
       const model = genAI.getGenerativeModel({ model: modelName });
       const result = await model.generateContent(prompt);
       const response = await result.response;
       if (process.env.NODE_ENV === 'development') {
-        console.log(`Success with model: ${modelName}`);
+        logInfo(`Success with model: ${modelName}`);
       }
       return response.text();
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       const errorStatus = (error as { status?: number })?.status;
       if (process.env.NODE_ENV === 'development') {
-        console.log(`Model ${modelName} failed:`, errorMessage);
+        logInfo(`Model ${modelName} failed`, errorMessage);
       }
       lastError = error instanceof Error ? error : new Error(errorMessage);
       
@@ -95,7 +96,7 @@ Format the response in a clear, easy-to-read way. Make the activities fun and ap
   }
 
   // If we get here, all models failed
-  console.error('All models failed. Last error:', lastError);
+  logError('All models failed. Last error', lastError);
   
   // Provide helpful error messages
   const errorMessage = lastError?.message || 'Unknown error';

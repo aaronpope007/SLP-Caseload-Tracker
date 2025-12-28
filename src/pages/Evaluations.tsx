@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { logError } from '../utils/logger';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -351,7 +352,7 @@ export const Evaluations = () => {
             return newRow;
           }}
           onProcessRowUpdateError={(error) => {
-            console.error('Error updating row:', error);
+            logError('Error updating row', error);
           }}
           editMode="cell"
           disableRowSelectionOnClick

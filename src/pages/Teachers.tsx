@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { logError } from '../utils/logger';
 import {
   Box,
   Button,
@@ -158,7 +159,7 @@ export const Teachers = () => {
       });
       setTeachers(sortedTeachers);
     } catch (error) {
-      console.error('Failed to load teachers:', error);
+      logError('Failed to load teachers', error);
     }
   };
 
@@ -279,7 +280,7 @@ export const Teachers = () => {
       setDialogOpen(false);
       setEditingTeacher(null);
     } catch (error: any) {
-      console.error('Failed to save teacher:', error);
+      logError('Failed to save teacher', error);
       const errorMessage = error?.message || 'Unknown error';
       alert(`Failed to save teacher: ${errorMessage}\n\nMake sure the API server is running on http://localhost:3001`);
     }
@@ -324,7 +325,7 @@ export const Teachers = () => {
             severity: 'success',
           });
         } catch (error) {
-          console.error('Failed to delete teacher:', error);
+          logError('Failed to delete teacher', error);
           alert('Failed to delete teacher. Please try again.');
         }
       },

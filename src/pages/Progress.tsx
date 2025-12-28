@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { logError } from '../utils/logger';
 import {
   Box,
   Card,
@@ -86,7 +87,7 @@ export const Progress = () => {
           setSelectedStudentId(allStudents[0].id);
         }
       } catch (error) {
-        console.error('Failed to load students:', error);
+        logError('Failed to load students', error);
       }
     };
     loadStudents();
@@ -182,7 +183,7 @@ export const Progress = () => {
       setCombinedNote('');
       setSelectedGoals(new Set());
     } catch (error) {
-      console.error('Failed to load progress data:', error);
+      logError('Failed to load progress data', error);
     }
   };
 

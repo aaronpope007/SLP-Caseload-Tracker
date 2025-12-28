@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { logError } from '../utils/logger';
 import {
   Box,
   Button,
@@ -163,7 +164,7 @@ export const SessionCalendar = () => {
       const scheduled = await getScheduledSessions(selectedSchool);
       setScheduledSessions(scheduled);
     } catch (error) {
-      console.error('Failed to load data:', error);
+      logError('Failed to load data', error);
     }
   };
 
@@ -1031,7 +1032,7 @@ export const SessionCalendar = () => {
           await loadData();
           handleCloseSessionDialog();
         } catch (error) {
-          console.error('Failed to delete session:', error);
+          logError('Failed to delete session', error);
           alert('Failed to delete session. Please try again.');
         }
       },
@@ -1154,7 +1155,7 @@ export const SessionCalendar = () => {
       await loadData();
       handleCloseSessionDialog();
     } catch (error) {
-      console.error('Failed to save session:', error);
+      logError('Failed to save session', error);
       alert('Failed to save session. Please try again.');
     }
   };

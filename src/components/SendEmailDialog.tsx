@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { logError } from '../utils/logger';
 import {
   Dialog,
   DialogTitle,
@@ -218,9 +219,9 @@ export const SendEmailDialog = ({
         };
 
         await api.communications.create(communicationData);
-      } catch (logError: any) {
+      } catch (loggingError: any) {
         // Don't fail the email send if logging fails, but log the error
-        console.error('Failed to log communication:', logError);
+        logError('Failed to log communication', loggingError);
       }
 
       setSuccess(true);
@@ -233,7 +234,7 @@ export const SendEmailDialog = ({
         onClose();
       }, 1500);
     } catch (err: any) {
-      console.error('Error sending email:', err);
+      logError('Error sending email', err);
       setError(err.message || 'Failed to send email. Please check your email settings and try again.');
     } finally {
       setSending(false);

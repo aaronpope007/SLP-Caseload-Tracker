@@ -1,6 +1,7 @@
 import type { Goal } from '../types';
 import { generateId } from './helpers';
 import { organizeGoalsHierarchy } from './goalHierarchy';
+import { logWarn } from './logger';
 
 /**
  * Recursively collects all goals in a subtree (a goal and all its descendants)
@@ -141,7 +142,7 @@ export async function copyGoalSubtree(
           try {
             subGoalIdsArray = JSON.parse(oldGoal.subGoalIds);
           } catch {
-            console.warn(`Failed to parse subGoalIds for goal ${oldGoal.id}, using empty array`);
+            logWarn(`Failed to parse subGoalIds for goal ${oldGoal.id}, using empty array`);
             subGoalIdsArray = [];
           }
         } else {

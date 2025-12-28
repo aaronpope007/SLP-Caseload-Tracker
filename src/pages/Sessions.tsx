@@ -38,6 +38,7 @@ import type { SOAPNote } from '../types';
 import { getSOAPNotesBySession, addSOAPNote, updateSOAPNote } from '../utils/storage-api';
 import { generateSOAPNote, generateGroupSOAPNote } from '../utils/soapNoteGenerator';
 import { api } from '../utils/api';
+import { logError } from '../utils/logger';
 
 export const Sessions = () => {
   const { selectedSchool } = useSchool();
@@ -120,7 +121,7 @@ export const Sessions = () => {
       const allGoals = await getGoals();
       setGoals(allGoals.filter(g => studentIds.has(g.studentId)));
     } catch (error) {
-      console.error('Failed to load data:', error);
+      logError('Failed to load data', error);
     }
   };
 
@@ -342,7 +343,7 @@ export const Sessions = () => {
             newPlan = lastSession.plan;
           }
         } catch (error) {
-          console.error('Failed to fetch last session plan:', error);
+          logError('Failed to fetch last session plan', error);
         }
       }
     }
@@ -566,7 +567,7 @@ export const Sessions = () => {
             await addSOAPNote(soapNote);
           }
         } catch (error) {
-          console.error('Failed to auto-generate group SOAP note:', error);
+          logError('Failed to auto-generate group SOAP note', error);
           // Don't fail the session save if SOAP note generation fails
         }
       }
@@ -665,7 +666,7 @@ export const Sessions = () => {
                 await addSOAPNote(soapNote);
               }
             } catch (error) {
-              console.error('Failed to auto-generate SOAP note:', error);
+              logError('Failed to auto-generate SOAP note', error);
               // Don't fail the session save if SOAP note generation fails
             }
           }
@@ -703,7 +704,7 @@ export const Sessions = () => {
           
           await addSOAPNote(soapNote);
         } catch (error) {
-          console.error('Failed to auto-generate group SOAP note:', error);
+          logError('Failed to auto-generate group SOAP note', error);
           // Don't fail the session save if SOAP note generation fails
         }
       }
@@ -717,7 +718,7 @@ export const Sessions = () => {
         severity: 'success',
       });
     } catch (error) {
-      console.error('Failed to save session:', error);
+      logError('Failed to save session', error);
       alert('Failed to save session. Please try again.');
     }
   };
@@ -738,7 +739,7 @@ export const Sessions = () => {
             severity: 'success',
           });
         } catch (error) {
-          console.error('Failed to delete session:', error);
+          logError('Failed to delete session', error);
           alert('Failed to delete session. Please try again.');
         }
       },
@@ -806,7 +807,7 @@ export const Sessions = () => {
       }
       setSoapNoteDialogOpen(true);
     } catch (error) {
-      console.error('Failed to fetch latest session:', error);
+      logError('Failed to fetch latest session', error);
       // Fallback to using the session from state or parameter
       const latestSession = sessions.find(s => s.id === session.id) || session;
       setSelectedSessionForSOAP(latestSession);
@@ -831,7 +832,7 @@ export const Sessions = () => {
       setSelectedSessionForSOAP(null);
       setExistingSOAPNote(undefined);
     } catch (error) {
-      console.error('Failed to save SOAP note:', error);
+      logError('Failed to save SOAP note', error);
       alert('Failed to save SOAP note. Please try again.');
     }
   };

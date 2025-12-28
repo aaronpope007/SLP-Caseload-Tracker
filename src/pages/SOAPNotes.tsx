@@ -38,6 +38,7 @@ import {
   getGoals,
 } from '../utils/storage-api';
 import { formatDateTime } from '../utils/helpers';
+import { logError } from '../utils/logger';
 import { SOAPNoteDialog } from '../components/SOAPNoteDialog';
 import { useSchool } from '../context/SchoolContext';
 import { useConfirm } from '../hooks/useConfirm';
@@ -79,7 +80,7 @@ export const SOAPNotes = () => {
       setStudents(allStudents);
       setGoals(allGoals);
     } catch (error) {
-      console.error('Failed to load data:', error);
+      logError('Failed to load data', error);
     }
   };
 
@@ -144,7 +145,7 @@ export const SOAPNotes = () => {
             severity: 'success',
           });
         } catch (error) {
-          console.error('Failed to delete SOAP note:', error);
+          logError('Failed to delete SOAP note', error);
           alert('Failed to delete SOAP note. Please try again.');
         }
       },
@@ -179,7 +180,7 @@ export const SOAPNotes = () => {
       setDialogOpen(false);
       setSelectedNote(null);
     } catch (error) {
-      console.error('Failed to save SOAP note:', error);
+      logError('Failed to save SOAP note', error);
       alert('Failed to save SOAP note. Please try again.');
     }
   };

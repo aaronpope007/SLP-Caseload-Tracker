@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { logError } from '../utils/logger';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -81,7 +82,7 @@ export const Dashboard = () => {
     const items = await getUpcomingDueDateItems(30, selectedSchool);
     setUpcomingItems(items.slice(0, 5));
     } catch (error) {
-      console.error('Failed to load dashboard data:', error);
+      logError('Failed to load dashboard data', error);
     } finally {
       setLoading(false);
     }

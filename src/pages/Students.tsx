@@ -37,6 +37,7 @@ import { useConfirm } from '../hooks/useConfirm';
 import { useDirty } from '../hooks/useDirty';
 import { SearchBar } from '../components/SearchBar';
 import { StudentAccordionCard } from '../components/StudentAccordionCard';
+import { logError, logWarn } from '../utils/logger';
 
 export const Students = () => {
   const navigate = useNavigate();
@@ -148,7 +149,7 @@ export const Students = () => {
       const allTeachers = await getTeachers(selectedSchool);
       setTeachers(allTeachers);
     } catch (error) {
-      console.error('Failed to load teachers:', error);
+      logError('Failed to load teachers', error);
     }
   };
 
@@ -161,13 +162,13 @@ export const Students = () => {
       const allCaseManagers = await getCaseManagers(selectedSchool);
       setCaseManagers(allCaseManagers);
     } catch (error) {
-      console.error('Failed to load case managers:', error);
+      logError('Failed to load case managers', error);
     }
   };
 
   const loadStudents = async () => {
     if (!selectedSchool) {
-      console.warn('No school selected, cannot load students');
+      logWarn('No school selected, cannot load students');
       setStudents([]);
       return;
     }
@@ -180,7 +181,7 @@ export const Students = () => {
       
       // If no students found for this school but students exist, show a warning
       if (process.env.NODE_ENV === 'development' && allStudents.length === 0 && allStudentsUnfiltered.length > 0) {
-        console.warn('⚠️ Students exist but none match the selected school!', {
+        logWarn('⚠️ Students exist but none match the selected school!', {
           selectedSchool,
           availableSchools: [...new Set(allStudentsUnfiltered.map(s => s.school || 'NO SCHOOL'))]
         });
@@ -204,7 +205,7 @@ export const Students = () => {
       }
       setStudentsWithNoGoals(noGoalsSet);
     } catch (error) {
-      console.error('Failed to load students:', error);
+      logError('Failed to load students', error);
     }
   };
 
@@ -375,7 +376,7 @@ export const Students = () => {
       setDialogOpen(false);
       setEditingStudent(null);
     } catch (error: any) {
-      console.error('Failed to save student:', error);
+      logError('Failed to save student', error);
       const errorMessage = error?.message || 'Unknown error';
       alert(`Failed to save student: ${errorMessage}\n\nMake sure the API server is running on http://localhost:3001`);
     }
@@ -398,7 +399,7 @@ export const Students = () => {
             severity: 'success',
           });
         } catch (error) {
-          console.error('Failed to delete student:', error);
+          logError('Failed to delete student', error);
           alert('Failed to delete student. Please try again.');
         }
       },
@@ -422,7 +423,7 @@ export const Students = () => {
           await loadStudents();
           setConfirmDialog({ ...confirmDialog, open: false });
         } catch (error) {
-          console.error('Failed to archive student:', error);
+          logError('Failed to archive student', error);
           alert('Failed to archive student. Please try again.');
         }
       },

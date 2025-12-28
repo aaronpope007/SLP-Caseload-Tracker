@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { getSchools, addSchool as addSchoolStorage, getSchoolByName, type School, getStudents } from '../utils/storage-api';
 import { generateId } from '../utils/helpers';
+import { logError } from '../utils/logger';
 
 const SCHOOL_STORAGE_KEY = 'slp_selected_school';
 const DEFAULT_SCHOOL_NAME = 'Noble Academy';
@@ -67,7 +68,7 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
       const sorted = Array.from(schoolNames).sort();
       setAvailableSchools(sorted);
     } catch (error) {
-      console.error('Error refreshing available schools:', error);
+      logError('Error refreshing available schools', error);
       // Don't clear schools on error, just keep existing state
     } finally {
       isRefreshingRef.current = false;
@@ -160,7 +161,7 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
       await refreshAvailableSchools();
       setSelectedSchool(trimmedName);
     } catch (error) {
-      console.error('Error adding school:', error);
+      logError('Error adding school', error);
     }
   };
 

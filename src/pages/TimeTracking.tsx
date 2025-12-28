@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { logError } from '../utils/logger';
 import {
   Box,
   Card,
@@ -100,7 +101,7 @@ export const TimeTracking = () => {
       const allCommunications = await api.communications.getAll(undefined, undefined, selectedSchool);
       setCommunications(allCommunications);
     } catch (error) {
-      console.error('Failed to fetch communications:', error);
+      logError('Failed to fetch communications', error);
       setCommunications([]);
     }
   };

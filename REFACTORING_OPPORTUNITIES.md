@@ -57,31 +57,15 @@ The following improvements have been implemented:
 
 ## 🗑️ Dead/Unused Code
 
-### 1. Legacy Storage Files
-The app has migrated to an API backend, but old localStorage-based files remain:
+### 1. Legacy Storage Files ✅ ALL COMPLETED
+The app has migrated to an API backend, and all legacy files have been removed:
 
-- **`src/utils/storage.ts`** (433 lines) - Legacy localStorage implementation
-  - Status: **PARTIALLY USED** - Still imported by 2 files:
-    - `src/components/EmailTeacherDialog.tsx` - uses `getScheduledSessions`
-    - `src/pages/SessionCalendar.tsx` - uses scheduled session functions
-  - **Issue:** Scheduled sessions are not yet migrated to API backend
-  - Action: 
-    1. Create API endpoints for scheduled sessions
-    2. Migrate `EmailTeacherDialog.tsx` and `SessionCalendar.tsx` to use API
-    3. Then remove `storage.ts`
+- ✅ **`src/utils/storage.ts`** - **REMOVED** - Fully migrated to API, deleted in commit 25688d0
+- ✅ **`src/hooks/useStorageSync.ts`** - **REMOVED** - Deleted as dead code
+- ✅ **`src/utils/storageSync.ts`** - **REMOVED** - Deleted as dead code
+- ✅ **`src/main-simple.tsx`** - **REMOVED** - Deleted as test/debug file
 
-- **`src/hooks/useStorageSync.ts`** (30 lines) - Cross-tab sync hook
-  - Status: **UNUSED** - Defined but never imported anywhere
-  - Action: Safe to remove
-
-- **`src/utils/storageSync.ts`** (107 lines) - Cross-tab synchronization
-  - Status: **UNUSED** - Only used by `useStorageSync.ts` which is itself unused
-  - Action: Safe to remove
-
-### 2. Test/Debug Files
-- **`src/main-simple.tsx`** - Simple test file
-  - Status: Appears to be a debugging file
-  - Action: Remove or move to test directory
+**Status:** All scheduled sessions now use API endpoints. All legacy localStorage code removed.
 
 ## 🔄 Code Duplication
 

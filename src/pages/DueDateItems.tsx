@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { logError } from '../utils/logger';
 import {
   Box,
   Button,
@@ -115,7 +116,7 @@ export const DueDateItems = () => {
       
       setItems(allItems);
     } catch (error) {
-      console.error('Failed to load due date items:', error);
+      logError('Failed to load due date items', error);
     }
   }, [selectedSchool, statusFilter, studentFilter, categoryFilter]);
 
@@ -206,7 +207,7 @@ export const DueDateItems = () => {
       await completeDueDateItem(id);
       await loadData();
     } catch (error) {
-      console.error('Failed to complete item:', error);
+      logError('Failed to complete item', error);
     }
   };
 

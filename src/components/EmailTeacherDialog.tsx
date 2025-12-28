@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { logError, logWarn, logInfo } from '../utils/logger';
 import {
   Dialog,
   DialogTitle,
@@ -343,7 +344,7 @@ export const EmailTeacherDialog = ({
     
     // Debug: Log zoom link to help diagnose issues
     if (!zoomLink) {
-      console.warn('Zoom link not found in localStorage. Please configure it in Settings.');
+      logWarn('Zoom link not found in localStorage. Please configure it in Settings.');
     }
 
     let email = `Dear ${teacherName},\n\n`;
@@ -465,15 +466,15 @@ export const EmailTeacherDialog = ({
 
         // Ensure we have all required fields
         if (!student?.id) {
-          console.warn('⚠️ No student ID available when logging communication');
+          logWarn('⚠️ No student ID available when logging communication');
         }
         if (!teacher?.id) {
-          console.warn('⚠️ No teacher ID available when logging communication');
+          logWarn('⚠️ No teacher ID available when logging communication');
         }
 
         // Ensure we have a valid student ID
         if (!student?.id) {
-          console.error('❌ Cannot log communication: student is null or has no ID', {
+          logError('❌ Cannot log communication: student is null or has no ID', new Error('Student ID missing'), {
             student,
             studentName: student?.name,
           });
@@ -495,29 +496,28 @@ export const EmailTeacherDialog = ({
 
         // Validate data before sending
         if (!communicationDate) {
-          console.error('❌ Communication date is missing!');
+          logError('❌ Communication date is missing!', new Error('Communication date missing'));
         }
         if (!communicationData.contactName) {
-          console.error('❌ Contact name is missing!');
+          logError('❌ Contact name is missing!', new Error('Contact name missing'));
         }
         if (!communicationData.subject) {
-          console.error('❌ Subject is missing!');
+          logError('❌ Subject is missing!', new Error('Subject missing'));
         }
 
-        console.log('📧 Logging communication with data:', {
+        logInfo('📧 Logging communication with data:', {
           ...communicationData,
           body: communicationData.body.substring(0, 50) + '...', // Truncate body for logging
         });
         const result = await api.communications.create(communicationData);
-        console.log('✅ Communication logged successfully:', result);
-        console.log('📋 Full communication data saved:', communicationData);
-      } catch (logError: any) {
+        logInfo('✅ Communication logged successfully:', result);
+        logInfo('📋 Full communication data saved:', communicationData);
+      } catch (loggingError: any) {
         // Don't fail the email send if logging fails, but log the error
-        console.error('Failed to log communication:', logError);
-        console.error('Error details:', {
-          message: logError?.message,
-          stack: logError?.stack,
-          response: logError?.response,
+        logError('Failed to log communication', loggingError, {
+          message: loggingError?.message,
+          stack: loggingError?.stack,
+          response: loggingError?.response,
         });
       }
 
@@ -527,7 +527,7 @@ export const EmailTeacherDialog = ({
         onClose();
       }, 2000);
     } catch (error: any) {
-      console.error('Error sending email:', error);
+      logError('Error sending email', error);
       setSendError(error.message || 'Failed to send email. Please check your email settings and try again.');
     } finally {
       setSending(false);
