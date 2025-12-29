@@ -50,7 +50,25 @@ export const EmailTeacherDialog = ({
 
   useEffect(() => {
     if (open && student) {
-      loadTeacherAndGenerateEmail();
+      // Reset states when dialog opens
+      setEmailText('');
+      setTeacher(null);
+      setAvailableTimes([]);
+      setSendError(null);
+      setSendSuccess(false);
+      
+      loadTeacherAndGenerateEmail().catch((error) => {
+        logError('Failed to load teacher and generate email', error);
+        // Still generate email text even if loading fails
+        if (student) {
+          generateEmailText(null, []);
+        }
+      });
+    } else if (!open) {
+      // Reset email text when dialog closes
+      setEmailText('');
+      setTeacher(null);
+      setAvailableTimes([]);
     }
   }, [open, student, sessionDate, sessionStartTime, sessionEndTime]);
 
@@ -73,6 +91,44 @@ export const EmailTeacherDialog = ({
     return `${displayHours}:${mins.toString().padStart(2, '0')} ${period}`;
   };
 
+  const generateEmailText = (teacher: Teacher | null, times: string[]) => {
+    if (!student) return;
+
+    const teacherName = teacher?.name || 'Teacher';
+    const studentName = student.name;
+    const userName = localStorage.getItem('user_name') || 'Aaron Pope';
+    const zoomLink = localStorage.getItem('zoom_link') || '';
+    
+    // Debug: Log zoom link to help diagnose issues
+    if (!zoomLink) {
+      logWarn('Zoom link not found in localStorage. Please configure it in Settings.');
+    }
+
+    let email = `Dear ${teacherName},\n\n`;
+    email += `${studentName} is late for their scheduled speech therapy session. Will they be able to attend the session? The zoom link is below.\n\n`;
+    
+    if (times.length > 0) {
+      email += `If not, I have additional openings at these times:\n`;
+      times.forEach(time => {
+        email += `• ${time}\n`;
+      });
+      email += `\n`;
+    }
+
+    email += `Zoom link:\n`;
+    // Preserve the zoom link formatting - ensure newlines are preserved
+    // The zoom link from localStorage should already have newlines as \n characters
+    if (zoomLink) {
+      email += zoomLink;
+    } else {
+      email += '[Zoom link not configured. Please add it in Settings.]';
+    }
+
+    email += `\n\nThank you,\nAaron Pope, MS, CCC-SLP\nc. (612) 310-9661`;
+
+    setEmailText(email);
+  };
+
   const loadTeacherAndGenerateEmail = async () => {
     if (!student) return;
 
@@ -92,7 +148,7 @@ export const EmailTeacherDialog = ({
       missedSessionDurationMinutes = Math.round((end.getTime() - start.getTime()) / 60000);
     } else if (sessionStartTime) {
       // If only start time, try to get duration from scheduled session
-      const scheduledSessions = getScheduledSessions(student.school);
+      const scheduledSessions = await getScheduledSessions(student.school);
       const sessionDate = sessionStartTime ? new Date(sessionStartTime) : new Date();
       const sessionTime = format(sessionDate, 'HH:mm');
       
@@ -121,9 +177,21 @@ export const EmailTeacherDialog = ({
     }
 
     // Get available times for today based on open slots
-    const today = sessionDate ? new Date(sessionDate) : (sessionStartTime ? new Date(sessionStartTime) : new Date());
+    // Important: Parse dates in local time to avoid timezone issues
+    let todayRaw: Date;
+    if (sessionDate) {
+      // Parse as local date (yyyy-MM-dd format)
+      todayRaw = parseDateString(sessionDate);
+    } else if (sessionStartTime) {
+      // Parse the start time and extract just the date part
+      const dateStr = sessionStartTime.includes('T') ? sessionStartTime.split('T')[0] : sessionStartTime;
+      todayRaw = parseDateString(dateStr);
+    } else {
+      todayRaw = new Date(); // Use current date
+    }
+    const todayStart = startOfDay(todayRaw); // Normalize to start of day in local time
+    const today = todayStart; // Use normalized date for all comparisons
     const todayStr = format(today, 'yyyy-MM-dd');
-    const todayStart = startOfDay(today);
     
     // Get the missed session start time in minutes
     let missedSessionStartMinutes = 0;
@@ -135,38 +203,92 @@ export const EmailTeacherDialog = ({
     }
     
     // Get ALL scheduled sessions for the school
-    const allScheduledSessions = getScheduledSessions(student.school);
+    const allScheduledSessions = await getScheduledSessions(student.school);
     
     // Get ALL logged sessions for the school (actual completed sessions)
     const allLoggedSessions = await getSessionsBySchool(student.school);
     
     // Filter scheduled sessions for today (ALL students, not just this one)
     const todayScheduledSessions = allScheduledSessions.filter(ss => {
-      if (ss.active === false) return false;
+      if (ss.active === false) {
+        return false;
+      }
+      
+      // Check if this date is cancelled for this scheduled session
+      if (ss.cancelledDates && ss.cancelledDates.includes(todayStr)) {
+        return false;
+      }
+      
+      // First check if today matches the recurrence pattern
+      let matchesPattern = false;
       
       if (ss.recurrencePattern === 'weekly' && ss.dayOfWeek) {
-        const dayOfWeek = today.getDay(); // 0 = Sunday, 6 = Saturday
-        return ss.dayOfWeek.includes(dayOfWeek);
+        const dayOfWeek = todayStart.getDay(); // 0 = Sunday, 6 = Saturday (use startOfDay for correct local day)
+        matchesPattern = ss.dayOfWeek.includes(dayOfWeek);
       } else if (ss.recurrencePattern === 'specific-dates' && ss.specificDates) {
-        return ss.specificDates.some(date => date.startsWith(todayStr));
+        matchesPattern = ss.specificDates.some(date => {
+          const datePart = date.includes('T') ? date.split('T')[0] : date;
+          return datePart === todayStr;
+        });
       } else if (ss.recurrencePattern === 'daily') {
-        return true;
+        matchesPattern = true;
       } else if (ss.recurrencePattern === 'none') {
         // One-time sessions - check if date matches
-        const sessionDate = parseDateString(ss.startDate);
-        return isSameDay(sessionDate, today);
+        matchesPattern = isSameDay(parseDateString(ss.startDate), today);
       }
-      return false;
+      
+      if (!matchesPattern) {
+        return false;
+      }
+      
+      // Now check if the scheduled session date range includes today
+      // This check happens AFTER pattern matching to ensure recurring sessions work correctly
+      const startDate = parseDateString(ss.startDate);
+      const endDate = ss.endDate ? parseDateString(ss.endDate) : null;
+      
+      // Check if today is before the start date (excluding same day)
+      if (isBefore(today, startDate) && !isSameDay(today, startDate)) {
+        return false;
+      }
+      
+      // Check if today is after the end date (excluding same day)
+      if (endDate && isAfter(today, endDate) && !isSameDay(today, endDate)) {
+        return false;
+      }
+      
+      return true;
     });
 
     // Check if scheduled session dates are within start/end range
+    // Also exclude the scheduled session that matches this missed session (if we have sessionStartTime)
     const validScheduledSessions = todayScheduledSessions.filter(ss => {
       const startDate = parseDateString(ss.startDate);
       const endDate = ss.endDate ? parseDateString(ss.endDate) : null;
-      const checkDate = new Date(today);
       
-      if (isBefore(checkDate, startDate)) return false;
-      if (endDate && isAfter(checkDate, endDate)) return false;
+      // Check if today is before the start date (but allow same day)
+      if (isBefore(today, startDate) && !isSameDay(today, startDate)) {
+        return false;
+      }
+      
+      // Check if today is after the end date (but allow same day if end date exists)
+      if (endDate && isAfter(today, endDate) && !isSameDay(today, endDate)) {
+        return false;
+      }
+      
+      // Exclude the scheduled session that matches the missed session time and student
+      // This prevents the missed session's scheduled slot from blocking reschedule times
+      if (sessionStartTime && ss.studentIds.includes(student.id)) {
+        const [ssStartH, ssStartM] = ss.startTime.split(':').map(Number);
+        const missedDate = new Date(sessionStartTime);
+        const missedH = missedDate.getHours();
+        const missedM = missedDate.getMinutes();
+        
+        // If the scheduled session time matches the missed session time (within a few minutes), exclude it
+        if (ssStartH === missedH && Math.abs(ssStartM - missedM) < 5) {
+          return false;
+        }
+      }
+      
       return true;
     });
 
@@ -176,18 +298,21 @@ export const EmailTeacherDialog = ({
       const sessionDate = startOfDay(new Date(session.date));
       const isToday = isSameDay(sessionDate, todayStart);
       
+      if (!isToday) return false;
+      
       // Exclude the missed session itself if we have sessionStartTime
-      if (sessionStartTime && isToday) {
+      // Also exclude missed sessions that match the missed session time (to avoid blocking reschedule times)
+      if (sessionStartTime) {
         const sessionTime = new Date(session.date);
         const missedTime = new Date(sessionStartTime);
         // If times match (within 5 minutes), it's likely the same session
         const timeDiff = Math.abs(sessionTime.getTime() - missedTime.getTime());
-        if (timeDiff < 5 * 60 * 1000 && session.studentId === student.id) {
-          return false; // Exclude this session
+        if (timeDiff < 5 * 60 * 1000 && session.studentId === student.id && session.missedSession) {
+          return false; // Exclude this missed session
         }
       }
       
-      return isToday;
+      return true;
     });
 
     // Get school hours from school settings
@@ -198,7 +323,7 @@ export const EmailTeacherDialog = ({
     };
 
     // Build occupied time slots from scheduled sessions (for ALL students, not just this one)
-    const occupiedSlotsFromScheduled: Array<{ start: number; end: number }> = validScheduledSessions.map(ss => {
+    const occupiedSlotsFromScheduled: Array<{ start: number; end: number; studentIds: string[] }> = validScheduledSessions.map(ss => {
       const [startH, startM] = ss.startTime.split(':').map(Number);
       const startMinutes = startH * 60 + startM;
       
@@ -212,12 +337,13 @@ export const EmailTeacherDialog = ({
         endMinutes = startMinutes + 30; // Default 30 minutes
       }
       
-      return { start: startMinutes, end: endMinutes };
+      return { start: startMinutes, end: endMinutes, studentIds: ss.studentIds };
     });
 
     // Build occupied time slots from logged sessions (for ALL students, not just this one)
     const occupiedSlotsFromLogged: Array<{ start: number; end: number }> = todayLoggedSessions.map(session => {
       const sessionDate = new Date(session.date);
+      // Use local hours/minutes to avoid timezone issues
       const startMinutes = sessionDate.getHours() * 60 + sessionDate.getMinutes();
       
       let endMinutes: number;
@@ -233,7 +359,12 @@ export const EmailTeacherDialog = ({
     });
 
     // Combine both scheduled and logged sessions, then sort
-    const allOccupiedSlots = [...occupiedSlotsFromScheduled, ...occupiedSlotsFromLogged];
+    // Note: Convert scheduled slots to match logged slots format (without studentIds)
+    const scheduledSlotsForMerge = occupiedSlotsFromScheduled.map(slot => ({
+      start: slot.start,
+      end: slot.end,
+    }));
+    const allOccupiedSlots = [...scheduledSlotsForMerge, ...occupiedSlotsFromLogged];
     
     // Remove duplicates and merge overlapping slots
     const mergedOccupiedSlots: Array<{ start: number; end: number }> = [];
@@ -260,68 +391,186 @@ export const EmailTeacherDialog = ({
     const workStartMinutes = schoolHours.start * 60; // 8 AM
     const workEndMinutes = schoolHours.end * 60; // 5 PM
 
+    // Get current time in minutes (only consider future times, not past times)
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    // Check if we're on the same day as the missed session
+    const isToday = isSameDay(today, startOfDay(now));
+    // Also check if the missed session date is today (in case sessionDate/sessionStartTime date format differs)
+    const missedSessionIsToday = sessionDate ? isSameDay(parseDateString(sessionDate), startOfDay(now)) : 
+                                   (sessionStartTime ? isSameDay(new Date(sessionStartTime), startOfDay(now)) : false);
+    const reallyIsToday = isToday || missedSessionIsToday;
+    
+    const missedSessionEndMinutes = missedSessionStartMinutes + missedSessionDurationMinutes;
+    // Always use current time if the missed session is from today, regardless of date format issues
+    const earliestStartMinutes = reallyIsToday ? Math.max(missedSessionEndMinutes, currentMinutes) : missedSessionEndMinutes;
+    
+    // This will be set before addSlotsForGap is called
+    let effectiveEarliestStart = earliestStartMinutes;
+    
     // Helper function to add multiple slots for a gap
     const addSlotsForGap = (gapStart: number, gapEnd: number) => {
-      // Only consider slots that start AFTER the missed session time
-      const actualGapStart = Math.max(gapStart, missedSessionStartMinutes);
-      if (actualGapStart >= gapEnd) return; // No valid slots after missed session
+      // Cap gapEnd at work end time to ensure we don't offer times past school hours
+      const cappedGapEnd = Math.min(gapEnd, workEndMinutes);
       
-      const gapDuration = gapEnd - actualGapStart;
-      if (gapDuration < missedSessionDurationMinutes) return;
+      // Only consider slots that start AFTER the effective earliest start time
+      const actualGapStart = Math.max(gapStart, effectiveEarliestStart);
       
-      // Calculate how many slots can fit - show ALL available slots
-      const numSlots = Math.floor(gapDuration / missedSessionDurationMinutes);
-      
-      // Add slots starting from the gap start, spaced by the session duration
-      for (let i = 0; i < numSlots; i++) {
-        const slotStart = actualGapStart + (i * missedSessionDurationMinutes);
-        const slotEnd = slotStart + missedSessionDurationMinutes;
-        
-        // Make sure the slot doesn't exceed the gap end
-        if (slotEnd <= gapEnd) {
-          const startTime = formatTimeFromMinutes(slotStart);
-          const endTime = formatTimeFromMinutes(slotEnd);
-          openSlots.push(`${startTime} - ${endTime}`);
-        }
+      if (actualGapStart >= cappedGapEnd) {
+        return; // No valid slots after missed session
       }
+      
+      const gapDuration = cappedGapEnd - actualGapStart;
+      if (gapDuration < missedSessionDurationMinutes) {
+        return;
+      }
+      
+      // Add a single continuous time block for the entire gap
+      // (e.g., "2:40 PM - 3:00 PM" instead of multiple 30-minute increments)
+      const startTime = formatTimeFromMinutes(actualGapStart);
+      const endTime = formatTimeFromMinutes(cappedGapEnd);
+      openSlots.push(`${startTime} - ${endTime}`);
     };
 
-    // Only check gaps AFTER the missed session time
-    // Find occupied slots that are relevant (end after missed session start)
-    const relevantOccupiedSlots = occupiedSlots.filter(slot => slot.end > missedSessionStartMinutes);
+    // Determine the actual earliest time we can offer slots
+    // ALWAYS use current time if it's today and later than the missed session end
+    let actualEarliestStart = earliestStartMinutes;
+    
+    // ALWAYS check current time if the missed session date matches today's date (flexible comparison)
+    const nowDateStr = format(startOfDay(now), 'yyyy-MM-dd');
+    const missedSessionDateStr = sessionDate || (sessionStartTime ? format(startOfDay(new Date(sessionStartTime)), 'yyyy-MM-dd') : null);
+    const datesMatch = missedSessionDateStr === nowDateStr;
+    
+    // Use current time if dates match OR if reallyIsToday is true
+    const shouldUseCurrentTime = reallyIsToday || datesMatch;
+    
+    if (shouldUseCurrentTime) {
+      // ALWAYS ensure we don't offer times before current time
+      actualEarliestStart = Math.max(actualEarliestStart, currentMinutes);
+      
+      // Find any occupied slot that's currently happening (start <= current time < end)
+      const currentOccupiedSlot = occupiedSlots.find(slot => 
+        slot.start <= currentMinutes && slot.end > currentMinutes
+      );
+      
+      if (currentOccupiedSlot) {
+        // There's an appointment happening right now - we must start after it ends
+        actualEarliestStart = Math.max(currentOccupiedSlot.end, actualEarliestStart);
+      }
+    }
+    
+    // Update the effective earliest start for addSlotsForGap to use
+    effectiveEarliestStart = actualEarliestStart;
+    
+    // Filter to include occupied slots that are relevant for gap calculation
+    // We need to include:
+    // 1. Slots that end after our earliest start (future slots)
+    // 2. Slots that are currently happening (start <= current time < end)
+    // 3. Slots that start before current time but end after it (we need to wait for them to end)
+    const relevantOccupiedSlots = occupiedSlots.filter(slot => {
+      if (shouldUseCurrentTime) {
+        // Include slots that:
+        // - End after earliest start (future slots)
+        // - Are currently happening (start <= current time < end)
+        // - Start before current time but end after it (need to wait for them)
+        return slot.end > actualEarliestStart || 
+               (slot.start <= currentMinutes && slot.end > currentMinutes) ||
+               (slot.start < currentMinutes && slot.end > currentMinutes);
+      }
+      return slot.end > actualEarliestStart;
+    });
+    
+    // Also update actualEarliestStart if there's a slot that starts before current time but ends after it
+    // We need to wait for that slot to end before offering new times
+    if (shouldUseCurrentTime) {
+      const futureEndingSlot = occupiedSlots.find(slot => 
+        slot.start < currentMinutes && slot.end > currentMinutes
+      );
+      if (futureEndingSlot) {
+        actualEarliestStart = Math.max(actualEarliestStart, futureEndingSlot.end);
+      }
+    }
     
     if (relevantOccupiedSlots.length === 0) {
-      // No occupied slots after missed session - show all available slots until end of day
-      const actualStart = Math.max(missedSessionStartMinutes, workStartMinutes);
-      if (actualStart < workEndMinutes) {
-        addSlotsForGap(actualStart, workEndMinutes);
+      // No occupied slots after actual earliest start - show all available slots until end of day
+      // But ensure we start from actualEarliestStart (which accounts for current time)
+      const gapStart = Math.max(actualEarliestStart, workStartMinutes);
+      if (gapStart < workEndMinutes) {
+        addSlotsForGap(gapStart, workEndMinutes);
       }
     } else {
       // Sort by start time to ensure proper order
       relevantOccupiedSlots.sort((a, b) => a.start - b.start);
       
-      // Check gap between missed session and first occupied slot
-      const firstOccupiedAfterMissed = relevantOccupiedSlots[0];
-      if (firstOccupiedAfterMissed.start > missedSessionStartMinutes) {
-        const gapStart = Math.max(missedSessionStartMinutes, workStartMinutes);
-        addSlotsForGap(gapStart, firstOccupiedAfterMissed.start);
+      // Check gap between actual earliest start and first occupied slot
+      const firstOccupiedSlot = relevantOccupiedSlots[0];
+      
+      // Only add gap if it starts after actualEarliestStart (which includes current time check)
+      if (firstOccupiedSlot.start > actualEarliestStart) {
+        const gapStart = Math.max(actualEarliestStart, workStartMinutes);
+        addSlotsForGap(gapStart, firstOccupiedSlot.start);
       }
 
       // Check gaps between occupied sessions
       for (let i = 0; i < relevantOccupiedSlots.length - 1; i++) {
         const gapStart = relevantOccupiedSlots[i].end;
-        const gapEnd = relevantOccupiedSlots[i + 1].start;
-        addSlotsForGap(gapStart, gapEnd);
+        const gapEnd = Math.min(relevantOccupiedSlots[i + 1].start, workEndMinutes);
+        // Only add slots if gap starts after actual earliest start and there's actually a gap
+        if (gapStart >= actualEarliestStart && gapStart < gapEnd) {
+          addSlotsForGap(gapStart, gapEnd);
+        }
       }
 
       // Check gap after last occupied session - show all slots until end of day
-      const lastEnd = relevantOccupiedSlots[relevantOccupiedSlots.length - 1].end;
-      if (lastEnd < workEndMinutes) {
-        addSlotsForGap(lastEnd, workEndMinutes);
+      const lastSlot = relevantOccupiedSlots[relevantOccupiedSlots.length - 1];
+      if (lastSlot.end >= actualEarliestStart && lastSlot.end < workEndMinutes) {
+        addSlotsForGap(lastSlot.end, workEndMinutes);
       }
     }
 
-    setAvailableTimes(openSlots);
+    // Final safety check: verify that none of the suggested slots overlap with occupied slots
+    // AND that they're not in the past (if it's today)
+    const verifiedOpenSlots = openSlots.filter(slotStr => {
+      // Parse the slot time from string like "10:00 AM - 10:30 AM"
+      const [startStr, endStr] = slotStr.split(' - ');
+      if (!startStr || !endStr) return false;
+      
+      const parseTimeStr = (timeStr: string): number => {
+        const trimmed = timeStr.trim();
+        const [time, period] = trimmed.split(' ');
+        const [hours, minutes] = time.split(':').map(Number);
+        let hour24 = hours;
+        if (period === 'PM' && hours !== 12) hour24 = hours + 12;
+        if (period === 'AM' && hours === 12) hour24 = 0;
+        return hour24 * 60 + minutes;
+      };
+      
+      const slotStart = parseTimeStr(startStr);
+      const slotEnd = parseTimeStr(endStr);
+      
+      // Check if slot is in the past (if it's today)
+      // OR if slot starts before actualEarliestStart (which accounts for current time)
+      // Use datesMatch check as fallback if reallyIsToday failed due to date format issues
+      const shouldFilterPast = reallyIsToday || datesMatch;
+      const earliestAllowedStart = shouldFilterPast ? Math.max(actualEarliestStart, currentMinutes) : actualEarliestStart;
+      if (slotStart < earliestAllowedStart) {
+        return false;
+      }
+      
+      // Check if this slot overlaps with ANY occupied slot (including those before actualEarliestStart)
+      // Overlap occurs when: slotStart < occupied.end AND slotEnd > occupied.start
+      const overlaps = occupiedSlots.some(occupied => {
+        return slotStart < occupied.end && slotEnd > occupied.start;
+      });
+      
+      if (overlaps) {
+        return false;
+      }
+      
+      return true;
+    });
+    
+    setAvailableTimes(verifiedOpenSlots);
 
     // Generate email text (always generate, even if no teacher)
     generateEmailText(foundTeacher, openSlots);
@@ -333,44 +582,6 @@ export const EmailTeacherDialog = ({
     const period = hours >= 12 ? 'PM' : 'AM';
     const displayHours = hours % 12 || 12;
     return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
-  };
-
-  const generateEmailText = (teacher: Teacher | null, times: string[]) => {
-    if (!student) return;
-
-    const teacherName = teacher?.name || 'Teacher';
-    const studentName = student.name;
-    const userName = localStorage.getItem('user_name') || 'Aaron Pope';
-    const zoomLink = localStorage.getItem('zoom_link') || '';
-    
-    // Debug: Log zoom link to help diagnose issues
-    if (!zoomLink) {
-      logWarn('Zoom link not found in localStorage. Please configure it in Settings.');
-    }
-
-    let email = `Dear ${teacherName},\n\n`;
-    email += `${studentName} is late for their speech therapy session. Will they be able to attend the session? The zoom link is below.\n\n`;
-    
-    if (times.length > 0) {
-      email += `If not, I have additional openings at these times:\n`;
-      times.forEach(time => {
-        email += `• ${time}\n`;
-      });
-      email += `\n`;
-    }
-
-    email += `Zoom link:\n`;
-    // Preserve the zoom link formatting - ensure newlines are preserved
-    // The zoom link from localStorage should already have newlines as \n characters
-    if (zoomLink) {
-      email += zoomLink;
-    } else {
-      email += '[Zoom link not configured. Please add it in Settings.]';
-    }
-
-    email += `\n\nThank you,\nAaron Pope, MS, CCC-SLP\nc. (612) 310-9661`;
-
-    setEmailText(email);
   };
 
   const handleCopy = () => {
@@ -506,13 +717,7 @@ export const EmailTeacherDialog = ({
           logError('❌ Subject is missing!', new Error('Subject missing'));
         }
 
-        logInfo('📧 Logging communication with data:', {
-          ...communicationData,
-          body: communicationData.body.substring(0, 50) + '...', // Truncate body for logging
-        });
-        const result = await api.communications.create(communicationData);
-        logInfo('✅ Communication logged successfully:', result);
-        logInfo('📋 Full communication data saved:', communicationData);
+        await api.communications.create(communicationData);
       } catch (loggingError: unknown) {
         // Don't fail the email send if logging fails, but log the error
         logError('Failed to log communication', loggingError);

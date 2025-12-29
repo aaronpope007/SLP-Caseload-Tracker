@@ -345,27 +345,42 @@ export const SessionCalendar = () => {
       const eventStart = setMinutes(setHours(event.date, parseInt(event.startTime.split(':')[0])), parseInt(event.startTime.split(':')[1]));
       const eventEnd = event.endTime ? 
         setMinutes(setHours(event.date, parseInt(event.endTime.split(':')[0])), parseInt(event.endTime.split(':')[1])) :
-        addDays(eventStart, 1);
+        addMinutes(eventStart, 30); // Default to 30 minutes if no end time
 
       const conflictingEvent = events.find(e => {
         if (e.id === event.id) return false;
+        // Only check conflicts if there's a shared student
         if (!e.studentIds.some(id => event.studentIds.includes(id))) return false;
+        // Only check conflicts on the same day
+        if (!isSameDay(e.date, event.date)) return false;
         
         const eStart = setMinutes(setHours(e.date, parseInt(e.startTime.split(':')[0])), parseInt(e.startTime.split(':')[1]));
         const eEnd = e.endTime ? 
           setMinutes(setHours(e.date, parseInt(e.endTime.split(':')[0])), parseInt(e.endTime.split(':')[1])) :
-          addDays(eStart, 1);
+          addMinutes(eStart, 30); // Default to 30 minutes if no end time
 
-        return isSameDay(e.date, event.date) && 
-               ((isAfter(eStart, eventStart) && isBefore(eStart, eventEnd)) ||
-                (isAfter(eventStart, eStart) && isBefore(eventStart, eEnd)) ||
-                isSameDay(eStart, eventStart));
+        // Check for actual time overlap (not just same start time)
+        // Two events conflict if they overlap in time:
+        // - eStart is between eventStart and eventEnd (exclusive of exact end time)
+        // - eEnd is between eventStart and eventEnd (exclusive of exact start time)
+        // - eStart <= eventStart && eEnd >= eventEnd (e completely contains event)
+        // - eStart >= eventStart && eEnd <= eventEnd (event completely contains e)
+        const eStartTime = eStart.getTime();
+        const eEndTime = eEnd.getTime();
+        const eventStartTime = eventStart.getTime();
+        const eventEndTime = eventEnd.getTime();
+
+        // Check for overlap: events overlap if one starts before the other ends
+        return (eStartTime < eventEndTime && eEndTime > eventStartTime);
       });
 
       event.hasConflict = !!conflictingEvent;
     });
 
     // Check if sessions have been logged for each event
+    // First, create a set of existing session IDs for quick lookup
+    const existingSessionIds = new Set(sessions.map(s => s.id));
+    
     events.forEach(event => {
       // Check if there's a logged session that matches this scheduled event
       const eventDate = startOfDay(event.date);
@@ -376,16 +391,29 @@ export const SessionCalendar = () => {
       let matchedSession: Session | null = null;
       
       // Check if it matches by scheduledSessionId (primary method - most reliable)
-      const matchingByScheduledId = sessions.find(session => {
-        if (!session.scheduledSessionId) return false;
-        if (session.scheduledSessionId !== event.scheduledSessionId) return false;
-        const sessionDate = startOfDay(new Date(session.date));
-        return isSameDay(sessionDate, eventDate);
-      });
+      // Find all sessions that match by scheduledSessionId and date, then pick the one with closest time match
+      const matchingByScheduledId = sessions
+        .filter(session => {
+          if (!session.scheduledSessionId) return false;
+          if (session.scheduledSessionId !== event.scheduledSessionId) return false;
+          const sessionDate = startOfDay(new Date(session.date));
+          return isSameDay(sessionDate, eventDate);
+        })
+        .map(session => {
+          // Calculate time difference for sorting
+          const sessionTime = new Date(session.date);
+          const timeDiff = Math.abs(sessionTime.getTime() - eventStartTime.getTime());
+          return { session, timeDiff };
+        })
+        .sort((a, b) => a.timeDiff - b.timeDiff) // Sort by closest time match
+        .map(item => item.session)[0]; // Get the closest match
       
       if (matchingByScheduledId) {
-        isLogged = true;
-        matchedSession = matchingByScheduledId;
+        // Verify the session still exists (hasn't been deleted)
+        if (existingSessionIds.has(matchingByScheduledId.id)) {
+          isLogged = true;
+          matchedSession = matchingByScheduledId;
+        }
       } else {
         // Fallback: match by students and time/date
         // For single student sessions
@@ -511,17 +539,31 @@ export const SessionCalendar = () => {
       // Collect all matched sessions (for group sessions, get all sessions in the group)
       let matchedSessions: Session[] = [];
       if (isLogged && matchedSession) {
-        if (matchedSession.groupSessionId) {
-          // Get all sessions in the group
-          matchedSessions = sessions.filter(s => s.groupSessionId === matchedSession!.groupSessionId);
+        // Verify the matched session still exists before proceeding
+        if (!existingSessionIds.has(matchedSession.id)) {
+          // Session was deleted, mark as not logged
+          isLogged = false;
+          matchedSession = null;
         } else {
-          // Single session
-          matchedSessions = [matchedSession];
+          if (matchedSession.groupSessionId) {
+            // Get all sessions in the group - filter to only include existing ones
+            matchedSessions = sessions.filter(s => 
+              s.groupSessionId === matchedSession!.groupSessionId && existingSessionIds.has(s.id)
+            );
+            // If no sessions in the group exist anymore, mark as not logged
+            if (matchedSessions.length === 0) {
+              isLogged = false;
+              matchedSession = null;
+            }
+          } else {
+            // Single session
+            matchedSessions = [matchedSession];
+          }
         }
       }
       
       // Check if the matched session (or any session in the group) is marked as missed
-      if (isLogged && matchedSession) {
+      if (isLogged && matchedSession && matchedSessions.length > 0) {
         // For single student sessions, check the matched session directly
         if (event.studentIds.length === 1) {
           isMissed = matchedSession.missedSession === true;
@@ -597,8 +639,42 @@ export const SessionCalendar = () => {
       });
     });
     
+    // Final verification pass: ensure all events with matched sessions only reference existing sessions
+    events.forEach(event => {
+      if (event.matchedSessions && event.matchedSessions.length > 0) {
+        // Filter out any deleted sessions from matched sessions
+        const validMatchedSessions = event.matchedSessions.filter(session => 
+          existingSessionIds.has(session.id)
+        );
+        
+        // If no valid matched sessions remain, mark as not logged
+        if (validMatchedSessions.length === 0) {
+          event.isLogged = false;
+          event.isMissed = false;
+          event.matchedSessions = undefined;
+        } else {
+          // Update matched sessions to only include existing ones
+          event.matchedSessions = validMatchedSessions;
+        }
+      }
+    });
+    
     // Combine scheduled events with logged sessions without schedule
-    return [...events, ...loggedSessionsWithoutSchedule];
+    // Filter out logged sessions without schedule that reference deleted sessions
+    const validLoggedSessionsWithoutSchedule = loggedSessionsWithoutSchedule.filter(loggedEvent => {
+      // These events should always have matchedSessions with exactly one session
+      if (loggedEvent.matchedSessions && loggedEvent.matchedSessions.length > 0) {
+        // Check if the session still exists
+        const sessionExists = loggedEvent.matchedSessions.every(session => 
+          existingSessionIds.has(session.id)
+        );
+        return sessionExists;
+      }
+      return true;
+    });
+    
+    // Combine: scheduled events (which may or may not be logged) + valid logged sessions without schedule
+    return [...events, ...validLoggedSessionsWithoutSchedule];
   }, [scheduledSessions, students, currentDate, sessions]);
 
   const monthStart = startOfMonth(currentDate);
@@ -751,7 +827,7 @@ export const SessionCalendar = () => {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (formData.studentIds.length === 0) {
       alert('Please select at least one student');
       return;
@@ -776,12 +852,12 @@ export const SessionCalendar = () => {
     };
 
     if (editingScheduledSession) {
-      updateScheduledSession(editingScheduledSession.id, scheduledSession);
+      await updateScheduledSession(editingScheduledSession.id, scheduledSession);
     } else {
-      addScheduledSession(scheduledSession);
+      await addScheduledSession(scheduledSession);
     }
 
-    loadData();
+    await loadData();
     initialFormDataRef.current = null;
     doCloseDialog();
   };
@@ -839,7 +915,18 @@ export const SessionCalendar = () => {
     // Check if this is an existing logged session
     if (event.isLogged && event.matchedSessions && event.matchedSessions.length > 0) {
       // Load existing session(s) for editing
-      const matchedSessions = event.matchedSessions;
+      // Verify we're using the correct session by matching the time
+      const eventStartTime = setMinutes(setHours(event.date, parseInt(event.startTime.split(':')[0])), parseInt(event.startTime.split(':')[1]));
+      
+      // Filter and sort matched sessions by time proximity to ensure we get the right one
+      const matchedSessions = event.matchedSessions
+        .map(session => {
+          const sessionTime = new Date(session.date);
+          const timeDiff = Math.abs(sessionTime.getTime() - eventStartTime.getTime());
+          return { session, timeDiff };
+        })
+        .sort((a, b) => a.timeDiff - b.timeDiff) // Sort by closest time match
+        .map(item => item.session); // Extract sessions in order
       
       if (matchedSessions.length === 1) {
         // Single session - edit it
@@ -942,19 +1029,23 @@ export const SessionCalendar = () => {
       }
     } else {
       // Create new session from scheduled event
-      // Create date with the event's date and start time
-      const [startHour, startMinute] = event.startTime.split(':').map(Number);
+      // Use the scheduled session's times directly to ensure accuracy
+      const [startHour, startMinute] = scheduled.startTime.split(':').map(Number);
       const sessionDate = new Date(event.date);
       sessionDate.setHours(startHour, startMinute, 0, 0);
 
-      // Calculate end time
+      // Calculate end time from scheduled session
       let endTimeDate: Date;
-      if (event.endTime) {
-        const [endHour, endMinute] = event.endTime.split(':').map(Number);
+      if (scheduled.endTime) {
+        // Use explicit endTime from scheduled session
+        const [endHour, endMinute] = scheduled.endTime.split(':').map(Number);
         endTimeDate = new Date(event.date);
         endTimeDate.setHours(endHour, endMinute, 0, 0);
+      } else if (scheduled.duration) {
+        // Calculate from duration if available
+        endTimeDate = new Date(sessionDate.getTime() + scheduled.duration * 60000);
       } else {
-        // Default to 30 minutes later
+        // Fallback to 30 minutes if neither is available
         endTimeDate = new Date(sessionDate.getTime() + 30 * 60000);
       }
 
@@ -1343,7 +1434,7 @@ export const SessionCalendar = () => {
     setDraggedSession(eventId);
   };
 
-  const handleDrop = (targetDate: Date) => {
+  const handleDrop = async (targetDate: Date) => {
     if (!draggedSession) return;
 
     const event = calendarEvents.find(e => e.id === draggedSession);
@@ -1355,27 +1446,27 @@ export const SessionCalendar = () => {
 
     // For one-time or specific dates, update the date
     if (scheduled.recurrencePattern === 'none') {
-      updateScheduledSession(scheduled.id, {
+      await updateScheduledSession(scheduled.id, {
         startDate: format(targetDate, 'yyyy-MM-dd'),
       });
     } else if (scheduled.recurrencePattern === 'specific-dates') {
       const oldDateStr = format(event.date, 'yyyy-MM-dd');
       const newDates = scheduled.specificDates?.filter(d => d !== oldDateStr) || [];
       newDates.push(format(targetDate, 'yyyy-MM-dd'));
-      updateScheduledSession(scheduled.id, {
+      await updateScheduledSession(scheduled.id, {
         specificDates: newDates.sort(),
       });
     }
 
     setDraggedSession(null);
-    loadData();
+    await loadData();
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
   };
 
-  const handleCancelEvent = (event: CalendarEvent) => {
+  const handleCancelEvent = async (event: CalendarEvent) => {
     if (!Array.isArray(scheduledSessions)) return;
     const scheduled = scheduledSessions.find(s => s.id === event.scheduledSessionId);
     if (!scheduled) return;
@@ -1392,10 +1483,10 @@ export const SessionCalendar = () => {
     }
 
     if (!cancelledDates.includes(dateStr)) {
-      updateScheduledSession(scheduled.id, {
+      await updateScheduledSession(scheduled.id, {
         cancelledDates: [...cancelledDates, dateStr],
       });
-      loadData();
+      await loadData();
     }
   };
 
@@ -1423,21 +1514,23 @@ export const SessionCalendar = () => {
       message: `Cancel all ${cancellableEvents.length} appointment${cancellableEvents.length === 1 ? '' : 's'} on ${format(day, 'MMM d, yyyy')}? This will mark all appointments for this day as cancelled.`,
       confirmText: 'Cancel All',
       cancelText: 'Keep Scheduled',
-      onConfirm: () => {
+      onConfirm: async () => {
         // Update each scheduled session to include this date in cancelledDates
         if (!Array.isArray(scheduledSessions)) return;
-        scheduledSessionMap.forEach((events, scheduledSessionId) => {
+        const updates = [];
+        for (const [scheduledSessionId, events] of scheduledSessionMap) {
           const scheduled = scheduledSessions.find(s => s.id === scheduledSessionId);
-          if (!scheduled) return;
+          if (!scheduled) continue;
 
           const cancelledDates = scheduled.cancelledDates || [];
           if (!cancelledDates.includes(dateStr)) {
-            updateScheduledSession(scheduled.id, {
+            updates.push(updateScheduledSession(scheduled.id, {
               cancelledDates: [...cancelledDates, dateStr],
-            });
+            }));
           }
-        });
-        loadData();
+        }
+        await Promise.all(updates);
+        await loadData();
       },
     });
   };

@@ -549,7 +549,7 @@ export const SessionFormDialog = ({
           setSelectedStudentForEmail(null);
         }}
         student={selectedStudentForEmail}
-        sessionDate={formData.date}
+        sessionDate={formData.date ? formData.date.split('T')[0] : undefined}
         sessionStartTime={formData.date ? fromLocalDateTimeString(formData.date) : undefined}
         sessionEndTime={formData.endTime ? fromLocalDateTimeString(formData.endTime) : undefined}
       />
