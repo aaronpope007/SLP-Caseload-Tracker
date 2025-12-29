@@ -14,9 +14,10 @@ export const GoalProgressChip: React.FC<GoalProgressChipProps> = memo(({
   size = 'small',
 }) => {
   const chipProps = getGoalProgressChipProps(average, target);
+  const isValidAverage = average !== null && !isNaN(average) && isFinite(average);
   return (
     <Chip
-      label={average !== null ? `${Math.round(average)}%` : 'not started'}
+      label={isValidAverage ? `${Math.round(average)}%` : 'not started'}
       size={size}
       color={chipProps.color}
       variant={chipProps.variant}

@@ -203,14 +203,56 @@ export const Progress = () => {
     setLoadingNotes({ ...loadingNotes, [goal.goalId]: true });
 
     try {
+      // Re-fetch the latest data to ensure we have up-to-date goal results
+      const sessions = (await getSessions())
+        .filter((s) => s.studentId === selectedStudentId)
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      
+      const goals = (await getGoals()).filter((g) => g.studentId === selectedStudentId);
+      const targetGoal = goals.find((g) => g.id === goal.goalId);
+      
+      if (!targetGoal) {
+        showSnackbar('Goal not found', 'error');
+        return;
+      }
+
+      // Calculate fresh goal progress data
+      const goalSessions = sessions
+        .filter((s) => s.goalsTargeted.includes(targetGoal.id))
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      
+      const performanceHistory = goalSessions.map((s) => {
+        const perf = s.performanceData.find((p) => p.goalId === targetGoal.id);
+        return {
+          date: formatDate(s.date),
+          accuracy: perf?.accuracy || 0,
+          correctTrials: perf?.correctTrials,
+          incorrectTrials: perf?.incorrectTrials,
+          notes: perf?.notes,
+        };
+      }).filter((p) => p.accuracy > 0 || p.correctTrials !== undefined);
+      
+      const recentSessions = goalSessions.slice(0, 3);
+      const performanceData = recentSessions
+        .map((s) => {
+          const perf = s.performanceData.find((p) => p.goalId === targetGoal.id);
+          return perf?.accuracy;
+        })
+        .filter((a) => a !== undefined) as number[];
+
+      const avgAccuracy =
+        performanceData.length > 0
+          ? performanceData.reduce((a, b) => a + b, 0) / performanceData.length
+          : 0;
+
       const goalData: GoalProgressData = {
-        goalDescription: goal.goal,
-        baseline: goal.baseline,
-        target: goal.target,
-        current: goal.current,
-        sessions: goal.sessions,
-        status: goal.status,
-        performanceHistory: goal.performanceHistory,
+        goalDescription: targetGoal.description,
+        baseline: parseFloat(targetGoal.baseline) || 0,
+        target: parseFloat(targetGoal.target) || 100,
+        current: avgAccuracy,
+        sessions: goalSessions.length,
+        status: targetGoal.status,
+        performanceHistory,
       };
 
       const note = await generateProgressNote(selectedStudent.name, [goalData], apiKey);
@@ -250,23 +292,69 @@ export const Progress = () => {
       return;
     }
 
-    const goalsToInclude = selectedGoals.size > 0
-      ? goalProgress.filter((g) => {
-          const goalId = g.goalId || `goal-${g.goal}`;
-          return selectedGoals.has(goalId);
-        })
-      : goalProgress;
-
-    if (goalsToInclude.length === 0) {
-      showSnackbar('Please select at least one goal or leave all unchecked to include all goals.', 'error');
-      return;
-    }
-
     setLoadingCombined(true);
 
     try {
+      // Refresh data to ensure we have the latest goal results
+      const sessions = (await getSessions())
+        .filter((s) => s.studentId === selectedStudentId)
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      
+      const goals = (await getGoals()).filter((g) => g.studentId === selectedStudentId);
+      
+      // Calculate fresh goal progress data for all goals
+      const allGoalData = goals.map((goal) => {
+        const goalSessions = sessions
+          .filter((s) => s.goalsTargeted.includes(goal.id))
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        
+        const performanceHistory = goalSessions.map((s) => {
+          const perf = s.performanceData.find((p) => p.goalId === goal.id);
+          return {
+            date: formatDate(s.date),
+            accuracy: perf?.accuracy || 0,
+            correctTrials: perf?.correctTrials,
+            incorrectTrials: perf?.incorrectTrials,
+            notes: perf?.notes,
+          };
+        }).filter((p) => p.accuracy > 0 || p.correctTrials !== undefined);
+        
+        const recentSessions = goalSessions.slice(0, 3);
+        const performanceData = recentSessions
+          .map((s) => {
+            const perf = s.performanceData.find((p) => p.goalId === goal.id);
+            return perf?.accuracy;
+          })
+          .filter((a) => a !== undefined) as number[];
+
+        const avgAccuracy =
+          performanceData.length > 0
+            ? performanceData.reduce((a, b) => a + b, 0) / performanceData.length
+            : 0;
+
+        return {
+          goalId: goal.id,
+          goalDescription: goal.description,
+          baseline: parseFloat(goal.baseline) || 0,
+          target: parseFloat(goal.target) || 100,
+          current: avgAccuracy,
+          sessions: goalSessions.length,
+          status: goal.status,
+          performanceHistory,
+        };
+      });
+
+      const goalsToInclude = selectedGoals.size > 0
+        ? allGoalData.filter((g) => selectedGoals.has(g.goalId))
+        : allGoalData;
+
+      if (goalsToInclude.length === 0) {
+        showSnackbar('Please select at least one goal or leave all unchecked to include all goals.', 'error');
+        return;
+      }
+
       const goalsData: GoalProgressData[] = goalsToInclude.map((goal) => ({
-        goalDescription: goal.goal,
+        goalDescription: goal.goalDescription,
         baseline: goal.baseline,
         target: goal.target,
         current: goal.current,

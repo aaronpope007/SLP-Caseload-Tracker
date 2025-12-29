@@ -36,14 +36,16 @@ export const useSessionManagement = ({
 
   const createSession = useCallback(async (sessionData: Partial<Session>): Promise<Session | null> => {
     try {
-      const newSession = await addSession({
+      const fullSession = {
         ...sessionData,
         school,
-      } as Session);
+      } as Session;
       
-      setSessions((prev) => [...prev, newSession]);
-      onSessionAdded?.(newSession);
-      return newSession;
+      await addSession(fullSession);
+      
+      setSessions((prev) => [...prev, fullSession]);
+      onSessionAdded?.(fullSession);
+      return fullSession;
     } catch (err) {
       logError('Failed to create session', err);
       setError('Failed to create session');

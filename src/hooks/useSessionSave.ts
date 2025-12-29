@@ -217,7 +217,7 @@ export const useSessionSave = ({
         const isEditingSingleSession = editingSession && formData.studentIds.length === 1 && formData.studentIds[0] === editingSession.studentId;
         const groupSessionId = formData.studentIds.length > 1 
           ? generateId() 
-          : (isEditingSingleSession && editingSession.groupSessionId) 
+          : (isEditingSingleSession && editingSession && editingSession.groupSessionId) 
             ? editingSession.groupSessionId 
             : undefined;
 
@@ -241,7 +241,7 @@ export const useSessionSave = ({
             }));
 
           const sessionData: Session = {
-            id: isEditingSingleSession
+            id: isEditingSingleSession && editingSession
               ? editingSession.id
               : generateId(),
             studentId: studentId,
@@ -260,7 +260,7 @@ export const useSessionSave = ({
             plan: formData.plan.trim() || undefined,
           };
 
-          if (isEditingSingleSession) {
+          if (isEditingSingleSession && editingSession) {
             await updateSession(editingSession.id, sessionData);
           } else {
             const newSession = await createSession(sessionData);

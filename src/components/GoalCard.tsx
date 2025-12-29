@@ -110,9 +110,13 @@ export const GoalCard: React.FC<GoalCardProps> = ({
       </Typography>
       {recent.recentSessions.length > 0 && (
         <Typography variant="body2" color="text.secondary" gutterBottom>
-          Recent: {recent.average !== null 
+          Recent: {recent.average !== null && !isNaN(recent.average) && isFinite(recent.average)
             ? `${Math.round(recent.average)}% (avg of ${recent.recentSessions.length} sessions)`
-            : recent.recentSessions.map(s => `${Math.round(s.accuracy || 0)}%`).join(', ')
+            : recent.recentSessions.map(s => {
+                const accuracy = s.accuracy ?? 0;
+                const validAccuracy = !isNaN(accuracy) && isFinite(accuracy) ? accuracy : 0;
+                return `${Math.round(validAccuracy)}%`;
+              }).join(', ')
           }
         </Typography>
       )}

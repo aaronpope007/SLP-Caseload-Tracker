@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Box,
@@ -115,10 +115,16 @@ export const Sessions = () => {
   // isDirty is now provided by useSessionForm hook
 
   // Performance helpers hook - must be defined before hooks that use isGoalAchieved
-  const { getRecentPerformance, isGoalAchieved } = usePerformanceHelpers({
+  const { getRecentPerformance: getRecentPerformanceFull, isGoalAchieved } = usePerformanceHelpers({
     sessions,
     goals,
   });
+
+  // Wrapper to extract just the average for GoalHierarchy component
+  const getRecentPerformance = useCallback((goalId: string, studentId: string): number | null => {
+    const result = getRecentPerformanceFull(goalId, studentId);
+    return result.average;
+  }, [getRecentPerformanceFull, sessions]);
 
   const handleCloseDialog = (forceClose = false) => {
     if (!forceClose && isDirty()) {

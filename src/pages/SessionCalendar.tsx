@@ -55,6 +55,7 @@ import {
   startOfDay,
   isAfter,
   isBefore,
+  addMinutes,
 } from 'date-fns';
 import type { ScheduledSession, Student, Session, Goal, School } from '../types';
 import {
@@ -199,6 +200,8 @@ export const SessionCalendar = () => {
     const today = startOfDay(new Date());
     const viewStart = startOfMonth(currentDate);
     const viewEnd = endOfMonth(addMonths(currentDate, 2)); // Show events up to 2 months ahead
+    // Use a longer range (1 year) for recurring sessions without an endDate
+    const defaultRecurringEnd = endOfMonth(addMonths(currentDate, 12));
 
     // Ensure scheduledSessions is an array
     if (!Array.isArray(scheduledSessions)) {
@@ -209,7 +212,11 @@ export const SessionCalendar = () => {
       if (scheduled.active === false) return;
 
       const start = parseDateString(scheduled.startDate);
-      const end = scheduled.endDate ? parseDateString(scheduled.endDate) : viewEnd;
+      // For recurring sessions without an endDate, use a longer default range (1 year)
+      // For one-time sessions, still use viewEnd to limit scope
+      const end = scheduled.endDate 
+        ? parseDateString(scheduled.endDate) 
+        : (scheduled.recurrencePattern === 'none' ? viewEnd : defaultRecurringEnd);
 
       // Skip if the scheduled session has ended before the view start
       if (isBefore(end, viewStart)) return;

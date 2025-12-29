@@ -126,7 +126,12 @@ sessionsRouter.put('/:id', asyncHandler(async (req, res) => {
     return res.status(404).json({ error: 'Session not found' });
   }
   
-  const session = { ...existing, ...updates };
+  // Filter out undefined values from updates to prevent overwriting existing values with undefined
+  const cleanUpdates = Object.fromEntries(
+    Object.entries(updates).filter(([_, value]) => value !== undefined)
+  );
+  
+  const session = { ...existing, ...cleanUpdates };
   
   db.prepare(`
     UPDATE sessions 

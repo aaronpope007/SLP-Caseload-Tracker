@@ -29,7 +29,10 @@ export const usePerformanceHelpers = ({
         correctTrials: perf?.correctTrials,
         incorrectTrials: perf?.incorrectTrials,
       };
-    }).filter(d => d.accuracy !== undefined);
+    }).filter(d => {
+      const accuracy = d.accuracy;
+      return accuracy !== undefined && !isNaN(accuracy) && isFinite(accuracy);
+    });
 
     const average = recentData.length > 0
       ? recentData.reduce((sum, d) => sum + (d.accuracy || 0), 0) / recentData.length

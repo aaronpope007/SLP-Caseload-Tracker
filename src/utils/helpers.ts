@@ -47,8 +47,8 @@ export const getGoalProgressChipProps = (
   current: number | null,
   target: string
 ): { color: 'success' | 'warning' | 'error' | 'primary' | 'default'; variant: 'filled' | 'outlined' } => {
-  if (current === null) {
-    // Not started: blue with outlined variant
+  if (current === null || isNaN(current) || !isFinite(current)) {
+    // Not started or invalid value: blue with outlined variant
     return { color: 'primary', variant: 'outlined' };
   }
   
