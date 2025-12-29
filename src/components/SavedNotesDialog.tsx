@@ -15,13 +15,7 @@ import {
 } from '@mui/icons-material';
 import { formatDateTime, formatDate } from '../utils/helpers';
 
-export interface TimesheetNote {
-  id: string;
-  content: string;
-  dateCreated: string;
-  dateFor?: string;
-  school: string;
-}
+import type { TimesheetNote } from '../types';
 
 interface SavedNotesDialogProps {
   open: boolean;

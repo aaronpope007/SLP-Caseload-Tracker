@@ -47,7 +47,7 @@ export const SOAPNotes = () => {
   const [soapNotes, setSoapNotes] = useState<SOAPNote[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
-  const [goals, setGoals] = useState<any[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
   const { showSnackbar, SnackbarComponent } = useSnackbar();
   const soapNoteDialog = useDialog();
   const [selectedNote, setSelectedNote] = useState<SOAPNote | null>(null);

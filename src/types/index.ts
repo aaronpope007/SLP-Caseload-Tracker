@@ -251,3 +251,11 @@ export interface Communication {
   relatedTo?: string; // Optional - description of what this is related to (e.g., "Missed Session")
   dateCreated: string;
 }
+
+export interface TimesheetNote {
+  id: string;
+  content: string;
+  dateCreated: string;
+  dateFor?: string; // Optional date the note is for (YYYY-MM-DD format)
+  school: string;
+}

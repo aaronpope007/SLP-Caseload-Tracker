@@ -34,7 +34,7 @@ import { getStudents, getGoals, getSessions } from '../utils/storage-api';
 import { formatDate } from '../utils/helpers';
 import { generateProgressNote, type GoalProgressData } from '../utils/gemini';
 import { useSchool } from '../context/SchoolContext';
-import { useAsyncOperation, useSnackbar } from '../hooks';
+import { useAsyncOperation, useSnackbar, useAIGeneration } from '../hooks';
 import { getErrorMessage } from '../utils/validators';
 import type { Student } from '../types';
 
@@ -68,6 +68,7 @@ interface GoalProgressItem {
 export const Progress = () => {
   const { selectedSchool } = useSchool();
   const { showSnackbar, SnackbarComponent } = useSnackbar();
+  const { requireApiKey } = useAIGeneration();
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [progressData, setProgressData] = useState<TimelineDataItem[]>([]);
@@ -194,9 +195,8 @@ export const Progress = () => {
     const goal = goalProgress[goalIdx];
     if (!goal || !selectedStudent) return;
 
-    const apiKey = localStorage.getItem('gemini_api_key');
+    const apiKey = requireApiKey();
     if (!apiKey) {
-      showSnackbar('Please set your Gemini API key in Settings.', 'error');
       return;
     }
 
@@ -245,9 +245,8 @@ export const Progress = () => {
   const handleGenerateCombinedNote = async () => {
     if (!selectedStudent) return;
 
-    const apiKey = localStorage.getItem('gemini_api_key');
+    const apiKey = requireApiKey();
     if (!apiKey) {
-      showSnackbar('Please set your Gemini API key in Settings.', 'error');
       return;
     }
 
@@ -483,7 +482,7 @@ export const Progress = () => {
                                 }}
                               />
                               <Tooltip 
-                                formatter={(value: number, payload: any) => {
+                                formatter={(value: number, payload: unknown) => {
                                   const labels: Record<number, string> = {
                                     0: 'Independent',
                                     1: 'Verbal',
@@ -492,7 +491,9 @@ export const Progress = () => {
                                     4: 'Physical',
                                   };
                                   const text = labels[value] || 'Unknown';
-                                  const multiple = payload?.[0]?.payload?.cuingLevelsText;
+                                  const payloadArray = Array.isArray(payload) ? payload : [];
+                                  const firstPayload = payloadArray[0] as { payload?: { cuingLevelsText?: string } } | undefined;
+                                  const multiple = firstPayload?.payload?.cuingLevelsText;
                                   return multiple && multiple.split(', ').length > 1 
                                     ? `${text} (Used: ${multiple})`
                                     : text;

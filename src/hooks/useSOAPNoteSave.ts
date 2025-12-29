@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import type { SOAPNote } from '../types';
+import type { SOAPNote, Session } from '../types';
 import { logError } from '../utils/logger';
 
 interface UseSOAPNoteSaveParams {
@@ -7,7 +7,7 @@ interface UseSOAPNoteSaveParams {
   createSOAPNote: (note: SOAPNote) => Promise<void>;
   updateSOAPNote: (id: string, note: SOAPNote) => Promise<void>;
   closeDialog: () => void;
-  setSelectedSessionForSOAP: (session: any) => void;
+  setSelectedSessionForSOAP: (session: Session | null) => void;
   setExistingSOAPNote: (note: SOAPNote | undefined) => void;
   showSnackbar: (message: string, severity: 'success' | 'error' | 'info' | 'warning') => void;
 }

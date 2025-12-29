@@ -19,10 +19,12 @@ import { getSchoolByName } from '../utils/storage-api';
 import { SessionTimeItem } from '../components/SessionTimeItem';
 import { EvaluationTimeItem } from '../components/EvaluationTimeItem';
 import { TimesheetNoteDialog } from '../components/TimesheetNoteDialog';
-import { SavedNotesDialog, type TimesheetNote } from '../components/SavedNotesDialog';
+import { SavedNotesDialog } from '../components/SavedNotesDialog';
 import { TimeTrackingFilter } from '../components/TimeTrackingFilter';
 import { generateTimesheetNote } from '../utils/timesheetNoteGenerator';
 import { useConfirm, useSnackbar, useDialog } from '../hooks';
+import type { TimesheetNote } from '../types';
+import { migrateTimesheetNotes } from '../utils/migrateTimesheetNotes';
 
 interface TimeTrackingItem {
   id: string;
@@ -31,30 +33,22 @@ interface TimeTrackingItem {
   data: Session | Evaluation;
 }
 
-const TIMESHEET_NOTES_STORAGE_KEY = 'slp_timesheet_notes';
-
-// Storage functions for timesheet notes
-const getTimesheetNotes = (school?: string): TimesheetNote[] => {
-  const data = localStorage.getItem(TIMESHEET_NOTES_STORAGE_KEY);
-  let notes: TimesheetNote[] = data ? JSON.parse(data) : [];
-  
-  if (school) {
-    notes = notes.filter(n => n.school === school);
+// Storage functions for timesheet notes (now using API)
+const getTimesheetNotes = async (school?: string): Promise<TimesheetNote[]> => {
+  try {
+    return await api.timesheetNotes.getAll(school);
+  } catch (error) {
+    logError('Failed to fetch timesheet notes', error);
+    return [];
   }
-  
-  return notes.sort((a, b) => new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime());
 };
 
-const saveTimesheetNote = (note: TimesheetNote): void => {
-  const allNotes = getTimesheetNotes();
-  allNotes.push(note);
-  localStorage.setItem(TIMESHEET_NOTES_STORAGE_KEY, JSON.stringify(allNotes));
+const saveTimesheetNote = async (note: TimesheetNote): Promise<void> => {
+  await api.timesheetNotes.create(note);
 };
 
-const deleteTimesheetNote = (id: string): void => {
-  const allNotes = getTimesheetNotes();
-  const filtered = allNotes.filter(n => n.id !== id);
-  localStorage.setItem(TIMESHEET_NOTES_STORAGE_KEY, JSON.stringify(filtered));
+const deleteTimesheetNote = async (id: string): Promise<void> => {
+  await api.timesheetNotes.delete(id);
 };
 
 export const TimeTracking = () => {
@@ -102,12 +96,32 @@ export const TimeTracking = () => {
 
   useEffect(() => {
     loadData();
-    loadSavedNotes();
+    
+    // Migrate old localStorage data on mount (one-time migration)
+    // This will run once per component mount if localStorage data exists
+    const migrateData = async () => {
+      const TIMESHEET_NOTES_STORAGE_KEY = 'slp_timesheet_notes';
+      const hasLocalStorageData = localStorage.getItem(TIMESHEET_NOTES_STORAGE_KEY);
+      if (hasLocalStorageData) {
+        try {
+          await migrateTimesheetNotes();
+        } catch (error) {
+          logError('Failed to migrate timesheet notes', error);
+        }
+      }
+    };
+    
+    const initializeNotes = async () => {
+      await migrateData();
+      await loadSavedNotes();
+    };
+    
+    initializeNotes();
   }, [selectedSchool]);
 
 
-  const loadSavedNotes = () => {
-    const notes = getTimesheetNotes(selectedSchool);
+  const loadSavedNotes = async () => {
+    const notes = await getTimesheetNotes(selectedSchool);
     setSavedNotes(notes);
   };
 
@@ -278,23 +292,27 @@ export const TimeTracking = () => {
     timesheetDialog.openDialog();
   };
 
-  const handleSaveNote = () => {
+  const handleSaveNote = async () => {
     if (!timesheetNote.trim()) {
       showSnackbar('Cannot save empty note', 'error');
       return;
     }
 
-    const note: TimesheetNote = {
-      id: generateId(),
-      content: timesheetNote,
-      dateCreated: new Date().toISOString(),
-      dateFor: selectedDate || undefined,
-      school: selectedSchool,
-    };
-
-    saveTimesheetNote(note);
-    loadSavedNotes();
-    showSnackbar('Timesheet note saved!', 'success');
+    try {
+      const note: TimesheetNote = {
+        id: generateId(),
+        content: timesheetNote,
+        dateCreated: new Date().toISOString(),
+        dateFor: selectedDate || undefined,
+        school: selectedSchool,
+      };
+      await saveTimesheetNote(note);
+      await loadSavedNotes();
+      showSnackbar('Timesheet note saved!', 'success');
+    } catch (error) {
+      logError('Failed to save timesheet note', error);
+      showSnackbar('Failed to save timesheet note. Please try again.', 'error');
+    }
   };
 
   const handleLoadNote = (note: TimesheetNote) => {
@@ -312,10 +330,15 @@ export const TimeTracking = () => {
       message: 'Are you sure you want to delete this saved note? This action cannot be undone.',
       confirmText: 'Delete',
       cancelText: 'Cancel',
-      onConfirm: () => {
-        deleteTimesheetNote(id);
-        loadSavedNotes();
-        showSnackbar('Saved note deleted successfully', 'success');
+      onConfirm: async () => {
+        try {
+          await deleteTimesheetNote(id);
+          await loadSavedNotes();
+          showSnackbar('Saved note deleted successfully', 'success');
+        } catch (error) {
+          logError('Failed to delete timesheet note', error);
+          showSnackbar('Failed to delete timesheet note. Please try again.', 'error');
+        }
       },
     });
   };

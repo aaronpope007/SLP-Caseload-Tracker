@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { goalTemplates } from '../utils/goalTemplates';
 
-export const useGoalTemplate = (updateFormField: (field: keyof any, value: any) => void) => {
+export const useGoalTemplate = (updateFormField: (field: string, value: unknown) => void) => {
   const [selectedTemplate, setSelectedTemplate] = useState<typeof goalTemplates[0] | null>(null);
   const [templateFilterDomain, setTemplateFilterDomain] = useState<string>('');
   const [showRecommendedTemplates, setShowRecommendedTemplates] = useState(true);

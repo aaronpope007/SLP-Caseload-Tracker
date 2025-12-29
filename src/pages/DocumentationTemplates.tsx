@@ -21,7 +21,7 @@ import {
   Description as DescriptionIcon,
 } from '@mui/icons-material';
 import { generateDocumentationTemplate } from '../utils/gemini';
-import { useDialog, useSnackbar } from '../hooks';
+import { useDialog, useSnackbar, useAIGeneration } from '../hooks';
 import { getErrorMessage } from '../utils/validators';
 import { logError } from '../utils/logger';
 
@@ -35,6 +35,7 @@ export const DocumentationTemplates = () => {
   const [loading, setLoading] = useState(false);
   const dialog = useDialog();
   const { showSnackbar, SnackbarComponent } = useSnackbar();
+  const { requireApiKey } = useAIGeneration();
 
   const handleGenerate = async () => {
     if (!studentName.trim()) {
@@ -42,9 +43,8 @@ export const DocumentationTemplates = () => {
       return;
     }
 
-    const apiKey = localStorage.getItem('gemini_api_key');
+    const apiKey = requireApiKey();
     if (!apiKey) {
-      showSnackbar('Please set your Gemini API key in Settings', 'error');
       return;
     }
 

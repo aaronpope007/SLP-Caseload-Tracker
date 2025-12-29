@@ -6,6 +6,7 @@ export { useDialog } from './useDialog';
 export { useAsyncOperation } from './useAsyncOperation';
 export { useSnackbar } from './useSnackbar';
 export { useConfirm } from './useConfirm';
+export { useAIGeneration } from './useAIGeneration';
 export { useGoalManagement } from './useGoalManagement';
 export { useGoalForm } from './useGoalForm';
 export { useGoalTemplate } from './useGoalTemplate';

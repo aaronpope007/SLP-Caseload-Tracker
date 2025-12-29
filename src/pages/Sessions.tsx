@@ -24,6 +24,7 @@ import { SessionsList } from '../components/SessionsList';
 import { SessionPlanDialog } from '../components/SessionPlanDialog';
 import { LogActivityMenu } from '../components/LogActivityMenu';
 import { SessionFormDialog } from '../components/SessionFormDialog';
+import type { SessionFormData } from '../components/SessionFormDialog';
 import { SOAPNoteDialog } from '../components/SOAPNoteDialog';
 import type { SOAPNote } from '../types';
 import { logError } from '../utils/logger';
@@ -154,7 +155,7 @@ export const Sessions = () => {
     formData,
     goals,
     setEditingGroupSessionId,
-    setFormData: (data: any) => {
+    setFormData: (data: Partial<SessionFormData>) => {
       // Update all fields in the form data
       Object.entries(data).forEach(([key, value]) => {
         updateFormField(key as keyof typeof formData, value);

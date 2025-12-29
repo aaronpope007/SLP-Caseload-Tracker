@@ -4,7 +4,7 @@ import type { Goal } from '../types';
 interface UseGoalDialogHandlersParams {
   goals: Goal[];
   initializeForm: (goal?: Goal, parentGoal?: Goal) => void;
-  updateFormField: (field: string, value: any) => void;
+  updateFormField: (field: string, value: unknown) => void;
   clearTemplate: () => void;
   openDialog: () => void;
   closeDialog: () => void;

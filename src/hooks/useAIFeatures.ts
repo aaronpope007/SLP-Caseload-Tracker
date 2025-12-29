@@ -6,6 +6,7 @@ import {
   type GoalProgressData,
 } from '../utils/gemini';
 import { logError } from '../utils/logger';
+import { getErrorMessage } from '../utils/validators';
 
 interface UseAIFeaturesOptions {
   apiKey: string;
@@ -51,9 +52,10 @@ export const useAIFeatures = ({ apiKey, studentName, studentAge, studentGrade }:
         concerns
       );
       setGoalSuggestions(suggestions);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = getErrorMessage(err);
       logError('Failed to generate goal suggestions', err);
-      setGoalSuggestionsError(err.message || 'Failed to generate goal suggestions');
+      setGoalSuggestionsError(errorMessage);
     } finally {
       setLoadingGoalSuggestions(false);
     }
@@ -76,9 +78,10 @@ export const useAIFeatures = ({ apiKey, studentName, studentAge, studentGrade }:
         goals
       );
       setTreatmentRecommendations(recommendations);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = getErrorMessage(err);
       logError('Failed to generate treatment recommendations', err);
-      setTreatmentRecsError(err.message || 'Failed to generate treatment recommendations');
+      setTreatmentRecsError(errorMessage);
     } finally {
       setLoadingTreatmentRecs(false);
     }
@@ -104,9 +107,10 @@ export const useAIFeatures = ({ apiKey, studentName, studentAge, studentGrade }:
         concerns
       );
       setIepGoals(goals);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = getErrorMessage(err);
       logError('Failed to generate IEP goals', err);
-      setIepGoalsError(err.message || 'Failed to generate IEP goals');
+      setIepGoalsError(errorMessage);
     } finally {
       setLoadingIepGoals(false);
     }

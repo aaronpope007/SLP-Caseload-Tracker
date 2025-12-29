@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import type { Session, Goal } from '../types';
+import type { SessionFormData } from '../components/SessionFormDialog';
 import { getSessions } from '../utils/storage-api';
 import { toLocalDateTimeString } from '../utils/helpers';
 

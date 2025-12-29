@@ -403,6 +403,17 @@ export function initDatabase() {
     )
   `);
 
+  // Timesheet Notes table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS timesheet_notes (
+      id TEXT PRIMARY KEY,
+      content TEXT NOT NULL,
+      dateCreated TEXT NOT NULL,
+      dateFor TEXT,
+      school TEXT NOT NULL
+    )
+  `);
+
   // Scheduled Sessions table
   db.exec(`
     CREATE TABLE IF NOT EXISTS scheduled_sessions (

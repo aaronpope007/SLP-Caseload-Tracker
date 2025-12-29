@@ -458,7 +458,7 @@ export const ImportTeachersDialog = ({ open, onClose, onImport }: ImportTeachers
                                 select
                                 value={person.type}
                                 onChange={(e) => {
-                                  const updated = { ...person, type: e.target.value as any };
+                                  const updated = { ...person, type: e.target.value as 'teacher' | 'case-manager' | 'staff' };
                                   setEditedPeople(editedPeople.map((p, i) => (i === index ? updated : p)));
                                 }}
                                 SelectProps={{ native: true }}

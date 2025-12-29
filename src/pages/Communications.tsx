@@ -109,15 +109,11 @@ export const Communications = () => {
       const schoolCaseManagers = await api.caseManagers.getAll(selectedSchool);
       setCaseManagers(schoolCaseManagers);
       
-      const filters: any = { school: selectedSchool };
-      if (contactTypeFilter) filters.contactType = contactTypeFilter;
-      if (studentFilter) filters.studentId = studentFilter;
-      
-      logInfo('Loading communications with filters', filters);
+      logInfo('Loading communications with filters', { studentId: studentFilter, contactType: contactTypeFilter, school: selectedSchool });
       const allCommunications = await api.communications.getAll(
-        filters.studentId,
-        filters.contactType,
-        filters.school
+        studentFilter || undefined,
+        contactTypeFilter || undefined,
+        selectedSchool
       );
       
       // Add computed studentName to each communication for easier display

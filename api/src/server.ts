@@ -19,6 +19,7 @@ import { emailRouter } from './routes/email';
 import { communicationsRouter } from './routes/communications';
 import { scheduledSessionsRouter } from './routes/scheduled-sessions';
 import { documentParserRouter } from './routes/document-parser';
+import { timesheetNotesRouter } from './routes/timesheet-notes';
 import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
@@ -65,6 +66,7 @@ app.use('/api/email', emailRouter);
 app.use('/api/communications', communicationsRouter);
 app.use('/api/scheduled-sessions', scheduledSessionsRouter);
 app.use('/api/document-parser', documentParserRouter);
+app.use('/api/timesheet-notes', timesheetNotesRouter);
 
 // Error handler (must be last)
 app.use(errorHandler);

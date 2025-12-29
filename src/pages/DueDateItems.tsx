@@ -94,18 +94,13 @@ export const DueDateItems = () => {
       const schoolStudents = await getStudents(selectedSchool);
       setStudents(schoolStudents);
       
-      const filters: any = { school: selectedSchool };
-      if (statusFilter) filters.status = statusFilter;
-      if (studentFilter) filters.studentId = studentFilter;
-      if (categoryFilter) filters.category = categoryFilter;
-      
       const allItems = await getDueDateItems(
-        filters.studentId,
-        filters.status,
-        filters.category,
+        studentFilter || undefined,
+        statusFilter || undefined,
+        categoryFilter || undefined,
         undefined,
         undefined,
-        filters.school
+        selectedSchool
       );
       
       setItems(allItems);

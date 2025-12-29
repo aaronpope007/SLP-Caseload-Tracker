@@ -35,12 +35,13 @@ import {
 import { generateId } from '../utils/helpers';
 import { getErrorMessage } from '../utils/validators';
 import { generateTreatmentIdeas } from '../utils/gemini';
-import { useDialog, useSnackbar } from '../hooks';
+import { useDialog, useSnackbar, useAIGeneration } from '../hooks';
 
 export const TreatmentIdeas = () => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const dialog = useDialog();
   const { showSnackbar, SnackbarComponent } = useSnackbar();
+  const { requireApiKey } = useAIGeneration();
   const [generating, setGenerating] = useState(false);
   const [generatedIdeas, setGeneratedIdeas] = useState('');
 
@@ -76,9 +77,8 @@ export const TreatmentIdeas = () => {
     setGeneratedIdeas('');
 
     try {
-      const apiKey = localStorage.getItem('gemini_api_key');
+      const apiKey = requireApiKey();
       if (!apiKey) {
-        showSnackbar('Please set your Gemini API key in Settings', 'error');
         setGenerating(false);
         return;
       }

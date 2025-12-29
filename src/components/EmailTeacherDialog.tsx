@@ -513,13 +513,9 @@ export const EmailTeacherDialog = ({
         const result = await api.communications.create(communicationData);
         logInfo('✅ Communication logged successfully:', result);
         logInfo('📋 Full communication data saved:', communicationData);
-      } catch (loggingError: any) {
+      } catch (loggingError: unknown) {
         // Don't fail the email send if logging fails, but log the error
-        logError('Failed to log communication', loggingError, {
-          message: loggingError?.message,
-          stack: loggingError?.stack,
-          response: loggingError?.response,
-        });
+        logError('Failed to log communication', loggingError);
       }
 
       setSendSuccess(true);

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { logError } from '../utils/logger';
+import { getErrorMessage } from '../utils/validators';
 import {
   Dialog,
   DialogTitle,
@@ -219,7 +220,7 @@ export const SendEmailDialog = ({
         };
 
         await api.communications.create(communicationData);
-      } catch (loggingError: any) {
+      } catch (loggingError: unknown) {
         // Don't fail the email send if logging fails, but log the error
         logError('Failed to log communication', loggingError);
       }
@@ -233,9 +234,10 @@ export const SendEmailDialog = ({
       setTimeout(() => {
         onClose();
       }, 1500);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = getErrorMessage(err);
       logError('Error sending email', err);
-      setError(err.message || 'Failed to send email. Please check your email settings and try again.');
+      setError(errorMessage || 'Failed to send email. Please check your email settings and try again.');
     } finally {
       setSending(false);
     }

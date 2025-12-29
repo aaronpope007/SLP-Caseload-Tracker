@@ -19,7 +19,7 @@ interface UseSessionFormHandlersParams {
     plan: string;
   };
   goals: Goal[];
-  editingSession: any;
+  editingSession: Session | null;
   editingGroupSessionId: string | undefined;
   updateFormField: (field: string, value: any) => void;
   isGoalAchieved: (goal: Goal) => boolean;

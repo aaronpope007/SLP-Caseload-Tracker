@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { generateSessionPlan } from '../utils/gemini';
 import { logError } from '../utils/logger';
+import { getErrorMessage } from '../utils/validators';
 import type { Goal } from '../types';
 
 interface UseSessionPlanningOptions {
@@ -36,9 +37,10 @@ export const useSessionPlanning = ({ apiKey }: UseSessionPlanningOptions) => {
         recentSessions
       );
       setSessionPlan(plan);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = getErrorMessage(err);
       logError('Failed to generate session plan', err);
-      setError(err.message || 'Failed to generate session plan');
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

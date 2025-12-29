@@ -5,7 +5,7 @@
  * Set VITE_API_URL in your .env file or it defaults to http://localhost:3001
  */
 
-import type { Student, Goal, Session, Activity, Evaluation, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Reminder, Communication, ScheduledSession } from '../types';
+import type { Student, Goal, Session, Activity, Evaluation, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Reminder, Communication, ScheduledSession, TimesheetNote } from '../types';
 import { buildQueryString } from './queryHelpers';
 import { logError } from './logger';
 
@@ -529,6 +529,32 @@ export const api = {
       }),
     delete: (id: string) => 
       request<{ message: string }>(`/scheduled-sessions/${id}`, {
+        method: 'DELETE',
+      }),
+  },
+
+  // Timesheet Notes
+  timesheetNotes: {
+    getAll: (school?: string) => 
+      request<TimesheetNote[]>(`/timesheet-notes${buildQueryString({ school })}`),
+    getById: (id: string) => 
+      request<TimesheetNote>(`/timesheet-notes/${id}`),
+    create: (note: Omit<TimesheetNote, 'id' | 'dateCreated'>) => 
+      request<{ id: string; message: string }>('/timesheet-notes', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...note,
+          id: crypto.randomUUID(),
+          dateCreated: new Date().toISOString(),
+        }),
+      }),
+    update: (id: string, updates: Partial<TimesheetNote>) => 
+      request<{ message: string }>(`/timesheet-notes/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      }),
+    delete: (id: string) => 
+      request<{ message: string }>(`/timesheet-notes/${id}`, {
         method: 'DELETE',
       }),
   },

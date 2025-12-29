@@ -91,14 +91,10 @@ export const ProgressReports = () => {
       const schoolStudents = await getStudents(selectedSchool);
       setStudents(schoolStudents);
       
-      const filters: any = { school: selectedSchool };
-      if (statusFilter) filters.status = statusFilter;
-      if (studentFilter) filters.studentId = studentFilter;
-      
       const allReports = await getProgressReports(
-        filters.studentId,
-        filters.school,
-        filters.status
+        studentFilter || undefined,
+        selectedSchool,
+        statusFilter || undefined
       );
       
       let filteredReports = allReports;

@@ -22,7 +22,7 @@ import {
   UnfoldLess as UnfoldLessIcon,
   UploadFile as UploadFileIcon,
 } from '@mui/icons-material';
-import type { Teacher } from '../types';
+import type { Teacher, CaseManager } from '../types';
 import {
   getTeachers,
   addTeacher,
@@ -312,7 +312,7 @@ export const Teachers = () => {
     });
   };
 
-  const handleImport = async (importedTeachers: Teacher[], importedCaseManagers: any[]) => {
+  const handleImport = async (importedTeachers: Teacher[], importedCaseManagers: CaseManager[]) => {
     try {
       // Add all teachers
       for (const teacher of importedTeachers) {

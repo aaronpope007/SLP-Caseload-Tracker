@@ -32,7 +32,7 @@ import { COMMON_SUBJECTIVE_STATEMENTS } from '../utils/soapNoteGenerator';
 import { EmailTeacherDialog } from './EmailTeacherDialog';
 import { Email as EmailIcon } from '@mui/icons-material';
 
-interface SessionFormData {
+export interface SessionFormData {
   studentIds: string[];
   date: string;
   endTime: string;
