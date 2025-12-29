@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { logError, logWarn, logInfo } from '../utils/logger';
+import { logError, logWarn } from '../utils/logger';
 import { getErrorMessage } from '../utils/validators';
 import {
   Dialog,
