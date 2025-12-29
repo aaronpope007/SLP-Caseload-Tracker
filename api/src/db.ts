@@ -191,11 +191,11 @@ export function initDatabase() {
     }
     
     // Migrate existing teachers: try to infer school from students that have this teacher assigned
-    const teachersWithEmptySchool = db.prepare('SELECT id FROM teachers WHERE school = "" OR school IS NULL').all() as Array<{ id: string }>;
+    const teachersWithEmptySchool = db.prepare('SELECT id FROM teachers WHERE school = ? OR school IS NULL').all('') as Array<{ id: string }>;
     if (teachersWithEmptySchool.length > 0) {
       for (const teacher of teachersWithEmptySchool) {
         // Try to find a student with this teacher assigned
-        const studentWithTeacher = db.prepare('SELECT school FROM students WHERE teacherId = ? AND school IS NOT NULL AND school != "" LIMIT 1').get(teacher.id) as { school: string } | undefined;
+        const studentWithTeacher = db.prepare('SELECT school FROM students WHERE teacherId = ? AND school IS NOT NULL AND school != ? LIMIT 1').get(teacher.id, '') as { school: string } | undefined;
         if (studentWithTeacher) {
           db.prepare('UPDATE teachers SET school = ? WHERE id = ?').run(studentWithTeacher.school, teacher.id);
         } else {
@@ -207,7 +207,7 @@ export function initDatabase() {
             console.log(`  Set teacher ${teacher.id} school to ${schoolName} (from schools table, first of ${allSchools.length} schools)`);
           } else {
             // Try students table for any school
-            const availableSchools = db.prepare('SELECT DISTINCT school FROM students WHERE school IS NOT NULL AND school != "" ORDER BY school LIMIT 1').get() as { school: string } | undefined;
+            const availableSchools = db.prepare('SELECT DISTINCT school FROM students WHERE school IS NOT NULL AND school != ? ORDER BY school LIMIT 1').get('') as { school: string } | undefined;
             if (availableSchools) {
               db.prepare('UPDATE teachers SET school = ? WHERE id = ?').run(availableSchools.school, teacher.id);
             } else {
@@ -237,12 +237,12 @@ export function initDatabase() {
   // Migrate existing case managers: try to infer school from students that have this case manager assigned
   // This runs every time to fix any case managers with empty schools
   try {
-    const caseManagersWithEmptySchool = db.prepare('SELECT id FROM case_managers WHERE school = "" OR school IS NULL').all() as Array<{ id: string }>;
+    const caseManagersWithEmptySchool = db.prepare('SELECT id FROM case_managers WHERE school = ? OR school IS NULL').all('') as Array<{ id: string }>;
     if (caseManagersWithEmptySchool.length > 0) {
       console.log(`Migrating ${caseManagersWithEmptySchool.length} case managers with empty school...`);
       for (const caseManager of caseManagersWithEmptySchool) {
         // Try to find a student with this case manager assigned
-        const studentWithCaseManager = db.prepare('SELECT school FROM students WHERE caseManagerId = ? AND school IS NOT NULL AND school != "" LIMIT 1').get(caseManager.id) as { school: string } | undefined;
+        const studentWithCaseManager = db.prepare('SELECT school FROM students WHERE caseManagerId = ? AND school IS NOT NULL AND school != ? LIMIT 1').get(caseManager.id, '') as { school: string } | undefined;
         if (studentWithCaseManager) {
           db.prepare('UPDATE case_managers SET school = ? WHERE id = ?').run(studentWithCaseManager.school, caseManager.id);
           console.log(`  Set case manager ${caseManager.id} school to ${studentWithCaseManager.school} (from student)`);
@@ -256,7 +256,7 @@ export function initDatabase() {
             console.log(`  Set case manager ${caseManager.id} school to ${schoolName} (from schools table, first of ${allSchools.length} schools)`);
           } else {
             // Try students table for any school
-            const availableSchools = db.prepare('SELECT DISTINCT school FROM students WHERE school IS NOT NULL AND school != "" ORDER BY school LIMIT 1').get() as { school: string } | undefined;
+            const availableSchools = db.prepare('SELECT DISTINCT school FROM students WHERE school IS NOT NULL AND school != ? ORDER BY school LIMIT 1').get('') as { school: string } | undefined;
             if (availableSchools) {
               db.prepare('UPDATE case_managers SET school = ? WHERE id = ?').run(availableSchools.school, caseManager.id);
               console.log(`  Set case manager ${caseManager.id} school to ${availableSchools.school} (from students)`);

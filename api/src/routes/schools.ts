@@ -173,3 +173,14 @@ schoolsRouter.delete('/:id', asyncHandler(async (req, res) => {
   res.json({ message: 'School deleted', deletedId: id });
 }));
 
+// Debug endpoint to check database
+schoolsRouter.get('/debug/count', asyncHandler(async (_req, res) => {
+  const count = db.prepare('SELECT COUNT(*) as count FROM schools').get() as { count: number };
+  const allSchools = db.prepare('SELECT id, name FROM schools').all() as Array<{ id: string; name: string }>;
+  res.json({ 
+    count: count.count, 
+    schools: allSchools,
+    databasePath: process.cwd() + '/data/slp-caseload.db'
+  });
+}));
+

@@ -7,15 +7,26 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "migrate": "tsx src/migrate.ts",
-    "fix-foreign-key": "tsx src/fix-foreign-key.ts"
+    "fix-foreign-key": "tsx src/fix-foreign-key.ts",
+    "kill-port": "node kill-port.js"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@types/multer": "^2.0.0",
     "@types/nodemailer": "^7.0.4",
     "better-sqlite3": "^11.7.0",
+    "canvas": "^3.2.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "nodemailer": "^7.0.12"
+    "mammoth": "^1.11.0",
+    "multer": "^2.0.2",
+    "nodemailer": "^7.0.12",
+    "pdf-lib": "^1.17.1",
+    "pdf-parse": "^2.4.5",
+    "pdf2json": "^4.0.0",
+    "pdfjs-dist": "^5.4.530",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.11",

@@ -241,9 +241,14 @@ export const deleteEvaluation = async (id: string): Promise<void> => {
 // Schools
 export const getSchools = async (): Promise<School[]> => {
   try {
-    return await api.schools.getAll();
+    const schools = await api.schools.getAll();
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[getSchools] Fetched schools:', schools.length, schools.map(s => s.name));
+    }
+    return schools;
   } catch (error) {
     logError('Failed to fetch schools', error);
+    console.error('[getSchools] Error details:', error);
     return [];
   }
 };

@@ -18,14 +18,25 @@ import { remindersRouter } from './routes/reminders';
 import { emailRouter } from './routes/email';
 import { communicationsRouter } from './routes/communications';
 import { scheduledSessionsRouter } from './routes/scheduled-sessions';
+import { documentParserRouter } from './routes/document-parser';
 import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
-app.use(cors());
-app.use(express.json());
+// Configure CORS to allow all origins (for development)
+// In production, you should specify allowed origins
+app.use(cors({
+  origin: true, // Allow all origins
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Length', 'Content-Type'],
+}));
+// Increase JSON payload limit for file uploads
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Initialize database
 initDatabase();
@@ -53,12 +64,27 @@ app.use('/api/reminders', remindersRouter);
 app.use('/api/email', emailRouter);
 app.use('/api/communications', communicationsRouter);
 app.use('/api/scheduled-sessions', scheduledSessionsRouter);
+app.use('/api/document-parser', documentParserRouter);
 
 // Error handler (must be last)
 app.use(errorHandler);
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📊 Database location: ./data/slp-caseload.db`);
+});
+
+server.on('error', (err: NodeJS.ErrnoException) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`\n❌ Port ${PORT} is already in use!`);
+    console.error(`\nTo fix this, run:`);
+    console.error(`  cd api && npm run kill-port`);
+    console.error(`\nOr manually:`);
+    console.error(`  netstat -ano | findstr :${PORT}`);
+    console.error(`  taskkill /F /PID <PID>\n`);
+    process.exit(1);
+  } else {
+    throw err;
+  }
 });
 

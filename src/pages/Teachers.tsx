@@ -20,6 +20,7 @@ import {
   Add as AddIcon,
   UnfoldMore as UnfoldMoreIcon,
   UnfoldLess as UnfoldLessIcon,
+  UploadFile as UploadFileIcon,
 } from '@mui/icons-material';
 import type { Teacher } from '../types';
 import {
@@ -27,7 +28,9 @@ import {
   addTeacher,
   updateTeacher,
   deleteTeacher,
+  addCaseManager,
 } from '../utils/storage-api';
+import { ImportTeachersDialog } from '../components/ImportTeachersDialog';
 import { generateId } from '../utils/helpers';
 import { useConfirm, useDialog, useSnackbar } from '../hooks';
 import { useDirty } from '../hooks/useDirty';
@@ -82,6 +85,7 @@ export const Teachers = () => {
   
   // Dialog and snackbar hooks
   const teacherDialog = useDialog();
+  const importDialog = useDialog();
   const { showSnackbar, SnackbarComponent } = useSnackbar();
   const { confirm, ConfirmDialog } = useConfirm();
 
@@ -308,6 +312,30 @@ export const Teachers = () => {
     });
   };
 
+  const handleImport = async (importedTeachers: Teacher[], importedCaseManagers: any[]) => {
+    try {
+      // Add all teachers
+      for (const teacher of importedTeachers) {
+        await addTeacher(teacher);
+      }
+      
+      // Add all case managers
+      for (const caseManager of importedCaseManagers) {
+        await addCaseManager(caseManager);
+      }
+      
+      await loadTeachers();
+      const totalImported = importedTeachers.length + importedCaseManagers.length;
+      showSnackbar(
+        `Successfully imported ${totalImported} ${totalImported === 1 ? 'person' : 'people'}`,
+        'success'
+      );
+    } catch (error) {
+      logError('Failed to import teachers', error);
+      throw error;
+    }
+  };
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
@@ -324,6 +352,13 @@ export const Teachers = () => {
               {expandedTeachers.size === filteredTeachers.length ? 'Collapse All' : 'Expand All'}
             </Button>
           )}
+          <Button
+            variant="outlined"
+            startIcon={<UploadFileIcon />}
+            onClick={() => importDialog.openDialog()}
+          >
+            Import from Document
+          </Button>
           <Button
             variant="contained"
             startIcon={<AddIcon />}
@@ -480,6 +515,12 @@ export const Teachers = () => {
       )}
 
       <SnackbarComponent />
+
+      <ImportTeachersDialog
+        open={importDialog.open}
+        onClose={importDialog.closeDialog}
+        onImport={handleImport}
+      />
     </Box>
   );
 };
