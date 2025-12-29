@@ -163,6 +163,18 @@
 
 ---
 
+## 🚀 Next Improvements
+
+See `NEXT_IMPROVEMENTS.md` for detailed recommendations on:
+- Adopting standardized hooks in remaining components (TreatmentIdeas, DocumentationTemplates, Dashboard, Progress)
+- Migrating Timesheet Notes to API backend (if cross-device sync needed)
+- Extracting AI feature hooks for consistency
+- Other incremental improvements
+
+**These are incremental improvements that can be done as needed or during feature development.**
+
+---
+
 ## ✅ Already Completed (Don't Need to Do)
 
 - ✅ All API routes refactored

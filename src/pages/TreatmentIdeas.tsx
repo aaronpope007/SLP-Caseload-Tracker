@@ -19,7 +19,6 @@ import {
   Chip,
   CircularProgress,
   IconButton,
-  Alert,
 } from '@mui/material';
 import {
   Lightbulb as LightbulbIcon,
@@ -34,14 +33,16 @@ import {
   updateActivity,
 } from '../utils/storage-api';
 import { generateId } from '../utils/helpers';
+import { getErrorMessage } from '../utils/validators';
 import { generateTreatmentIdeas } from '../utils/gemini';
+import { useDialog, useSnackbar } from '../hooks';
 
 export const TreatmentIdeas = () => {
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const dialog = useDialog();
+  const { showSnackbar, SnackbarComponent } = useSnackbar();
   const [generating, setGenerating] = useState(false);
   const [generatedIdeas, setGeneratedIdeas] = useState('');
-  const [error, setError] = useState('');
 
   const [formData, setFormData] = useState({
     goalArea: '',
@@ -67,18 +68,17 @@ export const TreatmentIdeas = () => {
 
   const handleGenerate = async () => {
     if (!formData.goalArea || !formData.ageRange) {
-      setError('Please fill in goal area and age range');
+      showSnackbar('Please fill in goal area and age range', 'error');
       return;
     }
 
     setGenerating(true);
-    setError('');
     setGeneratedIdeas('');
 
     try {
       const apiKey = localStorage.getItem('gemini_api_key');
       if (!apiKey) {
-        setError('Please set your Gemini API key in Settings');
+        showSnackbar('Please set your Gemini API key in Settings', 'error');
         setGenerating(false);
         return;
       }
@@ -96,9 +96,11 @@ export const TreatmentIdeas = () => {
       );
 
       setGeneratedIdeas(ideas);
-      setDialogOpen(true);
-    } catch (err: any) {
-      setError(err.message || 'Failed to generate ideas. Please try again.');
+      dialog.openDialog();
+    } catch (err: unknown) {
+      const errorMessage = getErrorMessage(err);
+      showSnackbar(errorMessage, 'error');
+      logError('Failed to generate treatment ideas', err);
     } finally {
       setGenerating(false);
     }
@@ -107,26 +109,33 @@ export const TreatmentIdeas = () => {
   const handleSaveIdea = async () => {
     if (!generatedIdeas || !formData.goalArea || !formData.ageRange) return;
 
-    const materialsArray = formData.materials
-      .split(',')
-      .map((m) => m.trim())
-      .filter((m) => m.length > 0);
+    try {
+      const materialsArray = formData.materials
+        .split(',')
+        .map((m) => m.trim())
+        .filter((m) => m.length > 0);
 
-    const activity: Activity = {
-      id: generateId(),
-      description: generatedIdeas,
-      goalArea: formData.goalArea,
-      ageRange: formData.ageRange,
-      materials: materialsArray,
-      isFavorite: false,
-      source: 'AI',
-      dateCreated: new Date().toISOString(),
-    };
+      const activity: Activity = {
+        id: generateId(),
+        description: generatedIdeas,
+        goalArea: formData.goalArea,
+        ageRange: formData.ageRange,
+        materials: materialsArray,
+        isFavorite: false,
+        source: 'AI',
+        dateCreated: new Date().toISOString(),
+      };
 
-    await addActivity(activity);
-    loadActivities();
-    setDialogOpen(false);
-    setGeneratedIdeas('');
+      await addActivity(activity);
+      loadActivities();
+      dialog.closeDialog();
+      setGeneratedIdeas('');
+      showSnackbar('Treatment idea saved successfully!', 'success');
+    } catch (err: unknown) {
+      const errorMessage = getErrorMessage(err);
+      showSnackbar(errorMessage, 'error');
+      logError('Failed to save treatment idea', err);
+    }
   };
 
   const handleToggleFavorite = async (id: string) => {
@@ -182,11 +191,6 @@ export const TreatmentIdeas = () => {
               />
             </Grid>
           </Grid>
-          {error && (
-            <Alert severity="error" sx={{ mt: 2 }}>
-              {error}
-            </Alert>
-          )}
           <Box sx={{ mt: 2 }}>
             <Button
               variant="contained"
@@ -304,7 +308,7 @@ export const TreatmentIdeas = () => {
         )}
       </Box>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
+      <Dialog open={dialog.open} onClose={dialog.closeDialog} maxWidth="md" fullWidth>
         <DialogTitle>Generated Treatment Ideas</DialogTitle>
         <DialogContent>
           <Typography
@@ -315,7 +319,7 @@ export const TreatmentIdeas = () => {
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Close</Button>
+          <Button onClick={dialog.closeDialog}>Close</Button>
           <Button
             onClick={handleSaveIdea}
             variant="contained"
@@ -325,6 +329,8 @@ export const TreatmentIdeas = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <SnackbarComponent />
     </Box>
   );
 };

@@ -15,13 +15,15 @@ import {
   MenuItem,
   TextField,
   Typography,
-  Alert,
   CircularProgress,
 } from '@mui/material';
 import {
   Description as DescriptionIcon,
 } from '@mui/icons-material';
 import { generateDocumentationTemplate } from '../utils/gemini';
+import { useDialog, useSnackbar } from '../hooks';
+import { getErrorMessage } from '../utils/validators';
+import { logError } from '../utils/logger';
 
 export const DocumentationTemplates = () => {
   const [templateType, setTemplateType] = useState<'evaluation' | 'progress-note' | 'discharge-summary' | 'treatment-plan' | 'soap-note'>('progress-note');
@@ -31,23 +33,22 @@ export const DocumentationTemplates = () => {
   const [additionalContext, setAdditionalContext] = useState('');
   const [template, setTemplate] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const dialog = useDialog();
+  const { showSnackbar, SnackbarComponent } = useSnackbar();
 
   const handleGenerate = async () => {
     if (!studentName.trim()) {
-      setError('Please enter student name');
+      showSnackbar('Please enter student name', 'error');
       return;
     }
 
     const apiKey = localStorage.getItem('gemini_api_key');
     if (!apiKey) {
-      setError('Please set your Gemini API key in Settings');
+      showSnackbar('Please set your Gemini API key in Settings', 'error');
       return;
     }
 
     setLoading(true);
-    setError('');
 
     try {
       const generatedTemplate = await generateDocumentationTemplate(
@@ -59,18 +60,26 @@ export const DocumentationTemplates = () => {
         additionalContext || undefined
       );
       setTemplate(generatedTemplate);
-      setDialogOpen(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate template');
+      dialog.openDialog();
+    } catch (err: unknown) {
+      const errorMessage = getErrorMessage(err);
+      showSnackbar(errorMessage, 'error');
+      logError('Failed to generate documentation template', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCopyToClipboard = () => {
+  const handleCopyToClipboard = async () => {
     if (template) {
-      navigator.clipboard.writeText(template);
-      // Could add a snackbar notification here
+      try {
+        await navigator.clipboard.writeText(template);
+        showSnackbar('Template copied to clipboard!', 'success');
+      } catch (err: unknown) {
+        const errorMessage = getErrorMessage(err);
+        showSnackbar(`Failed to copy to clipboard: ${errorMessage}`, 'error');
+        logError('Failed to copy template to clipboard', err);
+      }
     }
   };
 
@@ -140,10 +149,6 @@ export const DocumentationTemplates = () => {
               helperText="Add any additional information that should be included in the template (e.g., diagnosis, specific areas to address, etc.)"
             />
 
-            {error && (
-              <Alert severity="error">{error}</Alert>
-            )}
-
             <Button
               variant="contained"
               size="large"
@@ -174,7 +179,7 @@ export const DocumentationTemplates = () => {
         </CardContent>
       </Card>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
+      <Dialog open={dialog.open} onClose={dialog.closeDialog} maxWidth="md" fullWidth>
         <DialogTitle>
           Generated {templateType === 'evaluation' ? 'Evaluation Report' :
             templateType === 'progress-note' ? 'Progress Note' :
@@ -203,11 +208,13 @@ export const DocumentationTemplates = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCopyToClipboard}>Copy to Clipboard</Button>
-          <Button onClick={() => setDialogOpen(false)} variant="contained">
+          <Button onClick={dialog.closeDialog} variant="contained">
             Close
           </Button>
         </DialogActions>
       </Dialog>
+
+      <SnackbarComponent />
     </Box>
   );
 };

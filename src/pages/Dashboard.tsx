@@ -29,7 +29,18 @@ import {
 import { RemindersCard } from '../components/RemindersCard';
 import { formatDate } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
+import { useAsyncOperation } from '../hooks';
 import type { Student, ProgressReport, DueDateItem } from '../types';
+
+interface DashboardData {
+  stats: {
+    activeStudents: number;
+    totalGoals: number;
+  };
+  students: Student[];
+  upcomingReports: ProgressReport[];
+  upcomingItems: DueDateItem[];
+}
 
 export const Dashboard = () => {
   const navigate = useNavigate();
@@ -40,6 +51,9 @@ export const Dashboard = () => {
     // Always navigate to sessions page to log activity
     navigate('/sessions?add=true');
   };
+
+  const { loading, execute } = useAsyncOperation<DashboardData>();
+
   const [stats, setStats] = useState({
     activeStudents: 0,
     totalGoals: 0,
@@ -47,49 +61,60 @@ export const Dashboard = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [upcomingReports, setUpcomingReports] = useState<ProgressReport[]>([]);
   const [upcomingItems, setUpcomingItems] = useState<DueDateItem[]>([]);
-  const [loading, setLoading] = useState(true);
 
   const loadDashboardData = async () => {
-    setLoading(true);
     try {
-      const schoolStudents = await getStudents(selectedSchool);
-      setStudents(schoolStudents);
-      const goals = await getGoals();
-    
-    // Filter goals by school students
-    const studentIds = new Set(schoolStudents.map(s => s.id));
-    const schoolGoals = goals.filter(g => studentIds.has(g.studentId));
+      await execute(async () => {
+        const schoolStudents = await getStudents(selectedSchool);
+        const goals = await getGoals();
+      
+        // Filter goals by school students
+        const studentIds = new Set(schoolStudents.map(s => s.id));
+        const schoolGoals = goals.filter(g => studentIds.has(g.studentId));
 
-    // Filter out archived students (archived is optional for backward compatibility)
-    const activeStudents = schoolStudents.filter(s => s.status === 'active' && s.archived !== true);
-    const activeStudentIds = new Set(activeStudents.map(s => s.id));
-    
-    // Filter goals to only include those belonging to active (non-archived) students
-    const activeGoals = schoolGoals.filter(g => 
-      g.status === 'in-progress' && activeStudentIds.has(g.studentId)
-    );
-    
-    setStats({
-      activeStudents: activeStudents.length,
-      totalGoals: activeGoals.length,
-    });
+        // Filter out archived students (archived is optional for backward compatibility)
+        const activeStudents = schoolStudents.filter(s => s.status === 'active' && s.archived !== true);
+        const activeStudentIds = new Set(activeStudents.map(s => s.id));
+        
+        // Filter goals to only include those belonging to active (non-archived) students
+        const activeGoals = schoolGoals.filter(g => 
+          g.status === 'in-progress' && activeStudentIds.has(g.studentId)
+        );
+        
+        const statsData = {
+          activeStudents: activeStudents.length,
+          totalGoals: activeGoals.length,
+        };
 
-    // Load upcoming progress reports (next 30 days)
-    const reports = await getUpcomingProgressReports(30, selectedSchool);
-    setUpcomingReports(reports.slice(0, 5));
+        // Load upcoming progress reports (next 30 days)
+        const reports = await getUpcomingProgressReports(30, selectedSchool);
 
-    // Load upcoming due date items (next 30 days)
-    const items = await getUpcomingDueDateItems(30, selectedSchool);
-    setUpcomingItems(items.slice(0, 5));
+        // Load upcoming due date items (next 30 days)
+        const items = await getUpcomingDueDateItems(30, selectedSchool);
+
+        const dashboardData: DashboardData = {
+          stats: statsData,
+          students: schoolStudents,
+          upcomingReports: reports.slice(0, 5),
+          upcomingItems: items.slice(0, 5),
+        };
+
+        // Update state with the loaded data
+        setStats(dashboardData.stats);
+        setStudents(dashboardData.students);
+        setUpcomingReports(dashboardData.upcomingReports);
+        setUpcomingItems(dashboardData.upcomingItems);
+
+        return dashboardData;
+      });
     } catch (error) {
       logError('Failed to load dashboard data', error);
-    } finally {
-      setLoading(false);
     }
   };
 
   useEffect(() => {
     loadDashboardData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSchool]);
 
   const statCards = [

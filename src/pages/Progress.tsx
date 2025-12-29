@@ -16,7 +16,6 @@ import {
   Checkbox,
   FormControlLabel,
   CircularProgress,
-  Alert,
   Divider,
 } from '@mui/material';
 import {
@@ -35,7 +34,8 @@ import { getStudents, getGoals, getSessions } from '../utils/storage-api';
 import { formatDate } from '../utils/helpers';
 import { generateProgressNote, type GoalProgressData } from '../utils/gemini';
 import { useSchool } from '../context/SchoolContext';
-import { useAsyncOperation } from '../hooks';
+import { useAsyncOperation, useSnackbar } from '../hooks';
+import { getErrorMessage } from '../utils/validators';
 import type { Student } from '../types';
 
 interface TimelineDataItem {
@@ -67,6 +67,7 @@ interface GoalProgressItem {
 
 export const Progress = () => {
   const { selectedSchool } = useSchool();
+  const { showSnackbar, SnackbarComponent } = useSnackbar();
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [progressData, setProgressData] = useState<TimelineDataItem[]>([]);
@@ -76,7 +77,6 @@ export const Progress = () => {
   const [selectedGoals, setSelectedGoals] = useState<Set<string>>(new Set());
   const [loadingNotes, setLoadingNotes] = useState<Record<string, boolean>>({});
   const [loadingCombined, setLoadingCombined] = useState<boolean>(false);
-  const [error, setError] = useState<string>('');
 
   useEffect(() => {
     const loadStudents = async () => {
@@ -196,12 +196,11 @@ export const Progress = () => {
 
     const apiKey = localStorage.getItem('gemini_api_key');
     if (!apiKey) {
-      setError('Please set your Gemini API key in Settings.');
+      showSnackbar('Please set your Gemini API key in Settings.', 'error');
       return;
     }
 
     setLoadingNotes({ ...loadingNotes, [goal.goalId]: true });
-    setError('');
 
     try {
       const goalData: GoalProgressData = {
@@ -217,8 +216,9 @@ export const Progress = () => {
       const note = await generateProgressNote(selectedStudent.name, [goalData], apiKey);
       setGoalNotes({ ...goalNotes, [goal.goalId]: note });
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to generate note';
-      setError(errorMessage);
+      const errorMessage = getErrorMessage(err);
+      showSnackbar(errorMessage, 'error');
+      logError('Failed to generate goal progress note', err);
     } finally {
       setLoadingNotes({ ...loadingNotes, [goal.goalId]: false });
     }
@@ -247,7 +247,7 @@ export const Progress = () => {
 
     const apiKey = localStorage.getItem('gemini_api_key');
     if (!apiKey) {
-      setError('Please set your Gemini API key in Settings.');
+      showSnackbar('Please set your Gemini API key in Settings.', 'error');
       return;
     }
 
@@ -259,12 +259,11 @@ export const Progress = () => {
       : goalProgress;
 
     if (goalsToInclude.length === 0) {
-      setError('Please select at least one goal or leave all unchecked to include all goals.');
+      showSnackbar('Please select at least one goal or leave all unchecked to include all goals.', 'error');
       return;
     }
 
     setLoadingCombined(true);
-    setError('');
 
     try {
       const goalsData: GoalProgressData[] = goalsToInclude.map((goal) => ({
@@ -280,8 +279,9 @@ export const Progress = () => {
       const note = await generateProgressNote(selectedStudent.name, goalsData, apiKey);
       setCombinedNote(note);
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to generate note';
-      setError(errorMessage);
+      const errorMessage = getErrorMessage(err);
+      showSnackbar(errorMessage, 'error');
+      logError('Failed to generate combined progress note', err);
     } finally {
       setLoadingCombined(false);
     }
@@ -609,12 +609,6 @@ export const Progress = () => {
             </Card>
           )}
 
-          {error && (
-            <Alert severity="error" sx={{ mt: 2 }} onClose={() => setError('')}>
-              {error}
-            </Alert>
-          )}
-
           {goalProgress.length === 0 && (
             <Card>
               <CardContent>
@@ -636,6 +630,8 @@ export const Progress = () => {
           </CardContent>
         </Card>
       )}
+
+      <SnackbarComponent />
     </Box>
   );
 };
