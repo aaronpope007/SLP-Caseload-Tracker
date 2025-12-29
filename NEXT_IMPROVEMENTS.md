@@ -121,21 +121,20 @@ export const useAIGeneration = () => {
 
 ## 🟢 Low Priority / Nice to Have
 
-### 5. Standardize Error Display Patterns
+### 5. Standardize Error Display Patterns ✅ MOSTLY COMPLETE
 **Impact:** Better UX, consistent error handling
-**Status:** Mix of `Alert` components and snackbars
+**Status:** ✅ Standardized - All components now use `useSnackbar` for user-facing errors
 
 **Current State:**
-- Some components use `<Alert>` for errors (TreatmentIdeas, DocumentationTemplates, Progress)
-- Other components use `useSnackbar` hook
-- No consistent pattern for when to use Alert vs Snackbar
+- ✅ All components now use `useSnackbar` hook for transient errors (operations, API calls)
+- ✅ Alert components removed from TreatmentIdeas, DocumentationTemplates, Progress
+- ✅ Consistent error handling pattern established
 
-**Recommendation:**
-- Use `useSnackbar` for transient errors (operations, API calls)
-- Use `<Alert>` for form validation errors or persistent errors
-- Document the pattern in a style guide or component docs
+**Recommendation (Optional):**
+- Document the pattern in a style guide or component docs (when time permits)
+- Consider using `<Alert>` only for form validation errors or persistent errors that need to stay visible
 
-**Estimated Time:** 1 hour (documentation) + refactoring as needed
+**Estimated Time:** 30 minutes (documentation only, refactoring complete)
 
 ---
 
