@@ -25,6 +25,7 @@ interface ImportData {
   activities?: any[];
   evaluations?: any[];
   schools?: any[];
+  scheduledSessions?: any[];
 }
 
 function migrateData(data: ImportData) {
@@ -43,6 +44,7 @@ function migrateData(data: ImportData) {
     db.prepare('DELETE FROM goals').run();
     db.prepare('DELETE FROM students').run();
     db.prepare('DELETE FROM schools').run();
+    db.prepare('DELETE FROM scheduled_sessions').run();
     
     // Import Schools
     if (data.schools && data.schools.length > 0) {
@@ -201,6 +203,42 @@ function migrateData(data: ImportData) {
         );
       }
       console.log(`✅ Imported ${data.evaluations.length} evaluations`);
+    }
+    
+    // Import Scheduled Sessions
+    if (data.scheduledSessions && data.scheduledSessions.length > 0) {
+      console.log(`📅 Importing ${data.scheduledSessions.length} scheduled sessions...`);
+      const insertScheduledSession = db.prepare(`
+        INSERT INTO scheduled_sessions (
+          id, studentIds, startTime, endTime, duration, dayOfWeek, specificDates,
+          recurrencePattern, startDate, endDate, goalsTargeted, notes,
+          isDirectServices, dateCreated, dateUpdated, active, cancelledDates
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      
+      for (const session of data.scheduledSessions) {
+        insertScheduledSession.run(
+          session.id,
+          JSON.stringify(session.studentIds || []),
+          session.startTime,
+          session.endTime || null,
+          session.duration || null,
+          session.dayOfWeek ? JSON.stringify(session.dayOfWeek) : null,
+          session.specificDates ? JSON.stringify(session.specificDates) : null,
+          session.recurrencePattern || 'none',
+          session.startDate,
+          session.endDate || null,
+          JSON.stringify(session.goalsTargeted || []),
+          session.notes || null,
+          session.isDirectServices !== false ? 1 : 0,
+          session.dateCreated || new Date().toISOString(),
+          session.dateUpdated || new Date().toISOString(),
+          session.active !== false ? 1 : 0,
+          session.cancelledDates ? JSON.stringify(session.cancelledDates) : null
+        );
+      }
+      console.log(`✅ Imported ${data.scheduledSessions.length} scheduled sessions`);
     }
     
       });

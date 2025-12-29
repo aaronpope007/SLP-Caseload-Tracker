@@ -1,0 +1,880 @@
+{
+  "scheduledSessions": [
+    {
+      "id": "1766459805317-6f03n6ypi",
+      "studentIds": [
+        "1765567169773-8vlml3llk",
+        "1765838843108-jze8f5gwr"
+      ],
+      "startTime": "09:00",
+      "endTime": "09:30",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        1,
+        3
+      ],
+      "startDate": "2025-12-22",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T03:16:45.317Z",
+      "dateUpdated": "2025-12-23T03:21:59.626Z",
+      "active": true
+    },
+    {
+      "id": "1766460479390-6wem3wh9j",
+      "studentIds": [
+        "1765826085180-w4ibc8gvp"
+      ],
+      "startTime": "09:00",
+      "endTime": "09:30",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        2,
+        4
+      ],
+      "startDate": "2025-12-22",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T03:27:59.390Z",
+      "dateUpdated": "2025-12-23T03:27:59.390Z",
+      "active": true
+    },
+    {
+      "id": "1766460524570-s3zyijtz1",
+      "studentIds": [
+        "1766167726532-yoe7n85d6"
+      ],
+      "startTime": "09:30",
+      "endTime": "10:00",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        1,
+        3,
+        5
+      ],
+      "startDate": "2025-12-22",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T03:28:44.570Z",
+      "dateUpdated": "2025-12-23T03:28:44.570Z",
+      "active": true
+    },
+    {
+      "id": "1766463057989-c38vocfdu",
+      "studentIds": [
+        "1765807421181-i53c9sjpw"
+      ],
+      "startTime": "08:10",
+      "endTime": "08:30",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        1,
+        5
+      ],
+      "startDate": "2025-12-15",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T04:10:57.989Z",
+      "dateUpdated": "2025-12-25T01:19:56.906Z",
+      "active": true,
+      "cancelledDates": [
+        "2025-12-22",
+        "2025-12-26",
+        "2025-12-29",
+        "2026-01-02"
+      ]
+    },
+    {
+      "id": "1766463176969-ool9qiwxu",
+      "studentIds": [
+        "1765809199176-cog4cp7f2",
+        "1765809247581-heui4wuf1"
+      ],
+      "startTime": "08:30",
+      "endTime": "08:50",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        1,
+        3
+      ],
+      "startDate": "2025-12-15",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T04:12:56.969Z",
+      "dateUpdated": "2025-12-25T01:19:51.065Z",
+      "active": true,
+      "cancelledDates": [
+        "2025-12-17",
+        "2025-12-22",
+        "2025-12-24",
+        "2025-12-29",
+        "2025-12-31"
+      ]
+    },
+    {
+      "id": "1766463398606-gpy2sisip",
+      "studentIds": [
+        "1765810680595-yt0lc558w",
+        "1765810771715-x54337hrr"
+      ],
+      "startTime": "08:55",
+      "endTime": "09:15",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        1
+      ],
+      "startDate": "2025-12-15",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T04:16:38.606Z",
+      "dateUpdated": "2025-12-25T01:19:44.227Z",
+      "active": true,
+      "cancelledDates": [
+        "2025-12-22",
+        "2025-12-29"
+      ]
+    },
+    {
+      "id": "1766463570924-jm4x1l4cs",
+      "studentIds": [
+        "1765811792304-9dw0z5vy6"
+      ],
+      "startTime": "09:20",
+      "endTime": "09:40",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        1,
+        3
+      ],
+      "startDate": "2025-12-15",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T04:19:30.924Z",
+      "dateUpdated": "2025-12-25T01:19:51.065Z",
+      "active": true,
+      "cancelledDates": [
+        "2025-12-17",
+        "2025-12-22",
+        "2025-12-24",
+        "2025-12-29",
+        "2025-12-31"
+      ]
+    },
+    {
+      "id": "1766463752254-7a6iecc82",
+      "studentIds": [
+        "1765812743225-qo5trwg51"
+      ],
+      "startTime": "09:40",
+      "endTime": "10:00",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        1,
+        3
+      ],
+      "startDate": "2025-12-15",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T04:22:32.254Z",
+      "dateUpdated": "2025-12-25T01:19:51.065Z",
+      "active": true,
+      "cancelledDates": [
+        "2025-12-17",
+        "2025-12-22",
+        "2025-12-24",
+        "2025-12-29",
+        "2025-12-31"
+      ]
+    },
+    {
+      "id": "1766463802882-z03rzbxd0",
+      "studentIds": [
+        "1765815246475-xqe6xk8pa"
+      ],
+      "startTime": "10:00",
+      "endTime": "10:20",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        1,
+        3
+      ],
+      "startDate": "2025-12-15",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T04:23:22.882Z",
+      "dateUpdated": "2025-12-25T01:19:51.065Z",
+      "active": true,
+      "cancelledDates": [
+        "2025-12-17",
+        "2025-12-22",
+        "2025-12-24",
+        "2025-12-29",
+        "2025-12-31"
+      ]
+    },
+    {
+      "id": "1766463903808-lwyubinry",
+      "studentIds": [
+        "1765815308128-tqhi2710h"
+      ],
+      "startTime": "10:20",
+      "endTime": "10:40",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        1,
+        3
+      ],
+      "startDate": "2025-12-15",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T04:25:03.808Z",
+      "dateUpdated": "2025-12-25T01:19:51.065Z",
+      "active": true,
+      "cancelledDates": [
+        "2025-12-17",
+        "2025-12-22",
+        "2025-12-24",
+        "2025-12-29",
+        "2025-12-31"
+      ]
+    },
+    {
+      "id": "1766463968655-ivrsmdd7f",
+      "studentIds": [
+        "1765815898029-z1kz8uhix",
+        "1765816099249-3z3alpnos"
+      ],
+      "startTime": "11:00",
+      "endTime": "11:20",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        1,
+        3
+      ],
+      "startDate": "2025-12-15",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T04:26:08.655Z",
+      "dateUpdated": "2025-12-25T01:19:51.065Z",
+      "active": true,
+      "cancelledDates": [
+        "2025-12-17",
+        "2025-12-22",
+        "2025-12-24",
+        "2025-12-29",
+        "2025-12-31"
+      ]
+    },
+    {
+      "id": "1766464065637-40udituub",
+      "studentIds": [
+        "1765819755726-4zfj6pvn8"
+      ],
+      "startTime": "11:20",
+      "endTime": "11:40",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        1
+      ],
+      "startDate": "2025-12-15",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T04:27:45.637Z",
+      "dateUpdated": "2025-12-25T01:19:44.228Z",
+      "active": true,
+      "cancelledDates": [
+        "2025-12-22",
+        "2025-12-29"
+      ]
+    },
+    {
+      "id": "1766464120781-bmjlye306",
+      "studentIds": [
+        "1765896935381-7p6ihkvfa"
+      ],
+      "startTime": "12:25",
+      "endTime": "12:45",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        1,
+        3
+      ],
+      "startDate": "2025-12-15",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T04:28:40.781Z",
+      "dateUpdated": "2025-12-25T01:19:51.065Z",
+      "active": true,
+      "cancelledDates": [
+        "2025-12-17",
+        "2025-12-22",
+        "2025-12-24",
+        "2025-12-29",
+        "2025-12-31"
+      ]
+    },
+    {
+      "id": "1766464201483-95xu3e83e",
+      "studentIds": [
+        "1765823024252-yp9b5jmi9",
+        "1765823251017-76y207lse"
+      ],
+      "startTime": "12:45",
+      "endTime": "13:05",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        1
+      ],
+      "startDate": "2025-12-15",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T04:30:01.483Z",
+      "dateUpdated": "2025-12-25T01:19:44.228Z",
+      "active": true,
+      "cancelledDates": [
+        "2025-12-22",
+        "2025-12-29"
+      ]
+    },
+    {
+      "id": "1766464281580-uz4mrzr0i",
+      "studentIds": [
+        "1765823404394-dapts5y04"
+      ],
+      "startTime": "13:05",
+      "endTime": "13:25",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        1,
+        3
+      ],
+      "startDate": "2025-12-15",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T04:31:21.580Z",
+      "dateUpdated": "2025-12-25T01:19:51.066Z",
+      "active": true,
+      "cancelledDates": [
+        "2025-12-17",
+        "2025-12-22",
+        "2025-12-24",
+        "2025-12-29",
+        "2025-12-31"
+      ]
+    },
+    {
+      "id": "1766464677375-zt2rn244u",
+      "studentIds": [
+        "1765895087987-bn9480yzt"
+      ],
+      "startTime": "08:10",
+      "endTime": "08:30",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        2,
+        4
+      ],
+      "startDate": "2025-12-15",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T04:37:57.375Z",
+      "dateUpdated": "2025-12-25T01:19:53.538Z",
+      "active": true,
+      "cancelledDates": [
+        "2025-12-16",
+        "2025-12-23",
+        "2025-12-25",
+        "2025-12-30",
+        "2026-01-01"
+      ]
+    },
+    {
+      "id": "1766465178190-hxuqpwccg",
+      "studentIds": [
+        "1765809199176-cog4cp7f2",
+        "1765895385160-mcrg8f8bt"
+      ],
+      "startTime": "08:30",
+      "endTime": "08:50",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        2,
+        4
+      ],
+      "startDate": "2025-12-15",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T04:46:18.190Z",
+      "dateUpdated": "2025-12-25T01:19:53.538Z",
+      "active": true,
+      "cancelledDates": [
+        "2025-12-16",
+        "2025-12-23",
+        "2025-12-25",
+        "2025-12-30",
+        "2026-01-01"
+      ]
+    },
+    {
+      "id": "1766465469767-b0m81f3kx",
+      "studentIds": [
+        "1765895424788-9j6rcy94y",
+        "1765895471191-5pnp7i9jn"
+      ],
+      "startTime": "08:55",
+      "endTime": "09:15",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        2
+      ],
+      "startDate": "2025-12-15",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T04:51:09.767Z",
+      "dateUpdated": "2025-12-25T01:19:47.929Z",
+      "active": true,
+      "cancelledDates": [
+        "2025-12-16",
+        "2025-12-23",
+        "2025-12-30"
+      ]
+    },
+    {
+      "id": "1766465523795-hwaz2b952",
+      "studentIds": [
+        "1765895608792-axjbvhdml"
+      ],
+      "startTime": "09:20",
+      "endTime": "09:40",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        2,
+        4
+      ],
+      "startDate": "2025-12-15",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T04:52:03.795Z",
+      "dateUpdated": "2025-12-25T01:19:53.538Z",
+      "active": true,
+      "cancelledDates": [
+        "2025-12-16",
+        "2025-12-23",
+        "2025-12-25",
+        "2025-12-30",
+        "2026-01-01"
+      ]
+    },
+    {
+      "id": "1766465637522-vf3rycy6e",
+      "studentIds": [
+        "1765895782888-tmax6tccs"
+      ],
+      "startTime": "09:40",
+      "endTime": "10:00",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        2,
+        4
+      ],
+      "startDate": "2025-12-15",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T04:53:57.522Z",
+      "dateUpdated": "2025-12-25T01:19:53.538Z",
+      "active": true,
+      "cancelledDates": [
+        "2025-12-16",
+        "2025-12-23",
+        "2025-12-25",
+        "2025-12-30",
+        "2026-01-01"
+      ]
+    },
+    {
+      "id": "1766494499337-dzz6zc1kc",
+      "studentIds": [
+        "1765895872864-wrpipfa7v"
+      ],
+      "startTime": "10:00",
+      "endTime": "10:20",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        2
+      ],
+      "startDate": "2025-12-15",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T12:54:59.337Z",
+      "dateUpdated": "2025-12-25T01:19:47.929Z",
+      "active": true,
+      "cancelledDates": [
+        "2025-12-16",
+        "2025-12-23",
+        "2025-12-30"
+      ]
+    },
+    {
+      "id": "1766494543500-m8fn7yyep",
+      "studentIds": [
+        "1765896627979-6ewwy8zhl"
+      ],
+      "startTime": "10:20",
+      "endTime": "10:40",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        2,
+        4
+      ],
+      "startDate": "2025-12-15",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T12:55:43.500Z",
+      "dateUpdated": "2025-12-25T01:19:53.538Z",
+      "active": true,
+      "cancelledDates": [
+        "2025-12-16",
+        "2025-12-23",
+        "2025-12-25",
+        "2025-12-30",
+        "2026-01-01"
+      ]
+    },
+    {
+      "id": "1766494617151-lebg2pc0u",
+      "studentIds": [
+        "1765896675418-w9u6io3zq",
+        "1765896704602-to55yf2au"
+      ],
+      "startTime": "10:40",
+      "endTime": "11:00",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        2
+      ],
+      "startDate": "2025-12-15",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T12:56:57.151Z",
+      "dateUpdated": "2025-12-25T01:19:47.930Z",
+      "active": true,
+      "cancelledDates": [
+        "2025-12-16",
+        "2025-12-23",
+        "2025-12-30"
+      ]
+    },
+    {
+      "id": "1766494703127-w9fsooobm",
+      "studentIds": [
+        "1765896675418-w9u6io3zq",
+        "1765897368920-tfhl76hwo"
+      ],
+      "startTime": "10:40",
+      "endTime": "11:00",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        4
+      ],
+      "startDate": "2025-12-15",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T12:58:23.127Z",
+      "dateUpdated": "2025-12-25T01:19:53.538Z",
+      "active": true,
+      "cancelledDates": [
+        "2025-12-25",
+        "2026-01-01"
+      ]
+    },
+    {
+      "id": "1766494778782-umqd824ls",
+      "studentIds": [
+        "1765896733006-p0r1k3zsk",
+        "1765896785792-fkiqc7j3h"
+      ],
+      "startTime": "11:00",
+      "endTime": "11:20",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        2,
+        4
+      ],
+      "startDate": "2025-12-15",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T12:59:38.782Z",
+      "dateUpdated": "2025-12-25T01:19:53.538Z",
+      "active": true,
+      "cancelledDates": [
+        "2025-12-16",
+        "2025-12-23",
+        "2025-12-25",
+        "2025-12-30",
+        "2026-01-01"
+      ]
+    },
+    {
+      "id": "1766494821747-97d7o09su",
+      "studentIds": [
+        "1765896810811-8v70r27b1",
+        "1765896843943-nvpl9a4ks"
+      ],
+      "startTime": "12:45",
+      "endTime": "13:05",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        2,
+        4
+      ],
+      "startDate": "2025-12-15",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T13:00:21.747Z",
+      "dateUpdated": "2025-12-25T01:19:53.539Z",
+      "active": true,
+      "cancelledDates": [
+        "2025-12-16",
+        "2025-12-23",
+        "2025-12-25",
+        "2025-12-30",
+        "2026-01-01"
+      ]
+    },
+    {
+      "id": "1766495045457-p9gxfjymt",
+      "studentIds": [
+        "1765810680595-yt0lc558w",
+        "1765810771715-x54337hrr"
+      ],
+      "startTime": "11:20",
+      "endTime": "11:40",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        3
+      ],
+      "startDate": "2025-12-15",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T13:04:05.457Z",
+      "dateUpdated": "2025-12-25T01:19:51.066Z",
+      "active": true,
+      "cancelledDates": [
+        "2025-12-17",
+        "2025-12-24",
+        "2025-12-31"
+      ]
+    },
+    {
+      "id": "1766495142091-va47b7z2a",
+      "studentIds": [
+        "1765896971472-igfl8qiqb",
+        "1765823024252-yp9b5jmi9"
+      ],
+      "startTime": "12:45",
+      "endTime": "13:05",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        3
+      ],
+      "startDate": "2025-12-15",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T13:05:42.091Z",
+      "dateUpdated": "2025-12-25T01:19:51.066Z",
+      "active": true,
+      "cancelledDates": [
+        "2025-12-17",
+        "2025-12-24",
+        "2025-12-31"
+      ]
+    },
+    {
+      "id": "1766495209344-njlcpjb1b",
+      "studentIds": [
+        "1765810680595-yt0lc558w",
+        "1765895471191-5pnp7i9jn"
+      ],
+      "startTime": "08:55",
+      "endTime": "09:15",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        4
+      ],
+      "startDate": "2025-12-15",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T13:06:49.344Z",
+      "dateUpdated": "2025-12-25T01:19:53.539Z",
+      "active": true,
+      "cancelledDates": [
+        "2025-12-25",
+        "2026-01-01"
+      ]
+    },
+    {
+      "id": "1766495335645-tydtn037z",
+      "studentIds": [
+        "1765895471191-5pnp7i9jn"
+      ],
+      "startTime": "08:55",
+      "endTime": "09:15",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        5
+      ],
+      "startDate": "2025-12-15",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T13:08:55.645Z",
+      "dateUpdated": "2025-12-25T01:19:56.906Z",
+      "active": true,
+      "cancelledDates": [
+        "2025-12-26",
+        "2026-01-02"
+      ]
+    },
+    {
+      "id": "1766495368873-2h4dqzsg8",
+      "studentIds": [
+        "1765896704602-to55yf2au"
+      ],
+      "startTime": "10:40",
+      "endTime": "11:00",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        5
+      ],
+      "startDate": "2025-12-15",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T13:09:28.873Z",
+      "dateUpdated": "2025-12-25T01:19:56.906Z",
+      "active": true,
+      "cancelledDates": [
+        "2025-12-26",
+        "2026-01-02"
+      ]
+    },
+    {
+      "id": "1766495432063-hgsxa896h",
+      "studentIds": [
+        "1765896810811-8v70r27b1",
+        "1765823251017-76y207lse"
+      ],
+      "startTime": "12:45",
+      "endTime": "13:05",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        5
+      ],
+      "startDate": "2025-12-15",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T13:10:32.063Z",
+      "dateUpdated": "2025-12-25T01:19:56.906Z",
+      "active": true,
+      "cancelledDates": [
+        "2025-12-26",
+        "2026-01-02"
+      ]
+    },
+    {
+      "id": "1766495520631-lk6kcxjqg",
+      "studentIds": [
+        "1765897062494-r6zdhx6u5"
+      ],
+      "startTime": "10:00",
+      "endTime": "10:20",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        4
+      ],
+      "startDate": "2025-12-15",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T13:12:00.631Z",
+      "dateUpdated": "2025-12-25T01:19:53.539Z",
+      "active": true,
+      "cancelledDates": [
+        "2025-12-25",
+        "2026-01-01"
+      ]
+    },
+    {
+      "id": "1766495610381-yom95m9tn",
+      "studentIds": [
+        "1765819334352-ps6asxwpp"
+      ],
+      "startTime": "11:20",
+      "endTime": "11:40",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        4
+      ],
+      "startDate": "2025-12-15",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-23T13:13:30.381Z",
+      "dateUpdated": "2025-12-25T01:19:53.539Z",
+      "active": true,
+      "cancelledDates": [
+        "2025-12-25",
+        "2026-01-01"
+      ]
+    },
+    {
+      "id": "1766842195894-za9ywwiwo",
+      "studentIds": [
+        "1766167726532-yoe7n85d6"
+      ],
+      "startTime": "11:00",
+      "endTime": "11:30",
+      "recurrencePattern": "weekly",
+      "dayOfWeek": [
+        6
+      ],
+      "startDate": "2025-12-25",
+      "goalsTargeted": [],
+      "notes": "",
+      "isDirectServices": true,
+      "dateCreated": "2025-12-27T13:29:55.894Z",
+      "dateUpdated": "2025-12-27T13:29:55.894Z",
+      "active": true
+    }
+  ]
+}
