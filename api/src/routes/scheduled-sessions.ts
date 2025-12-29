@@ -31,26 +31,23 @@ export const scheduledSessionsRouter = Router();
 scheduledSessionsRouter.get('/', asyncHandler(async (req, res) => {
   const { school } = req.query;
   
-  let query = 'SELECT * FROM scheduled_sessions';
-  const params: string[] = [];
+  // Always get all active sessions first, then filter by school in code if needed
+  const query = 'SELECT * FROM scheduled_sessions WHERE active = 1';
+  const sessions = db.prepare(query).all() as ScheduledSessionRow[];
   
-  if (school && typeof school === 'string' && school.trim()) {
-    // Get scheduled sessions for students in a specific school
-    // Note: We need to parse JSON in application code since SQLite JSON support varies
-    // For now, we'll filter all active sessions and filter by school in code
-    query = 'SELECT * FROM scheduled_sessions WHERE active = 1';
-  } else {
-    query += ' WHERE active = 1';
-  }
-  
-  const sessions = db.prepare(query).all(...params) as ScheduledSessionRow[];
+  console.log(`[API] Loaded ${sessions.length} active scheduled sessions from database`);
   
   // Parse JSON fields and filter by school if needed
   let parsed = sessions.map((s) => {
     const studentIds = parseJsonField<string[]>(s.studentIds, []);
+    // Ensure studentIds is always an array
+    const safeStudentIds = Array.isArray(studentIds) ? studentIds : [];
+    if (!Array.isArray(studentIds)) {
+      console.warn(`[API] Session ${s.id} has invalid studentIds format:`, s.studentIds, 'parsed as:', studentIds);
+    }
     return {
     id: s.id,
-    studentIds: parseJsonField<string[]>(s.studentIds, []),
+    studentIds: safeStudentIds,
     startTime: s.startTime,
     endTime: s.endTime || undefined,
     duration: s.duration || undefined,
@@ -66,22 +63,35 @@ scheduledSessionsRouter.get('/', asyncHandler(async (req, res) => {
     dateUpdated: s.dateUpdated,
     active: s.active === 1,
     cancelledDates: parseJsonField<string[]>(s.cancelledDates, undefined),
-    _studentIds: studentIds, // Temporary for filtering
+    _studentIds: safeStudentIds, // Temporary for filtering
   };
   });
   
   // Filter by school if needed
   if (school && typeof school === 'string' && school.trim()) {
     const schoolName = school.trim();
+    console.log(`[API] Filtering scheduled sessions by school: ${schoolName}`);
     // Get all student IDs for this school
     const studentsInSchool = db.prepare('SELECT id FROM students WHERE school = ?').all(schoolName) as Array<{ id: string }>;
     const studentIdSet = new Set(studentsInSchool.map(s => s.id));
+    console.log(`[API] Found ${studentsInSchool.length} students in school ${schoolName}`);
     
     // Filter sessions that have at least one student in the school
+    const beforeFilter = parsed.length;
     parsed = parsed.filter(s => {
-      const studentIds = s._studentIds as string[];
-      return studentIds.some(id => studentIdSet.has(id));
+      // Ensure studentIds is an array
+      const studentIds = Array.isArray(s._studentIds) ? s._studentIds : [];
+      if (!Array.isArray(studentIds)) {
+        console.warn(`[API] Session ${s.id} has invalid studentIds (not an array):`, s._studentIds, typeof s._studentIds);
+        return false;
+      }
+      const hasStudentInSchool = studentIds.length > 0 && studentIds.some(id => studentIdSet.has(id));
+      if (!hasStudentInSchool && studentIds.length > 0) {
+        console.log(`[API] Filtering out session ${s.id} - no students in school ${schoolName}. Student IDs:`, studentIds);
+      }
+      return hasStudentInSchool;
     });
+    console.log(`[API] Filtered from ${beforeFilter} to ${parsed.length} sessions for school ${schoolName}`);
   }
   
   // Remove temporary field
@@ -127,6 +137,14 @@ scheduledSessionsRouter.get('/:id', asyncHandler(async (req, res) => {
 scheduledSessionsRouter.post('/', asyncHandler(async (req, res) => {
   const session: ScheduledSession = req.body;
   
+  console.log('[API] Creating scheduled session:', {
+    id: session.id,
+    studentIds: session.studentIds,
+    startDate: session.startDate,
+    endDate: session.endDate,
+    active: session.active,
+  });
+  
   db.prepare(`
     INSERT INTO scheduled_sessions (
       id, studentIds, startTime, endTime, duration, dayOfWeek, specificDates,
@@ -154,6 +172,7 @@ scheduledSessionsRouter.post('/', asyncHandler(async (req, res) => {
     stringifyJsonField(session.cancelledDates)
   );
   
+  console.log('[API] Scheduled session created successfully:', session.id);
   res.status(201).json({ id: session.id, message: 'Scheduled session created' });
 }));
 
@@ -167,7 +186,53 @@ scheduledSessionsRouter.put('/:id', asyncHandler(async (req, res) => {
     return res.status(404).json({ error: 'Scheduled session not found' });
   }
   
-  const session = { ...existing, ...updates };
+  // Parse existing data from database
+  const existingParsed = {
+    id: existing.id,
+    studentIds: parseJsonField<string[]>(existing.studentIds, []),
+    startTime: existing.startTime,
+    endTime: existing.endTime || undefined,
+    duration: existing.duration || undefined,
+    dayOfWeek: parseJsonField<number[]>(existing.dayOfWeek, undefined),
+    specificDates: parseJsonField<string[]>(existing.specificDates, undefined),
+    recurrencePattern: existing.recurrencePattern as ScheduledSession['recurrencePattern'],
+    startDate: existing.startDate,
+    endDate: existing.endDate || undefined,
+    goalsTargeted: parseJsonField<string[]>(existing.goalsTargeted, []),
+    notes: existing.notes || undefined,
+    isDirectServices: existing.isDirectServices === 1,
+    dateCreated: existing.dateCreated,
+    dateUpdated: existing.dateUpdated,
+    active: existing.active === 1,
+    cancelledDates: parseJsonField<string[]>(existing.cancelledDates, undefined) || [],
+  };
+  
+  // CRITICAL: Build the final session object by only updating fields that are explicitly provided
+  // Start with existing values and only override with provided updates
+  const session: ScheduledSession = {
+    id: existingParsed.id,
+    studentIds: 'studentIds' in updates ? (updates.studentIds || existingParsed.studentIds) : existingParsed.studentIds,
+    startTime: 'startTime' in updates ? (updates.startTime || existingParsed.startTime) : existingParsed.startTime,
+    endTime: 'endTime' in updates ? updates.endTime : existingParsed.endTime,
+    duration: 'duration' in updates ? updates.duration : existingParsed.duration,
+    dayOfWeek: 'dayOfWeek' in updates ? updates.dayOfWeek : existingParsed.dayOfWeek,
+    specificDates: 'specificDates' in updates ? updates.specificDates : existingParsed.specificDates,
+    recurrencePattern: 'recurrencePattern' in updates ? (updates.recurrencePattern || existingParsed.recurrencePattern) : existingParsed.recurrencePattern,
+    startDate: 'startDate' in updates ? (updates.startDate || existingParsed.startDate) : existingParsed.startDate,
+    endDate: 'endDate' in updates ? updates.endDate : existingParsed.endDate,
+    goalsTargeted: 'goalsTargeted' in updates ? (updates.goalsTargeted || existingParsed.goalsTargeted) : existingParsed.goalsTargeted,
+    notes: 'notes' in updates ? updates.notes : existingParsed.notes,
+    isDirectServices: 'isDirectServices' in updates ? (updates.isDirectServices !== undefined ? updates.isDirectServices : existingParsed.isDirectServices) : existingParsed.isDirectServices,
+    dateCreated: existingParsed.dateCreated, // Never update
+    dateUpdated: new Date().toISOString(), // Always update
+    active: 'active' in updates ? (updates.active !== undefined ? updates.active : existingParsed.active) : existingParsed.active,
+    cancelledDates: 'cancelledDates' in updates ? (Array.isArray(updates.cancelledDates) ? updates.cancelledDates : existingParsed.cancelledDates) : existingParsed.cancelledDates,
+  };
+  
+  // Ensure cancelledDates is always an array
+  if (!Array.isArray(session.cancelledDates)) {
+    session.cancelledDates = [];
+  }
   
   db.prepare(`
     UPDATE scheduled_sessions 

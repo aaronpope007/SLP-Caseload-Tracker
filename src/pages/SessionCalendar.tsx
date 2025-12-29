@@ -165,6 +165,7 @@ export const SessionCalendar = () => {
       const scheduled = await getScheduledSessions(selectedSchool);
       setScheduledSessions(scheduled);
     } catch (error) {
+      console.error('[Calendar] Error loading data:', error);
       logError('Failed to load data', error);
     }
   };
@@ -209,7 +210,10 @@ export const SessionCalendar = () => {
     }
 
     scheduledSessions.forEach(scheduled => {
-      if (scheduled.active === false) return;
+      // Check active status - allow undefined to default to active
+      if (scheduled.active === false) {
+        return;
+      }
 
       const start = parseDateString(scheduled.startDate);
       // For recurring sessions without an endDate, use a longer default range (1 year)
@@ -219,7 +223,15 @@ export const SessionCalendar = () => {
         : (scheduled.recurrencePattern === 'none' ? viewEnd : defaultRecurringEnd);
 
       // Skip if the scheduled session has ended before the view start
-      if (isBefore(end, viewStart)) return;
+      if (isBefore(end, viewStart)) {
+        return;
+      }
+      
+      // Skip if the scheduled session starts after the view end (for one-time sessions)
+      // For recurring sessions, we'll still generate events within the view range
+      if (scheduled.recurrencePattern === 'none' && isAfter(start, viewEnd)) {
+        return;
+      }
 
       const [startHour, startMinute] = scheduled.startTime.split(':').map(Number);
       let endTimeStr: string;
@@ -243,8 +255,22 @@ export const SessionCalendar = () => {
 
       if (scheduled.recurrencePattern === 'weekly' && scheduled.dayOfWeek) {
         // Generate weekly recurring events
+        // Start from the scheduled start date, but only generate events within the view range
         let date = start;
-        while (isBefore(date, end) || isSameDay(date, end)) {
+        
+        // If start is before viewStart, find the first occurrence of a scheduled day that's >= viewStart
+        if (isBefore(start, viewStart)) {
+          date = viewStart;
+          // Find the first day that matches one of the scheduled days of week
+          while (!scheduled.dayOfWeek.includes(date.getDay())) {
+            date = addDays(date, 1);
+            // Safety check: if we've gone past the end date or too far, break
+            if (isAfter(date, end) || isAfter(date, addMonths(viewStart, 2))) break;
+          }
+        }
+        
+        // Generate events within the view range
+        while ((isBefore(date, end) || isSameDay(date, end)) && (isBefore(date, viewEnd) || isSameDay(date, viewEnd))) {
           if (scheduled.dayOfWeek.includes(date.getDay())) {
             const dateStr = format(date, 'yyyy-MM-dd');
             // Skip cancelled dates
@@ -267,8 +293,14 @@ export const SessionCalendar = () => {
         }
       } else if (scheduled.recurrencePattern === 'daily') {
         // Generate daily recurring events
-        let date = start;
-        while (isBefore(date, end) || isSameDay(date, end)) {
+        // Start from the later of: scheduled start date or view start date
+        let date = isAfter(start, viewStart) ? start : viewStart;
+        // Make sure we don't start before the scheduled start date
+        if (isBefore(date, start)) {
+          date = start;
+        }
+        
+        while ((isBefore(date, end) || isSameDay(date, end)) && (isBefore(date, viewEnd) || isSameDay(date, viewEnd))) {
           const dateStr = format(date, 'yyyy-MM-dd');
           // Skip cancelled dates
           if (!scheduled.cancelledDates || !scheduled.cancelledDates.includes(dateStr)) {
@@ -295,8 +327,11 @@ export const SessionCalendar = () => {
             return;
           }
           const date = parse(dateStr, 'yyyy-MM-dd', new Date());
+          // Check if date is within the scheduled range AND within the visible view range
           if ((isAfter(date, start) || isSameDay(date, start)) && 
-              (isBefore(date, end) || isSameDay(date, end))) {
+              (isBefore(date, end) || isSameDay(date, end)) &&
+              (isAfter(date, viewStart) || isSameDay(date, viewStart)) &&
+              (isBefore(date, viewEnd) || isSameDay(date, viewEnd))) {
             events.push({
               id: `${scheduled.id}-${dateStr}`,
               scheduledSessionId: scheduled.id,
@@ -851,10 +886,16 @@ export const SessionCalendar = () => {
       active: true,
     };
 
-    if (editingScheduledSession) {
-      await updateScheduledSession(editingScheduledSession.id, scheduledSession);
-    } else {
-      await addScheduledSession(scheduledSession);
+    try {
+      if (editingScheduledSession) {
+        await updateScheduledSession(editingScheduledSession.id, scheduledSession);
+      } else {
+        await addScheduledSession(scheduledSession);
+      }
+    } catch (error) {
+      console.error('[Calendar] Error saving scheduled session:', error);
+      alert('Failed to save scheduled session. Please try again.');
+      return;
     }
 
     await loadData();
@@ -1101,11 +1142,39 @@ export const SessionCalendar = () => {
   };
 
   const handleDeleteSession = () => {
+    // Prevent deletion if we don't have a valid session or group to delete
     if (!editingSession && !editingGroupSessionId) {
       return;
     }
 
-    const sessionCount = editingSession ? 1 : sessions.filter(s => s.groupSessionId === editingGroupSessionId).length;
+    // Additional safety check: if editingGroupSessionId is null/undefined, 
+    // we should not proceed (this prevents accidentally deleting all sessions with null groupSessionId)
+    if (!editingSession && (editingGroupSessionId === null || editingGroupSessionId === undefined)) {
+      return;
+    }
+
+    // Prevent deletion of future sessions that aren't logged yet
+    // Future sessions should be cancelled, not deleted (they don't exist as logged sessions)
+    if (currentEvent && !currentEvent.isLogged) {
+      alert('Cannot delete a future session that hasn\'t been logged. Use the cancel button to cancel this scheduled session instead.');
+      return;
+    }
+
+    let sessionCount: number;
+    if (editingSession) {
+      sessionCount = 1;
+    } else if (editingGroupSessionId) {
+      // Only count sessions that actually have this specific groupSessionId
+      // This prevents matching null values which would match all individual sessions
+      sessionCount = sessions.filter(s => s.groupSessionId === editingGroupSessionId && s.groupSessionId !== null).length;
+      if (sessionCount === 0) {
+        // No sessions found with this groupSessionId, don't proceed
+        return;
+      }
+    } else {
+      return;
+    }
+
     const sessionText = sessionCount === 1 ? 'session' : 'sessions';
     
     confirm({
@@ -1120,7 +1189,8 @@ export const SessionCalendar = () => {
             await deleteSession(editingSession.id);
           } else if (editingGroupSessionId) {
             // Delete all sessions in the group
-            const groupSessions = sessions.filter(s => s.groupSessionId === editingGroupSessionId);
+            // Only delete sessions with this specific groupSessionId (not null)
+            const groupSessions = sessions.filter(s => s.groupSessionId === editingGroupSessionId && s.groupSessionId !== null);
             for (const session of groupSessions) {
               await deleteSession(session.id);
             }
@@ -1475,13 +1545,12 @@ export const SessionCalendar = () => {
     const cancelledDates = scheduled.cancelledDates || [];
     
     // Don't allow cancelling sessions that have been logged
-    const eventDate = startOfDay(event.date);
-    const today = startOfDay(new Date());
     if (event.isLogged) {
       // Don't allow cancelling logged sessions (past or future)
       return;
     }
 
+    // Only cancel this specific date - ensure we're not overwriting other cancelled dates
     if (!cancelledDates.includes(dateStr)) {
       await updateScheduledSession(scheduled.id, {
         cancelledDates: [...cancelledDates, dateStr],
