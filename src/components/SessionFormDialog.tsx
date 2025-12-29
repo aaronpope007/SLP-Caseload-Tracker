@@ -103,6 +103,7 @@ export const SessionFormDialog = ({
 }: SessionFormDialogProps) => {
   const [emailTeacherDialogOpen, setEmailTeacherDialogOpen] = useState(false);
   const [selectedStudentForEmail, setSelectedStudentForEmail] = useState<Student | null>(null);
+  const [selectedStudentsForEmail, setSelectedStudentsForEmail] = useState<Student[]>([]);
 
   // Get last session's plan for the first selected student (for new sessions only, and only if plan is empty)
   const lastSessionPlan = !editingSession && !editingGroupSessionId && formData.studentIds.length > 0 && !(formData.plan || '').trim()
@@ -246,15 +247,21 @@ export const SessionFormDialog = ({
                   />
                   <Typography variant="body2">Missed Session</Typography>
                 </Box>
-                {formData.missedSession && formData.studentIds.length === 1 && (
+                {formData.missedSession && formData.studentIds.length > 0 && (
                   <Button
                     variant="outlined"
                     size="small"
                     startIcon={<EmailIcon />}
                     onClick={() => {
-                      const student = students.find(s => s.id === formData.studentIds[0]);
-                      if (student) {
-                        setSelectedStudentForEmail(student);
+                      const selectedStudents = students.filter(s => formData.studentIds.includes(s.id));
+                      if (selectedStudents.length > 0) {
+                        if (selectedStudents.length === 1) {
+                          setSelectedStudentForEmail(selectedStudents[0]);
+                          setSelectedStudentsForEmail([]);
+                        } else {
+                          setSelectedStudentForEmail(null);
+                          setSelectedStudentsForEmail(selectedStudents);
+                        }
                         setEmailTeacherDialogOpen(true);
                       }
                     }}
@@ -547,8 +554,10 @@ export const SessionFormDialog = ({
         onClose={() => {
           setEmailTeacherDialogOpen(false);
           setSelectedStudentForEmail(null);
+          setSelectedStudentsForEmail([]);
         }}
         student={selectedStudentForEmail}
+        students={selectedStudentsForEmail.length > 0 ? selectedStudentsForEmail : undefined}
         sessionDate={formData.date ? formData.date.split('T')[0] : undefined}
         sessionStartTime={formData.date ? fromLocalDateTimeString(formData.date) : undefined}
         sessionEndTime={formData.endTime ? fromLocalDateTimeString(formData.endTime) : undefined}

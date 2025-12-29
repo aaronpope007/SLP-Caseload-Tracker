@@ -77,6 +77,7 @@ import { generateId, toLocalDateTimeString, fromLocalDateTimeString } from '../u
 import { useSchool } from '../context/SchoolContext';
 import { SessionFormDialog } from '../components/SessionFormDialog';
 import { StudentSelector } from '../components/StudentSelector';
+import { CancellationEmailDialog } from '../components/CancellationEmailDialog';
 import { useConfirm } from '../hooks/useConfirm';
 
 type ViewMode = 'month' | 'week' | 'day';
@@ -117,6 +118,15 @@ export const SessionCalendar = () => {
   const [editingGroupSessionId, setEditingGroupSessionId] = useState<string | null>(null);
   const [studentSearch, setStudentSearch] = useState('');
   const [currentEvent, setCurrentEvent] = useState<CalendarEvent | null>(null);
+  
+  // Cancellation email dialog state
+  const [cancellationEmailDialogOpen, setCancellationEmailDialogOpen] = useState(false);
+  const [pendingCancellation, setPendingCancellation] = useState<{
+    event?: CalendarEvent;
+    events?: CalendarEvent[];
+    dateStr: string;
+  } | null>(null);
+  
   const [sessionFormData, setSessionFormData] = useState({
     studentIds: [] as string[],
     date: toLocalDateTimeString(new Date()),
@@ -1536,7 +1546,7 @@ export const SessionCalendar = () => {
     e.preventDefault();
   };
 
-  const handleCancelEvent = async (event: CalendarEvent) => {
+  const performCancellation = async (event: CalendarEvent) => {
     if (!Array.isArray(scheduledSessions)) return;
     const scheduled = scheduledSessions.find(s => s.id === event.scheduledSessionId);
     if (!scheduled) return;
@@ -1556,6 +1566,36 @@ export const SessionCalendar = () => {
         cancelledDates: [...cancelledDates, dateStr],
       });
       await loadData();
+    }
+  };
+
+  const handleCancelEvent = async (event: CalendarEvent) => {
+    if (!Array.isArray(scheduledSessions)) return;
+    const scheduled = scheduledSessions.find(s => s.id === event.scheduledSessionId);
+    if (!scheduled) return;
+
+    const dateStr = format(event.date, 'yyyy-MM-dd');
+    
+    // Don't allow cancelling sessions that have been logged
+    if (event.isLogged) {
+      return;
+    }
+
+    // Open cancellation email dialog
+    setPendingCancellation({ event, dateStr });
+    setCancellationEmailDialogOpen(true);
+  };
+
+  const handleCancellationEmailSent = async () => {
+    if (pendingCancellation?.event) {
+      await performCancellation(pendingCancellation.event);
+      setPendingCancellation(null);
+    } else if (pendingCancellation?.events) {
+      // Handle multiple events cancellation
+      for (const event of pendingCancellation.events) {
+        await performCancellation(event);
+      }
+      setPendingCancellation(null);
     }
   };
 
@@ -1584,22 +1624,19 @@ export const SessionCalendar = () => {
       confirmText: 'Cancel All',
       cancelText: 'Keep Scheduled',
       onConfirm: async () => {
-        // Update each scheduled session to include this date in cancelledDates
-        if (!Array.isArray(scheduledSessions)) return;
-        const updates = [];
-        for (const [scheduledSessionId, events] of scheduledSessionMap) {
-          const scheduled = scheduledSessions.find(s => s.id === scheduledSessionId);
-          if (!scheduled) continue;
+        // Open cancellation email dialog for all events
+        // Collect all unique student IDs from all events
+        const allStudentIds = new Set<string>();
+        cancellableEvents.forEach(event => {
+          event.studentIds.forEach(id => allStudentIds.add(id));
+        });
 
-          const cancelledDates = scheduled.cancelledDates || [];
-          if (!cancelledDates.includes(dateStr)) {
-            updates.push(updateScheduledSession(scheduled.id, {
-              cancelledDates: [...cancelledDates, dateStr],
-            }));
-          }
+        // Use the first event for time/date info (they should all be on the same day)
+        const firstEvent = cancellableEvents[0];
+        if (firstEvent) {
+          setPendingCancellation({ events: cancellableEvents, dateStr });
+          setCancellationEmailDialogOpen(true);
         }
-        await Promise.all(updates);
-        await loadData();
       },
     });
   };
@@ -2608,6 +2645,53 @@ export const SessionCalendar = () => {
         isGoalAchieved={isGoalAchieved}
       />
       <ConfirmDialog />
+      
+      {pendingCancellation && (pendingCancellation.event || pendingCancellation.events) && (
+        <CancellationEmailDialog
+          open={cancellationEmailDialogOpen}
+          onClose={async () => {
+            setCancellationEmailDialogOpen(false);
+            // Perform cancellation when dialog closes (whether email was sent or not)
+            if (pendingCancellation?.event) {
+              await performCancellation(pendingCancellation.event);
+            } else if (pendingCancellation?.events) {
+              for (const event of pendingCancellation.events) {
+                await performCancellation(event);
+              }
+            }
+            setPendingCancellation(null);
+          }}
+          studentIds={
+            pendingCancellation.event
+              ? pendingCancellation.event.studentIds
+              : pendingCancellation.events
+              ? Array.from(new Set(pendingCancellation.events.flatMap(e => e.studentIds)))
+              : []
+          }
+          students={students}
+          sessionDate={
+            pendingCancellation.event
+              ? pendingCancellation.event.date
+              : pendingCancellation.events && pendingCancellation.events.length > 0
+              ? pendingCancellation.events[0].date
+              : new Date()
+          }
+          sessionTime={
+            pendingCancellation.event
+              ? pendingCancellation.event.startTime
+              : pendingCancellation.events && pendingCancellation.events.length > 0
+              ? pendingCancellation.events[0].startTime
+              : '09:00'
+          }
+          sessionEndTime={
+            pendingCancellation.event
+              ? pendingCancellation.event.endTime
+              : pendingCancellation.events && pendingCancellation.events.length > 0
+              ? pendingCancellation.events[0].endTime
+              : undefined
+          }
+        />
+      )}
     </Box>
   );
 };

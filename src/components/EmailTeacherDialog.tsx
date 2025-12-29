@@ -12,10 +12,16 @@ import {
   Typography,
   IconButton,
   Alert,
+  Chip,
+  List,
+  ListItem,
+  ListItemText,
+  Divider,
 } from '@mui/material';
 import {
   ContentCopy as ContentCopyIcon,
   Email as EmailIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import type { Student, Teacher, ScheduledSession, Session } from '../types';
 import { getTeachers, getSessionsBySchool, getSchoolByName } from '../utils/storage-api';
@@ -26,7 +32,9 @@ import { api } from '../utils/api';
 interface EmailTeacherDialogProps {
   open: boolean;
   onClose: () => void;
-  student: Student | null;
+  student: Student | null; // For backward compatibility - if provided, use this
+  students?: Student[]; // For multiple students support
+  studentIds?: string[]; // Alternative: provide student IDs
   sessionDate?: string; // ISO date string of the session
   sessionStartTime?: string; // ISO date string of session start
   sessionEndTime?: string; // ISO date string of session end
@@ -36,41 +44,49 @@ export const EmailTeacherDialog = ({
   open,
   onClose,
   student,
+  students: studentsProp,
+  studentIds,
   sessionDate,
   sessionStartTime,
   sessionEndTime,
 }: EmailTeacherDialogProps) => {
-  const [teacher, setTeacher] = useState<Teacher | null>(null);
-  const [emailText, setEmailText] = useState('');
-  const [copied, setCopied] = useState(false);
+  // Determine which students to use
+  const studentsToUse = studentsProp || (student ? [student] : []);
+
+  interface TeacherEmailData {
+    teacher: Teacher;
+    studentIds: string[]; // Students associated with this teacher
+    emailText: string;
+  }
+
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [teacherEmails, setTeacherEmails] = useState<TeacherEmailData[]>([]);
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
+  const [copied, setCopied] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
-  const [sendSuccess, setSendSuccess] = useState(false);
+  const [sendSuccess, setSendSuccess] = useState<string[]>([]); // Track which teachers received emails
+  const [selectedTeacherIndex, setSelectedTeacherIndex] = useState<number | null>(null);
 
   useEffect(() => {
-    if (open && student) {
+    if (open && studentsToUse.length > 0) {
       // Reset states when dialog opens
-      setEmailText('');
-      setTeacher(null);
+      setTeacherEmails([]);
       setAvailableTimes([]);
       setSendError(null);
-      setSendSuccess(false);
+      setSendSuccess([]);
+      setSelectedTeacherIndex(null);
       
-      loadTeacherAndGenerateEmail().catch((error) => {
-        logError('Failed to load teacher and generate email', error);
-        // Still generate email text even if loading fails
-        if (student) {
-          generateEmailText(null, []);
-        }
+      loadTeachersAndGenerateEmails().catch((error) => {
+        logError('Failed to load teachers and generate emails', error);
       });
     } else if (!open) {
-      // Reset email text when dialog closes
-      setEmailText('');
-      setTeacher(null);
+      // Reset states when dialog closes
+      setTeacherEmails([]);
       setAvailableTimes([]);
+      setSelectedTeacherIndex(null);
     }
-  }, [open, student, sessionDate, sessionStartTime, sessionEndTime]);
+  }, [open, student, studentsProp, studentIds, sessionDate, sessionStartTime, sessionEndTime]);
 
   // Helper function to parse date string (handles both ISO strings and yyyy-MM-dd format)
   const parseDateString = (dateStr: string): Date => {
@@ -91,11 +107,10 @@ export const EmailTeacherDialog = ({
     return `${displayHours}:${mins.toString().padStart(2, '0')} ${period}`;
   };
 
-  const generateEmailText = (teacher: Teacher | null, times: string[]) => {
-    if (!student) return;
+  const generateEmailText = (teacher: Teacher | null, associatedStudents: Student[], times: string[] = []): string => {
+    if (associatedStudents.length === 0) return '';
 
     const teacherName = teacher?.name || 'Teacher';
-    const studentName = student.name;
     const userName = localStorage.getItem('user_name') || 'Aaron Pope';
     const zoomLink = localStorage.getItem('zoom_link') || '';
     
@@ -104,8 +119,24 @@ export const EmailTeacherDialog = ({
       logWarn('Zoom link not found in localStorage. Please configure it in Settings.');
     }
 
+    // Format student names
+    let studentNamesText = '';
+    if (associatedStudents.length === 1) {
+      studentNamesText = associatedStudents[0].name;
+    } else if (associatedStudents.length === 2) {
+      studentNamesText = `${associatedStudents[0].name} and ${associatedStudents[1].name}`;
+    } else {
+      const allButLast = associatedStudents.slice(0, -1).map(s => s.name).join(', ');
+      const last = associatedStudents[associatedStudents.length - 1].name;
+      studentNamesText = `${allButLast}, and ${last}`;
+    }
+
     let email = `Dear ${teacherName},\n\n`;
-    email += `${studentName} is late for their scheduled speech therapy session. Will they be able to attend the session? The zoom link is below.\n\n`;
+    if (associatedStudents.length === 1) {
+      email += `${studentNamesText} is late for their scheduled speech therapy session. Will they be able to attend the session? The zoom link is below.\n\n`;
+    } else {
+      email += `${studentNamesText} are late for their scheduled speech therapy session. Will they be able to attend the session? The zoom link is below.\n\n`;
+    }
     
     if (times.length > 0) {
       email += `If not, I have additional openings at these times:\n`;
@@ -124,21 +155,82 @@ export const EmailTeacherDialog = ({
       email += '[Zoom link not configured. Please add it in Settings.]';
     }
 
-    email += `\n\nThank you,\nAaron Pope, MS, CCC-SLP\nc. (612) 310-9661`;
+    email += `\n\nThank you,\n${userName}, MS, CCC-SLP\nc. (612) 310-9661`;
 
-    setEmailText(email);
+    return email;
   };
 
-  const loadTeacherAndGenerateEmail = async () => {
-    if (!student) return;
+  const loadTeachersAndGenerateEmails = async () => {
+    if (studentsToUse.length === 0) return;
 
-    // Load teacher
-    let foundTeacher: Teacher | null = null;
-    if (student.teacherId) {
-      const teachers = await getTeachers();
-      foundTeacher = teachers.find(t => t.id === student.teacherId) || null;
+    // Find available times first (using first student's school)
+    const primaryStudent = studentsToUse[0];
+    const availableTimesList = await findAvailableTimes(primaryStudent);
+    setAvailableTimes(availableTimesList);
+
+    // Get all teachers
+    const allTeachers = await getTeachers();
+    setTeachers(allTeachers);
+
+    // Group students by teacher
+    const teacherMap = new Map<string, { teacher: Teacher; studentIds: string[] }>();
+    const studentsWithoutTeacher: string[] = [];
+
+    for (const student of studentsToUse) {
+      if (student.teacherId) {
+        const teacher = allTeachers.find(t => t.id === student.teacherId);
+        if (teacher) {
+          const existing = teacherMap.get(teacher.id);
+          if (existing) {
+            existing.studentIds.push(student.id);
+          } else {
+            teacherMap.set(teacher.id, { teacher, studentIds: [student.id] });
+          }
+        } else {
+          studentsWithoutTeacher.push(student.id);
+        }
+      } else {
+        studentsWithoutTeacher.push(student.id);
+      }
     }
-    setTeacher(foundTeacher);
+
+    // Create a "No Teacher" entry for students without teachers
+    if (studentsWithoutTeacher.length > 0) {
+      const noTeacher: Teacher = {
+        id: 'no-teacher',
+        name: 'Teacher',
+        grade: '',
+        school: studentsToUse[0]?.school || '',
+        dateCreated: new Date().toISOString(),
+      };
+      teacherMap.set('no-teacher', { teacher: noTeacher, studentIds: studentsWithoutTeacher });
+    }
+
+    // Generate email for each teacher
+    const emails: TeacherEmailData[] = [];
+    for (const [_, { teacher, studentIds: associatedStudentIds }] of teacherMap) {
+      const associatedStudents = associatedStudentIds
+        .map(id => studentsToUse.find(s => s.id === id))
+        .filter((s): s is Student => s !== undefined);
+      
+      const emailText = generateEmailText(teacher, associatedStudents, availableTimesList);
+      emails.push({
+        teacher,
+        studentIds: associatedStudentIds,
+        emailText,
+      });
+    }
+
+    setTeacherEmails(emails);
+    
+    // Auto-select first teacher if available
+    if (emails.length > 0) {
+      setSelectedTeacherIndex(0);
+    }
+  };
+
+  const findAvailableTimes = async (primaryStudent: Student): Promise<string[]> => {
+    if (studentsToUse.length === 0) return [];
 
     // Calculate missed session duration in minutes
     let missedSessionDurationMinutes = 30; // Default 30 minutes
@@ -148,7 +240,7 @@ export const EmailTeacherDialog = ({
       missedSessionDurationMinutes = Math.round((end.getTime() - start.getTime()) / 60000);
     } else if (sessionStartTime) {
       // If only start time, try to get duration from scheduled session
-      const scheduledSessions = await getScheduledSessions(student.school);
+      const scheduledSessions = await getScheduledSessions(primaryStudent.school);
       const sessionDate = sessionStartTime ? new Date(sessionStartTime) : new Date();
       const sessionTime = format(sessionDate, 'HH:mm');
       
@@ -203,10 +295,10 @@ export const EmailTeacherDialog = ({
     }
     
     // Get ALL scheduled sessions for the school
-    const allScheduledSessions = await getScheduledSessions(student.school);
+    const allScheduledSessions = await getScheduledSessions(primaryStudent.school);
     
     // Get ALL logged sessions for the school (actual completed sessions)
-    const allLoggedSessions = await getSessionsBySchool(student.school);
+    const allLoggedSessions = await getSessionsBySchool(primaryStudent.school);
     
     // Filter scheduled sessions for today (ALL students, not just this one)
     const todayScheduledSessions = allScheduledSessions.filter(ss => {
@@ -275,9 +367,9 @@ export const EmailTeacherDialog = ({
         return false;
       }
       
-      // Exclude the scheduled session that matches the missed session time and student
+      // Exclude the scheduled session that matches the missed session time and students
       // This prevents the missed session's scheduled slot from blocking reschedule times
-      if (sessionStartTime && ss.studentIds.includes(student.id)) {
+      if (sessionStartTime && studentsToUse.some(s => ss.studentIds.includes(s.id))) {
         const [ssStartH, ssStartM] = ss.startTime.split(':').map(Number);
         const missedDate = new Date(sessionStartTime);
         const missedH = missedDate.getHours();
@@ -307,7 +399,7 @@ export const EmailTeacherDialog = ({
         const missedTime = new Date(sessionStartTime);
         // If times match (within 5 minutes), it's likely the same session
         const timeDiff = Math.abs(sessionTime.getTime() - missedTime.getTime());
-        if (timeDiff < 5 * 60 * 1000 && session.studentId === student.id && session.missedSession) {
+        if (timeDiff < 5 * 60 * 1000 && studentsToUse.some(s => session.studentId === s.id) && session.missedSession) {
           return false; // Exclude this missed session
         }
       }
@@ -316,7 +408,7 @@ export const EmailTeacherDialog = ({
     });
 
     // Get school hours from school settings
-    const school = await getSchoolByName(student.school);
+    const school = await getSchoolByName(primaryStudent.school);
     const schoolHours = {
       start: school?.schoolHours?.startHour ?? 8,
       end: school?.schoolHours?.endHour ?? 17,
@@ -570,10 +662,7 @@ export const EmailTeacherDialog = ({
       return true;
     });
     
-    setAvailableTimes(verifiedOpenSlots);
-
-    // Generate email text (always generate, even if no teacher)
-    generateEmailText(foundTeacher, openSlots);
+    return verifiedOpenSlots;
   };
 
   const formatTime = (timeStr: string): string => {
@@ -584,15 +673,20 @@ export const EmailTeacherDialog = ({
     return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
   };
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(emailText);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopy = (index: number) => {
+    if (teacherEmails[index]) {
+      navigator.clipboard.writeText(teacherEmails[index].emailText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
-  const handleEmail = async () => {
-    if (!teacher?.emailAddress) {
-      setSendError('No email address found for teacher');
+  const handleEmail = async (index: number) => {
+    const emailData = teacherEmails[index];
+    if (!emailData) return;
+
+    if (!emailData.teacher.emailAddress) {
+      setSendError(`No email address found for ${emailData.teacher.name}`);
       return;
     }
 
@@ -606,17 +700,22 @@ export const EmailTeacherDialog = ({
 
     setSending(true);
     setSendError(null);
-    setSendSuccess(false);
 
     try {
       const userName = localStorage.getItem('user_name') || 'Aaron Pope';
-      const emailSubject = `Speech Therapy Session - ${student?.name || 'Student'}`;
+      const associatedStudents = emailData.studentIds
+        .map(id => studentsToUse.find(s => s.id === id))
+        .filter((s): s is Student => s !== undefined);
+      const studentNames = associatedStudents.length === 1 
+        ? associatedStudents[0].name 
+        : associatedStudents.map(s => s.name).join(', ');
+      const emailSubject = `Speech Therapy Session - ${studentNames}`;
       
       // Ensure zoom link and signature are always included
       const zoomLink = localStorage.getItem('zoom_link') || '';
       const signature = '\n\nThank you,\nAaron Pope, MS, CCC-SLP\nc. (612) 310-9661';
       
-      let finalEmailBody = emailText.trim();
+      let finalEmailBody = emailData.emailText.trim();
       
       // Check if zoom link is already in the email
       const hasZoomLink = zoomLink && (
@@ -641,7 +740,7 @@ export const EmailTeacherDialog = ({
       }
       
       await api.email.send({
-        to: teacher.emailAddress,
+        to: emailData.teacher.emailAddress,
         subject: emailSubject,
         body: finalEmailBody,
         fromEmail: emailAddress,
@@ -676,58 +775,58 @@ export const EmailTeacherDialog = ({
           communicationDate = new Date().toISOString();
         }
 
-        // Ensure we have all required fields
-        if (!student?.id) {
-          logWarn('⚠️ No student ID available when logging communication');
-        }
-        if (!teacher?.id) {
-          logWarn('⚠️ No teacher ID available when logging communication');
-        }
+        // Log communication for each student associated with this teacher
+        for (const studentId of emailData.studentIds) {
+          const studentToLog = studentsToUse.find(s => s.id === studentId);
+          if (!studentToLog?.id) {
+            logWarn('⚠️ No student ID available when logging communication');
+            continue;
+          }
+          if (!emailData.teacher?.id) {
+            logWarn('⚠️ No teacher ID available when logging communication');
+          }
 
-        // Ensure we have a valid student ID
-        if (!student?.id) {
-          logError('❌ Cannot log communication: student is null or has no ID', new Error('Student ID missing'), {
-            student,
-            studentName: student?.name,
-          });
-        }
+          // Use the final email body (with zoom link and signature) for logging
+          const communicationData = {
+            studentId: studentToLog.id,
+            contactType: 'teacher' as const,
+            contactId: emailData.teacher.id !== 'no-teacher' ? emailData.teacher.id : undefined,
+            contactName: emailData.teacher.name,
+            contactEmail: emailData.teacher.emailAddress || undefined,
+            subject: emailSubject,
+            body: finalEmailBody,
+            method: 'email' as const,
+            date: communicationDate,
+            relatedTo: relatedTo || undefined,
+          };
 
-        // Use the final email body (with zoom link and signature) for logging
-        const communicationData = {
-          studentId: student?.id || undefined,
-          contactType: 'teacher' as const,
-          contactId: teacher.id,
-          contactName: teacher.name,
-          contactEmail: teacher.emailAddress,
-          subject: emailSubject,
-          body: finalEmailBody,
-          method: 'email' as const,
-          date: communicationDate,
-          relatedTo: relatedTo || undefined,
-        };
+          // Validate data before sending
+          if (!communicationDate) {
+            logError('❌ Communication date is missing!', new Error('Communication date missing'));
+          }
+          if (!communicationData.contactName) {
+            logError('❌ Contact name is missing!', new Error('Contact name missing'));
+          }
+          if (!communicationData.subject) {
+            logError('❌ Subject is missing!', new Error('Subject missing'));
+          }
 
-        // Validate data before sending
-        if (!communicationDate) {
-          logError('❌ Communication date is missing!', new Error('Communication date missing'));
+          await api.communications.create(communicationData);
         }
-        if (!communicationData.contactName) {
-          logError('❌ Contact name is missing!', new Error('Contact name missing'));
-        }
-        if (!communicationData.subject) {
-          logError('❌ Subject is missing!', new Error('Subject missing'));
-        }
-
-        await api.communications.create(communicationData);
       } catch (loggingError: unknown) {
         // Don't fail the email send if logging fails, but log the error
         logError('Failed to log communication', loggingError);
       }
 
-      setSendSuccess(true);
+      setSendSuccess([...sendSuccess, emailData.teacher.id]);
       setTimeout(() => {
-        setSendSuccess(false);
-        onClose();
-      }, 2000);
+        // If all teachers have been emailed, close the dialog
+        if (sendSuccess.length + 1 >= teacherEmails.filter(e => e.teacher.emailAddress).length) {
+          setTimeout(() => {
+            onClose();
+          }, 2000);
+        }
+      }, 100);
     } catch (error: unknown) {
       logError('Error sending email', error);
       setSendError(getErrorMessage(error) || 'Failed to send email. Please check your email settings and try again.');
@@ -736,73 +835,182 @@ export const EmailTeacherDialog = ({
     }
   };
 
+  const handleSendAll = async () => {
+    const teachersWithEmail = teacherEmails.filter(e => e.teacher.emailAddress && !sendSuccess.includes(e.teacher.id));
+    if (teachersWithEmail.length === 0) {
+      setSendError('No teachers have email addresses configured or all emails have been sent.');
+      return;
+    }
+
+    setSending(true);
+    setSendError(null);
+
+    const errors: string[] = [];
+    const successes: string[] = [];
+
+    for (const emailData of teachersWithEmail) {
+      const index = teacherEmails.indexOf(emailData);
+      if (index === -1) continue;
+
+      try {
+        await handleEmail(index);
+        successes.push(emailData.teacher.id);
+      } catch (error) {
+        errors.push(emailData.teacher.name);
+        logError(`Failed to send email to ${emailData.teacher.name}`, error);
+      }
+    }
+
+    setSending(false);
+    setSendSuccess([...sendSuccess, ...successes]);
+
+    if (errors.length > 0) {
+      setSendError(`Failed to send emails to: ${errors.join(', ')}`);
+    }
+
+    if (successes.length === teachersWithEmail.length) {
+      setTimeout(() => {
+        onClose();
+      }, 2000);
+    }
+  };
+
+  const currentEmail = selectedTeacherIndex !== null ? teacherEmails[selectedTeacherIndex] : null;
+  const associatedStudentsForCurrent = currentEmail
+    ? currentEmail.studentIds.map(id => studentsToUse.find(s => s.id === id)).filter((s): s is Student => s !== undefined)
+    : [];
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>
-        Email Teacher
-        {teacher ? (
-          <Typography variant="body2" color="text.secondary">
-            {teacher.name} {teacher.emailAddress && `(${teacher.emailAddress})`}
-          </Typography>
-        ) : (
-          <Typography variant="body2" color="text.secondary">
-            No teacher assigned - using "Dear Teacher" placeholder
-          </Typography>
-        )}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h6">Email Teacher</Typography>
+          <IconButton onClick={onClose} size="small">
+            <CloseIcon />
+          </IconButton>
+        </Box>
       </DialogTitle>
       <DialogContent>
-        {!teacher && (
+        {teacherEmails.length === 0 && (
           <Alert severity="info" sx={{ mb: 2 }}>
-            No teacher assigned to this student. The email template uses "Dear Teacher" as a placeholder. You can edit it before sending.
+            Loading teacher information...
           </Alert>
         )}
-        {teacher && !teacher.emailAddress && (
-          <Alert severity="info" sx={{ mb: 2 }}>
-            No email address found for this teacher. You can copy the email text and send it manually.
-          </Alert>
-        )}
-        <TextField
-          fullWidth
-          multiline
-          rows={20}
-          value={emailText}
-          onChange={(e) => setEmailText(e.target.value)}
-          sx={{ mt: 1 }}
-        />
-        {copied && (
-          <Alert severity="success" sx={{ mt: 1 }}>
-            Email text copied to clipboard!
-          </Alert>
-        )}
-        {sendSuccess && (
-          <Alert severity="success" sx={{ mt: 1 }}>
-            Email sent successfully!
-          </Alert>
-        )}
-        {sendError && (
-          <Alert severity="error" sx={{ mt: 1 }}>
-            {sendError}
-          </Alert>
+
+        {teacherEmails.length > 0 && (
+          <>
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" gutterBottom>
+                Teachers ({teacherEmails.length})
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+                {teacherEmails.map((emailData, index) => {
+                  const isSelected = selectedTeacherIndex === index;
+                  const isSent = sendSuccess.includes(emailData.teacher.id);
+                  
+                  return (
+                    <Chip
+                      key={emailData.teacher.id}
+                      label={`${emailData.teacher.name}${emailData.teacher.id === 'no-teacher' ? ' (No teacher assigned)' : ''}${isSent ? ' ✓' : ''}`}
+                      onClick={() => setSelectedTeacherIndex(index)}
+                      color={isSelected ? 'primary' : 'default'}
+                      variant={isSelected ? 'filled' : 'outlined'}
+                      sx={{ cursor: 'pointer' }}
+                    />
+                  );
+                })}
+              </Box>
+            </Box>
+
+            {currentEmail && (
+              <>
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Students for {currentEmail.teacher.name}:
+                  </Typography>
+                  <List dense>
+                    {associatedStudentsForCurrent.map(student => (
+                      <ListItem key={student.id}>
+                        <ListItemText primary={student.name} secondary={student.grade ? `Grade ${student.grade}` : ''} />
+                      </ListItem>
+                    ))}
+                  </List>
+                </Box>
+
+                <Divider sx={{ my: 2 }} />
+
+                {!currentEmail.teacher.emailAddress && (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    No email address found for {currentEmail.teacher.name}. You can copy the email text and send it manually.
+                  </Alert>
+                )}
+
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={20}
+                  value={currentEmail.emailText}
+                  onChange={(e) => {
+                    const updated = [...teacherEmails];
+                    updated[selectedTeacherIndex!].emailText = e.target.value;
+                    setTeacherEmails(updated);
+                  }}
+                  sx={{ mt: 1 }}
+                />
+
+                {copied && (
+                  <Alert severity="success" sx={{ mt: 1 }}>
+                    Email text copied to clipboard!
+                  </Alert>
+                )}
+                {sendSuccess.includes(currentEmail.teacher.id) && (
+                  <Alert severity="success" sx={{ mt: 1 }}>
+                    Email sent successfully to {currentEmail.teacher.name}!
+                  </Alert>
+                )}
+                {sendError && (
+                  <Alert severity="error" sx={{ mt: 1 }}>
+                    {sendError}
+                  </Alert>
+                )}
+              </>
+            )}
+          </>
         )}
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={sending}>Close</Button>
-        <Button
-          onClick={handleCopy}
-          startIcon={<ContentCopyIcon />}
-          variant="outlined"
-          disabled={sending}
-        >
-          Copy
-        </Button>
-        {teacher?.emailAddress && (
+        {currentEmail && (
+          <>
+            <Button
+              onClick={() => handleCopy(selectedTeacherIndex!)}
+              startIcon={<ContentCopyIcon />}
+              variant="outlined"
+              disabled={sending}
+            >
+              Copy
+            </Button>
+            {currentEmail.teacher.emailAddress && (
+              <Button
+                onClick={() => handleEmail(selectedTeacherIndex!)}
+                startIcon={<EmailIcon />}
+                variant="contained"
+                disabled={sending || sendSuccess.includes(currentEmail.teacher.id)}
+              >
+                {sending ? 'Sending...' : sendSuccess.includes(currentEmail.teacher.id) ? 'Sent' : 'Send Email'}
+              </Button>
+            )}
+          </>
+        )}
+        {teacherEmails.filter(e => e.teacher.emailAddress && !sendSuccess.includes(e.teacher.id)).length > 1 && (
           <Button
-            onClick={handleEmail}
+            onClick={handleSendAll}
             startIcon={<EmailIcon />}
             variant="contained"
+            color="secondary"
             disabled={sending}
           >
-            {sending ? 'Sending...' : 'Send Email'}
+            {sending ? 'Sending All...' : `Send All (${teacherEmails.filter(e => e.teacher.emailAddress && !sendSuccess.includes(e.teacher.id)).length})`}
           </Button>
         )}
       </DialogActions>
