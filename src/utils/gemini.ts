@@ -169,9 +169,10 @@ export const generateProgressNote = async (
     return goalInfo;
   }).join('\n');
 
+  // Use placeholder instead of actual student name to protect PHI
   const prompt = `You are a professional speech-language pathologist writing a progress note. Write a comprehensive, professional progress note for the following student and their goals.
 
-Student: ${studentName}
+Student: student
 
 Goal Information:
 ${goalsText}
@@ -193,7 +194,13 @@ Format the note in clear paragraphs. If multiple goals are provided, organize th
       const model = genAI.getGenerativeModel({ model: modelName });
       const result = await model.generateContent(prompt);
       const response = await result.response;
-      return response.text();
+      const generatedText = response.text();
+      
+      // Replace placeholder with actual student name (case-insensitive, whole word only)
+      // Use regex to match "student" as a whole word, preserving case of surrounding text
+      const replacedText = generatedText.replace(/\bstudent\b/gi, studentName);
+      
+      return replacedText;
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       const errorStatus = (error as { status?: number })?.status;
