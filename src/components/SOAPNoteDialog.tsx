@@ -82,10 +82,12 @@ export const SOAPNoteDialog = ({
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>
-        SOAP Note - {student.name}
-        <Typography variant="caption" display="block" color="text.secondary">
-          {formatDateTime(session.date)}
-        </Typography>
+        <Box>
+          <Box component="span">SOAP Note - {student.name}</Box>
+          <Box component="div" sx={{ fontSize: '0.75rem', color: 'text.secondary', mt: 0.5 }}>
+            {formatDateTime(session.date)}
+          </Box>
+        </Box>
       </DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>

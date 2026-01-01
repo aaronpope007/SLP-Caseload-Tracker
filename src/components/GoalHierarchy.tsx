@@ -77,7 +77,14 @@ export const GoalHierarchy = ({
       <Box key={goal.id} sx={{ pl: paddingLeft, borderLeft: borderLeftWidth, borderColor: 'divider' }}>
         {hasSubGoals ? (
           <Accordion defaultExpanded={false}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <AccordionSummary 
+              expandIcon={<ExpandMoreIcon />}
+              slotProps={{
+                content: {
+                  component: 'div',
+                },
+              }}
+            >
               <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', gap: 1 }}>
                 <FormControlLabel
                   control={
@@ -164,7 +171,15 @@ export const GoalHierarchy = ({
         return (
           <Box key={goal.id}>
             <Accordion expanded={true} onChange={() => {}}>
-              <AccordionSummary expandIcon={null} sx={{ cursor: 'default', '&:hover': { backgroundColor: 'transparent' } }}>
+              <AccordionSummary 
+                expandIcon={null} 
+                slotProps={{
+                  content: {
+                    component: 'div',
+                  },
+                }}
+                sx={{ cursor: 'default', '&:hover': { backgroundColor: 'transparent' } }}
+              >
                 <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', gap: 1 }}>
                   <FormControlLabel
                     control={

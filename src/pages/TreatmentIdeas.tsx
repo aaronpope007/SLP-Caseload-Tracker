@@ -312,6 +312,7 @@ export const TreatmentIdeas = () => {
         <DialogTitle>Generated Treatment Ideas</DialogTitle>
         <DialogContent>
           <Typography
+            component="div"
             variant="body1"
             sx={{ whiteSpace: 'pre-wrap', maxHeight: 500, overflow: 'auto' }}
           >

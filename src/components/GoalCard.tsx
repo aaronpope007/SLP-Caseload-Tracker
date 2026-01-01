@@ -211,7 +211,15 @@ export const GoalCard: React.FC<GoalCardProps> = ({
             expanded={expanded}
             onChange={(_, isExpanded) => onExpandedChange?.(goal.id, isExpanded)}
           >
-            <AccordionSummary expandIcon={<AccordionExpandIcon />} sx={{ px: 2, py: 1 }}>
+            <AccordionSummary 
+              expandIcon={<AccordionExpandIcon />} 
+              slotProps={{
+                content: {
+                  component: 'div',
+                },
+              }}
+              sx={{ px: 2, py: 1 }}
+            >
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', pr: 2 }}>
                 <Typography variant="h6">{goal.description}</Typography>
                 {actionButtons}

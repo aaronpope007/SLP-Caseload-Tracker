@@ -35,7 +35,14 @@ export const GroupSessionAccordion = ({
 
   return (
     <Accordion defaultExpanded>
-      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+      <AccordionSummary 
+        expandIcon={<ExpandMoreIcon />}
+        slotProps={{
+          content: {
+            component: 'div',
+          },
+        }}
+      >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
           <GroupIcon color="primary" />
           <Box sx={{ flex: 1 }}>

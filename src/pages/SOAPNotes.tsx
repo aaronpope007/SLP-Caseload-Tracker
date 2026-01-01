@@ -200,6 +200,11 @@ export const SOAPNotes = () => {
               <Accordion key={note.id}>
                 <AccordionSummary
                   expandIcon={<ExpandMoreIcon />}
+                  slotProps={{
+                    content: {
+                      component: 'div',
+                    },
+                  }}
                   sx={{
                     '& .MuiAccordionSummary-content': {
                       alignItems: 'center',

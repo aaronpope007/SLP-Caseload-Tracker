@@ -167,7 +167,7 @@ export const DocumentationTemplates = () => {
           <Typography variant="h6" gutterBottom>
             Template Types
           </Typography>
-          <Typography variant="body2" color="text.secondary" component="div">
+          <Box component="div" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
             <ul>
               <li><strong>Evaluation Report:</strong> Comprehensive speech-language evaluation report template</li>
               <li><strong>Progress Note:</strong> Template for documenting ongoing therapy sessions</li>
@@ -175,7 +175,7 @@ export const DocumentationTemplates = () => {
               <li><strong>Treatment Plan:</strong> Template for creating treatment plans</li>
               <li><strong>SOAP Note:</strong> Subjective, Objective, Assessment, Plan format template</li>
             </ul>
-          </Typography>
+          </Box>
         </CardContent>
       </Card>
 

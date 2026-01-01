@@ -87,7 +87,14 @@ scheduledSessionsRouter.get('/', asyncHandler(async (req, res) => {
       }
       const hasStudentInSchool = studentIds.length > 0 && studentIds.some(id => studentIdSet.has(id));
       if (!hasStudentInSchool && studentIds.length > 0) {
-        console.log(`[API] Filtering out session ${s.id} - no students in school ${schoolName}. Student IDs:`, studentIds);
+        // Get the actual schools for these students to provide better debugging info
+        const studentSchools = db.prepare('SELECT id, school FROM students WHERE id IN (' + studentIds.map(() => '?').join(',') + ')').all(...studentIds) as Array<{ id: string; school: string }>;
+        const schoolMap = new Map(studentSchools.map(s => [s.id, s.school]));
+        const studentSchoolInfo = studentIds.map(id => {
+          const school = schoolMap.get(id) || 'UNKNOWN';
+          return `${id} (${school})`;
+        });
+        console.log(`[API] Filtering out session ${s.id} - students in this session belong to different schools than "${schoolName}". Students:`, studentSchoolInfo);
       }
       return hasStudentInSchool;
     });

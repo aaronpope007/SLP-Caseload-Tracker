@@ -51,6 +51,59 @@
 - Icons from `@mui/icons-material`
 - Follow MUI patterns for dialogs, forms, and data display
 
+## Preventing Hydration Errors (CRITICAL)
+- **AccordionSummary with Typography**: Material-UI's `AccordionSummary` wraps content in a `Typography` component by default. When using `Typography` inside `AccordionSummary`, you MUST add `slotProps={{ content: { component: 'div' } }}` to prevent nested `<p>` tags:
+  ```tsx
+  <AccordionSummary 
+    expandIcon={<ExpandMoreIcon />}
+    slotProps={{
+      content: {
+        component: 'div',
+      },
+    }}
+  >
+    <Typography variant="h6">Content</Typography>
+  </AccordionSummary>
+  ```
+- **DialogTitle with Typography**: Never put `Typography` components inside `DialogTitle` (which renders as `<h2>`). Use `Box` components instead:
+  ```tsx
+  <DialogTitle>
+    <Box>
+      <Box component="span">Title Text</Box>
+      <Box component="div" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+        Subtitle
+      </Box>
+    </Box>
+  </DialogTitle>
+  ```
+- **Typography with Block Elements**: When `Typography` contains block-level elements (like `<ul>`, `<ol>`, `<div>`), use `component="div"`:
+  ```tsx
+  <Typography component="div">
+    <ul>
+      <li>Item</li>
+    </ul>
+  </Typography>
+  ```
+  Or better yet, use `Box` for containing block elements:
+  ```tsx
+  <Box component="div" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
+    <ul>
+      <li>Item</li>
+    </ul>
+  </Box>
+  ```
+- **AI-Generated/Formatted Content**: When displaying AI-generated content or formatted text that might contain HTML, always use `component="div"` on `Typography`:
+  ```tsx
+  <Typography component="div" variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+    {generatedContent}
+  </Typography>
+  ```
+- **Invalid HTML Nesting**: Remember that in HTML:
+  - `<p>` tags cannot contain block elements (`<div>`, `<ul>`, `<ol>`, other `<p>` tags)
+  - Heading tags (`<h1>`-`<h6>`) cannot contain `<p>` tags
+  - `<a>` tags cannot contain other `<a>` tags
+  - Always check what HTML element Material-UI components render to avoid invalid nesting
+
 ## Code Quality
 - Use TypeScript strict mode (enforced in tsconfig)
 - No unused variables or parameters (enforced by linter)

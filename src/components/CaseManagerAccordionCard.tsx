@@ -61,6 +61,11 @@ export const CaseManagerAccordionCard = ({
       <Accordion expanded={expanded} onChange={onToggleExpand}>
         <AccordionSummary
           expandIcon={<ExpandMoreIcon />}
+          slotProps={{
+            content: {
+              component: 'div',
+            },
+          }}
           sx={{
             '& .MuiAccordionSummary-content': {
               alignItems: 'center',

@@ -95,6 +95,11 @@ export const StudentAccordionCard = ({
     >
         <AccordionSummary
           expandIcon={<ExpandMoreIcon />}
+          slotProps={{
+            content: {
+              component: 'div',
+            },
+          }}
           sx={{
             '& .MuiAccordionSummary-content': {
               alignItems: 'center',
@@ -102,7 +107,7 @@ export const StudentAccordionCard = ({
           }}
         >
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', pr: 1 }}>
-            <Typography variant="h6">{student.name}</Typography>
+            <Box component="h6" sx={{ fontSize: '1.25rem', fontWeight: 500, margin: 0 }}>{student.name}</Box>
             <IconButton
               size="small"
               onClick={handleMenuOpen}
