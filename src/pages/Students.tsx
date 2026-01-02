@@ -136,7 +136,11 @@ export const Students = () => {
     }
     try {
       const allTeachers = await getTeachers(selectedSchool);
-      setTeachers(allTeachers);
+      // Deduplicate teachers by ID to prevent duplicate key warnings
+      const uniqueTeachers = Array.from(
+        new Map(allTeachers.map(teacher => [teacher.id, teacher])).values()
+      );
+      setTeachers(uniqueTeachers);
     } catch (error) {
       logError('Failed to load teachers', error);
     }
@@ -149,7 +153,11 @@ export const Students = () => {
     }
     try {
       const allCaseManagers = await getCaseManagers(selectedSchool);
-      setCaseManagers(allCaseManagers);
+      // Deduplicate case managers by ID to prevent duplicate key warnings
+      const uniqueCaseManagers = Array.from(
+        new Map(allCaseManagers.map(caseManager => [caseManager.id, caseManager])).values()
+      );
+      setCaseManagers(uniqueCaseManagers);
     } catch (error) {
       logError('Failed to load case managers', error);
     }
@@ -176,8 +184,13 @@ export const Students = () => {
         });
       }
       
+      // Deduplicate students by ID to prevent duplicate key warnings
+      const uniqueStudents = Array.from(
+        new Map(allStudents.map(student => [student.id, student])).values()
+      );
+      
       // Sort alphabetically by first name
-      const sortedStudents = [...allStudents].sort((a, b) => {
+      const sortedStudents = [...uniqueStudents].sort((a, b) => {
         const firstNameA = a.name.split(' ')[0].toLowerCase();
         const firstNameB = b.name.split(' ')[0].toLowerCase();
         return firstNameA.localeCompare(firstNameB);
@@ -640,6 +653,15 @@ export const Students = () => {
               getOptionLabel={(option) => 
                 option ? `${option.name}${option.grade ? ` - ${option.grade}` : ''}` : ''
               }
+              filterOptions={(options, { inputValue }) => {
+                if (!inputValue) return options;
+                const searchTerm = inputValue.toLowerCase().trim();
+                return options.filter((teacher) => {
+                  const nameMatch = (teacher.name || '').toLowerCase().includes(searchTerm);
+                  const gradeMatch = (teacher.grade || '').toLowerCase().includes(searchTerm);
+                  return nameMatch || gradeMatch;
+                });
+              }}
               value={teachers.find(t => t.id === formData.teacherId) || null}
               onChange={(_, newValue) =>
                 setFormData({
