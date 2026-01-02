@@ -244,14 +244,14 @@ export const Dashboard = () => {
                         <ListItemText
                           primary={student?.name || 'Unknown Student'}
                           secondary={
-                            <Box>
-                              <Typography variant="caption" display="block">
+                            <>
+                              <Box component="span" sx={{ fontSize: '0.75rem', display: 'block', mb: 0.5 }}>
                                 {report.reportType === 'quarterly' ? 'Quarterly' : 'Annual'} • Due: {formatDate(report.dueDate)}
-                              </Typography>
+                              </Box>
                               {isOverdue && (
                                 <Chip label="Overdue" size="small" color="error" sx={{ mt: 0.5 }} />
                               )}
-                            </Box>
+                            </>
                           }
                         />
                       </ListItem>
@@ -293,15 +293,15 @@ export const Dashboard = () => {
                         <ListItemText
                           primary={item.title}
                           secondary={
-                            <Box>
-                              <Typography variant="caption" display="block">
+                            <>
+                              <Box component="span" sx={{ fontSize: '0.75rem', display: 'block', mb: 0.5 }}>
                                 Due: {formatDate(item.dueDate)}
                                 {item.category && ` • ${item.category}`}
-                              </Typography>
+                              </Box>
                               {isOverdue && (
                                 <Chip label="Overdue" size="small" color="error" sx={{ mt: 0.5 }} />
                               )}
-                            </Box>
+                            </>
                           }
                         />
                       </ListItem>

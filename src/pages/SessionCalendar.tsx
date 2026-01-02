@@ -2388,8 +2388,15 @@ export const SessionCalendar = () => {
       <Card>
         <CardContent>
           <Accordion defaultExpanded={false}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Typography variant="h6">
+            <AccordionSummary 
+              expandIcon={<ExpandMoreIcon />}
+              slotProps={{
+                content: {
+                  component: 'div',
+                },
+              }}
+            >
+              <Typography variant="h6" component="div">
                 Scheduled Recurring Sessions
               </Typography>
             </AccordionSummary>

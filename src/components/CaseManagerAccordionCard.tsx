@@ -75,7 +75,7 @@ export const CaseManagerAccordionCard = ({
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', pr: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <PersonIcon color="primary" />
-              <Typography variant="h6">{caseManager.name}</Typography>
+              <Typography variant="h6" component="div">{caseManager.name}</Typography>
             </Box>
             <IconButton
               size="small"

@@ -95,8 +95,8 @@ export const GoalHierarchy = ({
                     />
                   }
                   label={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                      <Typography variant={isCompact ? 'body2' : 'body1'}>{goal.description}</Typography>
+                    <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                      <Box component="span" sx={{ fontSize: isCompact ? '0.875rem' : '1rem' }}>{goal.description}</Box>
                       <GoalProgressChip average={recentAvg} target={goal.target} />
                       {(!goal.target || goal.target.trim() === '') && (
                         <Chip
@@ -127,8 +127,8 @@ export const GoalHierarchy = ({
               />
             }
             label={
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                <Typography variant={isCompact ? 'body2' : 'body1'}>{goal.description}</Typography>
+              <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                <Box component="span" sx={{ fontSize: isCompact ? '0.875rem' : '1rem' }}>{goal.description}</Box>
                 <GoalProgressChip average={recentAvg} target={goal.target} />
                 {(!goal.target || goal.target.trim() === '') && (
                   <Chip
@@ -190,8 +190,8 @@ export const GoalHierarchy = ({
                       />
                     }
                     label={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                        <Typography variant={isCompact ? 'body2' : 'body1'}>{goal.description}</Typography>
+                      <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                        <Box component="span" sx={{ fontSize: isCompact ? '0.875rem' : '1rem' }}>{goal.description}</Box>
                         <GoalProgressChip average={recentAvg} target={goal.target} />
                         {(!goal.target || goal.target.trim() === '') && (
                           <Chip

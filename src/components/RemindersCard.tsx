@@ -153,10 +153,10 @@ export const RemindersCard = ({ maxItems = 5, showViewAll = true }: RemindersCar
                 </Box>
                 <ListItemText
                   primary={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography variant="body2" fontWeight="medium">
+                    <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box component="span" sx={{ fontSize: '0.875rem', fontWeight: 500 }}>
                         {reminder.title}
-                      </Typography>
+                      </Box>
                       <PriorityChip 
                         priority={reminder.priority} 
                         size="small"
@@ -164,13 +164,13 @@ export const RemindersCard = ({ maxItems = 5, showViewAll = true }: RemindersCar
                     </Box>
                   }
                   secondary={
-                    <Box>
-                      <Typography variant="caption" display="block">
+                    <>
+                      <Box component="span" sx={{ fontSize: '0.75rem', display: 'block', mb: 0.5 }}>
                         {reminder.studentName}
-                      </Typography>
-                      <Typography variant="caption" display="block" color="text.secondary">
+                      </Box>
+                      <Box component="span" sx={{ fontSize: '0.75rem', display: 'block', color: 'text.secondary', mb: 0.5 }}>
                         {reminder.description}
-                      </Typography>
+                      </Box>
                       {reminder.daysUntilDue !== undefined && (
                         <Chip
                           label={
@@ -186,11 +186,11 @@ export const RemindersCard = ({ maxItems = 5, showViewAll = true }: RemindersCar
                         />
                       )}
                       {reminder.dueDate && (
-                        <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
+                        <Box component="span" sx={{ fontSize: '0.75rem', display: 'block', color: 'text.secondary', mt: 0.5 }}>
                           Due: {formatDate(reminder.dueDate)}
-                        </Typography>
+                        </Box>
                       )}
-                    </Box>
+                    </>
                   }
                 />
                 <Tooltip title="View details">

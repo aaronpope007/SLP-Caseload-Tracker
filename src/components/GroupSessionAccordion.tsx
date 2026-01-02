@@ -46,14 +46,14 @@ export const GroupSessionAccordion = ({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
           <GroupIcon color="primary" />
           <Box sx={{ flex: 1 }}>
-            <Typography variant="h6">
+            <Typography variant="h6" component="div">
               Group Session ({groupSessions.length} {groupSessions.length === 1 ? 'student' : 'students'})
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" component="div" color="text.secondary">
               {formatDateTime(firstSession.date)}
               {firstSession.endTime && ` - ${formatDateTime(firstSession.endTime)}`}
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" component="div" color="text.secondary">
               Students: {studentNames}
             </Typography>
           </Box>

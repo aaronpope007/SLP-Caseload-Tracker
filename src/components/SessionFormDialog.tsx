@@ -315,8 +315,15 @@ export const SessionFormDialog = ({
                           </Box>
                           {completedGoals.length > 0 && (
                             <Accordion sx={{ mt: 2 }}>
-                              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                                <Typography variant="subtitle2" color="text.secondary">
+                              <AccordionSummary 
+                                expandIcon={<ExpandMoreIcon />}
+                                slotProps={{
+                                  content: {
+                                    component: 'div',
+                                  },
+                                }}
+                              >
+                                <Typography variant="subtitle2" component="div" color="text.secondary">
                                   Completed Goals ({completedGoals.length})
                                 </Typography>
                               </AccordionSummary>
@@ -395,8 +402,15 @@ export const SessionFormDialog = ({
                             )}
                             {completedGoals.length > 0 && (
                               <Accordion sx={{ mt: 2 }}>
-                                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                                  <Typography variant="subtitle2" color="text.secondary">
+                                <AccordionSummary 
+                                  expandIcon={<ExpandMoreIcon />}
+                                  slotProps={{
+                                    content: {
+                                      component: 'div',
+                                    },
+                                  }}
+                                >
+                                  <Typography variant="subtitle2" component="div" color="text.secondary">
                                     Completed Goals ({completedGoals.length})
                                   </Typography>
                                 </AccordionSummary>
@@ -428,8 +442,15 @@ export const SessionFormDialog = ({
 
               {formData.isDirectServices && (
                 <Accordion>
-                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                    <Typography variant="subtitle2">
+                  <AccordionSummary 
+                    expandIcon={<ExpandMoreIcon />}
+                    slotProps={{
+                      content: {
+                        component: 'div',
+                      },
+                    }}
+                  >
+                    <Typography variant="subtitle2" component="div">
                       Subjective Statements (for SOAP notes) *
                     </Typography>
                   </AccordionSummary>

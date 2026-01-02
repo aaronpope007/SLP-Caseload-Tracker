@@ -189,6 +189,11 @@ const NestedGoalItem: React.FC<{
         >
           <AccordionSummary 
             expandIcon={depth >= 2 ? <ExpandMoreIcon /> : <AccordionExpandIcon />}
+            slotProps={{
+              content: {
+                component: 'div',
+              },
+            }}
             onClick={(e) => {
               // Manual click handler for nested accordions (depth >= 2) to ensure expansion works
               if (depth >= 2 && onExpandedChange) {
@@ -199,7 +204,7 @@ const NestedGoalItem: React.FC<{
               }
             }}
           >
-            <Typography variant="body2" sx={{ fontSize: depth > 0 ? '0.875rem' : 'inherit' }}>
+            <Typography variant="body2" component="div" sx={{ fontSize: depth > 0 ? '0.875rem' : 'inherit' }}>
               {goal.description}
             </Typography>
           </AccordionSummary>

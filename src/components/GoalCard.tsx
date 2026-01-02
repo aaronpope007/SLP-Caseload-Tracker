@@ -221,7 +221,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
               sx={{ px: 2, py: 1 }}
             >
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', pr: 2 }}>
-                <Typography variant="h6">{goal.description}</Typography>
+                <Typography variant="h6" component="div">{goal.description}</Typography>
                 {actionButtons}
               </Box>
             </AccordionSummary>
