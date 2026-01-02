@@ -45,6 +45,19 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
             main: '#dc004e',
           },
         },
+        // Theme-level override for AccordionSummary to use div instead of Typography (p tag)
+        // This is part of the fix for Material-UI v6 hydration warnings (see StudentAccordionCard.tsx for details)
+        components: {
+          MuiAccordionSummary: {
+            defaultProps: {
+              slotProps: {
+                content: {
+                  component: 'div',
+                },
+              },
+            },
+          },
+        },
       }),
     [mode]
   );

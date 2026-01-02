@@ -14,6 +14,7 @@ import {
   Typography,
   Snackbar,
   Alert,
+  Autocomplete,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -634,31 +635,29 @@ export const Students = () => {
                 </option>
               ))}
             </TextField>
-            <TextField
-              select
-              label="Teacher (Optional)"
-              fullWidth
-              value={formData.teacherId || ''}
-              onChange={(e) =>
+            <Autocomplete
+              options={teachers}
+              getOptionLabel={(option) => 
+                option ? `${option.name}${option.grade ? ` - ${option.grade}` : ''}` : ''
+              }
+              value={teachers.find(t => t.id === formData.teacherId) || null}
+              onChange={(_, newValue) =>
                 setFormData({
                   ...formData,
-                  teacherId: e.target.value,
+                  teacherId: newValue?.id || '',
                 })
               }
-              SelectProps={{
-                native: true,
-              }}
-              InputLabelProps={{
-                shrink: true,
-              }}
-            >
-              <option value="">None</option>
-              {teachers.map((teacher) => (
-                <option key={teacher.id} value={teacher.id}>
-                  {teacher.name}{teacher.grade ? ` - ${teacher.grade}` : ''}
-                </option>
-              ))}
-            </TextField>
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Teacher (Optional)"
+                  InputLabelProps={{
+                    shrink: true,
+                  }}
+                />
+              )}
+              isOptionEqualTo={(option, value) => option.id === value.id}
+            />
             <TextField
               select
               label="Case Manager (Optional)"

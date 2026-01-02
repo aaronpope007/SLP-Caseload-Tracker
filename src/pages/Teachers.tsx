@@ -107,35 +107,6 @@ export const Teachers = () => {
     message: 'You have unsaved changes to this teacher. Are you sure you want to leave?',
   });
 
-  const filterTeachers = () => {
-    let filtered = teachers;
-    
-    // Filter by search term if provided
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      const searchDigits = stripPhoneFormatting(term);
-      filtered = filtered.filter(
-        (t) =>
-          t.name.toLowerCase().includes(term) ||
-          t.grade.toLowerCase().includes(term) ||
-          (t.phoneNumber && (
-            t.phoneNumber.toLowerCase().includes(term) ||
-            stripPhoneFormatting(t.phoneNumber).includes(searchDigits)
-          )) ||
-          (t.emailAddress && t.emailAddress.toLowerCase().includes(term))
-      );
-    }
-    
-    // Maintain alphabetical order by name
-    filtered.sort((a, b) => {
-      const nameA = a.name.toLowerCase();
-      const nameB = b.name.toLowerCase();
-      return nameA.localeCompare(nameB);
-    });
-    
-    setFilteredTeachers(filtered);
-  };
-
   const loadTeachers = async () => {
     if (!selectedSchool) {
       setTeachers([]);
@@ -161,8 +132,46 @@ export const Teachers = () => {
   }, [selectedSchool]);
 
   useEffect(() => {
-    filterTeachers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Filter by search term if provided
+    const trimmedSearch = searchTerm?.trim() || '';
+    
+    if (trimmedSearch) {
+      const term = trimmedSearch.toLowerCase();
+      const searchDigits = stripPhoneFormatting(term);
+      const beforeFilter = teachers.length;
+      
+      const filtered = teachers.filter((t) => {
+        const name = (t.name || '').toLowerCase();
+        const grade = (t.grade || '').toLowerCase();
+        const phone = t.phoneNumber ? t.phoneNumber.toLowerCase() : '';
+        const email = (t.emailAddress || '').toLowerCase();
+        
+        const nameMatch = name.includes(term);
+        const gradeMatch = grade.includes(term);
+        // Only check phone digits if search term contains digits (empty string .includes() always returns true)
+        const phoneMatch = phone.includes(term) || (t.phoneNumber && searchDigits && stripPhoneFormatting(t.phoneNumber).includes(searchDigits));
+        const emailMatch = email.includes(term);
+        
+        return nameMatch || gradeMatch || phoneMatch || emailMatch;
+      });
+      
+      // Maintain alphabetical order by name
+      filtered.sort((a, b) => {
+        const nameA = (a.name || '').toLowerCase();
+        const nameB = (b.name || '').toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+      
+      setFilteredTeachers(filtered);
+    } else {
+      // No search term - show all teachers, sorted alphabetically
+      const sorted = [...teachers].sort((a, b) => {
+        const nameA = (a.name || '').toLowerCase();
+        const nameB = (b.name || '').toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+      setFilteredTeachers(sorted);
+    }
   }, [searchTerm, teachers]);
 
   useEffect(() => {
