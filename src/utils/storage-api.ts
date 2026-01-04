@@ -104,9 +104,9 @@ export const deleteGoal = async (id: string): Promise<void> => {
 };
 
 // Sessions
-export const getSessions = async (): Promise<Session[]> => {
+export const getSessions = async (studentId?: string, school?: string): Promise<Session[]> => {
   try {
-    return await api.sessions.getAll();
+    return await api.sessions.getAll(studentId, school);
   } catch (error) {
     logError('Failed to fetch sessions', error);
     return [];

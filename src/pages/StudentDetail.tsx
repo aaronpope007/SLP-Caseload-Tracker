@@ -57,6 +57,20 @@ export const StudentDetail = () => {
   const { confirm, ConfirmDialog } = useConfirm();
   const { showSnackbar, SnackbarComponent } = useSnackbar();
   
+  // Student data loading hook - must be declared early
+  const { loadStudent } = useStudentData({
+    studentId: id,
+    selectedSchool,
+    setStudent,
+  });
+
+  // Session data loading hook - must be declared early
+  const { loadSessions } = useSessionData({
+    studentId: id,
+    selectedSchool,
+    setSessions,
+  });
+  
   // Goal management hook
   const {
     goals,
@@ -96,6 +110,15 @@ export const StudentDetail = () => {
   
   // Goal template selection hook
   const goalTemplate = useGoalTemplate(updateFormField);
+
+  // AI Features Hook - must be declared before useTreatmentRecommendations
+  const apiKey = localStorage.getItem('gemini_api_key') || '';
+  const aiFeatures = useAIFeatures({
+    apiKey,
+    studentName: student?.name || '',
+    studentAge: student?.age || 0,
+    studentGrade: student?.grade || '',
+  });
 
   // Copy subtree hook
   const goalSubtree = useGoalSubtree({
@@ -147,6 +170,15 @@ export const StudentDetail = () => {
     showSnackbar,
   });
 
+  // Goal delete hook
+  const { handleDelete } = useGoalDelete({
+    removeGoal,
+    loadGoals,
+    loadSessions,
+    showSnackbar,
+    confirm,
+  });
+
   // Treatment recommendations hook
   const { handleGenerateTreatmentRecommendations } = useTreatmentRecommendations({
     studentId: id || '',
@@ -155,15 +187,6 @@ export const StudentDetail = () => {
     apiKey,
     setError: aiFeatures.setTreatmentRecsError,
     generateTreatmentRecs: aiFeatures.generateTreatmentRecs,
-  });
-
-  // AI Features Hook
-  const apiKey = localStorage.getItem('gemini_api_key') || '';
-  const aiFeatures = useAIFeatures({
-    apiKey,
-    studentName: student?.name || '',
-    studentAge: student?.age || 0,
-    studentGrade: student?.grade || '',
   });
 
   useEffect(() => {
@@ -199,21 +222,6 @@ export const StudentDetail = () => {
       }
     }
   }, [searchParams, student, goals.length, goalFormDialog.open, setSearchParams, goals, initializeForm, goalFormDialog, goalTemplate]);
-
-
-  // Student data loading hook
-  const { loadStudent } = useStudentData({
-    studentId: id,
-    selectedSchool,
-    setStudent,
-  });
-
-  // Session data loading hook
-  const { loadSessions } = useSessionData({
-    studentId: id,
-    selectedSchool,
-    setSessions,
-  });
 
   // Performance helpers hook
   const { getRecentPerformance } = usePerformanceHelpers({
