@@ -649,62 +649,67 @@ export const Students = () => {
               ))}
             </TextField>
             <Autocomplete
-              options={teachers}
-              getOptionLabel={(option) => 
-                option ? `${option.name}${option.grade ? ` - ${option.grade}` : ''}` : ''
-              }
+              options={[...teachers.map(t => ({ ...t, __type: 'teacher' as const })), ...caseManagers.map(cm => ({ ...cm, __type: 'caseManager' as const }))]}
+              getOptionLabel={(option) => {
+                if (!option) return '';
+                if (option.__type === 'teacher') {
+                  // Teacher
+                  return `${option.name}${option.grade ? ` - ${option.grade}` : ''}`;
+                } else {
+                  // Case Manager
+                  return `${option.name}${option.role ? ` - ${option.role}` : ''}`;
+                }
+              }}
               filterOptions={(options, { inputValue }) => {
                 if (!inputValue) return options;
                 const searchTerm = inputValue.toLowerCase().trim();
-                return options.filter((teacher) => {
-                  const nameMatch = (teacher.name || '').toLowerCase().includes(searchTerm);
-                  const gradeMatch = (teacher.grade || '').toLowerCase().includes(searchTerm);
-                  return nameMatch || gradeMatch;
+                return options.filter((contact) => {
+                  const nameMatch = (contact.name || '').toLowerCase().includes(searchTerm);
+                  const gradeMatch = contact.__type === 'teacher' && (contact.grade || '').toLowerCase().includes(searchTerm);
+                  const roleMatch = contact.__type === 'caseManager' && (contact.role || '').toLowerCase().includes(searchTerm);
+                  return nameMatch || gradeMatch || roleMatch;
                 });
               }}
-              value={teachers.find(t => t.id === formData.teacherId) || null}
-              onChange={(_, newValue) =>
-                setFormData({
-                  ...formData,
-                  teacherId: newValue?.id || '',
-                })
-              }
+              value={[
+                ...teachers.filter(t => t.id === formData.teacherId).map(t => ({ ...t, __type: 'teacher' as const })),
+                ...caseManagers.filter(cm => cm.id === formData.caseManagerId).map(cm => ({ ...cm, __type: 'caseManager' as const }))
+              ][0] || null}
+              onChange={(_, newValue) => {
+                if (newValue) {
+                  // Check if it's a teacher or case manager
+                  if (newValue.__type === 'teacher') {
+                    setFormData({
+                      ...formData,
+                      teacherId: newValue.id,
+                      caseManagerId: '',
+                    });
+                  } else {
+                    setFormData({
+                      ...formData,
+                      teacherId: '',
+                      caseManagerId: newValue.id,
+                    });
+                  }
+                } else {
+                  // Clear both if no selection
+                  setFormData({
+                    ...formData,
+                    teacherId: '',
+                    caseManagerId: '',
+                  });
+                }
+              }}
               renderInput={(params) => (
                 <TextField
                   {...params}
-                  label="Teacher (Optional)"
+                  label="Teacher or Case Manager (Optional)"
                   InputLabelProps={{
                     shrink: true,
                   }}
                 />
               )}
-              isOptionEqualTo={(option, value) => option.id === value.id}
+              isOptionEqualTo={(option, value) => option.id === value.id && option.__type === value.__type}
             />
-            <TextField
-              select
-              label="Case Manager (Optional)"
-              fullWidth
-              value={formData.caseManagerId || ''}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  caseManagerId: e.target.value,
-                })
-              }
-              SelectProps={{
-                native: true,
-              }}
-              InputLabelProps={{
-                shrink: true,
-              }}
-            >
-              <option value="">None</option>
-              {caseManagers.map((caseManager) => (
-                <option key={caseManager.id} value={caseManager.id}>
-                  {caseManager.name}{caseManager.role ? ` - ${caseManager.role}` : ''}
-                </option>
-              ))}
-            </TextField>
             <TextField
               label="IEP Date (Optional)"
               type="date"

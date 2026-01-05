@@ -20,6 +20,7 @@ import {
   Snackbar,
   Paper,
   Divider,
+  Autocomplete,
 } from '@mui/material';
 import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid';
 import type { GridColDef, GridRowParams } from '@mui/x-data-grid';
@@ -236,21 +237,20 @@ export const Communications = () => {
     setFormData({ ...formData, contactType, contactId: '', contactName: '', contactEmail: '' });
   };
 
-  const handleContactSelect = (contactId: string) => {
-    let contact: Teacher | CaseManager | undefined;
-    
-    if (formData.contactType === 'teacher') {
-      contact = teachers.find(t => t.id === contactId);
-    } else if (formData.contactType === 'case-manager') {
-      contact = caseManagers.find(c => c.id === contactId);
-    }
-    
+  const handleContactSelect = (contact: Teacher | CaseManager | null) => {
     if (contact) {
       setFormData({
         ...formData,
         contactId: contact.id,
         contactName: contact.name,
         contactEmail: contact.emailAddress || '',
+      });
+    } else {
+      setFormData({
+        ...formData,
+        contactId: '',
+        contactName: '',
+        contactEmail: '',
       });
     }
   };
@@ -450,39 +450,60 @@ export const Communications = () => {
             </FormControl>
 
             {formData.contactType === 'teacher' && (
-              <FormControl fullWidth>
-                <InputLabel>Teacher</InputLabel>
-                <Select
-                  value={formData.contactId}
-                  label="Teacher"
-                  onChange={(e) => handleContactSelect(e.target.value)}
-                >
-                  <MenuItem value="">Select Teacher</MenuItem>
-                  {teachers.map((teacher) => (
-                    <MenuItem key={teacher.id} value={teacher.id}>
-                      {teacher.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <Autocomplete
+                options={[...teachers, ...caseManagers]}
+                getOptionLabel={(option) => option.name}
+                filterOptions={(options, { inputValue }) => {
+                  if (!inputValue) return options;
+                  const searchTerm = inputValue.toLowerCase().trim();
+                  return options.filter((contact) => {
+                    const nameMatch = (contact.name || '').toLowerCase().includes(searchTerm);
+                    const gradeMatch = 'grade' in contact && (contact.grade || '').toLowerCase().includes(searchTerm);
+                    const roleMatch = 'role' in contact && (contact.role || '').toLowerCase().includes(searchTerm);
+                    return nameMatch || gradeMatch || roleMatch;
+                  });
+                }}
+                value={[...teachers, ...caseManagers].find(c => c.id === formData.contactId) || null}
+                onChange={(_, newValue) => handleContactSelect(newValue)}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Teacher or Case Manager"
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                  />
+                )}
+                isOptionEqualTo={(option, value) => option.id === value.id}
+              />
             )}
 
             {formData.contactType === 'case-manager' && (
-              <FormControl fullWidth>
-                <InputLabel>Case Manager</InputLabel>
-                <Select
-                  value={formData.contactId}
-                  label="Case Manager"
-                  onChange={(e) => handleContactSelect(e.target.value)}
-                >
-                  <MenuItem value="">Select Case Manager</MenuItem>
-                  {caseManagers.map((cm) => (
-                    <MenuItem key={cm.id} value={cm.id}>
-                      {cm.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <Autocomplete
+                options={caseManagers}
+                getOptionLabel={(option) => option.name}
+                filterOptions={(options, { inputValue }) => {
+                  if (!inputValue) return options;
+                  const searchTerm = inputValue.toLowerCase().trim();
+                  return options.filter((cm) => {
+                    const nameMatch = (cm.name || '').toLowerCase().includes(searchTerm);
+                    const roleMatch = (cm.role || '').toLowerCase().includes(searchTerm);
+                    return nameMatch || roleMatch;
+                  });
+                }}
+                value={caseManagers.find(c => c.id === formData.contactId) || null}
+                onChange={(_, newValue) => handleContactSelect(newValue)}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Case Manager"
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                  />
+                )}
+                isOptionEqualTo={(option, value) => option.id === value.id}
+              />
             )}
 
             {(formData.contactType === 'parent' || !formData.contactId) && (
@@ -504,21 +525,31 @@ export const Communications = () => {
               </>
             )}
 
-            <FormControl fullWidth>
-              <InputLabel>Student (Optional)</InputLabel>
-              <Select
-                value={formData.studentId}
-                label="Student (Optional)"
-                onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
-              >
-                <MenuItem value="">No Student</MenuItem>
-                {students.map((student) => (
-                  <MenuItem key={student.id} value={student.id}>
-                    {student.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Autocomplete
+              options={students}
+              getOptionLabel={(option) => option.name}
+              filterOptions={(options, { inputValue }) => {
+                if (!inputValue) return options;
+                const searchTerm = inputValue.toLowerCase().trim();
+                return options.filter((student) => {
+                  const nameMatch = (student.name || '').toLowerCase().includes(searchTerm);
+                  const gradeMatch = (student.grade || '').toLowerCase().includes(searchTerm);
+                  return nameMatch || gradeMatch;
+                });
+              }}
+              value={students.find(s => s.id === formData.studentId) || null}
+              onChange={(_, newValue) => setFormData({ ...formData, studentId: newValue?.id || '' })}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Student (Optional)"
+                  InputLabelProps={{
+                    shrink: true,
+                  }}
+                />
+              )}
+              isOptionEqualTo={(option, value) => option.id === value.id}
+            />
 
             <FormControl fullWidth>
               <InputLabel>Method</InputLabel>

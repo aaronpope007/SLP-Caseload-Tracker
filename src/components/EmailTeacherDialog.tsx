@@ -23,8 +23,8 @@ import {
   Email as EmailIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
-import type { Student, Teacher, ScheduledSession, Session } from '../types';
-import { getTeachers, getSessionsBySchool, getSchoolByName } from '../utils/storage-api';
+import type { Student, Teacher, CaseManager, ScheduledSession, Session } from '../types';
+import { getTeachers, getCaseManagers, getSessionsBySchool, getSchoolByName } from '../utils/storage-api';
 import { getScheduledSessions } from '../utils/storage-api';
 import { format, isBefore, isAfter, addMinutes, parse, isSameDay, startOfDay } from 'date-fns';
 import { api } from '../utils/api';
@@ -54,12 +54,13 @@ export const EmailTeacherDialog = ({
   const studentsToUse = studentsProp || (student ? [student] : []);
 
   interface TeacherEmailData {
-    teacher: Teacher;
-    studentIds: string[]; // Students associated with this teacher
+    teacher: Teacher | CaseManager; // Can be either teacher or case manager
+    studentIds: string[]; // Students associated with this teacher/case manager
     emailText: string;
   }
 
   const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [caseManagers, setCaseManagers] = useState<CaseManager[]>([]);
   const [teacherEmails, setTeacherEmails] = useState<TeacherEmailData[]>([]);
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
@@ -107,7 +108,7 @@ export const EmailTeacherDialog = ({
     return `${displayHours}:${mins.toString().padStart(2, '0')} ${period}`;
   };
 
-  const generateEmailText = (teacher: Teacher | null, associatedStudents: Student[], times: string[] = []): string => {
+  const generateEmailText = (teacher: Teacher | CaseManager | null, associatedStudents: Student[], times: string[] = []): string => {
     if (associatedStudents.length === 0) return '';
 
     const teacherName = teacher?.name || 'Teacher';
@@ -168,34 +169,45 @@ export const EmailTeacherDialog = ({
     const availableTimesList = await findAvailableTimes(primaryStudent);
     setAvailableTimes(availableTimesList);
 
-    // Get all teachers
+    // Get all teachers and case managers
     const allTeachers = await getTeachers();
     setTeachers(allTeachers);
+    
+    // Get case managers for the school (use first student's school)
+    const schoolCaseManagers = await getCaseManagers(primaryStudent.school);
+    setCaseManagers(schoolCaseManagers);
 
-    // Group students by teacher
-    const teacherMap = new Map<string, { teacher: Teacher; studentIds: string[] }>();
-    const studentsWithoutTeacher: string[] = [];
+    // Group students by teacher or case manager
+    const teacherMap = new Map<string, { teacher: Teacher | CaseManager; studentIds: string[] }>();
+    const studentsWithoutContact: string[] = [];
 
     for (const student of studentsToUse) {
+      let contact: Teacher | CaseManager | null = null;
+      
+      // First, check for teacher
       if (student.teacherId) {
-        const teacher = allTeachers.find(t => t.id === student.teacherId);
-        if (teacher) {
-          const existing = teacherMap.get(teacher.id);
-          if (existing) {
-            existing.studentIds.push(student.id);
-          } else {
-            teacherMap.set(teacher.id, { teacher, studentIds: [student.id] });
-          }
+        contact = allTeachers.find(t => t.id === student.teacherId) || null;
+      }
+      
+      // If no teacher, check for case manager
+      if (!contact && student.caseManagerId) {
+        contact = schoolCaseManagers.find(cm => cm.id === student.caseManagerId) || null;
+      }
+      
+      if (contact) {
+        const existing = teacherMap.get(contact.id);
+        if (existing) {
+          existing.studentIds.push(student.id);
         } else {
-          studentsWithoutTeacher.push(student.id);
+          teacherMap.set(contact.id, { teacher: contact, studentIds: [student.id] });
         }
       } else {
-        studentsWithoutTeacher.push(student.id);
+        studentsWithoutContact.push(student.id);
       }
     }
 
-    // Create a "No Teacher" entry for students without teachers
-    if (studentsWithoutTeacher.length > 0) {
+    // Create a "No Teacher" entry for students without teachers or case managers
+    if (studentsWithoutContact.length > 0) {
       const noTeacher: Teacher = {
         id: 'no-teacher',
         name: 'Teacher',
@@ -203,7 +215,7 @@ export const EmailTeacherDialog = ({
         school: studentsToUse[0]?.school || '',
         dateCreated: new Date().toISOString(),
       };
-      teacherMap.set('no-teacher', { teacher: noTeacher, studentIds: studentsWithoutTeacher });
+      teacherMap.set('no-teacher', { teacher: noTeacher, studentIds: studentsWithoutContact });
     }
 
     // Generate email for each teacher
@@ -801,10 +813,13 @@ export const EmailTeacherDialog = ({
             logWarn('⚠️ No teacher ID available when logging communication');
           }
 
+          // Determine if this is a case manager or teacher
+          const isCaseManager = 'role' in emailData.teacher; // CaseManager has 'role' property, Teacher doesn't
+          
           // Use the final email body (with zoom link and signature) for logging
           const communicationData = {
             studentId: studentToLog.id,
-            contactType: 'teacher' as const,
+            contactType: (isCaseManager ? 'case-manager' : 'teacher') as 'teacher' | 'case-manager',
             contactId: emailData.teacher.id !== 'no-teacher' ? emailData.teacher.id : undefined,
             contactName: emailData.teacher.name,
             contactEmail: emailData.teacher.emailAddress || undefined,
@@ -899,7 +914,7 @@ export const EmailTeacherDialog = ({
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h6">Email Teacher</Typography>
+          <Typography variant="h6">Email Teacher or Case Manager</Typography>
           <IconButton onClick={onClose} size="small">
             <CloseIcon />
           </IconButton>
@@ -916,17 +931,20 @@ export const EmailTeacherDialog = ({
           <>
             <Box sx={{ mb: 2 }}>
               <Typography variant="subtitle2" gutterBottom>
-                Teachers ({teacherEmails.length})
+                Teachers / Case Managers ({teacherEmails.length})
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
                 {teacherEmails.map((emailData, index) => {
                   const isSelected = selectedTeacherIndex === index;
                   const isSent = sendSuccess.includes(emailData.teacher.id);
+                  // Use index as key to ensure uniqueness, since we're already tracking by index
+                  const isCaseManager = 'role' in emailData.teacher;
+                  const uniqueKey = `${isCaseManager ? 'cm' : 't'}-${emailData.teacher.id}-${index}`;
                   
                   return (
                     <Chip
-                      key={emailData.teacher.id}
-                      label={`${emailData.teacher.name}${emailData.teacher.id === 'no-teacher' ? ' (No teacher assigned)' : ''}${isSent ? ' ✓' : ''}`}
+                      key={uniqueKey}
+                      label={`${emailData.teacher.name}${emailData.teacher.id === 'no-teacher' ? ' (No teacher/case manager assigned)' : ''}${isSent ? ' ✓' : ''}`}
                       onClick={() => setSelectedTeacherIndex(index)}
                       color={isSelected ? 'primary' : 'default'}
                       variant={isSelected ? 'filled' : 'outlined'}
