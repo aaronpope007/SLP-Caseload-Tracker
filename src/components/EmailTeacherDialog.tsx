@@ -706,10 +706,25 @@ export const EmailTeacherDialog = ({
       const associatedStudents = emailData.studentIds
         .map(id => studentsToUse.find(s => s.id === id))
         .filter((s): s is Student => s !== undefined);
-      const studentNames = associatedStudents.length === 1 
-        ? associatedStudents[0].name 
-        : associatedStudents.map(s => s.name).join(', ');
-      const emailSubject = `Speech Therapy Session - ${studentNames}`;
+      
+      // Build subject line, but truncate if too long to avoid SMTP "command line too long" error
+      // Gmail SMTP has limits on header line length (typically 998 chars, but stricter in practice)
+      let emailSubject: string;
+      if (associatedStudents.length === 1) {
+        emailSubject = `Speech Therapy Session - ${associatedStudents[0].name}`;
+      } else if (associatedStudents.length <= 3) {
+        const studentNames = associatedStudents.map(s => s.name).join(', ');
+        emailSubject = `Speech Therapy Session - ${studentNames}`;
+      } else {
+        // For 4+ students, use a shorter format to avoid exceeding SMTP limits
+        emailSubject = `Speech Therapy Session - ${associatedStudents.length} students`;
+      }
+      
+      // Enforce maximum subject length (200 chars to be safe with Gmail SMTP)
+      const MAX_SUBJECT_LENGTH = 200;
+      if (emailSubject.length > MAX_SUBJECT_LENGTH) {
+        emailSubject = emailSubject.substring(0, MAX_SUBJECT_LENGTH - 3) + '...';
+      }
       
       // Ensure zoom link and signature are always included
       const zoomLink = localStorage.getItem('zoom_link') || '';
