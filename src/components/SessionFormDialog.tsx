@@ -149,6 +149,32 @@ export const SessionFormDialog = ({
     }
   };
 
+  // Helper function to format student names for the dialog title
+  const formatStudentNamesForTitle = (): string => {
+    if (formData.studentIds.length === 0) {
+      return '';
+    }
+    
+    const selectedStudents = formData.studentIds
+      .map(id => students.find(s => s.id === id))
+      .filter((s): s is Student => s !== undefined)
+      .map(s => s.name);
+    
+    if (selectedStudents.length === 0) {
+      return '';
+    }
+    
+    if (selectedStudents.length === 1) {
+      return ` for ${selectedStudents[0]}`;
+    } else if (selectedStudents.length === 2) {
+      return ` for ${selectedStudents[0]} and ${selectedStudents[1]}`;
+    } else {
+      const allButLast = selectedStudents.slice(0, -1).join(', ');
+      const last = selectedStudents[selectedStudents.length - 1];
+      return ` for ${allButLast} and ${last}`;
+    }
+  };
+
   return (
     <Dialog 
       open={open} 
@@ -162,7 +188,11 @@ export const SessionFormDialog = ({
       fullWidth
     >
       <DialogTitle>
-        {editingGroupSessionId ? 'Edit Group Session' : editingSession ? 'Edit Activity' : 'Log New Activity'}
+        {editingGroupSessionId 
+          ? `Edit Group Session${formatStudentNamesForTitle()}` 
+          : editingSession 
+            ? `Edit Activity${formatStudentNamesForTitle()}` 
+            : `Log New Activity${formatStudentNamesForTitle()}`}
       </DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
