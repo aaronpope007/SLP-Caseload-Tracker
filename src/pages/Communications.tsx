@@ -33,7 +33,7 @@ import {
 } from '@mui/icons-material';
 import type { Communication, Student, Teacher, CaseManager } from '../types';
 import { api } from '../utils/api';
-import { formatDate } from '../utils/helpers';
+import { formatDate, formatDateOnly, fromLocalDateString, getTodayLocalDateString } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
 import { useConfirm, useSnackbar, useDialog } from '../hooks';
 import { SendEmailDialog } from '../components/SendEmailDialog';
@@ -91,7 +91,7 @@ export const Communications = () => {
     subject: '',
     body: '',
     method: 'email' as Communication['method'],
-    date: new Date().toISOString().split('T')[0],
+    date: getTodayLocalDateString(),
     sessionId: '',
     relatedTo: '',
   });
@@ -162,7 +162,7 @@ export const Communications = () => {
         subject: '',
         body: '',
         method: 'email',
-        date: new Date().toISOString().split('T')[0],
+        date: getTodayLocalDateString(),
         sessionId: '',
         relatedTo: '',
       });
@@ -188,7 +188,7 @@ export const Communications = () => {
         subject: formData.subject,
         body: formData.body,
         method: formData.method,
-        date: new Date(formData.date).toISOString(),
+        date: fromLocalDateString(formData.date),
         sessionId: formData.sessionId || undefined,
         relatedTo: formData.relatedTo || undefined,
       };
@@ -265,7 +265,7 @@ export const Communications = () => {
         if (!dateValue) {
           return <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>N/A</Typography>;
         }
-        return <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>{formatDate(dateValue)}</Typography>;
+        return <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>{formatDateOnly(dateValue)}</Typography>;
       },
     },
     {
@@ -593,7 +593,7 @@ export const Communications = () => {
             <Stack spacing={2} sx={{ mt: 1 }}>
               <Box>
                 <Typography variant="caption" color="text.secondary">Date</Typography>
-                <Typography variant="body1">{formatDate(viewingCommunication.date || null)}</Typography>
+                <Typography variant="body1">{formatDateOnly(viewingCommunication.date || null)}</Typography>
               </Box>
               <Box>
                 <Typography variant="caption" color="text.secondary">Contact</Typography>

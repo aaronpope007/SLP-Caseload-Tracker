@@ -13,6 +13,40 @@ export const formatDate = (date: string | Date | null | undefined): string => {
   });
 };
 
+/**
+ * Formats a date string for display, handling date-only ISO strings
+ * that may have been stored as UTC midnight (which displays as previous day in some timezones).
+ * This function extracts the date portion from ISO strings to avoid timezone conversion issues.
+ */
+export const formatDateOnly = (date: string | Date | null | undefined): string => {
+  if (!date) return 'N/A';
+  
+  // If it's a string, try to extract the date part (YYYY-MM-DD) before parsing
+  if (typeof date === 'string') {
+    // Match ISO date strings like "2026-01-05T00:00:00.000Z" or "2026-01-05"
+    const dateMatch = date.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (dateMatch) {
+      // Extract just the date part and create a Date in local timezone
+      const [year, month, day] = dateMatch[1].split('-').map(Number);
+      const localDate = new Date(year, month - 1, day);
+      return localDate.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
+      });
+    }
+  }
+  
+  // Fall back to standard formatting if no ISO date pattern found
+  const d = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(d.getTime())) return 'Invalid Date';
+  return d.toLocaleDateString('en-US', { 
+    year: 'numeric', 
+    month: 'short', 
+    day: 'numeric' 
+  });
+};
+
 export const formatDateTime = (date: string | Date): string => {
   const d = typeof date === 'string' ? new Date(date) : date;
   return d.toLocaleString('en-US', { 
@@ -90,6 +124,31 @@ export const fromLocalDateTimeString = (dateString: string): string => {
   const date = new Date(dateString);
   // Return ISO string - this will preserve the local time interpretation
   return date.toISOString();
+};
+
+/**
+ * Converts a date-only string (YYYY-MM-DD) to ISO string
+ * treating it as local time at midnight (not UTC)
+ * This prevents timezone issues where dates appear as the previous day
+ */
+export const fromLocalDateString = (dateString: string): string => {
+  // Parse the date string and create a Date object in local timezone at midnight
+  const [year, month, day] = dateString.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  // Return ISO string
+  return date.toISOString();
+};
+
+/**
+ * Gets today's date as a YYYY-MM-DD string in local timezone
+ * This prevents timezone issues when initializing date inputs
+ */
+export const getTodayLocalDateString = (): string => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 /**
