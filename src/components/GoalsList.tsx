@@ -53,8 +53,10 @@ export const GoalsList = ({
   // Get all goal IDs that have subgoals (for expand all functionality)
   // Separate main goals and subgoals
   const { mainGoalIdsWithSubGoals, subGoalIdsWithSubGoals } = useMemo(() => {
-    const mainGoals = goals.filter(g => !g.parentGoalId);
-    const subGoals = goals.filter(g => g.parentGoalId);
+    // Filter out any undefined/null goals first
+    const validGoals = goals.filter(g => g != null);
+    const mainGoals = validGoals.filter(g => !g.parentGoalId);
+    const subGoals = validGoals.filter(g => g.parentGoalId);
     const subGoalsByParent = new Map<string, Goal[]>();
     subGoals.forEach(sub => {
       const parentId = sub.parentGoalId!;
@@ -95,6 +97,9 @@ export const GoalsList = ({
     
     return { mainGoalIdsWithSubGoals: mainIds, subGoalIdsWithSubGoals: subIds };
   }, [goals]);
+
+  // Filter out any undefined/null goals before processing
+  const validGoals = goals.filter(g => g != null);
 
   const handleGoalExpandedChange = (goalId: string, expanded: boolean) => {
     setExpandedGoals(prev => {
@@ -139,7 +144,7 @@ export const GoalsList = ({
     }
   };
 
-  if (goals.length === 0) {
+  if (validGoals.length === 0) {
     return (
       <Grid item xs={12}>
         <Card>
@@ -154,8 +159,8 @@ export const GoalsList = ({
   }
 
   // Organize goals: main goals first, then sub-goals grouped under parents
-  const mainGoals = goals.filter(g => !g.parentGoalId);
-  const subGoals = goals.filter(g => g.parentGoalId);
+  const mainGoals = validGoals.filter(g => !g.parentGoalId);
+  const subGoals = validGoals.filter(g => g.parentGoalId);
   const subGoalsByParent = new Map<string, Goal[]>();
   subGoals.forEach(sub => {
     const parentId = sub.parentGoalId!;
@@ -220,7 +225,7 @@ export const GoalsList = ({
                   <GoalCard
                     goal={goal}
                     subGoals={subs}
-                    allGoals={goals}
+                    allGoals={validGoals}
                     getRecentPerformance={getRecentPerformance}
                     onEdit={onEdit}
                     onDelete={onDelete}
@@ -256,7 +261,7 @@ export const GoalsList = ({
                   <GoalCard
                     goal={goal}
                     subGoals={subs}
-                    allGoals={goals}
+                    allGoals={validGoals}
                     getRecentPerformance={getRecentPerformance}
                     onEdit={onEdit}
                     onDelete={onDelete}

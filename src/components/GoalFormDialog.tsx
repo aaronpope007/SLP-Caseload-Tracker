@@ -47,14 +47,15 @@ export const GoalFormDialog: React.FC<GoalFormDialogProps> = ({
   onFormDataChange,
   onOpenGoalSuggestions,
 }) => {
-  // Filter out the goal being edited (can't be its own parent)
-  const availableParentGoals = allGoals.filter(g => !editingGoal || g.id !== editingGoal.id);
+  // Filter out any undefined/null goals first, then filter out the goal being edited (can't be its own parent)
+  const validGoals = allGoals.filter(g => g != null);
+  const availableParentGoals = validGoals.filter(g => !editingGoal || g.id !== editingGoal.id);
   
   // Helper to format goal display with hierarchy
   const formatGoalOption = (goal: Goal): string => {
-    const depth = getGoalDepth(goal, allGoals);
+    const depth = getGoalDepth(goal, validGoals);
     const indent = '  '.repeat(depth); // 2 spaces per level
-    const path = getGoalPath(goal, allGoals);
+    const path = getGoalPath(goal, validGoals);
     
     if (depth === 0) {
       return goal.description;
@@ -70,9 +71,9 @@ export const GoalFormDialog: React.FC<GoalFormDialogProps> = ({
     if (editingGoal) return 'Edit Goal';
     
     if (formData.parentGoalId) {
-      const parent = allGoals.find(g => g.id === formData.parentGoalId);
+      const parent = validGoals.find(g => g.id === formData.parentGoalId);
       if (parent) {
-        const parentDepth = getGoalDepth(parent, allGoals);
+        const parentDepth = getGoalDepth(parent, validGoals);
         if (parentDepth === 0) {
           return 'Adding New Sub-goal';
         } else {

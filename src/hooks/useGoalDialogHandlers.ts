@@ -33,7 +33,9 @@ export const useGoalDialogHandlers = ({
   confirm,
 }: UseGoalDialogHandlersParams) => {
   const handleOpenDialog = useCallback((goal?: Goal, parentGoalId?: string) => {
-    const parentGoal = parentGoalId ? goals.find(g => g.id === parentGoalId) : undefined;
+    // Filter out any undefined/null goals before searching
+    const validGoals = goals.filter(g => g != null);
+    const parentGoal = parentGoalId ? validGoals.find(g => g.id === parentGoalId) : undefined;
     initializeForm(goal, parentGoal);
     clearTemplate();
     openDialog();
@@ -61,7 +63,9 @@ export const useGoalDialogHandlers = ({
 
   const handleDuplicateSubGoal = useCallback((subGoal: Goal) => {
     // Duplicate the sub-goal by pre-filling the form with its data
-    const parentGoal = subGoal.parentGoalId ? goals.find(g => g.id === subGoal.parentGoalId) : undefined;
+    // Filter out any undefined/null goals before searching
+    const validGoals = goals.filter(g => g != null);
+    const parentGoal = subGoal.parentGoalId ? validGoals.find(g => g.id === subGoal.parentGoalId) : undefined;
     initializeForm(undefined, parentGoal);
     // Override with subGoal data
     updateFormField('description', subGoal.description);

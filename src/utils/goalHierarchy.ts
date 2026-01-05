@@ -12,13 +12,15 @@ export interface GoalHierarchy {
  * sub-sub goals nested under sub-goals
  */
 export const organizeGoalsHierarchy = (goalsList: Goal[]): GoalHierarchy => {
+  // Filter out any undefined/null goals first
+  const validGoals = goalsList.filter(g => g != null);
   const parentGoals: Goal[] = [];
   const subGoalsByParent = new Map<string, Goal[]>();
   const orphanGoals: Goal[] = [];
-  const goalIdsSet = new Set(goalsList.map(g => g.id));
+  const goalIdsSet = new Set(validGoals.map(g => g.id));
 
   // First pass: identify all subgoals (at any level) and group them by parent
-  goalsList.forEach(goal => {
+  validGoals.forEach(goal => {
     if (goal.parentGoalId) {
       // This is a subgoal (could be level 2 or level 3) - check if parent exists
       if (goalIdsSet.has(goal.parentGoalId)) {
@@ -31,7 +33,7 @@ export const organizeGoalsHierarchy = (goalsList: Goal[]): GoalHierarchy => {
   });
 
   // Second pass: identify top-level parent goals and orphan goals
-  goalsList.forEach(goal => {
+  validGoals.forEach(goal => {
     if (goal.parentGoalId) {
       // This is a subgoal at some level, skip it (already handled)
       return;
@@ -65,12 +67,14 @@ export const getGoalDepth = (goal: Goal, goalsList: Goal[]): number => {
     return 0;
   }
   
-  const parent = goalsList.find(g => g.id === goal.parentGoalId);
+  // Filter out undefined/null goals before searching
+  const validGoals = goalsList.filter(g => g != null);
+  const parent = validGoals.find(g => g.id === goal.parentGoalId);
   if (!parent) {
     return 0;
   }
   
-  return 1 + getGoalDepth(parent, goalsList);
+  return 1 + getGoalDepth(parent, validGoals);
 };
 
 /**
@@ -81,9 +85,11 @@ export const getGoalPath = (goal: Goal, goalsList: Goal[]): string[] => {
   const path: string[] = [goal.description];
   
   if (goal.parentGoalId) {
-    const parent = goalsList.find(g => g.id === goal.parentGoalId);
+    // Filter out undefined/null goals before searching
+    const validGoals = goalsList.filter(g => g != null);
+    const parent = validGoals.find(g => g.id === goal.parentGoalId);
     if (parent) {
-      return [...getGoalPath(parent, goalsList), ...path];
+      return [...getGoalPath(parent, validGoals), ...path];
     }
   }
   
