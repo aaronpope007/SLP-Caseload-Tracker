@@ -25,7 +25,7 @@ import {
   ExpandMore as ExpandMoreIcon,
   Group as GroupIcon,
 } from '@mui/icons-material';
-import type { SOAPNote, Session, Student } from '../types';
+import type { SOAPNote, Session, Student, Goal } from '../types';
 import {
   getSOAPNotes,
   deleteSOAPNote,
@@ -168,7 +168,7 @@ export const SOAPNotes = () => {
   };
 
   const handleCloseDialog = () => {
-    setDialogOpen(false);
+    soapNoteDialog.closeDialog();
     setSelectedNote(null);
   };
 

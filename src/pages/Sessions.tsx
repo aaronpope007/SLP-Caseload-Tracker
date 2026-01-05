@@ -332,13 +332,13 @@ export const Sessions = () => {
         }
         return (
           <SOAPNoteDialog
-            open={soapNoteDialogOpen}
+            open={soapNoteDialog.open}
             session={selectedSessionForSOAP}
             student={student}
             goals={goals.filter(g => g.studentId === selectedSessionForSOAP.studentId)}
             existingSOAPNote={existingSOAPNote}
             onClose={() => {
-              setSoapNoteDialogOpen(false);
+              soapNoteDialog.closeDialog();
               setSelectedSessionForSOAP(null);
               setExistingSOAPNote(undefined);
             }}
