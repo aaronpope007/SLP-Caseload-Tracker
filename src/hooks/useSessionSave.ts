@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
-import type { Session, Student, Goal, SOAPNote } from '../types';
+import type { Session, Student, Goal, SOAPNote, Activity } from '../types';
 import { generateId, fromLocalDateTimeString } from '../utils/helpers';
-import { getSessions, getSOAPNotesBySession } from '../utils/storage-api';
+import { getSessions, getSOAPNotesBySession, getActivities, addActivity } from '../utils/storage-api';
 import { generateSOAPNote, generateGroupSOAPNote } from '../utils/soapNoteGenerator';
 import { logError } from '../utils/logger';
 
@@ -339,6 +339,60 @@ export const useSessionSave = ({
             logError('Failed to auto-generate group SOAP note', error);
             // Don't fail the session save if SOAP note generation fails
           }
+        }
+      }
+
+      // Create activities from activitiesUsed if they don't exist
+      if (formData.activitiesUsed.length > 0) {
+        try {
+          const existingActivities = await getActivities();
+          const existingActivityDescriptions = new Set(
+            existingActivities.map(a => a.description.toLowerCase().trim())
+          );
+
+          // For each activity name, create it for each student if it doesn't exist
+          for (const activityName of formData.activitiesUsed) {
+            const trimmedName = activityName.trim();
+            if (!trimmedName) continue;
+
+            // Create activity for each student in the session
+            for (const studentId of formData.studentIds) {
+              const student = students.find(s => s.id === studentId);
+              if (student) {
+                // Format: "FirstName LastName (grade)"
+                const nameParts = student.name.split(' ');
+                const firstName = nameParts[0] || '';
+                const lastName = nameParts.slice(1).join(' ') || '';
+                const studentLabel = lastName 
+                  ? `${firstName} ${lastName} (${student.grade})`
+                  : `${firstName} (${student.grade})`;
+                
+                const activityDescription = `${trimmedName} - ${studentLabel}`;
+                
+                // Check if this specific activity with student already exists
+                const studentActivityExists = existingActivityDescriptions.has(activityDescription.toLowerCase());
+                
+                if (!studentActivityExists) {
+                  const newActivity: Activity = {
+                    id: generateId(),
+                    description: activityDescription,
+                    goalArea: '', // Will be empty for manually created activities
+                    ageRange: student.age.toString(),
+                    materials: [],
+                    isFavorite: false,
+                    source: 'manual',
+                    dateCreated: new Date().toISOString(),
+                  };
+                  
+                  await addActivity(newActivity);
+                  existingActivityDescriptions.add(activityDescription.toLowerCase());
+                }
+              }
+            }
+          }
+        } catch (error) {
+          logError('Failed to create activities from session', error);
+          // Don't fail the session save if activity creation fails
         }
       }
 
