@@ -119,24 +119,27 @@ export const StudentSelector = ({
             No students found
           </Typography>
         ) : (
-          filteredStudents.map((student) => (
-            <FormControlLabel
-              key={student.id}
-              control={
-                <Checkbox
-                  checked={selectedStudentIds.includes(student.id)}
-                  onChange={() => onStudentToggle(student.id)}
-                />
-              }
-              label={student.name}
-              sx={{
-                margin: 0,
-                '& .MuiFormControlLabel-label': {
-                  fontSize: '0.875rem',
-                },
-              }}
-            />
-          ))
+          filteredStudents.map((student) => {
+            const grade = student.grade != null && student.grade !== undefined ? ` (${student.grade})` : '';
+            return (
+              <FormControlLabel
+                key={student.id}
+                control={
+                  <Checkbox
+                    checked={selectedStudentIds.includes(student.id)}
+                    onChange={() => onStudentToggle(student.id)}
+                  />
+                }
+                label={`${student.name}${grade}`}
+                sx={{
+                  margin: 0,
+                  '& .MuiFormControlLabel-label': {
+                    fontSize: '0.875rem',
+                  },
+                }}
+              />
+            );
+          })
         )}
       </Box>
     </Box>

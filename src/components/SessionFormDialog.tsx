@@ -158,7 +158,10 @@ export const SessionFormDialog = ({
     const selectedStudents = formData.studentIds
       .map(id => students.find(s => s.id === id))
       .filter((s): s is Student => s !== undefined)
-      .map(s => s.name);
+      .map(s => {
+        const grade = s.grade != null && s.grade !== undefined ? ` (${s.grade})` : '';
+        return `${s.name}${grade}`;
+      });
     
     if (selectedStudents.length === 0) {
       return '';
