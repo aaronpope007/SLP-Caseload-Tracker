@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Button,
@@ -9,15 +9,11 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Card,
-  CardContent,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  Alert,
   Stack,
-  Snackbar,
   Paper,
   Divider,
   Autocomplete,
@@ -30,11 +26,10 @@ import {
   Email as EmailIcon,
   Phone as PhoneIcon,
   Person as PersonIcon,
-  School as SchoolIcon,
 } from '@mui/icons-material';
 import type { Communication, Student, Teacher, CaseManager } from '../types';
 import { api } from '../utils/api';
-import { formatDate, formatDateOnly, fromLocalDateString, getTodayLocalDateString } from '../utils/helpers';
+import { formatDateOnly, fromLocalDateString, getTodayLocalDateString } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
 import { useConfirm, useSnackbar, useDialog } from '../hooks';
 import { SendEmailDialog } from '../components/SendEmailDialog';
@@ -82,6 +77,10 @@ export const Communications = () => {
   // Filters
   const [contactTypeFilter, setContactTypeFilter] = useState<string>('');
   const [studentFilter, setStudentFilter] = useState<string>('');
+  
+  // Track input values for autocomplete auto-select
+  const contactInputRef = useRef<string>('');
+  const studentInputRef = useRef<string>('');
 
   const [formData, setFormData] = useState({
     studentId: '',
@@ -130,10 +129,14 @@ export const Communications = () => {
       logError('Failed to load communications', error);
       showSnackbar(getErrorMessage(error) || 'Failed to load communications', 'error');
     }
-  }, [selectedSchool, contactTypeFilter, studentFilter]);
+  }, [selectedSchool, contactTypeFilter, studentFilter, showSnackbar]);
 
   useEffect(() => {
-    loadData();
+    // Use setTimeout to avoid synchronous setState in effect
+    const timeoutId = setTimeout(() => {
+      loadData();
+    }, 0);
+    return () => clearTimeout(timeoutId);
   }, [loadData]);
 
   const handleOpenDialog = (comm?: Communication) => {
@@ -178,8 +181,6 @@ export const Communications = () => {
 
   const handleSave = async () => {
     try {
-      const student = formData.studentId ? students.find(s => s.id === formData.studentId) : null;
-      
       const communicationData: Omit<Communication, 'id' | 'dateCreated'> = {
         studentId: formData.studentId || undefined,
         contactType: formData.contactType,
@@ -210,22 +211,22 @@ export const Communications = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    const confirmed = await confirm(
-      'Delete Communication',
-      'Are you sure you want to delete this communication? This action cannot be undone.'
-    );
-    
-    if (confirmed) {
-      try {
-        await api.communications.delete(id);
-        showSnackbar('Communication deleted successfully', 'success');
-        loadData();
-      } catch (error: unknown) {
-        logError('Failed to delete communication', error);
-        showSnackbar(getErrorMessage(error) || 'Failed to delete communication', 'error');
-      }
-    }
+  const handleDelete = (id: string) => {
+    confirm({
+      title: 'Delete Communication',
+      message: 'Are you sure you want to delete this communication? This action cannot be undone.',
+      confirmText: 'Delete',
+      onConfirm: async () => {
+        try {
+          await api.communications.delete(id);
+          showSnackbar('Communication deleted successfully', 'success');
+          loadData();
+        } catch (error: unknown) {
+          logError('Failed to delete communication', error);
+          showSnackbar(getErrorMessage(error) || 'Failed to delete communication', 'error');
+        }
+      },
+    });
   };
 
   const handleView = (comm: Communication) => {
@@ -252,6 +253,23 @@ export const Communications = () => {
         contactName: '',
         contactEmail: '',
       });
+    }
+  };
+
+  // Helper to auto-select when only one option is available
+  const handleAutocompleteKeyDown = (
+    e: React.KeyboardEvent,
+    options: (Teacher | CaseManager | Student)[],
+    inputValueRef: React.MutableRefObject<string>,
+    filterFn: (options: (Teacher | CaseManager | Student)[], inputValue: string) => (Teacher | CaseManager | Student)[],
+    onSelect: (option: Teacher | CaseManager | Student) => void
+  ) => {
+    if (e.key === 'Tab' || e.key === 'Enter') {
+      const filtered = filterFn(options, inputValueRef.current);
+      if (filtered.length === 1 && !e.shiftKey) {
+        e.preventDefault();
+        onSelect(filtered[0]);
+      }
     }
   };
 
@@ -465,6 +483,9 @@ export const Communications = () => {
                 }}
                 value={[...teachers, ...caseManagers].find(c => c.id === formData.contactId) || null}
                 onChange={(_, newValue) => handleContactSelect(newValue)}
+                onInputChange={(_, value) => {
+                  contactInputRef.current = value;
+                }}
                 renderInput={(params) => (
                   <TextField
                     {...params}
@@ -472,9 +493,28 @@ export const Communications = () => {
                     InputLabelProps={{
                       shrink: true,
                     }}
+                    onKeyDown={(e) => {
+                      const filterFn = (options: (Teacher | CaseManager)[], inputValue: string) => {
+                        if (!inputValue) return options;
+                        const searchTerm = inputValue.toLowerCase().trim();
+                        return options.filter((contact) => {
+                          const nameMatch = (contact.name || '').toLowerCase().includes(searchTerm);
+                          const gradeMatch = 'grade' in contact && (contact.grade || '').toLowerCase().includes(searchTerm);
+                          const roleMatch = 'role' in contact && (contact.role || '').toLowerCase().includes(searchTerm);
+                          return nameMatch || gradeMatch || roleMatch;
+                        });
+                      };
+                      handleAutocompleteKeyDown(
+                        e,
+                        [...teachers, ...caseManagers],
+                        contactInputRef,
+                        filterFn as (options: (Teacher | CaseManager | Student)[], inputValue: string) => (Teacher | CaseManager | Student)[],
+                        (option) => handleContactSelect(option as Teacher | CaseManager)
+                      );
+                    }}
                   />
                 )}
-                isOptionEqualTo={(option, value) => option.id === value.id}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
               />
             )}
 
@@ -493,6 +533,9 @@ export const Communications = () => {
                 }}
                 value={caseManagers.find(c => c.id === formData.contactId) || null}
                 onChange={(_, newValue) => handleContactSelect(newValue)}
+                onInputChange={(_, value) => {
+                  contactInputRef.current = value;
+                }}
                 renderInput={(params) => (
                   <TextField
                     {...params}
@@ -500,9 +543,27 @@ export const Communications = () => {
                     InputLabelProps={{
                       shrink: true,
                     }}
+                    onKeyDown={(e) => {
+                      const filterFn = (options: CaseManager[], inputValue: string) => {
+                        if (!inputValue) return options;
+                        const searchTerm = inputValue.toLowerCase().trim();
+                        return options.filter((cm) => {
+                          const nameMatch = (cm.name || '').toLowerCase().includes(searchTerm);
+                          const roleMatch = (cm.role || '').toLowerCase().includes(searchTerm);
+                          return nameMatch || roleMatch;
+                        });
+                      };
+                      handleAutocompleteKeyDown(
+                        e,
+                        caseManagers,
+                        contactInputRef,
+                        filterFn as (options: (Teacher | CaseManager | Student)[], inputValue: string) => (Teacher | CaseManager | Student)[],
+                        (option) => handleContactSelect(option as CaseManager)
+                      );
+                    }}
                   />
                 )}
-                isOptionEqualTo={(option, value) => option.id === value.id}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
               />
             )}
 
@@ -539,6 +600,9 @@ export const Communications = () => {
               }}
               value={students.find(s => s.id === formData.studentId) || null}
               onChange={(_, newValue) => setFormData({ ...formData, studentId: newValue?.id || '' })}
+              onInputChange={(_, value) => {
+                studentInputRef.current = value;
+              }}
               renderInput={(params) => (
                 <TextField
                   {...params}
@@ -546,9 +610,27 @@ export const Communications = () => {
                   InputLabelProps={{
                     shrink: true,
                   }}
+                  onKeyDown={(e) => {
+                    const filterFn = (options: Student[], inputValue: string) => {
+                      if (!inputValue) return options;
+                      const searchTerm = inputValue.toLowerCase().trim();
+                      return options.filter((student) => {
+                        const nameMatch = (student.name || '').toLowerCase().includes(searchTerm);
+                        const gradeMatch = (student.grade || '').toLowerCase().includes(searchTerm);
+                        return nameMatch || gradeMatch;
+                      });
+                    };
+                    handleAutocompleteKeyDown(
+                      e,
+                      students,
+                      studentInputRef,
+                      filterFn as (options: (Teacher | CaseManager | Student)[], inputValue: string) => (Teacher | CaseManager | Student)[],
+                      (option) => setFormData({ ...formData, studentId: (option as Student).id })
+                    );
+                  }}
                 />
               )}
-              isOptionEqualTo={(option, value) => option.id === value.id}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
             />
 
             <FormControl fullWidth>
