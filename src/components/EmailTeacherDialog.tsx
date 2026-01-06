@@ -108,7 +108,13 @@ export const EmailTeacherDialog = ({
     return `${displayHours}:${mins.toString().padStart(2, '0')} ${period}`;
   };
 
-  const generateEmailText = (teacher: Teacher | CaseManager | null, associatedStudents: Student[], times: string[] = []): string => {
+  const generateEmailText = (
+    teacher: Teacher | CaseManager | null, 
+    associatedStudents: Student[], 
+    times: string[] = [],
+    effectiveStartTime?: string,
+    effectiveEndTime?: string
+  ): string => {
     if (associatedStudents.length === 0) return '';
 
     const teacherName = teacher?.name || 'Teacher';
@@ -132,11 +138,43 @@ export const EmailTeacherDialog = ({
       studentNamesText = `${allButLast}, and ${last}`;
     }
 
+    // Format scheduled session time if available
+    let scheduledTimeText = '';
+    const startTime = effectiveStartTime || sessionStartTime;
+    const endTime = effectiveEndTime || sessionEndTime;
+    
+    if (startTime && endTime) {
+      const startDate = new Date(startTime);
+      const endDate = new Date(endTime);
+      const startHours = startDate.getHours();
+      const startMinutes = startDate.getMinutes();
+      const endHours = endDate.getHours();
+      const endMinutes = endDate.getMinutes();
+      
+      const formatTime = (hours: number, minutes: number): string => {
+        const period = hours >= 12 ? 'PM' : 'AM';
+        const displayHours = hours % 12 || 12;
+        return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+      };
+      
+      const startTimeFormatted = formatTime(startHours, startMinutes);
+      const endTimeFormatted = formatTime(endHours, endMinutes);
+      scheduledTimeText = ` (${startTimeFormatted} - ${endTimeFormatted})`;
+    } else if (startTime) {
+      // If only start time is available, show just the start time
+      const startDate = new Date(startTime);
+      const startHours = startDate.getHours();
+      const startMinutes = startDate.getMinutes();
+      const period = startHours >= 12 ? 'PM' : 'AM';
+      const displayHours = startHours % 12 || 12;
+      scheduledTimeText = ` (${displayHours}:${startMinutes.toString().padStart(2, '0')} ${period})`;
+    }
+
     let email = `Dear ${teacherName},\n\n`;
     if (associatedStudents.length === 1) {
-      email += `${studentNamesText} is late for their scheduled speech therapy session. Will they be able to attend the session? The zoom link is below.\n\n`;
+      email += `${studentNamesText} is late for their scheduled speech therapy session${scheduledTimeText}. Will they be able to attend the session? The zoom link is below.\n\n`;
     } else {
-      email += `${studentNamesText} are late for their scheduled speech therapy session. Will they be able to attend the session? The zoom link is below.\n\n`;
+      email += `${studentNamesText} are late for their scheduled speech therapy session${scheduledTimeText}. Will they be able to attend the session? The zoom link is below.\n\n`;
     }
     
     if (times.length > 0) {
@@ -168,6 +206,56 @@ export const EmailTeacherDialog = ({
     const primaryStudent = studentsToUse[0];
     const availableTimesList = await findAvailableTimes(primaryStudent);
     setAvailableTimes(availableTimesList);
+
+    // Get scheduled sessions to determine end time if only start time is available
+    let effectiveSessionStartTime = sessionStartTime;
+    let effectiveSessionEndTime = sessionEndTime;
+    
+    if (sessionStartTime && !sessionEndTime) {
+      // Try to get end time from scheduled sessions
+      const scheduledSessions = await getScheduledSessions(primaryStudent.school);
+      const sessionDate = new Date(sessionStartTime);
+      const sessionTime = format(sessionDate, 'HH:mm');
+      const dayOfWeek = sessionDate.getDay();
+      
+      // Find matching scheduled session
+      const matchingScheduled = scheduledSessions.find(ss => {
+        if (ss.startTime === sessionTime && ss.active !== false) {
+          // Check if it matches the day
+          if (ss.recurrencePattern === 'weekly' && ss.dayOfWeek?.includes(dayOfWeek)) {
+            // Check if student is in this scheduled session
+            return studentsToUse.some(s => ss.studentIds.includes(s.id));
+          } else if (ss.recurrencePattern === 'specific-dates' && ss.specificDates) {
+            const dateStr = format(sessionDate, 'yyyy-MM-dd');
+            return ss.specificDates.some(date => {
+              const datePart = date.includes('T') ? date.split('T')[0] : date;
+              return datePart === dateStr;
+            }) && studentsToUse.some(s => ss.studentIds.includes(s.id));
+          } else if (ss.recurrencePattern === 'none') {
+            const dateStr = format(sessionDate, 'yyyy-MM-dd');
+            const ssDateStr = format(parseDateString(ss.startDate), 'yyyy-MM-dd');
+            return dateStr === ssDateStr && studentsToUse.some(s => ss.studentIds.includes(s.id));
+          }
+        }
+        return false;
+      });
+      
+      if (matchingScheduled) {
+        if (matchingScheduled.endTime) {
+          // Calculate end time from scheduled session
+          const [startH, startM] = matchingScheduled.startTime.split(':').map(Number);
+          const [endH, endM] = matchingScheduled.endTime.split(':').map(Number);
+          const endDate = new Date(sessionDate);
+          endDate.setHours(endH, endM, 0, 0);
+          effectiveSessionEndTime = endDate.toISOString();
+        } else if (matchingScheduled.duration) {
+          // Calculate end time from duration
+          const endDate = new Date(sessionDate);
+          endDate.setMinutes(endDate.getMinutes() + matchingScheduled.duration);
+          effectiveSessionEndTime = endDate.toISOString();
+        }
+      }
+    }
 
     // Get all teachers and case managers
     const allTeachers = await getTeachers();
@@ -225,7 +313,7 @@ export const EmailTeacherDialog = ({
         .map(id => studentsToUse.find(s => s.id === id))
         .filter((s): s is Student => s !== undefined);
       
-      const emailText = generateEmailText(teacher, associatedStudents, availableTimesList);
+      const emailText = generateEmailText(teacher, associatedStudents, availableTimesList, effectiveSessionStartTime, effectiveSessionEndTime);
       emails.push({
         teacher,
         studentIds: associatedStudentIds,
@@ -783,24 +871,8 @@ export const EmailTeacherDialog = ({
         // Determine if this is related to a missed session
         const relatedTo = sessionDate || sessionStartTime ? 'Missed Session' : undefined;
         
-        // Parse date - handle both ISO strings and datetime-local format (YYYY-MM-DDTHH:mm)
-        let communicationDate: string;
-        if (sessionStartTime) {
-          // sessionStartTime is already an ISO string from fromLocalDateTimeString
-          communicationDate = sessionStartTime;
-        } else if (sessionDate) {
-          // sessionDate might be datetime-local format, convert to ISO
-          const dateObj = new Date(sessionDate);
-          if (isNaN(dateObj.getTime())) {
-            // If parsing fails, use current date
-            communicationDate = new Date().toISOString();
-          } else {
-            communicationDate = dateObj.toISOString();
-          }
-        } else {
-          // Use current date/time when email is sent
-          communicationDate = new Date().toISOString();
-        }
+        // Always use current date/time when email is actually sent
+        const communicationDate = new Date().toISOString();
 
         // Log communication for each student associated with this teacher
         for (const studentId of emailData.studentIds) {

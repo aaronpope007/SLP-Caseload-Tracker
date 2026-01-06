@@ -29,7 +29,7 @@ import {
 } from '@mui/icons-material';
 import type { Communication, Student, Teacher, CaseManager } from '../types';
 import { api } from '../utils/api';
-import { formatDateOnly, fromLocalDateString, getTodayLocalDateString } from '../utils/helpers';
+import { formatDateOnly, formatTime, getTodayLocalDateString } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
 import { useConfirm, useSnackbar, useDialog } from '../hooks';
 import { SendEmailDialog } from '../components/SendEmailDialog';
@@ -122,9 +122,16 @@ export const Communications = () => {
         studentName: c.studentId ? allStudents.find(s => s.id === c.studentId)?.name || 'N/A' : 'N/A',
       }));
       
-      logInfo('📋 Loaded communications', communicationsWithStudentNames);
+      // Sort by date and time (newest first)
+      const sortedCommunications = [...communicationsWithStudentNames].sort((a, b) => {
+        const dateA = new Date(a.date || a.dateCreated || 0).getTime();
+        const dateB = new Date(b.date || b.dateCreated || 0).getTime();
+        return dateB - dateA; // Newest first
+      });
       
-      setCommunications(communicationsWithStudentNames);
+      logInfo('📋 Loaded communications', sortedCommunications);
+      
+      setCommunications(sortedCommunications);
     } catch (error: unknown) {
       logError('Failed to load communications', error);
       showSnackbar(getErrorMessage(error) || 'Failed to load communications', 'error');
@@ -181,6 +188,8 @@ export const Communications = () => {
 
   const handleSave = async () => {
     try {
+      // Use current date/time when communication is logged (not the date from the form)
+      // The form date field is kept for reference but the actual communication time is now
       const communicationData: Omit<Communication, 'id' | 'dateCreated'> = {
         studentId: formData.studentId || undefined,
         contactType: formData.contactType,
@@ -190,7 +199,7 @@ export const Communications = () => {
         subject: formData.subject,
         body: formData.body,
         method: formData.method,
-        date: fromLocalDateString(formData.date),
+        date: new Date().toISOString(), // Use current time when communication is logged
         sessionId: formData.sessionId || undefined,
         relatedTo: formData.relatedTo || undefined,
       };
@@ -284,6 +293,18 @@ export const Communications = () => {
           return <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>N/A</Typography>;
         }
         return <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>{formatDateOnly(dateValue)}</Typography>;
+      },
+    },
+    {
+      field: 'time',
+      headerName: 'Time',
+      width: 100,
+      renderCell: (params) => {
+        const dateValue = params.row?.date || params.row?.dateCreated;
+        if (!dateValue) {
+          return <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>N/A</Typography>;
+        }
+        return <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>{formatTime(dateValue)}</Typography>;
       },
     },
     {

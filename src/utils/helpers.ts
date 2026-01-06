@@ -58,6 +58,20 @@ export const formatDateTime = (date: string | Date): string => {
   });
 };
 
+/**
+ * Formats a time from an ISO date string to 12-hour format (e.g., "2:30 PM")
+ */
+export const formatTime = (date: string | Date | null | undefined): string => {
+  if (!date) return 'N/A';
+  const d = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(d.getTime())) return 'Invalid Time';
+  return d.toLocaleTimeString('en-US', { 
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+};
+
 export const calculateProgress = (baseline: string, current: number, target: string): number => {
   // Simple progress calculation - can be enhanced based on specific metrics
   // For now, return a percentage based on current vs target
