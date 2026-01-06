@@ -189,7 +189,34 @@ export const QuickGoalsDialog: React.FC<QuickGoalsDialogProps> = ({
                 fullWidth
                 type="number"
                 value={targetPercentage}
-                onChange={(e) => setTargetPercentage(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Allow empty string for typing
+                  if (value === '') {
+                    setTargetPercentage('');
+                    setError(''); // Clear any previous errors
+                    return;
+                  }
+                  const num = parseFloat(value);
+                  // Only update if it's a valid number
+                  if (!isNaN(num)) {
+                    if (num > 100) {
+                      // Clamp to 100 if over 100
+                      setTargetPercentage('100');
+                      setError(''); // Clear error since we clamped it
+                    } else if (num < 0) {
+                      // Clamp to 0 if negative
+                      setTargetPercentage('0');
+                      setError(''); // Clear error since we clamped it
+                    } else {
+                      setTargetPercentage(value);
+                      setError(''); // Clear error if valid
+                    }
+                  } else {
+                    // Allow typing non-numeric characters temporarily (user might be typing)
+                    setTargetPercentage(value);
+                  }
+                }}
                 inputProps={{ min: 0, max: 100, step: 1 }}
                 helperText="Target accuracy percentage (0-100)"
                 required

@@ -13,6 +13,7 @@ import { AutoAwesome as AutoAwesomeIcon } from '@mui/icons-material';
 import type { Goal } from '../types';
 import { getUniqueDomains } from '../utils/goalTemplates';
 import { getGoalDepth, getGoalPath } from '../utils/goalHierarchy';
+import { extractPercentageFromTarget } from '../utils/helpers';
 
 interface GoalFormData {
   description: string;
@@ -85,6 +86,31 @@ export const GoalFormDialog: React.FC<GoalFormDialogProps> = ({
     
     return 'Add New Goal';
   };
+
+  // Validate target percentage
+  const validateTargetPercentage = (): string | null => {
+    if (!formData.target || !formData.target.trim()) {
+      return null; // Empty target is allowed
+    }
+    
+    const percentageStr = extractPercentageFromTarget(formData.target);
+    if (!percentageStr) {
+      return null; // No percentage found, allow other formats
+    }
+    
+    const percentage = parseFloat(percentageStr);
+    if (isNaN(percentage)) {
+      return null; // Invalid number, but let other validation handle it
+    }
+    
+    if (percentage > 100) {
+      return 'Target percentage cannot exceed 100%';
+    }
+    
+    return null;
+  };
+
+  const targetError = validateTargetPercentage();
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -182,7 +208,8 @@ export const GoalFormDialog: React.FC<GoalFormDialogProps> = ({
             fullWidth
             value={formData.target}
             onChange={(e) => onFormDataChange({ target: e.target.value })}
-            helperText="Desired performance level"
+            helperText={targetError || "Desired performance level"}
+            error={!!targetError}
           />
           <TextField
             select
@@ -209,7 +236,7 @@ export const GoalFormDialog: React.FC<GoalFormDialogProps> = ({
         <Button
           onClick={onSave}
           variant="contained"
-          disabled={!formData.description}
+          disabled={!formData.description || !!targetError}
         >
           Save
         </Button>
