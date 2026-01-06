@@ -140,6 +140,7 @@ export const SessionCalendar = () => {
     missedSession: false,
     selectedSubjectiveStatements: [] as string[],
     customSubjective: '',
+    plan: '',
   });
 
   const [formData, setFormData] = useState({
@@ -156,6 +157,7 @@ export const SessionCalendar = () => {
     isDirectServices: true,
   });
   const initialFormDataRef = useRef<typeof formData | null>(null);
+  const initialSessionFormDataRef = useRef<typeof sessionFormData | null>(null);
 
   useEffect(() => {
     loadData();
@@ -757,6 +759,26 @@ export const SessionCalendar = () => {
     setCurrentDate(new Date());
   };
 
+  const isSessionFormDirty = () => {
+    if (!initialSessionFormDataRef.current) return false;
+    const initial = initialSessionFormDataRef.current;
+    return (
+      JSON.stringify(sessionFormData.studentIds) !== JSON.stringify(initial.studentIds) ||
+      sessionFormData.date !== initial.date ||
+      sessionFormData.endTime !== initial.endTime ||
+      JSON.stringify(sessionFormData.goalsTargeted) !== JSON.stringify(initial.goalsTargeted) ||
+      JSON.stringify(sessionFormData.activitiesUsed) !== JSON.stringify(initial.activitiesUsed) ||
+      JSON.stringify(sessionFormData.performanceData) !== JSON.stringify(initial.performanceData) ||
+      sessionFormData.notes !== initial.notes ||
+      sessionFormData.isDirectServices !== initial.isDirectServices ||
+      sessionFormData.indirectServicesNotes !== initial.indirectServicesNotes ||
+      sessionFormData.missedSession !== initial.missedSession ||
+      JSON.stringify(sessionFormData.selectedSubjectiveStatements) !== JSON.stringify(initial.selectedSubjectiveStatements) ||
+      sessionFormData.customSubjective !== initial.customSubjective ||
+      (sessionFormData.plan || '') !== (initial.plan || '')
+    );
+  };
+
   const isFormDirty = () => {
     if (!initialFormDataRef.current) return false;
     const initial = initialFormDataRef.current;
@@ -1017,9 +1039,11 @@ export const SessionCalendar = () => {
           missedSession: session.missedSession || false,
           selectedSubjectiveStatements: session.selectedSubjectiveStatements || [],
           customSubjective: session.customSubjective || '',
+          plan: session.plan || '',
         };
         
         setSessionFormData(newFormData);
+        initialSessionFormDataRef.current = { ...newFormData };
       } else {
         // Group session - edit all sessions in the group
         const firstSession = matchedSessions[0];
@@ -1074,9 +1098,11 @@ export const SessionCalendar = () => {
           missedSession: matchedSessions.some(s => s.missedSession === true),
           selectedSubjectiveStatements: firstSession.selectedSubjectiveStatements || [],
           customSubjective: firstSession.customSubjective || '',
+          plan: firstSession.plan || '',
         };
         
         setSessionFormData(newFormData);
+        initialSessionFormDataRef.current = { ...newFormData };
       }
     } else {
       // Create new session from scheduled event
@@ -1121,7 +1147,7 @@ export const SessionCalendar = () => {
           }));
       });
 
-      setSessionFormData({
+      const newFormData = {
         studentIds: scheduled.studentIds,
         date: toLocalDateTimeString(sessionDate),
         endTime: toLocalDateTimeString(endTimeDate),
@@ -1134,7 +1160,10 @@ export const SessionCalendar = () => {
         missedSession: false,
         selectedSubjectiveStatements: [],
         customSubjective: '',
-      });
+        plan: '',
+      };
+      setSessionFormData(newFormData);
+      initialSessionFormDataRef.current = { ...newFormData };
       setEditingSession(null);
       setEditingGroupSessionId(null);
     }
@@ -1143,12 +1172,32 @@ export const SessionCalendar = () => {
     setSessionDialogOpen(true);
   };
 
-  const handleCloseSessionDialog = () => {
-    setSessionDialogOpen(false);
-    setEditingSession(null);
-    setEditingGroupSessionId(null);
-    setStudentSearch('');
-    setCurrentEvent(null);
+  const handleCloseSessionDialog = (forceClose = false) => {
+    if (!forceClose && isSessionFormDirty()) {
+      confirm({
+        title: 'Unsaved Changes',
+        message: 'You have unsaved changes. Are you sure you want to close without saving?',
+        confirmText: 'Discard Changes',
+        cancelText: 'Cancel',
+        onConfirm: () => {
+          setSessionDialogOpen(false);
+          setEditingSession(null);
+          setEditingGroupSessionId(null);
+          setStudentSearch('');
+          setCurrentEvent(null);
+          initialSessionFormDataRef.current = null;
+        },
+      });
+      // Return early to prevent dialog from closing
+      return;
+    } else {
+      setSessionDialogOpen(false);
+      setEditingSession(null);
+      setEditingGroupSessionId(null);
+      setStudentSearch('');
+      setCurrentEvent(null);
+      initialSessionFormDataRef.current = null;
+    }
   };
 
   const handleDeleteSession = () => {
@@ -2638,6 +2687,7 @@ export const SessionCalendar = () => {
         sessions={sessions}
         formData={sessionFormData}
         studentSearch={studentSearch}
+        isDirty={isSessionFormDirty}
         onClose={handleCloseSessionDialog}
         onSave={handleSaveSession}
         onDelete={handleDeleteSession}

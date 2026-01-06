@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -65,6 +65,7 @@ interface SessionFormDialogProps {
   sessions: Session[];
   formData: SessionFormData;
   studentSearch: string;
+  isDirty: () => boolean;
   onClose: () => void;
   onSave: () => void;
   onDelete?: () => void;
@@ -88,6 +89,7 @@ export const SessionFormDialog = ({
   sessions,
   formData,
   studentSearch,
+  isDirty,
   onClose,
   onSave,
   onDelete,
@@ -104,6 +106,12 @@ export const SessionFormDialog = ({
   const [emailTeacherDialogOpen, setEmailTeacherDialogOpen] = useState(false);
   const [selectedStudentForEmail, setSelectedStudentForEmail] = useState<Student | null>(null);
   const [selectedStudentsForEmail, setSelectedStudentsForEmail] = useState<Student[]>([]);
+  const [shouldPreventClose, setShouldPreventClose] = useState(false);
+
+  // Update shouldPreventClose based on isDirty
+  useEffect(() => {
+    setShouldPreventClose(isDirty());
+  }, [isDirty, formData]);
 
   // Get last session's plan for the first selected student (for new sessions only, and only if plan is empty)
   const lastSessionPlan = !editingSession && !editingGroupSessionId && formData.studentIds.length > 0 && !(formData.plan || '').trim()
@@ -182,13 +190,14 @@ export const SessionFormDialog = ({
     <Dialog 
       open={open} 
       onClose={(event, reason) => {
-        // Prevent closing on backdrop click or escape key - let the onClose handler decide
-        if (reason === 'backdropClick' || reason === 'escapeKeyDown') {
-          onClose();
-        }
+        // Always call onClose - the parent's handleCloseDialog will check isDirty
+        // and show confirmation if needed, preventing actual close when dirty
+        onClose();
       }} 
       maxWidth="lg" 
       fullWidth
+      // Prevent closing on escape key when dirty
+      disableEscapeKeyDown={shouldPreventClose}
     >
       <DialogTitle>
         {editingGroupSessionId 

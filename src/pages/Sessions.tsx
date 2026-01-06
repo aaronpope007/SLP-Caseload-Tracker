@@ -139,6 +139,8 @@ export const Sessions = () => {
           setStudentSearch('');
         },
       });
+      // Return early to prevent dialog from closing
+      return;
     } else {
       sessionFormDialog.closeDialog();
       resetForm();
@@ -296,6 +298,7 @@ export const Sessions = () => {
         sessions={sessions}
         formData={formData}
         studentSearch={studentSearch}
+        isDirty={isDirty}
         onClose={handleCloseDialog}
         onSave={handleSave}
         onFormDataChange={(updates) => {
