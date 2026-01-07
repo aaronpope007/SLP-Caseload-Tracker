@@ -1380,7 +1380,7 @@ export const SessionCalendar = () => {
 
       // Reload data to show the updated/new session and update calendar colors
       await loadData();
-      handleCloseSessionDialog();
+      handleCloseSessionDialog(true); // Force close without confirmation since we just saved
     } catch (error) {
       logError('Failed to save session', error);
       alert('Failed to save session. Please try again.');
