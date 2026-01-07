@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Button,
@@ -16,11 +16,16 @@ import {
   FormGroup,
   FormControlLabel,
   Paper,
+  ToggleButton,
+  ToggleButtonGroup,
+  Tooltip,
 } from '@mui/material';
 import {
   AccessTime as AccessTimeIcon,
   ExpandMore as ExpandMoreIcon,
   Delete as DeleteIcon,
+  ViewModule as ViewModuleIcon,
+  ViewList as ViewListIcon,
 } from '@mui/icons-material';
 import type { Student, Goal, Session } from '../types';
 import { formatDate, toLocalDateTimeString, fromLocalDateTimeString } from '../utils/helpers';
@@ -31,6 +36,11 @@ import { organizeGoalsHierarchy } from '../utils/goalHierarchy';
 import { COMMON_SUBJECTIVE_STATEMENTS } from '../utils/soapNoteGenerator';
 import { EmailTeacherDialog } from './EmailTeacherDialog';
 import { Email as EmailIcon } from '@mui/icons-material';
+import { GoalSearchBar } from './GoalSearchBar';
+import { QuickAccessGoalsBar } from './QuickAccessGoalsBar';
+import { GoalMatrixView } from './GoalMatrixView';
+import { ActiveGoalsTrackingPanel } from './ActiveGoalsTrackingPanel';
+import { usePinnedGoals } from '../hooks/usePinnedGoals';
 
 export interface SessionFormData {
   studentIds: string[];
@@ -107,55 +117,11 @@ export const SessionFormDialog = ({
   const [selectedStudentForEmail, setSelectedStudentForEmail] = useState<Student | null>(null);
   const [selectedStudentsForEmail, setSelectedStudentsForEmail] = useState<Student[]>([]);
   const [shouldPreventClose, setShouldPreventClose] = useState(false);
-
-  // Update shouldPreventClose based on isDirty
-  useEffect(() => {
-    setShouldPreventClose(isDirty());
-  }, [isDirty, formData]);
-
-  // Get last session's plan for the first selected student (for new sessions only, and only if plan is empty)
-  const lastSessionPlan = !editingSession && !editingGroupSessionId && formData.studentIds.length > 0 && !(formData.plan || '').trim()
-    ? (() => {
-        const firstStudentId = formData.studentIds[0];
-        const studentSessions = sessions
-          .filter(s => s.studentId === firstStudentId && s.isDirectServices && !s.missedSession && s.plan)
-          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        return studentSessions[0]?.plan;
-      })()
-    : null;
-
-  // Get goals for all selected students, grouped by student, separated into active and completed
-  const availableGoalsByStudent = formData.studentIds.length > 0
-    ? formData.studentIds.map(studentId => {
-        const studentGoals = goals.filter((g) => g.studentId === studentId);
-        const activeGoals = studentGoals.filter(g => !isGoalAchieved(g));
-        const completedGoals = studentGoals.filter(g => isGoalAchieved(g));
-        const hierarchy = organizeGoalsHierarchy(activeGoals);
-        return {
-          studentId,
-          studentName: students.find(s => s.id === studentId)?.name || 'Unknown',
-          goals: activeGoals,
-          completedGoals: completedGoals,
-          hierarchy,
-        };
-      })
-    : [];
-
-  const handleFormDataChange = (
-    updatesOrUpdater: Partial<SessionFormData> | ((prev: SessionFormData) => SessionFormData)
-  ) => {
-    if (typeof updatesOrUpdater === 'function') {
-      // If it's an updater function, we need to get the current formData and apply the updater
-      const updated = updatesOrUpdater(formData);
-      // Convert the full updated object to a partial update by extracting only changed fields
-      // Since we're updating performanceData, we'll pass the entire updated object
-      // The parent component will merge it properly
-      onFormDataChange(updated);
-    } else {
-      // If it's a partial update, pass it through
-      onFormDataChange(updatesOrUpdater);
-    }
-  };
+  const [viewMode, setViewMode] = useState<'hierarchy' | 'matrix'>('hierarchy');
+  const [focusedGoalId, setFocusedGoalId] = useState<string | null>(null);
+  const [trackingPanelCollapsed, setTrackingPanelCollapsed] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const { pinnedGoalIds, togglePin, clearPinned } = usePinnedGoals();
 
   // Helper function to format student names for the dialog title
   const formatStudentNamesForTitle = (): string => {
@@ -185,6 +151,165 @@ export const SessionFormDialog = ({
       return ` for ${allButLast} and ${last}`;
     }
   };
+
+  const handleFormDataChange = (
+    updatesOrUpdater: Partial<SessionFormData> | ((prev: SessionFormData) => SessionFormData)
+  ) => {
+    if (typeof updatesOrUpdater === 'function') {
+      // If it's an updater function, we need to get the current formData and apply the updater
+      const updated = updatesOrUpdater(formData);
+      // Convert the full updated object to a partial update by extracting only changed fields
+      // Since we're updating performanceData, we'll pass the entire updated object
+      // The parent component will merge it properly
+      onFormDataChange(updated);
+    } else {
+      // If it's a partial update, pass it through
+      onFormDataChange(updatesOrUpdater);
+    }
+  };
+
+  // Update shouldPreventClose based on isDirty
+  useEffect(() => {
+    setShouldPreventClose(isDirty());
+  }, [isDirty, formData]);
+
+  // Auto-switch to matrix view for 2 students
+  useEffect(() => {
+    if (formData.studentIds.length === 2 && viewMode === 'hierarchy') {
+      setViewMode('matrix');
+    } else if (formData.studentIds.length !== 2 && viewMode === 'matrix') {
+      setViewMode('hierarchy');
+    }
+  }, [formData.studentIds.length, viewMode]);
+
+  // Keyboard shortcuts: / to focus search, number keys for trials
+  useEffect(() => {
+    if (!open) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Don't handle if typing in an input/textarea
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        // Allow / to focus search even when in input
+        if (event.key === '/' && target.tagName === 'INPUT' && target.type === 'text') {
+          const searchInput = searchInputRef.current;
+          if (searchInput && target !== searchInput) {
+            event.preventDefault();
+            searchInput.focus();
+          }
+        }
+        return;
+      }
+
+      // Press / to focus search
+      if (event.key === '/') {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        return;
+      }
+
+      // Number keys 1-5 to log correct trials (when a goal is focused or selected)
+      if (event.key >= '1' && event.key <= '5' && formData.goalsTargeted.length > 0) {
+        const count = parseInt(event.key);
+        // Use focused goal, or fall back to first selected goal
+        const targetGoalId = focusedGoalId || formData.goalsTargeted[0];
+        const goal = goals.find(g => g.id === targetGoalId);
+        if (goal) {
+          // Ensure performance data exists
+          let perfData = formData.performanceData.find(p => p.goalId === targetGoalId && p.studentId === goal.studentId);
+          if (!perfData) {
+            // Initialize performance data if it doesn't exist
+            handleFormDataChange((prev) => ({
+              ...prev,
+              performanceData: [
+                ...prev.performanceData,
+                { goalId: targetGoalId, studentId: goal.studentId, correctTrials: 0, incorrectTrials: 0 },
+              ],
+            }));
+            perfData = { goalId: targetGoalId, studentId: goal.studentId, correctTrials: 0, incorrectTrials: 0 };
+          }
+          for (let i = 0; i < count; i++) {
+            onTrialUpdate(perfData.goalId, perfData.studentId, true);
+          }
+        }
+        return;
+      }
+
+      // + to increment, - to decrement
+      if (event.key === '+' || event.key === '=') {
+        const targetGoalId = focusedGoalId || formData.goalsTargeted[0];
+        const goal = goals.find(g => g.id === targetGoalId);
+        if (goal) {
+          let perfData = formData.performanceData.find(p => p.goalId === targetGoalId && p.studentId === goal.studentId);
+          if (!perfData) {
+            handleFormDataChange((prev) => ({
+              ...prev,
+              performanceData: [
+                ...prev.performanceData,
+                { goalId: targetGoalId, studentId: goal.studentId, correctTrials: 0, incorrectTrials: 0 },
+              ],
+            }));
+            perfData = { goalId: targetGoalId, studentId: goal.studentId, correctTrials: 0, incorrectTrials: 0 };
+          }
+          onTrialUpdate(perfData.goalId, perfData.studentId, true);
+        }
+        return;
+      }
+
+      if (event.key === '-' || event.key === '_') {
+        const targetGoalId = focusedGoalId || formData.goalsTargeted[0];
+        const goal = goals.find(g => g.id === targetGoalId);
+        if (goal) {
+          let perfData = formData.performanceData.find(p => p.goalId === targetGoalId && p.studentId === goal.studentId);
+          if (!perfData) {
+            handleFormDataChange((prev) => ({
+              ...prev,
+              performanceData: [
+                ...prev.performanceData,
+                { goalId: targetGoalId, studentId: goal.studentId, correctTrials: 0, incorrectTrials: 0 },
+              ],
+            }));
+            perfData = { goalId: targetGoalId, studentId: goal.studentId, correctTrials: 0, incorrectTrials: 0 };
+          }
+          onTrialUpdate(perfData.goalId, perfData.studentId, false);
+        }
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open, formData.goalsTargeted, formData.performanceData, focusedGoalId, goals, onTrialUpdate, handleFormDataChange]);
+
+  // Get last session's plan for the first selected student (for new sessions only, and only if plan is empty)
+  const lastSessionPlan = !editingSession && !editingGroupSessionId && formData.studentIds.length > 0 && !(formData.plan || '').trim()
+    ? (() => {
+        const firstStudentId = formData.studentIds[0];
+        const studentSessions = sessions
+          .filter(s => s.studentId === firstStudentId && s.isDirectServices && !s.missedSession && s.plan)
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        return studentSessions[0]?.plan;
+      })()
+    : null;
+
+  // Get goals for all selected students, grouped by student, separated into active and completed
+  const availableGoalsByStudent = formData.studentIds.length > 0
+    ? formData.studentIds.map(studentId => {
+        const studentGoals = goals.filter((g) => g.studentId === studentId);
+        const activeGoals = studentGoals.filter(g => !isGoalAchieved(g));
+        const completedGoals = studentGoals.filter(g => isGoalAchieved(g));
+        const hierarchy = organizeGoalsHierarchy(activeGoals);
+        return {
+          studentId,
+          studentName: students.find(s => s.id === studentId)?.name || 'Unknown',
+          goals: activeGoals,
+          completedGoals: completedGoals,
+          hierarchy,
+        };
+      })
+    : [];
 
   return (
     <Dialog 
@@ -325,9 +450,98 @@ export const SessionFormDialog = ({
             <>
               {formData.studentIds.length > 0 && (
                 <Box>
-                  <Typography variant="subtitle2" gutterBottom>
-                    Goals Targeted (by student):
-                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography variant="subtitle2">
+                      Goals Targeted:
+                    </Typography>
+                    {formData.studentIds.length === 2 && (
+                      <ToggleButtonGroup
+                        value={viewMode}
+                        exclusive
+                        onChange={(_, newMode) => {
+                          if (newMode) setViewMode(newMode);
+                        }}
+                        size="small"
+                      >
+                        <ToggleButton value="hierarchy">
+                          <Tooltip title="Hierarchy View">
+                            <ViewListIcon fontSize="small" />
+                          </Tooltip>
+                        </ToggleButton>
+                        <ToggleButton value="matrix">
+                          <Tooltip title="Matrix View (Side-by-side for 2 students)">
+                            <ViewModuleIcon fontSize="small" />
+                          </Tooltip>
+                        </ToggleButton>
+                      </ToggleButtonGroup>
+                    )}
+                  </Box>
+
+                  {/* Goal Search Bar */}
+                  <Box sx={{ mb: 2 }}>
+                    <GoalSearchBar
+                      goals={goals}
+                      students={students}
+                      selectedStudentIds={formData.studentIds}
+                      goalsTargeted={formData.goalsTargeted}
+                      onGoalSelect={onGoalToggle}
+                      inputRef={searchInputRef}
+                    />
+                  </Box>
+
+                  {/* Active Goals Tracking Panel */}
+                  <ActiveGoalsTrackingPanel
+                    goals={goals}
+                    students={students}
+                    goalsTargeted={formData.goalsTargeted}
+                    performanceData={formData.performanceData}
+                    focusedGoalId={focusedGoalId}
+                    getRecentPerformance={getRecentPerformance}
+                    onGoalFocus={setFocusedGoalId}
+                    onGoalToggle={onGoalToggle}
+                    onTrialUpdate={onTrialUpdate}
+                    collapsed={trackingPanelCollapsed}
+                    onToggleCollapse={() => setTrackingPanelCollapsed(!trackingPanelCollapsed)}
+                  />
+
+                  {/* Quick Access Goals Bar */}
+                  <QuickAccessGoalsBar
+                    goals={goals}
+                    students={students}
+                    selectedStudentIds={formData.studentIds}
+                    goalsTargeted={formData.goalsTargeted}
+                    pinnedGoalIds={pinnedGoalIds}
+                    onGoalToggle={onGoalToggle}
+                    onPinToggle={togglePin}
+                    onClearPinned={clearPinned}
+                    getRecentPerformance={getRecentPerformance}
+                    onGoalFocus={setFocusedGoalId}
+                  />
+
+                  {/* Matrix View for 2 students */}
+                  {viewMode === 'matrix' && formData.studentIds.length === 2 && (
+                    <Box sx={{ mt: 2 }}>
+                      <GoalMatrixView
+                        students={students.filter(s => formData.studentIds.includes(s.id))}
+                        goals={goals}
+                        goalsTargeted={formData.goalsTargeted}
+                        performanceData={formData.performanceData}
+                        getRecentPerformance={getRecentPerformance}
+                        onGoalToggle={onGoalToggle}
+                        onTrialUpdate={onTrialUpdate}
+                        onPerformanceUpdate={onPerformanceUpdate}
+                        onCuingLevelToggle={onCuingLevelToggle}
+                        onFormDataChange={handleFormDataChange}
+                        isGoalAchieved={isGoalAchieved}
+                        pinnedGoalIds={pinnedGoalIds}
+                        onPinToggle={togglePin}
+                      />
+                    </Box>
+                  )}
+
+                  {/* Hierarchy View (original layout) */}
+                  {viewMode === 'hierarchy' && (
+                    <Box>
                   {availableGoalsByStudent.length === 0 ? (
                     <Typography color="text.secondary" variant="body2">
                       No students selected. Please select at least one student.
@@ -358,6 +572,8 @@ export const SessionFormDialog = ({
                                 onPerformanceUpdate={onPerformanceUpdate}
                                 onCuingLevelToggle={onCuingLevelToggle}
                                 onFormDataChange={handleFormDataChange}
+                                pinnedGoalIds={pinnedGoalIds}
+                                onPinToggle={togglePin}
                               />
                             )}
                           </Box>
@@ -446,6 +662,8 @@ export const SessionFormDialog = ({
                                 onPerformanceUpdate={onPerformanceUpdate}
                                 onCuingLevelToggle={onCuingLevelToggle}
                                 onFormDataChange={handleFormDataChange}
+                                pinnedGoalIds={pinnedGoalIds}
+                                onPinToggle={togglePin}
                               />
                             )}
                             {completedGoals.length > 0 && (
@@ -484,6 +702,8 @@ export const SessionFormDialog = ({
                         </Grid>
                       ))}
                     </Grid>
+                  )}
+                    </Box>
                   )}
                 </Box>
               )}

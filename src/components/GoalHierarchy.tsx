@@ -7,9 +7,13 @@ import {
   AccordionSummary,
   AccordionDetails,
   Chip,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
+  Pin as PinIcon,
+  PinOutlined as PinOutlinedIcon,
 } from '@mui/icons-material';
 import type { Goal } from '../types';
 import { GoalProgressChip } from './GoalProgressChip';
@@ -46,6 +50,8 @@ interface GoalHierarchyProps {
   onPerformanceUpdate: (goalId: string, studentId: string, field: 'accuracy' | 'notes', value: string) => void;
   onCuingLevelToggle: (goalId: string, studentId: string, cuingLevel: 'independent' | 'verbal' | 'visual' | 'tactile' | 'physical') => void;
   onFormDataChange: (updater: (prev: SessionFormData) => SessionFormData) => void;
+  pinnedGoalIds?: Set<string>;
+  onPinToggle?: (goalId: string) => void;
 }
 
 export const GoalHierarchy = ({
@@ -60,6 +66,8 @@ export const GoalHierarchy = ({
   onPerformanceUpdate,
   onCuingLevelToggle,
   onFormDataChange,
+  pinnedGoalIds,
+  onPinToggle,
 }: GoalHierarchyProps) => {
   const { parentGoals, subGoalsByParent, orphanGoals } = hierarchy;
 
@@ -110,6 +118,24 @@ export const GoalHierarchy = ({
                   }
                   onClick={(e) => e.stopPropagation()}
                 />
+                {onPinToggle && (
+                  <Tooltip title={pinnedGoalIds?.has(goal.id) ? 'Unpin goal' : 'Pin goal to quick access'}>
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onPinToggle(goal.id);
+                      }}
+                      sx={{ ml: 'auto' }}
+                    >
+                      {pinnedGoalIds?.has(goal.id) ? (
+                        <PinIcon fontSize="small" color="primary" />
+                      ) : (
+                        <PinOutlinedIcon fontSize="small" />
+                      )}
+                    </IconButton>
+                  </Tooltip>
+                )}
               </Box>
             </AccordionSummary>
             <AccordionDetails>
@@ -119,28 +145,45 @@ export const GoalHierarchy = ({
             </AccordionDetails>
           </Accordion>
         ) : (
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={goalsTargeted.includes(goal.id)}
-                onChange={() => onGoalToggle(goal.id, studentId)}
-              />
-            }
-            label={
-              <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                <Box component="span" sx={{ fontSize: isCompact ? '0.875rem' : '1rem' }}>{goal.description}</Box>
-                <GoalProgressChip average={recentAvg} target={goal.target} />
-                {(!goal.target || goal.target.trim() === '') && (
-                  <Chip
-                    label="No target set"
-                    size="small"
-                    color="error"
-                    variant="outlined"
-                  />
-                )}
-              </Box>
-            }
-          />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={goalsTargeted.includes(goal.id)}
+                  onChange={() => onGoalToggle(goal.id, studentId)}
+                />
+              }
+              label={
+                <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Box component="span" sx={{ fontSize: isCompact ? '0.875rem' : '1rem' }}>{goal.description}</Box>
+                  <GoalProgressChip average={recentAvg} target={goal.target} />
+                  {(!goal.target || goal.target.trim() === '') && (
+                    <Chip
+                      label="No target set"
+                      size="small"
+                      color="error"
+                      variant="outlined"
+                    />
+                  )}
+                </Box>
+              }
+              sx={{ flex: 1 }}
+            />
+            {onPinToggle && (
+              <Tooltip title={pinnedGoalIds?.has(goal.id) ? 'Unpin goal' : 'Pin goal to quick access'}>
+                <IconButton
+                  size="small"
+                  onClick={() => onPinToggle(goal.id)}
+                >
+                  {pinnedGoalIds?.has(goal.id) ? (
+                    <PinIcon fontSize="small" color="primary" />
+                  ) : (
+                    <PinOutlinedIcon fontSize="small" />
+                  )}
+                </IconButton>
+              </Tooltip>
+            )}
+          </Box>
         )}
         {/* Performance data for goal */}
         {goalsTargeted.includes(goal.id) && (
@@ -205,6 +248,24 @@ export const GoalHierarchy = ({
                     }
                     onClick={(e) => e.stopPropagation()}
                   />
+                  {onPinToggle && (
+                    <Tooltip title={pinnedGoalIds?.has(goal.id) ? 'Unpin goal' : 'Pin goal to quick access'}>
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onPinToggle(goal.id);
+                        }}
+                        sx={{ ml: 'auto' }}
+                      >
+                        {pinnedGoalIds?.has(goal.id) ? (
+                          <PinIcon fontSize="small" color="primary" />
+                        ) : (
+                          <PinOutlinedIcon fontSize="small" />
+                        )}
+                      </IconButton>
+                    </Tooltip>
+                  )}
                 </Box>
               </AccordionSummary>
             </Accordion>
