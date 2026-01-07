@@ -70,6 +70,7 @@ export const GoalMatrixView = ({
   onPinToggle,
 }: GoalMatrixViewProps) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [expandedGoals, setExpandedGoals] = useState<Set<string>>(new Set());
 
   // Only works for exactly 2 students
   if (students.length !== 2) {

@@ -90,6 +90,7 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
 
   // Refresh schools periodically (since we don't have storage sync events with API)
   // Only refresh when tab is visible to save resources
+  // Increased interval to 60 seconds and removed immediate refresh on visibility change to reduce API calls
   useEffect(() => {
     let interval: number | null = null;
     
@@ -101,11 +102,10 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
           interval = null;
         }
       } else {
-        // Resume interval when tab becomes visible, and refresh immediately
-        refreshAvailableSchools();
+        // Resume interval when tab becomes visible (don't refresh immediately to avoid spam)
         interval = window.setInterval(() => {
           refreshAvailableSchools();
-        }, 30000); // Refresh every 30 seconds (increased from 5 seconds)
+        }, 60000); // Refresh every 60 seconds (increased from 30 seconds)
       }
     };
     
@@ -113,7 +113,7 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
     if (!document.hidden) {
       interval = window.setInterval(() => {
         refreshAvailableSchools();
-      }, 30000); // Refresh every 30 seconds
+      }, 60000); // Refresh every 60 seconds
     }
     
     // Listen for visibility changes

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Box, TextField, FormControlLabel, Checkbox, Typography } from '@mui/material';
 import { TrialCounter } from './TrialCounter';
 
@@ -28,7 +28,7 @@ interface PerformanceDataFormProps {
   onFormDataChange: (updater: (prev: SessionFormData) => SessionFormData) => void;
 }
 
-export const PerformanceDataForm: React.FC<PerformanceDataFormProps> = ({
+export const PerformanceDataForm: React.FC<PerformanceDataFormProps> = memo(({
   goalId,
   studentId,
   performanceData,
@@ -123,5 +123,25 @@ export const PerformanceDataForm: React.FC<PerformanceDataFormProps> = ({
       />
     </Box>
   );
-};
+}, (prevProps, nextProps) => {
+  // Custom comparison for memo - only re-render if relevant props change
+  if (prevProps.goalId !== nextProps.goalId || 
+      prevProps.studentId !== nextProps.studentId || 
+      prevProps.isCompact !== nextProps.isCompact) {
+    return false;
+  }
+  
+  // Compare performance data for this specific goal/student
+  const prevPerf = prevProps.performanceData.find(p => p.goalId === prevProps.goalId && p.studentId === prevProps.studentId);
+  const nextPerf = nextProps.performanceData.find(p => p.goalId === nextProps.goalId && p.studentId === nextProps.studentId);
+  
+  if (!prevPerf && !nextPerf) return true;
+  if (!prevPerf || !nextPerf) return false;
+  
+  return prevPerf.correctTrials === nextPerf.correctTrials &&
+         prevPerf.incorrectTrials === nextPerf.incorrectTrials &&
+         prevPerf.accuracy === nextPerf.accuracy &&
+         prevPerf.notes === nextPerf.notes &&
+         JSON.stringify(prevPerf.cuingLevels) === JSON.stringify(nextPerf.cuingLevels);
+});
 

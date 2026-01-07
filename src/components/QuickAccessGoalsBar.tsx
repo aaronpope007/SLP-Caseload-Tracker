@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, memo } from 'react';
 import {
   Box,
   Chip,
@@ -28,7 +28,7 @@ interface QuickAccessGoalsBarProps {
   onGoalFocus?: (goalId: string | null) => void;
 }
 
-export const QuickAccessGoalsBar = ({
+export const QuickAccessGoalsBar = memo(({
   goals,
   students,
   selectedStudentIds,
@@ -187,5 +187,13 @@ export const QuickAccessGoalsBar = ({
       </Box>
     </Paper>
   );
-};
+}, (prevProps, nextProps) => {
+  // Custom comparison for memo - only re-render if relevant props change
+  return prevProps.selectedStudentIds.length === nextProps.selectedStudentIds.length &&
+         JSON.stringify(prevProps.selectedStudentIds) === JSON.stringify(nextProps.selectedStudentIds) &&
+         JSON.stringify(prevProps.goalsTargeted) === JSON.stringify(nextProps.goalsTargeted) &&
+         prevProps.goals.length === nextProps.goals.length &&
+         prevProps.students.length === nextProps.students.length &&
+         (prevProps.pinnedGoalIds?.size || 0) === (nextProps.pinnedGoalIds?.size || 0);
+});
 

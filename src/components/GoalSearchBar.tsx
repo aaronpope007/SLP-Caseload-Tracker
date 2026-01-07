@@ -16,7 +16,7 @@ import {
   Clear as ClearIcon,
 } from '@mui/icons-material';
 import type { Goal, Student } from '../types';
-import { getGoalPath, flattenGoalHierarchy } from '../utils/goalPaths';
+import { flattenGoalHierarchy } from '../utils/goalPaths';
 
 interface GoalSearchBarProps {
   goals: Goal[];
@@ -85,11 +85,11 @@ export const GoalSearchBar = ({
       <TextField
         inputRef={searchInputRef}
         fullWidth
-        placeholder="Search goals by name, path, or student... (Press / to focus)"
+        placeholder="Search goals by name, path, or student..."
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
         onFocus={() => setIsFocused(true)}
-        onBlur={(e) => {
+        onBlur={() => {
           // Delay to allow click events on results
           setTimeout(() => setIsFocused(false), 200);
         }}

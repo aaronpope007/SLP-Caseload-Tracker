@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Box, IconButton, Typography } from '@mui/material';
 import { Add as AddIcon, Remove as RemoveIcon } from '@mui/icons-material';
 
@@ -10,7 +10,7 @@ interface TrialCounterProps {
   isCompact?: boolean;
 }
 
-export const TrialCounter: React.FC<TrialCounterProps> = ({
+export const TrialCounter: React.FC<TrialCounterProps> = memo(({
   correctTrials,
   incorrectTrials,
   onIncrement,
@@ -53,5 +53,5 @@ export const TrialCounter: React.FC<TrialCounterProps> = ({
       </Typography>
     </Box>
   );
-};
+});
 

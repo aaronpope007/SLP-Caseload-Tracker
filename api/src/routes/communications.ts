@@ -40,13 +40,12 @@ communicationsRouter.get('/', asyncHandler(async (req, res) => {
   
   if (school) {
     // Join with students table to filter by school
-    // Show communications where:
-    // 1. The student's school matches, OR
-    // 2. The communication has no studentId (general communications)
+    // Only show communications for students in the specified school
+    // Exclude general communications (those without a studentId) when filtering by school
     query = `
       SELECT c.* FROM communications c
-      LEFT JOIN students s ON c.studentId = s.id
-      WHERE (s.school = ? OR c.studentId IS NULL)
+      INNER JOIN students s ON c.studentId = s.id
+      WHERE s.school = ?
     `;
     params.unshift(school as string);
     

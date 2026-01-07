@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   Box,
   Button,
@@ -139,11 +139,7 @@ export const Communications = () => {
   }, [selectedSchool, contactTypeFilter, studentFilter, showSnackbar]);
 
   useEffect(() => {
-    // Use setTimeout to avoid synchronous setState in effect
-    const timeoutId = setTimeout(() => {
-      loadData();
-    }, 0);
-    return () => clearTimeout(timeoutId);
+    loadData();
   }, [loadData]);
 
   const handleOpenDialog = (comm?: Communication) => {
@@ -266,7 +262,7 @@ export const Communications = () => {
   };
 
   // Helper to auto-select when only one option is available
-  const handleAutocompleteKeyDown = (
+  const handleAutocompleteKeyDown = useCallback((
     e: React.KeyboardEvent,
     options: (Teacher | CaseManager | Student)[],
     inputValueRef: React.MutableRefObject<string>,
@@ -280,9 +276,42 @@ export const Communications = () => {
         onSelect(filtered[0]);
       }
     }
-  };
+  }, []);
 
-  const columns: GridColDef[] = [
+  // Memoize filter functions to prevent recreation on every render
+  const filterContactOptions = useCallback((options: (Teacher | CaseManager)[], inputValue: string) => {
+    if (!inputValue) return options;
+    const searchTerm = inputValue.toLowerCase().trim();
+    return options.filter((contact) => {
+      const nameMatch = (contact.name || '').toLowerCase().includes(searchTerm);
+      const gradeMatch = 'grade' in contact && (contact.grade || '').toLowerCase().includes(searchTerm);
+      const roleMatch = 'role' in contact && (contact.role || '').toLowerCase().includes(searchTerm);
+      return nameMatch || gradeMatch || roleMatch;
+    });
+  }, []);
+
+  const filterCaseManagerOptions = useCallback((options: CaseManager[], inputValue: string) => {
+    if (!inputValue) return options;
+    const searchTerm = inputValue.toLowerCase().trim();
+    return options.filter((cm) => {
+      const nameMatch = (cm.name || '').toLowerCase().includes(searchTerm);
+      const roleMatch = (cm.role || '').toLowerCase().includes(searchTerm);
+      return nameMatch || roleMatch;
+    });
+  }, []);
+
+  const filterStudentOptions = useCallback((options: Student[], inputValue: string) => {
+    if (!inputValue) return options;
+    const searchTerm = inputValue.toLowerCase().trim();
+    return options.filter((student) => {
+      const nameMatch = (student.name || '').toLowerCase().includes(searchTerm);
+      const gradeMatch = (student.grade || '').toLowerCase().includes(searchTerm);
+      return nameMatch || gradeMatch;
+    });
+  }, []);
+
+  // Memoize columns to prevent recreation on every render
+  const columns: GridColDef[] = useMemo(() => [
     {
       field: 'date',
       headerName: 'Date',
@@ -389,7 +418,7 @@ export const Communications = () => {
         />,
       ],
     },
-  ];
+  ], [students, handleView, handleDelete, selectedSchool]);
 
   const filteredCommunications = communications;
 
@@ -492,16 +521,7 @@ export const Communications = () => {
               <Autocomplete
                 options={[...teachers, ...caseManagers]}
                 getOptionLabel={(option) => option.name}
-                filterOptions={(options, { inputValue }) => {
-                  if (!inputValue) return options;
-                  const searchTerm = inputValue.toLowerCase().trim();
-                  return options.filter((contact) => {
-                    const nameMatch = (contact.name || '').toLowerCase().includes(searchTerm);
-                    const gradeMatch = 'grade' in contact && (contact.grade || '').toLowerCase().includes(searchTerm);
-                    const roleMatch = 'role' in contact && (contact.role || '').toLowerCase().includes(searchTerm);
-                    return nameMatch || gradeMatch || roleMatch;
-                  });
-                }}
+                filterOptions={(options, { inputValue }) => filterContactOptions(options, inputValue)}
                 value={[...teachers, ...caseManagers].find(c => c.id === formData.contactId) || null}
                 onChange={(_, newValue) => handleContactSelect(newValue)}
                 onInputChange={(_, value) => {
@@ -515,21 +535,11 @@ export const Communications = () => {
                       shrink: true,
                     }}
                     onKeyDown={(e) => {
-                      const filterFn = (options: (Teacher | CaseManager)[], inputValue: string) => {
-                        if (!inputValue) return options;
-                        const searchTerm = inputValue.toLowerCase().trim();
-                        return options.filter((contact) => {
-                          const nameMatch = (contact.name || '').toLowerCase().includes(searchTerm);
-                          const gradeMatch = 'grade' in contact && (contact.grade || '').toLowerCase().includes(searchTerm);
-                          const roleMatch = 'role' in contact && (contact.role || '').toLowerCase().includes(searchTerm);
-                          return nameMatch || gradeMatch || roleMatch;
-                        });
-                      };
                       handleAutocompleteKeyDown(
                         e,
                         [...teachers, ...caseManagers],
                         contactInputRef,
-                        filterFn as (options: (Teacher | CaseManager | Student)[], inputValue: string) => (Teacher | CaseManager | Student)[],
+                        filterContactOptions as (options: (Teacher | CaseManager | Student)[], inputValue: string) => (Teacher | CaseManager | Student)[],
                         (option) => handleContactSelect(option as Teacher | CaseManager)
                       );
                     }}
@@ -543,15 +553,7 @@ export const Communications = () => {
               <Autocomplete
                 options={caseManagers}
                 getOptionLabel={(option) => option.name}
-                filterOptions={(options, { inputValue }) => {
-                  if (!inputValue) return options;
-                  const searchTerm = inputValue.toLowerCase().trim();
-                  return options.filter((cm) => {
-                    const nameMatch = (cm.name || '').toLowerCase().includes(searchTerm);
-                    const roleMatch = (cm.role || '').toLowerCase().includes(searchTerm);
-                    return nameMatch || roleMatch;
-                  });
-                }}
+                filterOptions={(options, { inputValue }) => filterCaseManagerOptions(options, inputValue)}
                 value={caseManagers.find(c => c.id === formData.contactId) || null}
                 onChange={(_, newValue) => handleContactSelect(newValue)}
                 onInputChange={(_, value) => {
@@ -565,20 +567,11 @@ export const Communications = () => {
                       shrink: true,
                     }}
                     onKeyDown={(e) => {
-                      const filterFn = (options: CaseManager[], inputValue: string) => {
-                        if (!inputValue) return options;
-                        const searchTerm = inputValue.toLowerCase().trim();
-                        return options.filter((cm) => {
-                          const nameMatch = (cm.name || '').toLowerCase().includes(searchTerm);
-                          const roleMatch = (cm.role || '').toLowerCase().includes(searchTerm);
-                          return nameMatch || roleMatch;
-                        });
-                      };
                       handleAutocompleteKeyDown(
                         e,
                         caseManagers,
                         contactInputRef,
-                        filterFn as (options: (Teacher | CaseManager | Student)[], inputValue: string) => (Teacher | CaseManager | Student)[],
+                        filterCaseManagerOptions as (options: (Teacher | CaseManager | Student)[], inputValue: string) => (Teacher | CaseManager | Student)[],
                         (option) => handleContactSelect(option as CaseManager)
                       );
                     }}
@@ -610,15 +603,7 @@ export const Communications = () => {
             <Autocomplete
               options={students}
               getOptionLabel={(option) => option.name}
-              filterOptions={(options, { inputValue }) => {
-                if (!inputValue) return options;
-                const searchTerm = inputValue.toLowerCase().trim();
-                return options.filter((student) => {
-                  const nameMatch = (student.name || '').toLowerCase().includes(searchTerm);
-                  const gradeMatch = (student.grade || '').toLowerCase().includes(searchTerm);
-                  return nameMatch || gradeMatch;
-                });
-              }}
+              filterOptions={(options, { inputValue }) => filterStudentOptions(options, inputValue)}
               value={students.find(s => s.id === formData.studentId) || null}
               onChange={(_, newValue) => setFormData({ ...formData, studentId: newValue?.id || '' })}
               onInputChange={(_, value) => {
@@ -632,20 +617,11 @@ export const Communications = () => {
                     shrink: true,
                   }}
                   onKeyDown={(e) => {
-                    const filterFn = (options: Student[], inputValue: string) => {
-                      if (!inputValue) return options;
-                      const searchTerm = inputValue.toLowerCase().trim();
-                      return options.filter((student) => {
-                        const nameMatch = (student.name || '').toLowerCase().includes(searchTerm);
-                        const gradeMatch = (student.grade || '').toLowerCase().includes(searchTerm);
-                        return nameMatch || gradeMatch;
-                      });
-                    };
                     handleAutocompleteKeyDown(
                       e,
                       students,
                       studentInputRef,
-                      filterFn as (options: (Teacher | CaseManager | Student)[], inputValue: string) => (Teacher | CaseManager | Student)[],
+                      filterStudentOptions as (options: (Teacher | CaseManager | Student)[], inputValue: string) => (Teacher | CaseManager | Student)[],
                       (option) => setFormData({ ...formData, studentId: (option as Student).id })
                     );
                   }}

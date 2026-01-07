@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import {
   Box,
   Checkbox,
@@ -54,7 +55,7 @@ interface GoalHierarchyProps {
   onPinToggle?: (goalId: string) => void;
 }
 
-export const GoalHierarchy = ({
+export const GoalHierarchy = memo(({
   hierarchy,
   studentId,
   goalsTargeted,
@@ -287,4 +288,13 @@ export const GoalHierarchy = ({
       })}
     </Box>
   );
-};
+}, (prevProps, nextProps) => {
+  // Custom comparison for memo - only re-render if relevant props change
+  return prevProps.studentId === nextProps.studentId &&
+         prevProps.isCompact === nextProps.isCompact &&
+         JSON.stringify(prevProps.goalsTargeted) === JSON.stringify(nextProps.goalsTargeted) &&
+         JSON.stringify(prevProps.performanceData) === JSON.stringify(nextProps.performanceData) &&
+         prevProps.hierarchy.parentGoals.length === nextProps.hierarchy.parentGoals.length &&
+         prevProps.hierarchy.orphanGoals.length === nextProps.hierarchy.orphanGoals.length &&
+         (prevProps.pinnedGoalIds?.size || 0) === (nextProps.pinnedGoalIds?.size || 0);
+});

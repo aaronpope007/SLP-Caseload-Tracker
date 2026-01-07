@@ -121,10 +121,11 @@ export const Sessions = () => {
   });
 
   // Wrapper to extract just the average for GoalHierarchy component
+  // Note: sessions dependency removed - getRecentPerformanceFull already handles sessions internally
   const getRecentPerformance = useCallback((goalId: string, studentId: string): number | null => {
     const result = getRecentPerformanceFull(goalId, studentId);
     return result.average;
-  }, [getRecentPerformanceFull, sessions]);
+  }, [getRecentPerformanceFull]);
 
   const handleCloseDialog = (forceClose = false) => {
     if (!forceClose && isDirty()) {

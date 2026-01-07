@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, memo } from 'react';
 import {
   Box,
   Paper,
@@ -41,7 +41,7 @@ interface ActiveGoalsTrackingPanelProps {
   onToggleCollapse?: () => void;
 }
 
-export const ActiveGoalsTrackingPanel = ({
+export const ActiveGoalsTrackingPanel = memo(({
   goals,
   students,
   goalsTargeted,
@@ -54,6 +54,19 @@ export const ActiveGoalsTrackingPanel = ({
   collapsed = false,
   onToggleCollapse,
 }: ActiveGoalsTrackingPanelProps) => {
+  // Memoize recent performance results to avoid calling getRecentPerformance repeatedly
+  const recentPerformanceCache = useMemo(() => {
+    const cache = new Map<string, number | null>();
+    goalsTargeted.forEach(goalId => {
+      const goal = goals.find(g => g.id === goalId);
+      if (goal) {
+        const key = `${goalId}:${goal.studentId}`;
+        cache.set(key, getRecentPerformance(goalId, goal.studentId));
+      }
+    });
+    return cache;
+  }, [goals, goalsTargeted, getRecentPerformance]);
+  
   // Get all active goals with their data
   const activeGoals = useMemo(() => {
     return goalsTargeted.map(goalId => {
@@ -62,7 +75,8 @@ export const ActiveGoalsTrackingPanel = ({
       
       const student = students.find(s => s.id === goal.studentId);
       const perfData = performanceData.find(p => p.goalId === goalId && p.studentId === goal.studentId);
-      const recentAvg = getRecentPerformance(goalId, goal.studentId);
+      const key = `${goalId}:${goal.studentId}`;
+      const recentAvg = recentPerformanceCache.get(key) ?? null;
       
       return {
         goal,
@@ -72,7 +86,7 @@ export const ActiveGoalsTrackingPanel = ({
         path: getGoalPath(goal, goals),
       };
     }).filter((item): item is NonNullable<typeof item> => item !== null);
-  }, [goals, students, goalsTargeted, performanceData, getRecentPerformance]);
+  }, [goals, students, goalsTargeted, performanceData, recentPerformanceCache]);
 
   if (activeGoals.length === 0) {
     return null;
@@ -272,5 +286,13 @@ export const ActiveGoalsTrackingPanel = ({
       )}
     </Paper>
   );
-};
+}, (prevProps, nextProps) => {
+  // Custom comparison for memo - only re-render if relevant props change
+  return prevProps.collapsed === nextProps.collapsed &&
+         prevProps.focusedGoalId === nextProps.focusedGoalId &&
+         JSON.stringify(prevProps.goalsTargeted) === JSON.stringify(nextProps.goalsTargeted) &&
+         JSON.stringify(prevProps.performanceData) === JSON.stringify(nextProps.performanceData) &&
+         prevProps.goals.length === nextProps.goals.length &&
+         prevProps.students.length === nextProps.students.length;
+});
 

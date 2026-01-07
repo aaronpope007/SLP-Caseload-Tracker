@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Box,
   Button,
@@ -187,21 +187,14 @@ export const SessionFormDialog = ({
     if (!open) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Don't handle if typing in an input/textarea
+      // Don't handle keyboard shortcuts if typing in any input/textarea
+      // This allows "/" and other characters to be typed normally in search fields
       const target = event.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
-        // Allow / to focus search even when in input
-        if (event.key === '/' && target.tagName === 'INPUT' && target.type === 'text') {
-          const searchInput = searchInputRef.current;
-          if (searchInput && target !== searchInput) {
-            event.preventDefault();
-            searchInput.focus();
-          }
-        }
-        return;
+        return; // Let the input handle all keys normally, including "/"
       }
 
-      // Press / to focus search
+      // Press / to focus search (only when NOT in an input field)
       if (event.key === '/') {
         event.preventDefault();
         searchInputRef.current?.focus();
@@ -284,32 +277,40 @@ export const SessionFormDialog = ({
   }, [open, formData.goalsTargeted, formData.performanceData, focusedGoalId, goals, onTrialUpdate, handleFormDataChange]);
 
   // Get last session's plan for the first selected student (for new sessions only, and only if plan is empty)
-  const lastSessionPlan = !editingSession && !editingGroupSessionId && formData.studentIds.length > 0 && !(formData.plan || '').trim()
-    ? (() => {
-        const firstStudentId = formData.studentIds[0];
-        const studentSessions = sessions
-          .filter(s => s.studentId === firstStudentId && s.isDirectServices && !s.missedSession && s.plan)
-          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        return studentSessions[0]?.plan;
-      })()
-    : null;
+  // Memoized to prevent expensive recalculation on every render
+  const lastSessionPlan = useMemo(() => {
+    if (editingSession || editingGroupSessionId || formData.studentIds.length === 0 || (formData.plan || '').trim()) {
+      return null;
+    }
+    
+    const firstStudentId = formData.studentIds[0];
+    const studentSessions = sessions
+      .filter(s => s.studentId === firstStudentId && s.isDirectServices && !s.missedSession && s.plan)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return studentSessions[0]?.plan || null;
+  }, [editingSession, editingGroupSessionId, formData.studentIds, formData.plan, sessions]);
 
   // Get goals for all selected students, grouped by student, separated into active and completed
-  const availableGoalsByStudent = formData.studentIds.length > 0
-    ? formData.studentIds.map(studentId => {
-        const studentGoals = goals.filter((g) => g.studentId === studentId);
-        const activeGoals = studentGoals.filter(g => !isGoalAchieved(g));
-        const completedGoals = studentGoals.filter(g => isGoalAchieved(g));
-        const hierarchy = organizeGoalsHierarchy(activeGoals);
-        return {
-          studentId,
-          studentName: students.find(s => s.id === studentId)?.name || 'Unknown',
-          goals: activeGoals,
-          completedGoals: completedGoals,
-          hierarchy,
-        };
-      })
-    : [];
+  // Memoized to prevent expensive recalculation on every render
+  const availableGoalsByStudent = useMemo(() => {
+    if (formData.studentIds.length === 0) {
+      return [];
+    }
+    
+    return formData.studentIds.map(studentId => {
+      const studentGoals = goals.filter((g) => g.studentId === studentId);
+      const activeGoals = studentGoals.filter(g => !isGoalAchieved(g));
+      const completedGoals = studentGoals.filter(g => isGoalAchieved(g));
+      const hierarchy = organizeGoalsHierarchy(activeGoals);
+      return {
+        studentId,
+        studentName: students.find(s => s.id === studentId)?.name || 'Unknown',
+        goals: activeGoals,
+        completedGoals: completedGoals,
+        hierarchy,
+      };
+    });
+  }, [formData.studentIds, goals, students, isGoalAchieved]);
 
   return (
     <Dialog 
