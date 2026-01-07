@@ -194,8 +194,14 @@ export const SessionFormDialog = ({
         // and show confirmation if needed, preventing actual close when dirty
         onClose();
       }} 
-      maxWidth="lg" 
+      maxWidth={false}
       fullWidth
+      PaperProps={{
+        sx: {
+          width: '90vw',
+          maxWidth: '90vw',
+        },
+      }}
       // Prevent closing on escape key when dirty
       disableEscapeKeyDown={shouldPreventClose}
     >
