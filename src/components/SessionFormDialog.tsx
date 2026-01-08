@@ -28,7 +28,7 @@ import {
   ViewList as ViewListIcon,
 } from '@mui/icons-material';
 import type { Student, Goal, Session } from '../types';
-import { formatDate, toLocalDateTimeString, fromLocalDateTimeString } from '../utils/helpers';
+import { formatDate, formatTime, toLocalDateTimeString, fromLocalDateTimeString } from '../utils/helpers';
 import { StudentSelector } from './StudentSelector';
 import { ServiceTypeSelector } from './ServiceTypeSelector';
 import { GoalHierarchy } from './GoalHierarchy';
@@ -150,6 +150,22 @@ export const SessionFormDialog = ({
       const last = selectedStudents[selectedStudents.length - 1];
       return ` for ${allButLast} and ${last}`;
     }
+  };
+
+  // Helper function to format scheduled time for the dialog title
+  const formatScheduledTimeForTitle = (): string => {
+    if (!formData.date) {
+      return '';
+    }
+    
+    const startTime = formatTime(formData.date);
+    
+    if (formData.endTime) {
+      const endTime = formatTime(formData.endTime);
+      return ` - ${startTime} - ${endTime}`;
+    }
+    
+    return ` - ${startTime}`;
   };
 
   const handleFormDataChange = (
@@ -333,10 +349,10 @@ export const SessionFormDialog = ({
     >
       <DialogTitle>
         {editingGroupSessionId 
-          ? `Edit Group Session${formatStudentNamesForTitle()}` 
+          ? `Edit Group Session${formatStudentNamesForTitle()}${formatScheduledTimeForTitle()}` 
           : editingSession 
-            ? `Edit Activity${formatStudentNamesForTitle()}` 
-            : `Log New Activity${formatStudentNamesForTitle()}`}
+            ? `Edit Activity${formatStudentNamesForTitle()}${formatScheduledTimeForTitle()}` 
+            : `Log New Activity${formatStudentNamesForTitle()}${formatScheduledTimeForTitle()}`}
       </DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
