@@ -45,25 +45,21 @@ export const SettingsDialog = ({ open, onClose }: SettingsDialogProps) => {
     if (savedZoomLink) {
       setZoomLink(savedZoomLink);
     } else {
-      // Set default
-      setZoomLink(`Aaron Pope is inviting you to a scheduled Zoom meeting.
+      // Set default template (user should replace with their own Zoom link)
+      setZoomLink(`[Your Name] is inviting you to a scheduled Zoom meeting.
 
-Topic: Aaron Pope's Personal Meeting Room
+Topic: [Your Meeting Topic]
 
 Join Zoom Meeting
+[Your Zoom Meeting Link]
 
-https://zoom.us/j/3185217495?pwd=UEJrubV03AKwCET0Vm0A0X717mqa2l.1
-
-Meeting ID: 318 521 7495
-Passcode: PhjfJ2
+Meeting ID: [Your Meeting ID]
+Passcode: [Your Passcode]
 
 ---
 
-Join by SIP
-• 3185217495@zoomcrc.com
-
 Join instructions
-https://zoom.us/meetings/3185217495/invitations?signature=VXHC8Lky81IvfhAC-MjZnRBWgZj9Itl7ZZxepgETBLE`);
+[Your join instructions]`);
     }
     const savedEmailAddress = localStorage.getItem('email_address');
     if (savedEmailAddress) {

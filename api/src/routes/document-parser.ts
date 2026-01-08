@@ -238,6 +238,7 @@ documentParserRouter.post(
     console.log('========================================');
     console.log('File:', req.file ? `${req.file.originalname} (${req.file.size} bytes, ${req.file.mimetype})` : 'none');
     console.log('School:', req.body?.schoolName || 'not provided');
+    // Note: API key is intentionally not logged for security
     
     if (!req.file) {
       console.error('❌ No file uploaded');
@@ -249,6 +250,12 @@ documentParserRouter.post(
     if (!apiKey) {
       return res.status(400).json({ error: 'Gemini API key is required' });
     }
+    
+    // Sanitize API key for any error logging (only show first 4 and last 4 chars)
+    const sanitizeApiKey = (key: string): string => {
+      if (key.length <= 8) return '***';
+      return `${key.substring(0, 4)}...${key.substring(key.length - 4)}`;
+    };
 
     try {
       const parsed = await parseDocumentWithGemini(
@@ -264,8 +271,16 @@ documentParserRouter.post(
       res.json(parsed);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error('❌ Error parsing document:', errorMessage);
-      res.status(500).json({ error: errorMessage });
+      // Sanitize error messages to avoid exposing API key
+      const sanitizedError = errorMessage.includes(apiKey) 
+        ? errorMessage.replace(new RegExp(apiKey, 'g'), sanitizeApiKey(apiKey))
+        : errorMessage;
+      console.error('❌ Error parsing document:', sanitizedError);
+      // Don't expose API key details in response
+      const safeErrorMessage = errorMessage.includes('API key') 
+        ? 'API key error. Please check your API key in Settings.'
+        : errorMessage;
+      res.status(500).json({ error: safeErrorMessage });
     }
   })
 );
