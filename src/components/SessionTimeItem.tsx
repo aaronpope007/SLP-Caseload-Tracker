@@ -23,10 +23,10 @@ interface SessionTimeItemProps {
 }
 
 const DIRECT_SERVICES_INFO =
-  "MN requires that specific start and end times are listed for any direct services provided remotely for each individual session. In the notes section of your entry for the school, list the specific start and end time of each direct telehealth session, with a separate line for each entry. If doing additional duties within a timeframe of billable services, you only need to include specific start/end times for the direct telehealth duties.";
+  "Per SSG SLP-SLPA billing rules: For tele services, you must list the exact time in/out for each direct session. Direct services notes will include specific start and end times for each individual session. For any indirect services, you do not need to list specific in/out times.";
 
 const INDIRECT_SERVICES_INFO =
-  'Any of the following activities: collaboration with teachers/staff, direct contact with the student to monitor and observe, modifying environment/items, preparation for sessions, or ordering/creation of materials for the student to support their IEP goals, setting up a therapeutic OT space for students, etc. It also includes performing documentation/record-keeping duties, including updating daily notes, scheduling, and updating caseload lists for Indigo sped director group schools. If you see a student for direct services and document "Direct/indirect services," since you did preparation and documentation, you do not need to write "Indirect services" as well. You will only write this if you do other indirect services beyond the preparation and documentation of direct services, such as fulfilling monthly minutes.';
+  'Per SSG SLP-SLPA billing rules: Indirect services typically include lesson planning, documentation, and collaboration. For email correspondence, the coding depends on content: IEP emails are coded as IEP, Evaluation emails are coded as Evaluation, while scheduling/collaboration/intervention-based emails are coded as indirect services. Missed sessions are not billed; instead, replace that work with indirect work (documentation/lesson planning).';
 
 export const SessionTimeItem = ({
   session,

@@ -38,8 +38,10 @@ export const generateTimesheetNote = ({
   const sessionItems = filteredItems.filter(item => item.type === 'session');
 
   // Separate direct services, missed direct services, and indirect services
+  // Note: Per SSG SLP-SLPA billing rules, missed sessions are NOT billed or added as notes.
+  // Instead, students from missed sessions are included in indirect services (lesson planning/documentation).
   const directServices: Session[] = [];
-  const missedDirectServices: Session[] = [];
+  const missedDirectServices: Session[] = []; // Track for indirect services only, not billed separately
   const indirectServices: Session[] = [];
   const processedDirectGroupIds = new Set<string>();
   const processedMissedGroupIds = new Set<string>();
@@ -54,6 +56,7 @@ export const generateTimesheetNote = ({
       // For group sessions, collect all students from the group
       if (session.groupSessionId) {
         if (session.missedSession) {
+          // Missed sessions: track for indirect services only, not billed separately
           if (!processedMissedGroupIds.has(session.groupSessionId)) {
             processedMissedGroupIds.add(session.groupSessionId);
             const groupSessions = getGroupSessions(session.groupSessionId);
@@ -78,6 +81,7 @@ export const generateTimesheetNote = ({
         }
       } else {
         if (session.missedSession) {
+          // Missed sessions: track for indirect services only, not billed separately
           if (!processedMissedStudents.has(session.studentId)) {
             processedMissedStudents.add(session.studentId);
             missedDirectServices.push(session);
@@ -112,10 +116,14 @@ export const generateTimesheetNote = ({
   });
 
   // Build direct services entry
+  // Per SSG SLP-SLPA billing rules: For tele services, exact time in/out is REQUIRED for each direct session
   if (directServices.length > 0) {
     let directStudentEntries: string[];
     
-    if (useSpecificTimes) {
+    // For tele services, always require specific times
+    const shouldUseSpecificTimes = useSpecificTimes || isTeletherapy;
+    
+    if (shouldUseSpecificTimes) {
       // Group sessions by time range and create entries with times
       const timeRangeMap = new Map<string, Array<{ session: Session; timeRange: string }>>();
       
@@ -169,82 +177,42 @@ export const generateTimesheetNote = ({
     noteParts.push(''); // Empty line after service
   }
 
-  // Build missed direct services entry
-  if (missedDirectServices.length > 0) {
-    let missedStudentEntries: string[];
-    
-    if (useSpecificTimes) {
-      // Group sessions by time range and create entries with times
-      const timeRangeMap = new Map<string, Array<{ session: Session; timeRange: string }>>();
-      
-      missedDirectServices.forEach(session => {
-        const timeRange = formatTimeRange(session.date, session.endTime);
-        const key = timeRange;
-        
-        if (!timeRangeMap.has(key)) {
-          timeRangeMap.set(key, []);
-        }
-        timeRangeMap.get(key)!.push({ session, timeRange });
-      });
-      
-      // Build entries: "FG (5) 8:10am-8:30am, AS (2) 8:30am-8:50am"
-      const entries: string[] = [];
-      const sortedTimeRanges = Array.from(timeRangeMap.entries()).sort((a, b) => {
-        // Sort by start time
-        const timeA = new Date(a[1][0].session.date).getTime();
-        const timeB = new Date(b[1][0].session.date).getTime();
-        return timeA - timeB;
-      });
-      
-      sortedTimeRanges.forEach(([timeRange, sessionData]) => {
-        const studentEntries = sessionData.map(({ session }) => {
-          const student = getStudent(session.studentId);
-          const initials = getStudentInitials(session.studentId);
-          const grade = student?.grade || '';
-          return { entry: `${initials} (${grade}) ${timeRange}`, initials };
-        });
-        // Sort by initials within each time range group
-        studentEntries.sort((a, b) => a.initials.localeCompare(b.initials));
-        entries.push(...studentEntries.map(e => e.entry));
-      });
-      
-      missedStudentEntries = entries;
-    } else {
-      // Original format without times
-      missedStudentEntries = missedDirectServices.map(session => {
-        const student = getStudent(session.studentId);
-        const initials = getStudentInitials(session.studentId);
-        const grade = student?.grade || '';
-        return `${initials} (${grade})`;
-      });
-      // Sort by initials for consistency
-      missedStudentEntries.sort();
-    }
-
-    const serviceLabel = isTeletherapy ? 'Offsite Missed Direct services:' : 'Missed Direct services:';
-    noteParts.push(serviceLabel);
-    noteParts.push(missedStudentEntries.join(', '));
-    noteParts.push(''); // Empty line after service
-  }
+  // Per SSG SLP-SLPA billing rules: Missed sessions are NOT billed or added as notes.
+  // Students from missed sessions are included in indirect services instead.
 
   // Build indirect services entry with sub-sections
   // Collect students for each sub-section
   
-  // Documentation: Students who completed a session today (not missed)
+  // Documentation: Students who completed a session today (including preparation for missed sessions)
+  // Per SSG rules: Missed sessions are replaced with indirect work (documentation/lesson planning)
   const documentationStudentIds = new Set<string>();
   directServices.forEach(session => {
     documentationStudentIds.add(session.studentId);
   });
+  // Include missed session students in documentation (replacing missed work with indirect work)
+  missedDirectServices.forEach(session => {
+    documentationStudentIds.add(session.studentId);
+  });
   
   // Email Correspondence: Students from communications
+  // Per SSG rules: Filter out IEP/Evaluation emails (they're coded separately as IEP/Evaluation, not indirect services)
+  // Only include emails for scheduling, collaboration, or intervention-based communication
   const emailCorrespondenceStudentIds = new Set<string>();
   communications.forEach(comm => {
-    if (comm.studentId) {
+    if (comm.studentId && comm.relatedTo) {
+      const relatedToLower = comm.relatedTo.toLowerCase();
+      // Exclude IEP and Evaluation emails (they're coded separately)
+      if (!relatedToLower.includes('iep') && !relatedToLower.includes('evaluation') && !relatedToLower.includes('eval')) {
+        emailCorrespondenceStudentIds.add(comm.studentId);
+      }
+    } else if (comm.studentId && !comm.relatedTo) {
+      // If no relatedTo specified, assume it's indirect services (scheduling/collaboration)
       emailCorrespondenceStudentIds.add(comm.studentId);
     }
   });
   
   // Lesson Planning: All students from all sessions (missed and attended)
+  // Per SSG rules: Lesson planning includes all students, including those with missed sessions
   const lessonPlanningStudentIds = new Set<string>();
   directServices.forEach(session => {
     lessonPlanningStudentIds.add(session.studentId);

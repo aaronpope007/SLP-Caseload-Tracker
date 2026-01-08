@@ -75,6 +75,20 @@ export const TimeTracking = () => {
   const [timesheetNote, setTimesheetNote] = useState('');
   const [savedNotes, setSavedNotes] = useState<TimesheetNote[]>([]);
 
+  // Per SSG SLP-SLPA billing rules: For tele services, exact time in/out is REQUIRED for direct services
+  // Check if school is tele services and default useSpecificTimes to true
+  useEffect(() => {
+    const checkTeletherapy = async () => {
+      if (selectedSchool) {
+        const school = await getSchoolByName(selectedSchool);
+        if (school?.teletherapy) {
+          setUseSpecificTimes(true);
+        }
+      }
+    };
+    checkTeletherapy();
+  }, [selectedSchool]);
+
   const loadData = async () => {
     // Load all sessions and evaluations (will be filtered by selectedSchool)
     const allSessions = await getSessions();
