@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   Box,
   Button,
@@ -116,7 +116,6 @@ export const SessionFormDialog = ({
   const [emailTeacherDialogOpen, setEmailTeacherDialogOpen] = useState(false);
   const [selectedStudentForEmail, setSelectedStudentForEmail] = useState<Student | null>(null);
   const [selectedStudentsForEmail, setSelectedStudentsForEmail] = useState<Student[]>([]);
-  const [shouldPreventClose, setShouldPreventClose] = useState(false);
   const [viewMode, setViewMode] = useState<'hierarchy' | 'matrix'>('hierarchy');
   const [focusedGoalId, setFocusedGoalId] = useState<string | null>(null);
   const [trackingPanelCollapsed, setTrackingPanelCollapsed] = useState(false);
@@ -168,7 +167,7 @@ export const SessionFormDialog = ({
     return ` - ${startTime}`;
   };
 
-  const handleFormDataChange = (
+  const handleFormDataChange = useCallback((
     updatesOrUpdater: Partial<SessionFormData> | ((prev: SessionFormData) => SessionFormData)
   ) => {
     if (typeof updatesOrUpdater === 'function') {
@@ -182,12 +181,9 @@ export const SessionFormDialog = ({
       // If it's a partial update, pass it through
       onFormDataChange(updatesOrUpdater);
     }
-  };
+  }, [formData, onFormDataChange]);
 
-  // Update shouldPreventClose based on isDirty
-  useEffect(() => {
-    setShouldPreventClose(isDirty());
-  }, [isDirty, formData]);
+  // Check isDirty only when dialog tries to close - not continuously while typing
 
   // Auto-switch to matrix view for 2 students
   useEffect(() => {
@@ -197,6 +193,30 @@ export const SessionFormDialog = ({
       setViewMode('hierarchy');
     }
   }, [formData.studentIds.length, viewMode]);
+
+  // Use refs to avoid re-attaching event listeners on every formData change
+  const formDataRef = useRef(formData);
+  const focusedGoalIdRef = useRef(focusedGoalId);
+  const goalsRef = useRef(goals);
+  const onTrialUpdateRef = useRef(onTrialUpdate);
+  const handleFormDataChangeRef = useRef(handleFormDataChange);
+
+  // Keep refs in sync
+  useEffect(() => {
+    formDataRef.current = formData;
+  }, [formData]);
+  useEffect(() => {
+    focusedGoalIdRef.current = focusedGoalId;
+  }, [focusedGoalId]);
+  useEffect(() => {
+    goalsRef.current = goals;
+  }, [goals]);
+  useEffect(() => {
+    onTrialUpdateRef.current = onTrialUpdate;
+  }, [onTrialUpdate]);
+  useEffect(() => {
+    handleFormDataChangeRef.current = handleFormDataChange;
+  }, [handleFormDataChange]);
 
   // Keyboard shortcuts: / to focus search, number keys for trials
   useEffect(() => {
@@ -217,18 +237,25 @@ export const SessionFormDialog = ({
         return;
       }
 
+      // Get current values from refs to avoid stale closures
+      const currentFormData = formDataRef.current;
+      const currentFocusedGoalId = focusedGoalIdRef.current;
+      const currentGoals = goalsRef.current;
+      const currentOnTrialUpdate = onTrialUpdateRef.current;
+      const currentHandleFormDataChange = handleFormDataChangeRef.current;
+
       // Number keys 1-5 to log correct trials (when a goal is focused or selected)
-      if (event.key >= '1' && event.key <= '5' && formData.goalsTargeted.length > 0) {
+      if (event.key >= '1' && event.key <= '5' && currentFormData.goalsTargeted.length > 0) {
         const count = parseInt(event.key);
         // Use focused goal, or fall back to first selected goal
-        const targetGoalId = focusedGoalId || formData.goalsTargeted[0];
-        const goal = goals.find(g => g.id === targetGoalId);
+        const targetGoalId = currentFocusedGoalId || currentFormData.goalsTargeted[0];
+        const goal = currentGoals.find(g => g.id === targetGoalId);
         if (goal) {
           // Ensure performance data exists
-          let perfData = formData.performanceData.find(p => p.goalId === targetGoalId && p.studentId === goal.studentId);
+          let perfData = currentFormData.performanceData.find(p => p.goalId === targetGoalId && p.studentId === goal.studentId);
           if (!perfData) {
             // Initialize performance data if it doesn't exist
-            handleFormDataChange((prev) => ({
+            currentHandleFormDataChange((prev) => ({
               ...prev,
               performanceData: [
                 ...prev.performanceData,
@@ -238,7 +265,7 @@ export const SessionFormDialog = ({
             perfData = { goalId: targetGoalId, studentId: goal.studentId, correctTrials: 0, incorrectTrials: 0 };
           }
           for (let i = 0; i < count; i++) {
-            onTrialUpdate(perfData.goalId, perfData.studentId, true);
+            currentOnTrialUpdate(perfData.goalId, perfData.studentId, true);
           }
         }
         return;
@@ -246,12 +273,12 @@ export const SessionFormDialog = ({
 
       // + to increment, - to decrement
       if (event.key === '+' || event.key === '=') {
-        const targetGoalId = focusedGoalId || formData.goalsTargeted[0];
-        const goal = goals.find(g => g.id === targetGoalId);
+        const targetGoalId = currentFocusedGoalId || currentFormData.goalsTargeted[0];
+        const goal = currentGoals.find(g => g.id === targetGoalId);
         if (goal) {
-          let perfData = formData.performanceData.find(p => p.goalId === targetGoalId && p.studentId === goal.studentId);
+          let perfData = currentFormData.performanceData.find(p => p.goalId === targetGoalId && p.studentId === goal.studentId);
           if (!perfData) {
-            handleFormDataChange((prev) => ({
+            currentHandleFormDataChange((prev) => ({
               ...prev,
               performanceData: [
                 ...prev.performanceData,
@@ -260,18 +287,18 @@ export const SessionFormDialog = ({
             }));
             perfData = { goalId: targetGoalId, studentId: goal.studentId, correctTrials: 0, incorrectTrials: 0 };
           }
-          onTrialUpdate(perfData.goalId, perfData.studentId, true);
+          currentOnTrialUpdate(perfData.goalId, perfData.studentId, true);
         }
         return;
       }
 
       if (event.key === '-' || event.key === '_') {
-        const targetGoalId = focusedGoalId || formData.goalsTargeted[0];
-        const goal = goals.find(g => g.id === targetGoalId);
+        const targetGoalId = currentFocusedGoalId || currentFormData.goalsTargeted[0];
+        const goal = currentGoals.find(g => g.id === targetGoalId);
         if (goal) {
-          let perfData = formData.performanceData.find(p => p.goalId === targetGoalId && p.studentId === goal.studentId);
+          let perfData = currentFormData.performanceData.find(p => p.goalId === targetGoalId && p.studentId === goal.studentId);
           if (!perfData) {
-            handleFormDataChange((prev) => ({
+            currentHandleFormDataChange((prev) => ({
               ...prev,
               performanceData: [
                 ...prev.performanceData,
@@ -280,7 +307,7 @@ export const SessionFormDialog = ({
             }));
             perfData = { goalId: targetGoalId, studentId: goal.studentId, correctTrials: 0, incorrectTrials: 0 };
           }
-          onTrialUpdate(perfData.goalId, perfData.studentId, false);
+          currentOnTrialUpdate(perfData.goalId, perfData.studentId, false);
         }
         return;
       }
@@ -290,7 +317,7 @@ export const SessionFormDialog = ({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [open, formData.goalsTargeted, formData.performanceData, focusedGoalId, goals, onTrialUpdate, handleFormDataChange]);
+  }, [open]); // Only depend on 'open' - use refs for everything else
 
   // Get last session's plan for the first selected student (for new sessions only, and only if plan is empty)
   // Memoized to prevent expensive recalculation on every render
@@ -344,8 +371,6 @@ export const SessionFormDialog = ({
           maxWidth: '90vw',
         },
       }}
-      // Prevent closing on escape key when dirty
-      disableEscapeKeyDown={shouldPreventClose}
     >
       <DialogTitle>
         {editingGroupSessionId 

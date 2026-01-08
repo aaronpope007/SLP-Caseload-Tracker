@@ -91,21 +91,51 @@ export const useSessionForm = () => {
     setEditingGroupSessionId(null);
   }, []);
 
+  // Helper function to compare arrays efficiently
+  const arraysEqual = (a: any[], b: any[]): boolean => {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) return false;
+    }
+    return true;
+  };
+
+  // Helper function to compare performance data arrays efficiently
+  const performanceDataEqual = (a: SessionFormData['performanceData'], b: SessionFormData['performanceData']): boolean => {
+    if (a.length !== b.length) return false;
+    // Create a map for faster lookup
+    const bMap = new Map(b.map(item => [`${item.goalId}-${item.studentId}`, item]));
+    for (const aItem of a) {
+      const key = `${aItem.goalId}-${aItem.studentId}`;
+      const bItem = bMap.get(key);
+      if (!bItem) return false;
+      // Compare relevant fields
+      if (aItem.accuracy !== bItem.accuracy ||
+          aItem.correctTrials !== bItem.correctTrials ||
+          aItem.incorrectTrials !== bItem.incorrectTrials ||
+          aItem.notes !== bItem.notes ||
+          !arraysEqual(aItem.cuingLevels || [], bItem.cuingLevels || [])) {
+        return false;
+      }
+    }
+    return true;
+  };
+
   const isDirty = useCallback(() => {
     if (!initialFormDataRef.current) return false;
     const initial = initialFormDataRef.current;
     return (
-      JSON.stringify(formData.studentIds) !== JSON.stringify(initial.studentIds) ||
+      !arraysEqual(formData.studentIds, initial.studentIds) ||
       formData.date !== initial.date ||
       formData.endTime !== initial.endTime ||
-      JSON.stringify(formData.goalsTargeted) !== JSON.stringify(initial.goalsTargeted) ||
-      JSON.stringify(formData.activitiesUsed) !== JSON.stringify(initial.activitiesUsed) ||
-      JSON.stringify(formData.performanceData) !== JSON.stringify(initial.performanceData) ||
+      !arraysEqual(formData.goalsTargeted, initial.goalsTargeted) ||
+      !arraysEqual(formData.activitiesUsed, initial.activitiesUsed) ||
+      !performanceDataEqual(formData.performanceData, initial.performanceData) ||
       formData.notes !== initial.notes ||
       formData.isDirectServices !== initial.isDirectServices ||
       formData.indirectServicesNotes !== initial.indirectServicesNotes ||
       formData.missedSession !== initial.missedSession ||
-      JSON.stringify(formData.selectedSubjectiveStatements) !== JSON.stringify(initial.selectedSubjectiveStatements) ||
+      !arraysEqual(formData.selectedSubjectiveStatements, initial.selectedSubjectiveStatements) ||
       formData.customSubjective !== initial.customSubjective ||
       formData.plan !== initial.plan
     );
