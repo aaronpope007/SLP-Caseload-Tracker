@@ -301,13 +301,37 @@ export const Teachers = () => {
     }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = (id: string, relatedStudents: any[]) => {
     const teacher = teachers.find(t => t.id === id);
+    
+    // Use the passed students (they should be loaded by the component)
+    const students = relatedStudents || [];
+
+    const hasRelatedStudents = students && students.length > 0;
+    
     confirm({
       title: 'Delete Teacher',
-      message: `Are you sure you want to delete ${teacher?.name || 'this teacher'}? This action cannot be undone.`,
+      message: (
+        <>
+          {hasRelatedStudents ? (
+            <>
+              <strong>Warning:</strong> This teacher is assigned to {students.length} {students.length === 1 ? 'student' : 'students'}:
+              <ul style={{ marginTop: '8px', marginBottom: '8px', paddingLeft: '20px' }}>
+                {students.slice(0, 5).map((s: any) => (
+                  <li key={s.id}>{s.name} ({s.grade})</li>
+                ))}
+                {students.length > 5 && <li>...and {students.length - 5} more</li>}
+              </ul>
+              Deleting this teacher will remove the assignment from all related students. Are you sure you want to proceed?
+            </>
+          ) : (
+            `Are you sure you want to delete ${teacher?.name || 'this teacher'}? This action cannot be undone.`
+          )}
+        </>
+      ),
       confirmText: 'Delete',
       cancelText: 'Cancel',
+      confirmColor: hasRelatedStudents ? 'warning' : 'error',
       onConfirm: async () => {
         try {
           await deleteTeacher(id);

@@ -173,8 +173,8 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
 export const api = {
   // Students
   students: {
-    getAll: (school?: string) => 
-      request<Student[]>(`/students${buildQueryString({ school })}`),
+    getAll: (school?: string, teacherId?: string, caseManagerId?: string) => 
+      request<Student[]>(`/students${buildQueryString({ school, teacherId, caseManagerId })}`),
     getById: (id: string) => 
       request<Student>(`/students/${id}`),
     create: (student: Omit<Student, 'id' | 'dateAdded'>) => 

@@ -35,16 +35,31 @@ interface SchoolRow {
 
 export const studentsRouter = Router();
 
-// Get all students (optionally filtered by school)
+// Get all students (optionally filtered by school, teacherId, or caseManagerId)
 studentsRouter.get('/', asyncHandler(async (req, res) => {
-  const { school } = req.query;
+  const { school, teacherId, caseManagerId } = req.query;
   
   let query = 'SELECT * FROM students';
   const params: string[] = [];
+  const conditions: string[] = [];
   
   if (school && typeof school === 'string' && school.trim()) {
-    query += ' WHERE school = ?';
+    conditions.push('school = ?');
     params.push(school.trim());
+  }
+  
+  if (teacherId && typeof teacherId === 'string' && teacherId.trim()) {
+    conditions.push('teacherId = ?');
+    params.push(teacherId.trim());
+  }
+  
+  if (caseManagerId && typeof caseManagerId === 'string' && caseManagerId.trim()) {
+    conditions.push('caseManagerId = ?');
+    params.push(caseManagerId.trim());
+  }
+  
+  if (conditions.length > 0) {
+    query += ' WHERE ' + conditions.join(' AND ');
   }
   
   const students = db.prepare(query).all(...params) as StudentRow[];

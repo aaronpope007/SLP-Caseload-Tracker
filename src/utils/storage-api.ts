@@ -20,6 +20,26 @@ export const getStudents = async (school?: string): Promise<Student[]> => {
   }
 };
 
+export const getStudentsByTeacher = async (teacherId: string): Promise<Student[]> => {
+  try {
+    const students = await api.students.getAll(undefined, teacherId);
+    return students;
+  } catch (error) {
+    logError('Failed to fetch students by teacher', error);
+    return [];
+  }
+};
+
+export const getStudentsByCaseManager = async (caseManagerId: string): Promise<Student[]> => {
+  try {
+    const students = await api.students.getAll(undefined, undefined, caseManagerId);
+    return students;
+  } catch (error) {
+    logError('Failed to fetch students by case manager', error);
+    return [];
+  }
+};
+
 export const saveStudents = async (students: Student[]): Promise<void> => {
   // Note: This is a bulk operation - you may want to implement a bulk endpoint
   // For now, we'll update/create each student individually

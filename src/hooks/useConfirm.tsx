@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -10,9 +10,10 @@ import {
 
 interface ConfirmOptions {
   title?: string;
-  message: string;
+  message: string | React.ReactNode;
   confirmText?: string;
   cancelText?: string;
+  confirmColor?: 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning';
   onConfirm: () => void;
   onCancel?: () => void;
 }
@@ -21,9 +22,10 @@ export const useConfirm = () => {
   const [confirmState, setConfirmState] = useState<{
     open: boolean;
     title: string;
-    message: string;
+    message: string | React.ReactNode;
     confirmText: string;
     cancelText: string;
+    confirmColor?: 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning';
     onConfirm: () => void;
     onCancel?: () => void;
   }>({
@@ -42,6 +44,7 @@ export const useConfirm = () => {
       message: options.message,
       confirmText: options.confirmText || 'Confirm',
       cancelText: options.cancelText || 'Cancel',
+      confirmColor: options.confirmColor,
       onConfirm: options.onConfirm,
       onCancel: options.onCancel,
     });
@@ -61,18 +64,23 @@ export const useConfirm = () => {
 
   const ConfirmDialog = () => {
     const isDeleteAction = confirmState.title.toLowerCase().includes('delete');
+    const buttonColor = confirmState.confirmColor || (isDeleteAction ? 'error' : 'primary');
+    const messageContent = typeof confirmState.message === 'string' 
+      ? <DialogContentText>{confirmState.message}</DialogContentText>
+      : confirmState.message;
+    
     return (
       <Dialog open={confirmState.open} onClose={handleCancel}>
         <DialogTitle>{confirmState.title}</DialogTitle>
         <DialogContent>
-          <DialogContentText>{confirmState.message}</DialogContentText>
+          {messageContent}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCancel}>{confirmState.cancelText}</Button>
           <Button 
             onClick={handleConfirm} 
             variant="contained" 
-            color={isDeleteAction ? 'error' : 'primary'}
+            color={buttonColor}
           >
             {confirmState.confirmText}
           </Button>

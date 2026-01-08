@@ -295,13 +295,37 @@ export const CaseManagers = () => {
     }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = (id: string, relatedStudents: any[]) => {
     const caseManager = caseManagers.find(cm => cm.id === id);
+    
+    // Use the passed students (they should be loaded by the component)
+    const students = relatedStudents || [];
+
+    const hasRelatedStudents = students && students.length > 0;
+    
     confirm({
       title: 'Delete Case Manager',
-      message: `Are you sure you want to delete ${caseManager?.name || 'this case manager'}? This action cannot be undone.`,
+      message: (
+        <>
+          {hasRelatedStudents ? (
+            <>
+              <strong>Warning:</strong> This case manager is assigned to {students.length} {students.length === 1 ? 'student' : 'students'}:
+              <ul style={{ marginTop: '8px', marginBottom: '8px', paddingLeft: '20px' }}>
+                {students.slice(0, 5).map((s: any) => (
+                  <li key={s.id}>{s.name} ({s.grade})</li>
+                ))}
+                {students.length > 5 && <li>...and {students.length - 5} more</li>}
+              </ul>
+              Deleting this case manager will remove the assignment from all related students. Are you sure you want to proceed?
+            </>
+          ) : (
+            `Are you sure you want to delete ${caseManager?.name || 'this case manager'}? This action cannot be undone.`
+          )}
+        </>
+      ),
       confirmText: 'Delete',
       cancelText: 'Cancel',
+      confirmColor: hasRelatedStudents ? 'warning' : 'error',
       onConfirm: async () => {
         try {
           await deleteCaseManager(id);

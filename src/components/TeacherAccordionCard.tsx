@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Accordion,
@@ -8,6 +8,11 @@ import {
   IconButton,
   Menu,
   MenuItem,
+  Chip,
+  CircularProgress,
+  List,
+  ListItem,
+  ListItemText,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -15,15 +20,17 @@ import {
   MoreVert as MoreVertIcon,
   ExpandMore as ExpandMoreIcon,
   Person as PersonIcon,
+  School as SchoolIcon,
 } from '@mui/icons-material';
-import type { Teacher } from '../types';
+import type { Teacher, Student } from '../types';
+import { getStudentsByTeacher } from '../utils/storage-api';
 
 interface TeacherAccordionCardProps {
   teacher: Teacher;
   expanded: boolean;
   onToggleExpand: () => void;
   onEdit: (teacher: Teacher) => void;
-  onDelete: (id: string) => void;
+  onDelete: (id: string, relatedStudents: Student[]) => void;
   formatPhoneForDisplay: (phoneNumber: string | undefined) => string;
 }
 
@@ -36,6 +43,26 @@ export const TeacherAccordionCard = ({
   formatPhoneForDisplay,
 }: TeacherAccordionCardProps) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [relatedStudents, setRelatedStudents] = useState<Student[]>([]);
+  const [loadingStudents, setLoadingStudents] = useState(false);
+
+  useEffect(() => {
+    if (expanded) {
+      loadRelatedStudents();
+    }
+  }, [expanded, teacher.id]);
+
+  const loadRelatedStudents = async () => {
+    setLoadingStudents(true);
+    try {
+      const students = await getStudentsByTeacher(teacher.id);
+      setRelatedStudents(students);
+    } catch (error) {
+      console.error('Failed to load related students', error);
+    } finally {
+      setLoadingStudents(false);
+    }
+  };
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     event.stopPropagation();
@@ -51,9 +78,25 @@ export const TeacherAccordionCard = ({
     onEdit(teacher);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     handleMenuClose();
-    onDelete(teacher.id);
+    // Load students if not already loaded
+    let students = relatedStudents;
+    if (students.length === 0 && !loadingStudents && expanded) {
+      await loadRelatedStudents();
+      students = relatedStudents;
+    } else if (students.length === 0 && !loadingStudents) {
+      // If not expanded, load students now
+      setLoadingStudents(true);
+      try {
+        students = await getStudentsByTeacher(teacher.id);
+      } catch (error) {
+        console.error('Failed to load related students', error);
+      } finally {
+        setLoadingStudents(false);
+      }
+    }
+    onDelete(teacher.id, students);
   };
 
   return (
@@ -96,10 +139,45 @@ export const TeacherAccordionCard = ({
               </Typography>
             )}
             {teacher.emailAddress && (
-              <Typography color="text.secondary">
+              <Typography color="text.secondary" gutterBottom>
                 Email: {teacher.emailAddress}
               </Typography>
             )}
+            
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <SchoolIcon fontSize="small" /> Related Students
+              </Typography>
+              {loadingStudents ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                  <CircularProgress size={24} />
+                </Box>
+              ) : relatedStudents.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                  No students assigned to this teacher
+                </Typography>
+              ) : (
+                <List dense sx={{ pt: 0 }}>
+                  {relatedStudents.map((student) => (
+                    <ListItem key={student.id} sx={{ px: 0, py: 0.5 }}>
+                      <ListItemText
+                        primary={student.name}
+                        secondary={`${student.grade} • ${student.school}`}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              )}
+              {relatedStudents.length > 0 && (
+                <Chip
+                  label={`${relatedStudents.length} ${relatedStudents.length === 1 ? 'student' : 'students'}`}
+                  size="small"
+                  color="primary"
+                  variant="outlined"
+                  sx={{ mt: 1 }}
+                />
+              )}
+            </Box>
           </Box>
         </AccordionDetails>
       </Accordion>
