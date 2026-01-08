@@ -20,6 +20,7 @@ import { communicationsRouter } from './routes/communications';
 import { scheduledSessionsRouter } from './routes/scheduled-sessions';
 import { documentParserRouter } from './routes/document-parser';
 import { timesheetNotesRouter } from './routes/timesheet-notes';
+import { seedTestDataRouter } from './routes/seed-test-data';
 import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
@@ -67,6 +68,7 @@ app.use('/api/communications', communicationsRouter);
 app.use('/api/scheduled-sessions', scheduledSessionsRouter);
 app.use('/api/document-parser', documentParserRouter);
 app.use('/api/timesheet-notes', timesheetNotesRouter);
+app.use('/api/seed-test-data', seedTestDataRouter);
 
 // Error handler (must be last)
 app.use(errorHandler);

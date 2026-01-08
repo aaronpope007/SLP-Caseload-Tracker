@@ -11,9 +11,12 @@ import {
   Divider,
   Switch,
   FormControlLabel,
+  Alert,
+  CircularProgress,
 } from '@mui/material';
 import { ExportDialog } from './ExportDialog';
 import { useTheme } from '../context/ThemeContext';
+import { api } from '../utils/api';
 
 interface SettingsDialogProps {
   open: boolean;
@@ -28,6 +31,9 @@ export const SettingsDialog = ({ open, onClose }: SettingsDialogProps) => {
   const [emailAddress, setEmailAddress] = useState('');
   const [emailPassword, setEmailPassword] = useState('');
   const { mode, toggleMode } = useTheme();
+  const [testDataExists, setTestDataExists] = useState(false);
+  const [testDataLoading, setTestDataLoading] = useState(false);
+  const [testDataMessage, setTestDataMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('gemini_api_key');
@@ -70,6 +76,73 @@ Join instructions
       setEmailPassword(savedEmailPassword);
     }
   }, []);
+
+  // Check if test data exists when dialog opens
+  useEffect(() => {
+    if (open) {
+      checkTestDataExists();
+    }
+  }, [open]);
+
+  const checkTestDataExists = async () => {
+    try {
+      const result = await api.seedTestData.exists();
+      setTestDataExists(result.exists);
+    } catch (error) {
+      console.error('Error checking test data:', error);
+    }
+  };
+
+  const handleSeedTestData = async () => {
+    setTestDataLoading(true);
+    setTestDataMessage(null);
+    try {
+      const result = await api.seedTestData.create();
+      setTestDataExists(true);
+      setTestDataMessage({
+        type: 'success',
+        text: `Test data created successfully! Created ${result.studentCount} students and ${result.teacherCount} teachers.`,
+      });
+      // Refresh after a short delay to show the message
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    } catch (error: any) {
+      setTestDataMessage({
+        type: 'error',
+        text: error.message || 'Failed to create test data. Please try again.',
+      });
+    } finally {
+      setTestDataLoading(false);
+    }
+  };
+
+  const handleDeleteTestData = async () => {
+    if (!window.confirm('Are you sure you want to delete all test data? This action cannot be undone.')) {
+      return;
+    }
+    setTestDataLoading(true);
+    setTestDataMessage(null);
+    try {
+      await api.seedTestData.delete();
+      setTestDataExists(false);
+      setTestDataMessage({
+        type: 'success',
+        text: 'Test data deleted successfully!',
+      });
+      // Refresh after a short delay to show the message
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    } catch (error: any) {
+      setTestDataMessage({
+        type: 'error',
+        text: error.message || 'Failed to delete test data. Please try again.',
+      });
+    } finally {
+      setTestDataLoading(false);
+    }
+  };
 
   const handleSave = () => {
     if (apiKey.trim()) {
@@ -193,9 +266,50 @@ Join instructions
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             All data is stored locally in your browser. Use the export feature to backup your data.
           </Typography>
-          <Button variant="outlined" fullWidth onClick={() => setExportOpen(true)}>
+          <Button variant="outlined" fullWidth onClick={() => setExportOpen(true)} sx={{ mb: 2 }}>
             Export / Import Data
           </Button>
+        </Box>
+        <Divider sx={{ my: 2 }} />
+        <Box>
+          <Typography variant="subtitle2" gutterBottom>
+            Test Data
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Create sample test data to help you explore the app. This will create a test school with teachers and students for grades K-5.
+          </Typography>
+          {testDataMessage && (
+            <Alert severity={testDataMessage.type} sx={{ mb: 2 }} onClose={() => setTestDataMessage(null)}>
+              {testDataMessage.text}
+            </Alert>
+          )}
+          {testDataExists ? (
+            <Box>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Test data already exists. You can delete it to create fresh test data.
+              </Alert>
+              <Button
+                variant="outlined"
+                color="error"
+                fullWidth
+                onClick={handleDeleteTestData}
+                disabled={testDataLoading}
+                startIcon={testDataLoading ? <CircularProgress size={16} /> : null}
+              >
+                Delete Test Data
+              </Button>
+            </Box>
+          ) : (
+            <Button
+              variant="outlined"
+              fullWidth
+              onClick={handleSeedTestData}
+              disabled={testDataLoading}
+              startIcon={testDataLoading ? <CircularProgress size={16} /> : null}
+            >
+              Create Test Data
+            </Button>
+          )}
         </Box>
       </DialogContent>
       <DialogActions>

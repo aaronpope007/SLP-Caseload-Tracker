@@ -17,6 +17,22 @@
 3. **Migrate your data (if you have localStorage data):**
    - Follow the instructions in [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md)
 
+## First Time Using the App?
+
+**Try it out with test data first!**
+
+After starting the app, you can quickly explore all features with sample data:
+
+1. Open the app in your browser (usually `http://localhost:5173`)
+2. Click the **Settings** icon (⚙️) in the navigation bar
+3. Scroll down to the **"Test Data"** section
+4. Click **"Create Test Data"** to generate:
+   - A sample school (Test Elementary School)
+   - 6 teachers (one per grade K-5)
+   - 18 students (3 per grade)
+
+This lets you explore all features before adding your real data. You can delete the test data anytime from Settings when you're ready!
+
 ## Running the Application
 
 **Just run one command:**

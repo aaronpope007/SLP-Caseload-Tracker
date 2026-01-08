@@ -560,6 +560,20 @@ export const api = {
         method: 'DELETE',
       }),
   },
+
+  // Seed Test Data
+  seedTestData: {
+    create: () => 
+      request<{ message: string; schoolId: string; teacherCount: number; studentCount: number }>('/seed-test-data', {
+        method: 'POST',
+      }),
+    delete: () => 
+      request<{ message: string; deletedStudents: number; deletedTeachers: number; deletedSchool: number }>('/seed-test-data', {
+        method: 'DELETE',
+      }),
+    exists: () => 
+      request<{ exists: boolean; studentCount?: number; teacherCount?: number }>('/seed-test-data/exists'),
+  },
 };
 
 // Check if API is available

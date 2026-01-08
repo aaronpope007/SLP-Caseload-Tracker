@@ -167,13 +167,18 @@ A comprehensive web application designed to help Speech-Language Pathologists (S
   - Better performance for large datasets
   - Easy backups (just copy the .db file)
   - Automatic data persistence
+- **Test Data Seeding**: 
+  - Create sample test data to explore the app (Settings → Test Data)
+  - Includes a test school, teachers, and students
+  - Perfect for first-time users to learn the features
+  - Can be deleted anytime when ready to add real data
 - **Export Functionality**: 
   - Export all data as JSON for full backup
   - Export as CSV for spreadsheet compatibility
   - Export via API endpoint for programmatic access
 - **Import Functionality**: 
   - Restore data from previously exported JSON files
-- **Settings**: Configure Google Gemini API key for AI features
+- **Settings**: Configure Google Gemini API key for AI features and manage test data
 
 ## Technology Stack
 
@@ -241,6 +246,30 @@ This will automatically start both:
    - Enter your API key
    - The key is stored locally and never sent to any server except Google's Gemini API
 
+### First Time Setup - Explore with Test Data
+
+**New to the app?** You can quickly explore all features with sample test data:
+
+1. **Open Settings**: Click the Settings icon (⚙️) in the navigation bar
+2. **Go to Test Data Section**: Scroll down to the "Test Data" section
+3. **Create Test Data**: Click "Create Test Data" to automatically generate:
+   - **Test Elementary School** - A sample school
+   - **6 Teachers** - One teacher for each grade (Kindergarten through 5th Grade)
+   - **18 Students** - Three students per grade (Student A, B, and C) with:
+     - Age-appropriate ages (5-10 years old)
+     - Sample concerns (Articulation, Language)
+     - Linked to their grade teacher
+     - Active status
+
+4. **Explore the App**: Once test data is created, you can:
+   - Browse students and see how they're organized
+   - Add goals to test students
+   - Log therapy sessions
+   - Try all the features with realistic sample data
+   - Delete test data anytime from Settings when you're ready to add your real data
+
+> **Note**: Test data can be deleted at any time from Settings > Test Data > Delete Test Data. This will remove all test students, teachers, and the test school.
+
 ### Backend Details
 
 The app uses an Express + SQLite backend for data storage:
@@ -263,11 +292,21 @@ See the [API README](./api/README.md) for complete API documentation.
 
 ### Getting Started
 
-1. **Add Students**: Navigate to the Students page and click "Add Student" to create student profiles
-2. **Create Goals**: Open a student's detail page and add goals with baseline and target performance levels
-3. **Log Sessions**: Use the Sessions page to document therapy sessions, track performance, and record activities
-4. **Track Progress**: View detailed progress charts and generate progress notes in the Progress page
-5. **Generate Ideas**: Use the Treatment Ideas page to get AI-generated activity suggestions based on goal areas and age ranges
+**Option 1: Start with Test Data (Recommended for First-Time Users)**
+1. **Create Test Data**: Go to Settings → Test Data → Click "Create Test Data"
+   - This creates a sample school with teachers and students
+   - Perfect for exploring the app's features before adding your real data
+2. **Explore Features**: Try adding goals, logging sessions, and exploring all the features
+3. **Delete Test Data**: When ready, delete test data from Settings and add your real students
+
+**Option 2: Start with Your Own Data**
+1. **Add a School**: Navigate to Schools page and create your first school
+2. **Add Teachers**: Add teachers for each school (optional, but helpful for organization)
+3. **Add Students**: Navigate to the Students page and click "Add Student" to create student profiles
+4. **Create Goals**: Open a student's detail page and add goals with baseline and target performance levels
+5. **Log Sessions**: Use the Sessions page to document therapy sessions, track performance, and record activities
+6. **Track Progress**: View detailed progress charts and generate progress notes in the Progress page
+7. **Generate Ideas**: Use the Treatment Ideas page to get AI-generated activity suggestions based on goal areas and age ranges
 
 ### Data Backup
 
