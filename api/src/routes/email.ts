@@ -14,6 +14,8 @@ interface SendEmailRequest {
   smtpPort?: number;
   smtpUser?: string;
   smtpPassword?: string;
+  cc?: string | string[];
+  bcc?: string | string[];
 }
 
 router.post('/send', asyncHandler(async (req, res) => {
@@ -27,6 +29,8 @@ router.post('/send', asyncHandler(async (req, res) => {
     smtpPort = 587,
     smtpUser,
     smtpPassword,
+    cc,
+    bcc,
   }: SendEmailRequest = req.body;
 
   if (!to || !subject || !body) {
@@ -66,12 +70,29 @@ router.post('/send', asyncHandler(async (req, res) => {
   await transporter.verify();
 
   // Send email
-  const mailOptions = {
+  const mailOptions: {
+    from: string;
+    to: string;
+    subject: string;
+    text: string;
+    cc?: string | string[];
+    bcc?: string | string[];
+  } = {
     from: truncatedFromName && fromEmail ? `"${truncatedFromName}" <${fromEmail}>` : fromEmail || smtpUser,
     to,
     subject: truncatedSubject,
     text: body,
   };
+
+  // Add CC if provided
+  if (cc) {
+    mailOptions.cc = cc;
+  }
+
+  // Add BCC if provided
+  if (bcc) {
+    mailOptions.bcc = bcc;
+  }
 
   const info = await transporter.sendMail(mailOptions);
 

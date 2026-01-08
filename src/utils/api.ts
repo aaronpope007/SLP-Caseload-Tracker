@@ -482,6 +482,8 @@ export const api = {
       smtpPort?: number;
       smtpUser?: string;
       smtpPassword?: string;
+      cc?: string | string[];
+      bcc?: string | string[];
     }) =>
       request<{ success: boolean; messageId?: string; message: string }>('/email/send', {
         method: 'POST',

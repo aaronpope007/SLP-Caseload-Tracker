@@ -17,6 +17,8 @@ import {
   ListItem,
   ListItemText,
   Divider,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import {
   ContentCopy as ContentCopyIcon,
@@ -28,6 +30,7 @@ import { getTeachers, getCaseManagers, getSessionsBySchool, getSchoolByName } fr
 import { getScheduledSessions } from '../utils/storage-api';
 import { format, isBefore, isAfter, addMinutes, parse, isSameDay, startOfDay } from 'date-fns';
 import { api } from '../utils/api';
+import { useSchool } from '../context/SchoolContext';
 
 interface EmailTeacherDialogProps {
   open: boolean;
@@ -52,6 +55,17 @@ export const EmailTeacherDialog = ({
 }: EmailTeacherDialogProps) => {
   // Determine which students to use
   const studentsToUse = studentsProp || (student ? [student] : []);
+  const { selectedSchool } = useSchool();
+  
+  // Check if this is a Noble Academy school (either selected school or any student's school)
+  const isNobleAcademy = selectedSchool === 'Noble Academy' || 
+    studentsToUse.some(s => s.school === 'Noble Academy');
+  
+  // Check if this is a missed session
+  const isMissedSession = sessionDate || sessionStartTime;
+  
+  // State for CC checkbox (default to true if Noble Academy and missed session)
+  const [ccSusan, setCcSusan] = useState(true);
 
   interface TeacherEmailData {
     teacher: Teacher | CaseManager; // Can be either teacher or case manager
@@ -77,6 +91,8 @@ export const EmailTeacherDialog = ({
       setSendError(null);
       setSendSuccess([]);
       setSelectedTeacherIndex(null);
+      // Reset CC checkbox to true if Noble Academy and missed session
+      setCcSusan(isNobleAcademy && isMissedSession);
       
       loadTeachersAndGenerateEmails().catch((error) => {
         logError('Failed to load teachers and generate emails', error);
@@ -86,8 +102,9 @@ export const EmailTeacherDialog = ({
       setTeacherEmails([]);
       setAvailableTimes([]);
       setSelectedTeacherIndex(null);
+      setCcSusan(true);
     }
-  }, [open, student, studentsProp, studentIds, sessionDate, sessionStartTime, sessionEndTime]);
+  }, [open, student, studentsProp, studentIds, sessionDate, sessionStartTime, sessionEndTime, isNobleAcademy, isMissedSession]);
 
   // Helper function to parse date string (handles both ISO strings and yyyy-MM-dd format)
   const parseDateString = (dateStr: string): Date => {
@@ -864,6 +881,14 @@ export const EmailTeacherDialog = ({
         smtpPort: 587,
         smtpUser: emailAddress,
         smtpPassword: emailPassword,
+        // Add CC and BCC for missed appointment emails
+        // CC Susan only if checkbox is checked and it's Noble Academy
+        ...(isMissedSession && {
+          ...(ccSusan && isNobleAcademy && {
+            cc: 'swelle@nobleacademy.us',
+          }),
+          bcc: 'aaronpope007@gmail.com',
+        }),
       });
 
       // Automatically log the communication
@@ -1048,6 +1073,20 @@ export const EmailTeacherDialog = ({
                   <Alert severity="info" sx={{ mb: 2 }}>
                     No email address found for {currentEmail.teacher.name}. You can copy the email text and send it manually.
                   </Alert>
+                )}
+
+                {isMissedSession && isNobleAcademy && (
+                  <Box sx={{ mb: 2 }}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={ccSusan}
+                          onChange={(e) => setCcSusan(e.target.checked)}
+                        />
+                      }
+                      label="CC Susan Welle (swelle@nobleacademy.us)"
+                    />
+                  </Box>
                 )}
 
                 <TextField

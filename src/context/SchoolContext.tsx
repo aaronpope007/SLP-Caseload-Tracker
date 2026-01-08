@@ -41,7 +41,25 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
           schoolNames.add(school.name.trim());
         }
       });
-      setSchools(schoolObjects);
+      
+      // Only update schools state if it actually changed
+      setSchools(prevSchools => {
+        const prevNames = new Set(prevSchools.map(s => s.id));
+        const newNames = new Set(schoolObjects.map(s => s.id));
+        if (prevNames.size !== newNames.size || 
+            ![...prevNames].every(id => newNames.has(id))) {
+          return schoolObjects;
+        }
+        // Check if any school data changed
+        const hasChanges = schoolObjects.some(newSchool => {
+          const oldSchool = prevSchools.find(s => s.id === newSchool.id);
+          return !oldSchool || 
+                 oldSchool.name !== newSchool.name ||
+                 oldSchool.state !== newSchool.state ||
+                 oldSchool.teletherapy !== newSchool.teletherapy;
+        });
+        return hasChanges ? schoolObjects : prevSchools;
+      });
       
       // Add schools from students (for backward compatibility)
       const students = await getStudents();
@@ -63,10 +81,26 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
           teletherapy: false,
           dateCreated: new Date().toISOString(),
         });
+        // After adding, fetch updated schools list
+        const updatedSchools = await getSchools();
+        updatedSchools.forEach((school) => {
+          if (school.name && school.name.trim()) {
+            schoolNames.add(school.name.trim());
+          }
+        });
+        // Update schools state with the new list
+        setSchools(updatedSchools);
       }
       
       const sorted = Array.from(schoolNames).sort();
-      setAvailableSchools(sorted);
+      // Only update availableSchools if it actually changed
+      setAvailableSchools(prev => {
+        if (prev.length !== sorted.length || 
+            !prev.every((name, idx) => name === sorted[idx])) {
+          return sorted;
+        }
+        return prev;
+      });
     } catch (error) {
       logError('Error refreshing available schools', error);
       // Don't clear schools on error, just keep existing state
@@ -74,6 +108,12 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
       isRefreshingRef.current = false;
     }
   }, []);
+
+  // Store the refresh function in a ref to avoid dependency issues
+  const refreshAvailableSchoolsRef = useRef(refreshAvailableSchools);
+  useEffect(() => {
+    refreshAvailableSchoolsRef.current = refreshAvailableSchools;
+  }, [refreshAvailableSchools]);
 
   // Load selected school from localStorage on mount
   useEffect(() => {
@@ -85,8 +125,8 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
       localStorage.setItem(SCHOOL_STORAGE_KEY, DEFAULT_SCHOOL_NAME);
       setSelectedSchoolState(DEFAULT_SCHOOL_NAME);
     }
-    refreshAvailableSchools();
-  }, [refreshAvailableSchools]);
+    refreshAvailableSchoolsRef.current();
+  }, []); // Empty deps - only run on mount
 
   // Refresh schools periodically (since we don't have storage sync events with API)
   // Only refresh when tab is visible to save resources
@@ -104,7 +144,7 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
       } else {
         // Resume interval when tab becomes visible (don't refresh immediately to avoid spam)
         interval = window.setInterval(() => {
-          refreshAvailableSchools();
+          refreshAvailableSchoolsRef.current();
         }, 60000); // Refresh every 60 seconds (increased from 30 seconds)
       }
     };
@@ -112,7 +152,7 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
     // Start interval if tab is visible
     if (!document.hidden) {
       interval = window.setInterval(() => {
-        refreshAvailableSchools();
+        refreshAvailableSchoolsRef.current();
       }, 60000); // Refresh every 60 seconds
     }
     
@@ -125,7 +165,7 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
       }
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [refreshAvailableSchools]);
+  }, []); // Empty deps - set up interval once
 
   const setSelectedSchool = (school: string) => {
     setSelectedSchoolState(school);
