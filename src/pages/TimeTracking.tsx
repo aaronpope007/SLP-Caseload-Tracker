@@ -8,7 +8,7 @@ import {
 } from '@mui/material';
 import type { Session, Evaluation, Student, Communication } from '../types';
 import {
-  getSessionsBySchool,
+  getSessions,
   getEvaluations,
   getStudents,
 } from '../utils/storage-api';
@@ -76,18 +76,19 @@ export const TimeTracking = () => {
   const [savedNotes, setSavedNotes] = useState<TimesheetNote[]>([]);
 
   const loadData = async () => {
-    const schoolSessions = await getSessionsBySchool(selectedSchool);
-    const schoolEvaluations = await getEvaluations(selectedSchool);
-    const schoolStudents = await getStudents(selectedSchool);
+    // Load all sessions and evaluations (will be filtered by selectedSchool)
+    const allSessions = await getSessions();
+    const allEvaluations = await getEvaluations();
+    const allStudents = await getStudents();
     
-    setSessions(schoolSessions);
-    setEvaluations(schoolEvaluations);
-    setStudents(schoolStudents);
+    setSessions(allSessions);
+    setEvaluations(allEvaluations);
+    setStudents(allStudents);
     
-    // Load communications for the school
+    // Load communications for the selected school
     try {
-      const allCommunications = await api.communications.getAll(undefined, undefined, selectedSchool);
-      setCommunications(allCommunications);
+      const schoolCommunications = await api.communications.getAll(undefined, undefined, selectedSchool);
+      setCommunications(schoolCommunications);
     } catch (error) {
       logError('Failed to fetch communications', error);
       setCommunications([]);
@@ -125,14 +126,27 @@ export const TimeTracking = () => {
     setSavedNotes(notes);
   };
 
+  // Helper function to get school for a session or evaluation
+  const getSchoolForItem = (studentId: string): string | undefined => {
+    const student = students.find(s => s.id === studentId);
+    return student?.school;
+  };
+
   // Combine sessions and evaluations into a single chronological list
   // For group sessions, only include one entry per group (using the session's date for sorting)
+  // Filter by the actively selected school from context
   const allItems: TimeTrackingItem[] = useMemo(() => {
     const items: TimeTrackingItem[] = [];
     const processedGroupIds = new Set<string>();
     
     // Process all sessions - both individual and group
     sessions.forEach(session => {
+      // Filter by the actively selected school
+      const sessionSchool = getSchoolForItem(session.studentId);
+      if (sessionSchool !== selectedSchool) {
+        return; // Skip this session if it doesn't match the selected school
+      }
+      
       if (session.groupSessionId) {
         // For group sessions, only add one entry per group
         if (!processedGroupIds.has(session.groupSessionId)) {
@@ -157,6 +171,12 @@ export const TimeTracking = () => {
     
     // Add evaluations
     evaluations.forEach(evaluation => {
+      // Filter by the actively selected school
+      const evaluationSchool = getSchoolForItem(evaluation.studentId);
+      if (evaluationSchool !== selectedSchool) {
+        return; // Skip this evaluation if it doesn't match the selected school
+      }
+      
       items.push({
         id: evaluation.id,
         type: 'evaluation' as const,
@@ -178,7 +198,7 @@ export const TimeTracking = () => {
     });
     
     return sorted;
-  }, [sessions, evaluations]);
+  }, [sessions, evaluations, students, selectedSchool]);
 
   // Filter items by selected date
   const filteredItems = useMemo(() => {
@@ -201,9 +221,9 @@ export const TimeTracking = () => {
     });
   }, [allItems, selectedDate]);
 
-  // Filter communications by selected date
+  // Filter communications by selected date (already filtered by school in loadData)
   const filteredCommunications = useMemo(() => {
-    if (!selectedDate) return [];
+    if (!selectedDate) return communications;
     
     // Parse selected date in local time (YYYY-MM-DD format from date input)
     const [year, month, day] = selectedDate.split('-').map(Number);
