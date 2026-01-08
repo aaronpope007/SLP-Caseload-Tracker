@@ -439,12 +439,20 @@ export const SessionCalendar = () => {
       
       // Check if it matches by scheduledSessionId (primary method - most reliable)
       // Find all sessions that match by scheduledSessionId and date, then pick the one with closest time match
+      // IMPORTANT: When multiple sessions share the same scheduledSessionId on the same day,
+      // we must match by time to ensure we get the correct one (e.g., 11:20 session vs 13:05 session)
       const matchingByScheduledId = sessions
         .filter(session => {
           if (!session.scheduledSessionId) return false;
           if (session.scheduledSessionId !== event.scheduledSessionId) return false;
           const sessionDate = startOfDay(new Date(session.date));
-          return isSameDay(sessionDate, eventDate);
+          if (!isSameDay(sessionDate, eventDate)) return false;
+          
+          // CRITICAL FIX: Only match sessions where the time is within a reasonable window (2 hours)
+          // This prevents matching the wrong session when multiple sessions share the same scheduledSessionId
+          const sessionTime = new Date(session.date);
+          const timeDiff = Math.abs(sessionTime.getTime() - eventStartTime.getTime());
+          return timeDiff <= 2 * 60 * 60 * 1000; // 2 hours in milliseconds
         })
         .map(session => {
           // Calculate time difference for sorting
@@ -986,22 +994,29 @@ export const SessionCalendar = () => {
     if (!scheduled) return;
 
     // Check if this is an existing logged session
+    // CRITICAL FIX: When matching sessions, we need to filter by time to ensure we get the correct session
+    // when multiple sessions share the same scheduledSessionId on the same day (e.g., 11:20 session vs 13:05 session)
     if (event.isLogged && event.matchedSessions && event.matchedSessions.length > 0) {
       // Load existing session(s) for editing
       // Verify we're using the correct session by matching the time
       const eventStartTime = setMinutes(setHours(event.date, parseInt(event.startTime.split(':')[0])), parseInt(event.startTime.split(':')[1]));
       
       // Filter and sort matched sessions by time proximity to ensure we get the right one
+      // CRITICAL FIX: Filter out sessions that are too far apart in time (more than 2 hours)
+      // This prevents editing the wrong session when multiple sessions share the same scheduledSessionId on the same day
       const matchedSessions = event.matchedSessions
         .map(session => {
           const sessionTime = new Date(session.date);
           const timeDiff = Math.abs(sessionTime.getTime() - eventStartTime.getTime());
           return { session, timeDiff };
         })
+        .filter(item => item.timeDiff <= 2 * 60 * 60 * 1000) // Only include sessions within 2 hours
         .sort((a, b) => a.timeDiff - b.timeDiff) // Sort by closest time match
         .map(item => item.session); // Extract sessions in order
       
-      if (matchedSessions.length === 1) {
+      // If no sessions match after time filtering, treat as unlogged and create new session
+      if (matchedSessions.length > 0) {
+        if (matchedSessions.length === 1) {
         // Single session - edit it
         const session = matchedSessions[0];
         setEditingSession(session);
@@ -1103,8 +1118,18 @@ export const SessionCalendar = () => {
         
         setSessionFormData(newFormData);
         initialSessionFormDataRef.current = { ...newFormData };
+        }
+        
+        // Open session dialog for both single and group sessions
+        setSessionDialogOpen(true);
+        setCurrentEvent(event);
+        return;
       }
-    } else {
+      // If no matched sessions after filtering, fall through to create new session
+    }
+    
+    // Create new session from scheduled event (either event is not logged, or no sessions matched after time filtering)
+    if (scheduled) {
       // Create new session from scheduled event
       // Use the scheduled session's times directly to ensure accuracy
       const [startHour, startMinute] = scheduled.startTime.split(':').map(Number);

@@ -122,6 +122,130 @@ export const SessionFormDialog = ({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { pinnedGoalIds, togglePin, clearPinned } = usePinnedGoals();
 
+  // Local state for text fields to prevent re-renders on every keystroke
+  const [localNotes, setLocalNotes] = useState(formData.notes);
+  const [localPlan, setLocalPlan] = useState(formData.plan || '');
+  const [localActivitiesUsed, setLocalActivitiesUsed] = useState(formData.activitiesUsed.join(', '));
+  const [localCustomSubjective, setLocalCustomSubjective] = useState(formData.customSubjective || '');
+  const [localIndirectServicesNotes, setLocalIndirectServicesNotes] = useState(formData.indirectServicesNotes);
+
+  // Sync local state when formData changes externally (e.g., when editing a session)
+  useEffect(() => {
+    setLocalNotes(formData.notes);
+  }, [formData.notes]);
+  
+  useEffect(() => {
+    setLocalPlan(formData.plan || '');
+  }, [formData.plan]);
+  
+  useEffect(() => {
+    setLocalActivitiesUsed(formData.activitiesUsed.join(', '));
+  }, [formData.activitiesUsed]);
+  
+  useEffect(() => {
+    setLocalCustomSubjective(formData.customSubjective || '');
+  }, [formData.customSubjective]);
+  
+  useEffect(() => {
+    setLocalIndirectServicesNotes(formData.indirectServicesNotes);
+  }, [formData.indirectServicesNotes]);
+
+  // Debounced sync for notes field
+  const notesSyncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (notesSyncTimeoutRef.current) {
+      clearTimeout(notesSyncTimeoutRef.current);
+    }
+    notesSyncTimeoutRef.current = setTimeout(() => {
+      if (localNotes !== formData.notes) {
+        handleFormDataChange({ notes: localNotes });
+      }
+    }, 500);
+    return () => {
+      if (notesSyncTimeoutRef.current) {
+        clearTimeout(notesSyncTimeoutRef.current);
+      }
+    };
+  }, [localNotes]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Debounced sync for plan field
+  const planSyncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (planSyncTimeoutRef.current) {
+      clearTimeout(planSyncTimeoutRef.current);
+    }
+    planSyncTimeoutRef.current = setTimeout(() => {
+      if (localPlan !== (formData.plan || '')) {
+        handleFormDataChange({ plan: localPlan });
+      }
+    }, 500);
+    return () => {
+      if (planSyncTimeoutRef.current) {
+        clearTimeout(planSyncTimeoutRef.current);
+      }
+    };
+  }, [localPlan]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Debounced sync for activities used field
+  const activitiesSyncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (activitiesSyncTimeoutRef.current) {
+      clearTimeout(activitiesSyncTimeoutRef.current);
+    }
+    activitiesSyncTimeoutRef.current = setTimeout(() => {
+      const activities = localActivitiesUsed
+        .split(',')
+        .map((a) => a.trim())
+        .filter((a) => a.length > 0);
+      const currentActivities = formData.activitiesUsed;
+      if (activities.length !== currentActivities.length || 
+          activities.some((a, i) => a !== currentActivities[i])) {
+        handleFormDataChange({ activitiesUsed: activities });
+      }
+    }, 500);
+    return () => {
+      if (activitiesSyncTimeoutRef.current) {
+        clearTimeout(activitiesSyncTimeoutRef.current);
+      }
+    };
+  }, [localActivitiesUsed]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Debounced sync for custom subjective field
+  const customSubjectiveSyncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (customSubjectiveSyncTimeoutRef.current) {
+      clearTimeout(customSubjectiveSyncTimeoutRef.current);
+    }
+    customSubjectiveSyncTimeoutRef.current = setTimeout(() => {
+      if (localCustomSubjective !== (formData.customSubjective || '')) {
+        handleFormDataChange({ customSubjective: localCustomSubjective });
+      }
+    }, 500);
+    return () => {
+      if (customSubjectiveSyncTimeoutRef.current) {
+        clearTimeout(customSubjectiveSyncTimeoutRef.current);
+      }
+    };
+  }, [localCustomSubjective]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Debounced sync for indirect services notes field
+  const indirectNotesSyncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (indirectNotesSyncTimeoutRef.current) {
+      clearTimeout(indirectNotesSyncTimeoutRef.current);
+    }
+    indirectNotesSyncTimeoutRef.current = setTimeout(() => {
+      if (localIndirectServicesNotes !== formData.indirectServicesNotes) {
+        handleFormDataChange({ indirectServicesNotes: localIndirectServicesNotes });
+      }
+    }, 500);
+    return () => {
+      if (indirectNotesSyncTimeoutRef.current) {
+        clearTimeout(indirectNotesSyncTimeoutRef.current);
+      }
+    };
+  }, [localIndirectServicesNotes]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Helper function to format student names for the dialog title
   const formatStudentNamesForTitle = (): string => {
     if (formData.studentIds.length === 0) {
@@ -182,6 +306,44 @@ export const SessionFormDialog = ({
       onFormDataChange(updatesOrUpdater);
     }
   }, [formData, onFormDataChange]);
+
+  // Sync all local state to parent state immediately (e.g., before save)
+  const syncAllLocalState = useCallback(() => {
+    const updates: Partial<SessionFormData> = {};
+    if (localNotes !== formData.notes) {
+      updates.notes = localNotes;
+    }
+    if (localPlan !== (formData.plan || '')) {
+      updates.plan = localPlan;
+    }
+    const activities = localActivitiesUsed
+      .split(',')
+      .map((a) => a.trim())
+      .filter((a) => a.length > 0);
+    const currentActivities = formData.activitiesUsed;
+    if (activities.length !== currentActivities.length || 
+        activities.some((a, i) => a !== currentActivities[i])) {
+      updates.activitiesUsed = activities;
+    }
+    if (localCustomSubjective !== (formData.customSubjective || '')) {
+      updates.customSubjective = localCustomSubjective;
+    }
+    if (localIndirectServicesNotes !== formData.indirectServicesNotes) {
+      updates.indirectServicesNotes = localIndirectServicesNotes;
+    }
+    if (Object.keys(updates).length > 0) {
+      handleFormDataChange(updates);
+    }
+  }, [localNotes, localPlan, localActivitiesUsed, localCustomSubjective, localIndirectServicesNotes, formData, handleFormDataChange]);
+
+  // Handle save with immediate sync
+  const handleSave = useCallback(() => {
+    syncAllLocalState();
+    // Use setTimeout to ensure state updates are processed before save
+    setTimeout(() => {
+      onSave();
+    }, 0);
+  }, [syncAllLocalState, onSave]);
 
   // Check isDirty only when dialog tries to close - not continuously while typing
 
@@ -882,11 +1044,12 @@ export const SessionFormDialog = ({
                       <TextField
                         label="Custom Subjective Statement"
                         fullWidth
-                        value={formData.customSubjective || ''}
-                        onChange={(e) => handleFormDataChange({ customSubjective: e.target.value })}
+                        value={localCustomSubjective}
+                        onChange={(e) => setLocalCustomSubjective(e.target.value)}
+                        onBlur={() => handleFormDataChange({ customSubjective: localCustomSubjective })}
                         placeholder="Enter your own subjective statement..."
-                        error={formData.selectedSubjectiveStatements.length === 0 && (formData.customSubjective || '').trim().length === 0}
-                        helperText={formData.selectedSubjectiveStatements.length === 0 && (formData.customSubjective || '').trim().length === 0 ? "Required: Select a statement above or enter a custom statement" : ""}
+                        error={formData.selectedSubjectiveStatements.length === 0 && localCustomSubjective.trim().length === 0}
+                        helperText={formData.selectedSubjectiveStatements.length === 0 && localCustomSubjective.trim().length === 0 ? "Required: Select a statement above or enter a custom statement" : ""}
                       />
                     </Box>
                   </AccordionDetails>
@@ -896,10 +1059,11 @@ export const SessionFormDialog = ({
               <TextField
                 label="Activities Used (comma-separated)"
                 fullWidth
-                value={formData.activitiesUsed.join(', ')}
-                onChange={(e) =>
+                value={localActivitiesUsed}
+                onChange={(e) => setLocalActivitiesUsed(e.target.value)}
+                onBlur={() =>
                   handleFormDataChange({
-                    activitiesUsed: e.target.value
+                    activitiesUsed: localActivitiesUsed
                       .split(',')
                       .map((a) => a.trim())
                       .filter((a) => a.length > 0),
@@ -912,8 +1076,9 @@ export const SessionFormDialog = ({
                 fullWidth
                 multiline
                 rows={4}
-                value={formData.notes}
-                onChange={(e) => handleFormDataChange({ notes: e.target.value })}
+                value={localNotes}
+                onChange={(e) => setLocalNotes(e.target.value)}
+                onBlur={() => handleFormDataChange({ notes: localNotes })}
               />
 
               <TextField
@@ -921,12 +1086,13 @@ export const SessionFormDialog = ({
                 fullWidth
                 multiline
                 rows={4}
-                value={formData.plan || ''}
-                onChange={(e) => handleFormDataChange({ plan: e.target.value })}
+                value={localPlan}
+                onChange={(e) => setLocalPlan(e.target.value)}
+                onBlur={() => handleFormDataChange({ plan: localPlan })}
                 placeholder="Enter the plan for the next session..."
                 required
-                error={!(formData.plan || '').trim()}
-                helperText={!(formData.plan || '').trim() ? "Required: Enter a plan for the next session" : ""}
+                error={!localPlan.trim()}
+                helperText={!localPlan.trim() ? "Required: Enter a plan for the next session" : ""}
               />
             </>
           ) : (
@@ -935,8 +1101,9 @@ export const SessionFormDialog = ({
               fullWidth
               multiline
               rows={6}
-              value={formData.indirectServicesNotes}
-              onChange={(e) => handleFormDataChange({ indirectServicesNotes: e.target.value })}
+              value={localIndirectServicesNotes}
+              onChange={(e) => setLocalIndirectServicesNotes(e.target.value)}
+              onBlur={() => handleFormDataChange({ indirectServicesNotes: localIndirectServicesNotes })}
               placeholder="Enter notes about indirect services provided..."
             />
           )}
@@ -955,7 +1122,7 @@ export const SessionFormDialog = ({
         )}
         <Button onClick={onClose}>Cancel</Button>
         <Button
-          onClick={onSave}
+          onClick={handleSave}
           variant="contained"
           disabled={formData.studentIds.length === 0}
         >
