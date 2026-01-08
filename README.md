@@ -110,6 +110,22 @@ A comprehensive web application designed to help Speech-Language Pathologists (S
   - Link students to case managers
   - Store contact information for team collaboration
 
+### 💬 Communications Logging
+- **Communication Tracking**: 
+  - Log all communications with teachers, parents, and case managers
+  - Track communication methods (email, phone, in-person, other)
+  - Link communications to specific students and sessions
+  - Filter by contact type, student, and date
+  - Search and view communication history
+- **Email Integration**: 
+  - Send emails directly from the app to teachers and case managers
+  - Track email communications automatically
+  - Store email subject and body content
+- **Communication Details**: 
+  - Record communication date and time
+  - Add notes and related context (e.g., "Missed Session", "IEP Meeting")
+  - View full communication history in a unified timeline
+
 ### 📅 Scheduling & Reminders
 - **Session Calendar**: 
   - Visual calendar view of all sessions
@@ -146,12 +162,17 @@ A comprehensive web application designed to help Speech-Language Pathologists (S
   - Save and reuse timesheet notes
 
 ### ⚙️ Data Management
+- **SQLite Backend**: Express.js + SQLite backend for reliable data storage
+  - All data stored in SQLite database (`api/data/slp-caseload.db`)
+  - Better performance for large datasets
+  - Easy backups (just copy the .db file)
+  - Automatic data persistence
 - **Export Functionality**: 
   - Export all data as JSON for full backup
   - Export as CSV for spreadsheet compatibility
-- **Import Functionality**: Restore data from previously exported JSON files
-- **Local Storage**: All data is stored locally in your browser for privacy and security (default)
-- **SQLite Backend**: Optional Express.js + SQLite backend for more robust data storage
+  - Export via API endpoint for programmatic access
+- **Import Functionality**: 
+  - Restore data from previously exported JSON files
 - **Settings**: Configure Google Gemini API key for AI features
 
 ## Technology Stack
@@ -161,8 +182,8 @@ A comprehensive web application designed to help Speech-Language Pathologists (S
 - **UI Library**: Material-UI (MUI) v6
 - **Charts**: Recharts for data visualization
 - **AI Integration**: Google Generative AI (Gemini API)
-- **Storage**: Browser localStorage (default) or SQLite backend (optional)
-- **Backend**: Express.js + SQLite (optional, see Backend Setup)
+- **Storage**: SQLite database via Express.js backend
+- **Backend**: Express.js + SQLite (required)
 - **Date Handling**: date-fns
 
 ## Getting Started
@@ -188,25 +209,29 @@ npm install
 pnpm install
 ```
 
-3. Install API dependencies (first time only):
+3. Install API dependencies:
 ```bash
 cd api
 npm install
 cd ..
 ```
 
-4. Start the development servers (both frontend and API):
+4. Start the development servers (both frontend and API are required):
 ```bash
 pnpm dev
 # or
 npm run dev
 ```
 
-This will start both:
+This will automatically start both:
 - **Frontend** on `http://localhost:5173` (or the port shown in the terminal)
 - **API Server** on `http://localhost:3001`
 
+> **Note**: Both servers must be running for the app to function. The `pnpm dev` command uses `concurrently` to start both servers automatically.
+
 5. Open your browser and navigate to the frontend URL shown in the terminal
+
+6. The SQLite database will be automatically created at `api/data/slp-caseload.db` on first run
 
 ### Configuration
 
@@ -216,34 +241,23 @@ This will start both:
    - Enter your API key
    - The key is stored locally and never sent to any server except Google's Gemini API
 
-### Backend Setup (Optional)
+### Backend Details
 
-The app now supports an optional Express + SQLite backend for more robust data storage:
+The app uses an Express + SQLite backend for data storage:
 
-1. **Set up the backend**:
-   ```bash
-   cd api
-   npm install
-   npm run dev
-   ```
-
-2. **Migrate your data** (if you have existing localStorage data):
-   - See [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md) for detailed instructions
-   - Export your localStorage data first
-   - Run the migration script to import into SQLite
-
-3. **Update frontend to use API**:
-   - Change imports from `'./utils/storage'` to `'./utils/storage-api'` in your components
-   - Or keep using localStorage if you prefer
+- **Database Location**: `api/data/slp-caseload.db`
+- **Automatic Setup**: The database is created automatically on first run
+- **Backup**: Simply copy the `.db` file to backup your data
 
 The backend provides:
-- ✅ More reliable data storage (SQLite database)
+- ✅ Reliable data storage (SQLite database)
 - ✅ Better performance for large datasets
 - ✅ Easy backups (just copy the .db file)
 - ✅ Export/import endpoints
 - ✅ All CRUD operations via REST API
+- ✅ Full-featured API for all data types
 
-See the [API README](./api/README.md) for more details.
+See the [API README](./api/README.md) for complete API documentation.
 
 ## Usage
 
@@ -257,7 +271,14 @@ See the [API README](./api/README.md) for more details.
 
 ### Data Backup
 
-Regularly export your data through Settings > Export/Import Data to create backups. This is especially important since data is stored locally in your browser.
+**Automatic Backup**: Your data is automatically saved to the SQLite database at `api/data/slp-caseload.db`. Simply copy this file to create a backup.
+
+**Export Data**: You can also export your data through Settings > Export/Import Data or use the API export endpoint:
+```bash
+curl http://localhost:3001/api/export/all > backup.json
+```
+
+**Recommended**: Regularly copy the database file (`api/data/slp-caseload.db`) to a safe location for backups.
 
 ## Project Structure
 
@@ -285,17 +306,24 @@ SLP Caseload Tracker/
 │   │   ├── Schools.tsx
 │   │   ├── Teachers.tsx
 │   │   ├── CaseManagers.tsx
+│   │   ├── Communications.tsx
 │   │   └── DueDateItems.tsx
 │   ├── types/            # TypeScript type definitions
 │   │   └── index.ts
 │   ├── utils/            # Utility functions
-│   │   ├── storage.ts    # LocalStorage operations
-│   │   ├── storage-api.ts # API-based storage operations
+│   │   ├── api.ts        # API client for backend communication
 │   │   ├── helpers.ts    # Helper functions
 │   │   ├── gemini.ts     # Gemini AI integration
 │   │   ├── goalTemplates.ts  # Goal templates library
 │   │   ├── soapNoteGenerator.ts  # SOAP note generation
 │   │   └── timesheetNoteGenerator.ts  # Timesheet note generation
+│   └── api/              # Backend API server
+│       ├── src/
+│       │   ├── routes/   # API route handlers
+│       │   ├── db.ts     # Database setup and schema
+│       │   └── server.ts # Express server
+│       └── data/         # SQLite database storage
+│           └── slp-caseload.db
 │   ├── App.tsx           # Main app component
 │   └── main.tsx          # Application entry point
 └── package.json
