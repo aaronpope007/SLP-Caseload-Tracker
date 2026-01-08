@@ -200,6 +200,7 @@ export const SessionFormDialog = ({
   const goalsRef = useRef(goals);
   const onTrialUpdateRef = useRef(onTrialUpdate);
   const handleFormDataChangeRef = useRef(handleFormDataChange);
+  const setFocusedGoalIdRef = useRef(setFocusedGoalId);
 
   // Keep refs in sync
   useEffect(() => {
@@ -217,6 +218,9 @@ export const SessionFormDialog = ({
   useEffect(() => {
     handleFormDataChangeRef.current = handleFormDataChange;
   }, [handleFormDataChange]);
+  useEffect(() => {
+    setFocusedGoalIdRef.current = setFocusedGoalId;
+  }, [setFocusedGoalId]);
 
   // Keyboard shortcuts: / to focus search, number keys for trials
   useEffect(() => {
@@ -243,6 +247,84 @@ export const SessionFormDialog = ({
       const currentGoals = goalsRef.current;
       const currentOnTrialUpdate = onTrialUpdateRef.current;
       const currentHandleFormDataChange = handleFormDataChangeRef.current;
+      const currentSetFocusedGoalId = setFocusedGoalIdRef.current;
+
+      // Arrow keys for navigation and trial logging (only when there are active goals)
+      if (currentFormData.goalsTargeted.length > 0) {
+        // Arrow Up: Move to previous goal
+        if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          const currentIndex = currentFocusedGoalId 
+            ? currentFormData.goalsTargeted.indexOf(currentFocusedGoalId)
+            : -1;
+          if (currentIndex > 0) {
+            currentSetFocusedGoalId(currentFormData.goalsTargeted[currentIndex - 1]);
+          } else if (currentIndex === -1 && currentFormData.goalsTargeted.length > 0) {
+            // If no goal is focused, focus the last one
+            currentSetFocusedGoalId(currentFormData.goalsTargeted[currentFormData.goalsTargeted.length - 1]);
+          }
+          return;
+        }
+
+        // Arrow Down: Move to next goal
+        if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          const currentIndex = currentFocusedGoalId 
+            ? currentFormData.goalsTargeted.indexOf(currentFocusedGoalId)
+            : -1;
+          if (currentIndex >= 0 && currentIndex < currentFormData.goalsTargeted.length - 1) {
+            currentSetFocusedGoalId(currentFormData.goalsTargeted[currentIndex + 1]);
+          } else if (currentIndex === -1 && currentFormData.goalsTargeted.length > 0) {
+            // If no goal is focused, focus the first one
+            currentSetFocusedGoalId(currentFormData.goalsTargeted[0]);
+          }
+          return;
+        }
+
+        // Arrow Left: Same as + (increment correct trials)
+        if (event.key === 'ArrowLeft') {
+          event.preventDefault();
+          const targetGoalId = currentFocusedGoalId || currentFormData.goalsTargeted[0];
+          const goal = currentGoals.find(g => g.id === targetGoalId);
+          if (goal) {
+            let perfData = currentFormData.performanceData.find(p => p.goalId === targetGoalId && p.studentId === goal.studentId);
+            if (!perfData) {
+              currentHandleFormDataChange((prev) => ({
+                ...prev,
+                performanceData: [
+                  ...prev.performanceData,
+                  { goalId: targetGoalId, studentId: goal.studentId, correctTrials: 0, incorrectTrials: 0 },
+                ],
+              }));
+              perfData = { goalId: targetGoalId, studentId: goal.studentId, correctTrials: 0, incorrectTrials: 0 };
+            }
+            currentOnTrialUpdate(perfData.goalId, perfData.studentId, true);
+          }
+          return;
+        }
+
+        // Arrow Right: Same as - (increment incorrect trials)
+        if (event.key === 'ArrowRight') {
+          event.preventDefault();
+          const targetGoalId = currentFocusedGoalId || currentFormData.goalsTargeted[0];
+          const goal = currentGoals.find(g => g.id === targetGoalId);
+          if (goal) {
+            let perfData = currentFormData.performanceData.find(p => p.goalId === targetGoalId && p.studentId === goal.studentId);
+            if (!perfData) {
+              currentHandleFormDataChange((prev) => ({
+                ...prev,
+                performanceData: [
+                  ...prev.performanceData,
+                  { goalId: targetGoalId, studentId: goal.studentId, correctTrials: 0, incorrectTrials: 0 },
+                ],
+              }));
+              perfData = { goalId: targetGoalId, studentId: goal.studentId, correctTrials: 0, incorrectTrials: 0 };
+            }
+            currentOnTrialUpdate(perfData.goalId, perfData.studentId, false);
+          }
+          return;
+        }
+      }
 
       // Number keys 1-5 to log correct trials (when a goal is focused or selected)
       if (event.key >= '1' && event.key <= '5' && currentFormData.goalsTargeted.length > 0) {
