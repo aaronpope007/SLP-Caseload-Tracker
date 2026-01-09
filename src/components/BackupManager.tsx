@@ -39,6 +39,7 @@ import {
 } from '@mui/icons-material';
 import { api } from '../utils/api';
 import { formatDistanceToNow } from 'date-fns';
+import { logError } from '../utils/logger';
 
 interface BackupInfo {
   filename: string;
@@ -66,7 +67,7 @@ export function BackupManager() {
       setBackups(response.backups);
     } catch (err) {
       setError('Failed to load backups');
-      console.error('Failed to load backups:', err);
+      logError('Failed to load backups', err);
     } finally {
       setLoading(false);
     }
@@ -85,7 +86,7 @@ export function BackupManager() {
       await loadBackups();
     } catch (err) {
       setError('Failed to create backup');
-      console.error('Failed to create backup:', err);
+      logError('Failed to create backup', err);
     } finally {
       setCreating(false);
     }
@@ -108,7 +109,7 @@ export function BackupManager() {
       await loadBackups();
     } catch (err) {
       setError('Failed to delete backup');
-      console.error('Failed to delete backup:', err);
+      logError('Failed to delete backup', err);
     }
   };
 
@@ -120,7 +121,7 @@ export function BackupManager() {
       setRestoreDialog({ open: false, filename: '' });
     } catch (err) {
       setError('Failed to restore backup');
-      console.error('Failed to restore backup:', err);
+      logError('Failed to restore backup', err);
     }
   };
 

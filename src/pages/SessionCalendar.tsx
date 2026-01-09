@@ -177,8 +177,7 @@ export const SessionCalendar = () => {
       const scheduled = await getScheduledSessions(selectedSchool);
       setScheduledSessions(scheduled);
     } catch (error) {
-      console.error('[Calendar] Error loading data:', error);
-      logError('Failed to load data', error);
+      logError('Calendar: Error loading data', error);
     }
   };
 
@@ -933,7 +932,7 @@ export const SessionCalendar = () => {
         await addScheduledSession(scheduledSession);
       }
     } catch (error) {
-      console.error('[Calendar] Error saving scheduled session:', error);
+      logError('Calendar: Error saving scheduled session', error);
       alert('Failed to save scheduled session. Please try again.');
       return;
     }

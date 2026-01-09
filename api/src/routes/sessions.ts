@@ -36,7 +36,25 @@ interface PerformanceDataItem {
 
 export const sessionsRouter = Router();
 
-// Get all sessions (optionally filtered by studentId or school)
+/**
+ * @openapi
+ * /api/sessions:
+ *   get:
+ *     tags: [Sessions]
+ *     summary: Get all sessions
+ *     parameters:
+ *       - in: query
+ *         name: studentId
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: school
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: List of sessions
+ */
 sessionsRouter.get('/', asyncHandler(async (req, res) => {
   const { studentId, school } = req.query;
   
@@ -76,7 +94,24 @@ sessionsRouter.get('/', asyncHandler(async (req, res) => {
   res.json(parsed);
 }));
 
-// Get session by ID
+/**
+ * @openapi
+ * /api/sessions/{id}:
+ *   get:
+ *     tags: [Sessions]
+ *     summary: Get session by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Session details
+ *       404:
+ *         description: Session not found
+ */
 sessionsRouter.get('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
   
@@ -103,7 +138,24 @@ sessionsRouter.get('/:id', asyncHandler(async (req, res) => {
   });
 }));
 
-// Create session - with validation
+/**
+ * @openapi
+ * /api/sessions:
+ *   post:
+ *     tags: [Sessions]
+ *     summary: Create a new session
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Session'
+ *     responses:
+ *       201:
+ *         description: Session created
+ *       400:
+ *         description: Validation error
+ */
 sessionsRouter.post('/', validateBody(createSessionSchema), asyncHandler(async (req, res) => {
   const session = req.body;
   
@@ -142,7 +194,30 @@ sessionsRouter.post('/', validateBody(createSessionSchema), asyncHandler(async (
   res.status(201).json({ id: sessionId, message: 'Session created' });
 }));
 
-// Update session - with validation
+/**
+ * @openapi
+ * /api/sessions/{id}:
+ *   put:
+ *     tags: [Sessions]
+ *     summary: Update a session
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Session'
+ *     responses:
+ *       200:
+ *         description: Session updated
+ *       404:
+ *         description: Session not found
+ */
 sessionsRouter.put('/:id', validateBody(updateSessionSchema), asyncHandler(async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
@@ -206,7 +281,24 @@ sessionsRouter.put('/:id', validateBody(updateSessionSchema), asyncHandler(async
   res.json({ message: 'Session updated' });
 }));
 
-// Delete session
+/**
+ * @openapi
+ * /api/sessions/{id}:
+ *   delete:
+ *     tags: [Sessions]
+ *     summary: Delete a session
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Session deleted
+ *       404:
+ *         description: Session not found
+ */
 sessionsRouter.delete('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
   

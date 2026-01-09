@@ -5,7 +5,7 @@
 
 import type { Student, Goal, Session, Activity, Evaluation, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Reminder, ScheduledSession } from '../types';
 import { api } from './api';
-import { logError } from './logger';
+import { logError, logDebug } from './logger';
 
 const DEFAULT_SCHOOL = 'Noble Academy';
 
@@ -262,13 +262,10 @@ export const deleteEvaluation = async (id: string): Promise<void> => {
 export const getSchools = async (): Promise<School[]> => {
   try {
     const schools = await api.schools.getAll();
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[getSchools] Fetched schools:', schools.length, schools.map(s => s.name));
-    }
+    logDebug('Fetched schools', { count: schools.length });
     return schools;
   } catch (error) {
     logError('Failed to fetch schools', error);
-    console.error('[getSchools] Error details:', error);
     return [];
   }
 };

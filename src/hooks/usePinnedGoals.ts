@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { logError } from '../utils/logger';
 
 const PINNED_GOALS_KEY = 'slp-pinned-goals';
 
@@ -14,7 +15,7 @@ export const usePinnedGoals = () => {
         setPinnedGoalIds(new Set(ids));
       }
     } catch (error) {
-      console.error('Failed to load pinned goals:', error);
+      logError('Failed to load pinned goals', error);
     }
   }, []);
 
@@ -24,7 +25,7 @@ export const usePinnedGoals = () => {
       const ids = Array.from(pinnedGoalIds);
       localStorage.setItem(PINNED_GOALS_KEY, JSON.stringify(ids));
     } catch (error) {
-      console.error('Failed to save pinned goals:', error);
+      logError('Failed to save pinned goals', error);
     }
   }, [pinnedGoalIds]);
 

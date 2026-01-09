@@ -25,6 +25,7 @@ import {
 } from '@mui/icons-material';
 import type { CaseManager, Student } from '../types';
 import { getStudentsByCaseManager } from '../utils/storage-api';
+import { logError } from '../utils/logger';
 
 interface CaseManagerAccordionCardProps {
   caseManager: CaseManager;
@@ -59,7 +60,7 @@ export const CaseManagerAccordionCard = ({
       const students = await getStudentsByCaseManager(caseManager.id);
       setRelatedStudents(students);
     } catch (error) {
-      console.error('Failed to load related students', error);
+      logError('Failed to load related students', error);
     } finally {
       setLoadingStudents(false);
     }
@@ -92,7 +93,7 @@ export const CaseManagerAccordionCard = ({
       try {
         students = await getStudentsByCaseManager(caseManager.id);
       } catch (error) {
-        console.error('Failed to load related students', error);
+        logError('Failed to load related students', error);
       } finally {
         setLoadingStudents(false);
       }

@@ -27,40 +27,13 @@ import {
   deleteCaseManager,
 } from '../utils/storage-api';
 import { generateId } from '../utils/helpers';
-import { useConfirm, useDialog, useSnackbar } from '../hooks';
+import { useConfirm, useDialog, useSnackbar, useFormValidation } from '../hooks';
 import { useDirty } from '../hooks/useDirty';
 import { useSchool } from '../context/SchoolContext';
 import { SearchBar } from '../components/SearchBar';
 import { CaseManagerAccordionCard } from '../components/CaseManagerAccordionCard';
 import { logError, logInfo } from '../utils/logger';
-
-// Format phone number as user types: (XXX) XXX-XXXX
-const formatPhoneNumber = (value: string): string => {
-  // Remove all non-digit characters
-  const digits = value.replace(/\D/g, '');
-  
-  // Limit to 10 digits
-  const limitedDigits = digits.slice(0, 10);
-  
-  // Format based on length
-  if (limitedDigits.length === 0) return '';
-  if (limitedDigits.length <= 3) return `(${limitedDigits}`;
-  if (limitedDigits.length <= 6) return `(${limitedDigits.slice(0, 3)}) ${limitedDigits.slice(3)}`;
-  return `(${limitedDigits.slice(0, 3)}) ${limitedDigits.slice(3, 6)}-${limitedDigits.slice(6)}`;
-};
-
-// Strip formatting to get just digits
-const stripPhoneFormatting = (value: string): string => {
-  return value.replace(/\D/g, '');
-};
-
-// Format phone number for display: (XXX) XXX-XXXX
-const formatPhoneForDisplay = (phoneNumber: string | undefined): string => {
-  if (!phoneNumber) return '';
-  const digits = stripPhoneFormatting(phoneNumber);
-  if (digits.length !== 10) return phoneNumber; // Return as-is if not 10 digits
-  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
-};
+import { formatPhoneNumber, formatPhoneForDisplay } from '../utils/formatters';
 
 export const CaseManagers = () => {
   const { selectedSchool, availableSchools } = useSchool();
@@ -83,6 +56,7 @@ export const CaseManagers = () => {
   const caseManagerDialog = useDialog();
   const { showSnackbar, SnackbarComponent } = useSnackbar();
   const { confirm, ConfirmDialog } = useConfirm();
+  const { hasError, getError, clearError, clearAllErrors, handleApiError } = useFormValidation();
 
   // Check if form is dirty
   const isFormDirty = () => {
@@ -192,6 +166,7 @@ export const CaseManagers = () => {
     }
     setFormData(newFormData);
     setInitialFormData(newFormData);
+    clearAllErrors();
     caseManagerDialog.openDialog();
   };
 
@@ -267,6 +242,10 @@ export const CaseManagers = () => {
       setDialogOpen(false);
       setEditingCaseManager(null);
     } catch (error: unknown) {
+      if (handleApiError(error)) {
+        // Validation errors are now displayed inline
+        return;
+      }
       logError('[CaseManagers] Failed to save case manager', error);
       const errorMessage = getErrorMessage(error);
       alert(`Failed to save case manager: ${errorMessage}\n\nMake sure the API server is running on http://localhost:3001`);
@@ -458,7 +437,12 @@ export const CaseManagers = () => {
               label="Name"
               fullWidth
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, name: e.target.value });
+                clearError('name');
+              }}
+              error={hasError('name')}
+              helperText={getError('name')}
               required
               autoFocus
             />

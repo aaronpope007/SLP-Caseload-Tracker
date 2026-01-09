@@ -27,7 +27,8 @@ import {
   Check as CheckIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
-import { logError } from '../utils/logger';
+import { logError, logDebug } from '../utils/logger';
+import { formatPhoneForDisplay } from '../utils/formatters';
 import { useSchool } from '../context/SchoolContext';
 import type { Teacher, CaseManager } from '../types';
 
@@ -85,31 +86,25 @@ export const ImportTeachersDialog = ({ open, onClose, onImport }: ImportTeachers
   };
 
   const handleParse = async () => {
-    console.log('🔍 handleParse called');
-    console.log('File:', file?.name);
-    console.log('Selected school:', selectedSchoolName);
+    logDebug('handleParse called', { file: file?.name, school: selectedSchoolName });
     
     if (!file) {
-      console.log('❌ No file selected');
       setError('Please select a file');
       return;
     }
 
     if (!selectedSchoolName) {
-      console.log('❌ No school selected');
       setError('Please select a school');
       return;
     }
 
     const apiKey = localStorage.getItem('gemini_api_key');
-    console.log('API key present:', !!apiKey);
     if (!apiKey) {
-      console.log('❌ No API key');
       setError('Please set your Gemini API key in Settings');
       return;
     }
 
-    console.log('✅ All checks passed, starting parse...');
+    logDebug('All checks passed, starting parse...');
     setLoading(true);
     setError('');
 
@@ -123,9 +118,7 @@ export const ImportTeachersDialog = ({ open, onClose, onImport }: ImportTeachers
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       const url = `${API_URL}/document-parser/parse`;
       
-      console.log('Uploading document to:', url);
-      console.log('File:', file.name, file.type, file.size, 'bytes');
-      console.log('About to call fetch...');
+      logDebug('Uploading document', { url, fileName: file.name, fileType: file.type, fileSize: file.size });
       
       // Create an AbortController for timeout
       // Use longer timeout for large files (5 minutes = 300000ms)
@@ -133,13 +126,12 @@ export const ImportTeachersDialog = ({ open, onClose, onImport }: ImportTeachers
       const timeoutDuration = file.size > 1000000 ? 300000 : 120000; // 5 min for large files, 2 min for smaller
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
-        console.log(`⏰ Timeout triggered after ${timeoutDuration / 1000} seconds - aborting request`);
+        logDebug(`Timeout triggered after ${timeoutDuration / 1000} seconds - aborting request`);
         controller.abort();
       }, timeoutDuration);
       
       let response: Response;
       try {
-        console.log('Calling fetch now...');
         response = await fetch(url, {
           method: 'POST',
           body: formData,
@@ -149,27 +141,23 @@ export const ImportTeachersDialog = ({ open, onClose, onImport }: ImportTeachers
         clearTimeout(timeoutId);
       } catch (fetchError) {
         clearTimeout(timeoutId);
-        console.error('❌ Fetch error caught:', fetchError);
-        console.error('Error type:', typeof fetchError);
-        console.error('Error name:', fetchError instanceof Error ? fetchError.name : 'N/A');
-        console.error('Error message:', fetchError instanceof Error ? fetchError.message : String(fetchError));
-        console.error('Error stack:', fetchError instanceof Error ? fetchError.stack : 'N/A');
+        logError('Fetch error caught', fetchError);
         
         if (fetchError instanceof Error) {
           if (fetchError.name === 'AbortError') {
             throw new Error(`Request timed out after ${timeoutDuration / 1000} seconds. Large image-based PDFs can take several minutes to process. The server may still be processing - check the server logs.`);
           }
           if (fetchError.message.includes('Failed to fetch') || fetchError.message.includes('NetworkError')) {
-            console.error('Network error detected - checking server connection...');
+            logError('Network error detected - checking server connection...');
             // Try to ping the health endpoint to see if server is reachable
             try {
               const healthCheck = await fetch(`${API_URL.replace('/api', '')}/health`);
-              console.log('Health check result:', healthCheck.status, healthCheck.statusText);
+              logDebug('Health check result', { status: healthCheck.status });
               if (healthCheck.ok) {
                 throw new Error('Server is running but document parser endpoint is not reachable. Check server logs.');
               }
             } catch (healthError) {
-              console.error('Health check also failed:', healthError);
+              logError('Health check also failed', healthError);
             }
             throw new Error('Cannot connect to server. Make sure the API server is running on http://localhost:3001');
           }
@@ -178,27 +166,25 @@ export const ImportTeachersDialog = ({ open, onClose, onImport }: ImportTeachers
         throw new Error('Network error occurred');
       }
 
-      console.log('Response received!');
-      console.log('Response status:', response.status, response.statusText);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+      logDebug('Response received', { status: response.status });
 
       if (!response.ok) {
         let errorMessage = 'Failed to parse document';
         try {
           const errorData = await response.json();
-          console.error('Error response:', errorData);
+          logError('Error response from document parser', errorData);
           errorMessage = errorData.error || errorMessage;
         } catch (parseError) {
-          console.error('Failed to parse error response:', parseError);
+          logError('Failed to parse error response', parseError);
           const text = await response.text();
-          console.error('Error response text:', text);
+          logError('Error response text', text);
           errorMessage = `Server error: ${response.status} ${response.statusText}`;
         }
         throw new Error(errorMessage);
       }
 
       const data: ParsedDocument = await response.json();
-      console.log('Parsed data received:', data);
+      logDebug('Parsed data received', { peopleCount: data.people?.length });
       
       // Initialize all people as selected
       const allSelected = new Set(data.people.map((_, index) => index));
@@ -206,10 +192,9 @@ export const ImportTeachersDialog = ({ open, onClose, onImport }: ImportTeachers
       setParsedData(data);
       setEditedPeople([...data.people]);
     } catch (err) {
-      console.error('Error in handleParse:', err);
+      logError('Error in handleParse', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to parse document';
       setError(errorMessage);
-      logError('Failed to parse document', err);
     } finally {
       setLoading(false);
     }
@@ -306,15 +291,6 @@ export const ImportTeachersDialog = ({ open, onClose, onImport }: ImportTeachers
       fileInputRef.current.value = '';
     }
     onClose();
-  };
-
-  const formatPhoneNumber = (phone?: string): string => {
-    if (!phone) return '';
-    const digits = phone.replace(/\D/g, '');
-    if (digits.length === 10) {
-      return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
-    }
-    return phone;
   };
 
   return (
@@ -536,7 +512,7 @@ export const ImportTeachersDialog = ({ open, onClose, onImport }: ImportTeachers
                             />
                           </TableCell>
                           <TableCell>{person.email || '-'}</TableCell>
-                          <TableCell>{formatPhoneNumber(person.phoneNumber) || '-'}</TableCell>
+                          <TableCell>{formatPhoneForDisplay(person.phoneNumber) || '-'}</TableCell>
                           <TableCell>{person.grade || person.role || '-'}</TableCell>
                           <TableCell>
                             <IconButton size="small" onClick={() => handleEdit(index)}>

@@ -62,7 +62,22 @@ function ensureSchoolExists(schoolName: string): string {
   return existingSchool.name;
 }
 
-// Get all teachers (optionally filtered by school)
+/**
+ * @openapi
+ * /api/teachers:
+ *   get:
+ *     tags: [Teachers]
+ *     summary: Get all teachers
+ *     parameters:
+ *       - in: query
+ *         name: schoolId
+ *         schema:
+ *           type: string
+ *         description: Filter by school ID
+ *     responses:
+ *       200:
+ *         description: List of teachers
+ */
 teachersRouter.get('/', asyncHandler(async (req, res) => {
   const { school } = req.query;
   
@@ -103,7 +118,24 @@ teachersRouter.get('/:id', asyncHandler(async (req, res) => {
   res.json(teacher);
 }));
 
-// Create teacher - with validation
+/**
+ * @openapi
+ * /api/teachers:
+ *   post:
+ *     tags: [Teachers]
+ *     summary: Create a new teacher
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Teacher'
+ *     responses:
+ *       201:
+ *         description: Teacher created
+ *       400:
+ *         description: Validation error
+ */
 teachersRouter.post('/', validateBody(createTeacherSchema), asyncHandler(async (req, res) => {
   const teacher = req.body;
   

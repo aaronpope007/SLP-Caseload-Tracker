@@ -24,7 +24,27 @@ interface GoalRow {
 
 export const goalsRouter = Router();
 
-// Get all goals (optionally filtered by studentId or school)
+/**
+ * @openapi
+ * /api/goals:
+ *   get:
+ *     tags: [Goals]
+ *     summary: Get all goals
+ *     parameters:
+ *       - in: query
+ *         name: studentId
+ *         schema:
+ *           type: string
+ *         description: Filter by student ID
+ *       - in: query
+ *         name: school
+ *         schema:
+ *           type: string
+ *         description: Filter by school name
+ *     responses:
+ *       200:
+ *         description: List of goals
+ */
 goalsRouter.get('/', asyncHandler(async (req, res) => {
   const { studentId, school } = req.query;
   
@@ -55,7 +75,24 @@ goalsRouter.get('/', asyncHandler(async (req, res) => {
   res.json(parsed);
 }));
 
-// Get goal by ID
+/**
+ * @openapi
+ * /api/goals/{id}:
+ *   get:
+ *     tags: [Goals]
+ *     summary: Get goal by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Goal details
+ *       404:
+ *         description: Goal not found
+ */
 goalsRouter.get('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
   
@@ -75,7 +112,24 @@ goalsRouter.get('/:id', asyncHandler(async (req, res) => {
   });
 }));
 
-// Create goal - with validation
+/**
+ * @openapi
+ * /api/goals:
+ *   post:
+ *     tags: [Goals]
+ *     summary: Create a new goal
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Goal'
+ *     responses:
+ *       201:
+ *         description: Goal created
+ *       400:
+ *         description: Validation error
+ */
 goalsRouter.post('/', validateBody(createGoalSchema), asyncHandler(async (req, res) => {
   const goal = req.body;
   

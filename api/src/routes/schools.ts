@@ -17,7 +17,22 @@ interface SchoolRow {
 
 export const schoolsRouter = Router();
 
-// Get all schools
+/**
+ * @openapi
+ * /api/schools:
+ *   get:
+ *     tags: [Schools]
+ *     summary: Get all schools
+ *     responses:
+ *       200:
+ *         description: List of schools
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/School'
+ */
 schoolsRouter.get('/', asyncHandler(async (req, res) => {
   const schools = db.prepare('SELECT * FROM schools ORDER BY name').all() as SchoolRow[];
   
@@ -93,7 +108,24 @@ schoolsRouter.get('/name/:name', asyncHandler(async (req, res) => {
   });
 }));
 
-// Create school - with validation
+/**
+ * @openapi
+ * /api/schools:
+ *   post:
+ *     tags: [Schools]
+ *     summary: Create a new school
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/School'
+ *     responses:
+ *       201:
+ *         description: School created
+ *       400:
+ *         description: Validation error
+ */
 schoolsRouter.post('/', validateBody(createSchoolSchema), asyncHandler(async (req, res) => {
   const school = req.body;
   const schoolName = school.name.trim();

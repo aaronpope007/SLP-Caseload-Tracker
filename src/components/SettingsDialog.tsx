@@ -19,6 +19,7 @@ import { BackupManager } from './BackupManager';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
+import { logError } from '../utils/logger';
 
 interface SettingsDialogProps {
   open: boolean;
@@ -99,7 +100,7 @@ Join instructions
       const result = await api.seedTestData.exists();
       setTestDataExists(result.exists);
     } catch (error) {
-      console.error('Error checking test data:', error);
+      logError('Error checking test data', error);
     }
   };
 

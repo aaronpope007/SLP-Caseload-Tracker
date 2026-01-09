@@ -7,6 +7,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { api, setAuthToken } from '../utils/api';
+import { logError } from '../utils/logger';
 
 interface AuthStatus {
   enabled: boolean;
@@ -67,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsAuthenticated(false);
       }
     } catch (error) {
-      console.error('Failed to check auth status:', error);
+      logError('Failed to check auth status', error);
       // If we can't check status, assume not authenticated
       setIsAuthenticated(false);
     } finally {

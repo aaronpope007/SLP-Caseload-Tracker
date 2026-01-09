@@ -24,6 +24,7 @@ import {
 } from '@mui/icons-material';
 import type { Teacher, Student } from '../types';
 import { getStudentsByTeacher } from '../utils/storage-api';
+import { logError } from '../utils/logger';
 
 interface TeacherAccordionCardProps {
   teacher: Teacher;
@@ -58,7 +59,7 @@ export const TeacherAccordionCard = ({
       const students = await getStudentsByTeacher(teacher.id);
       setRelatedStudents(students);
     } catch (error) {
-      console.error('Failed to load related students', error);
+      logError('Failed to load related students', error);
     } finally {
       setLoadingStudents(false);
     }
@@ -91,7 +92,7 @@ export const TeacherAccordionCard = ({
       try {
         students = await getStudentsByTeacher(teacher.id);
       } catch (error) {
-        console.error('Failed to load related students', error);
+        logError('Failed to load related students', error);
       } finally {
         setLoadingStudents(false);
       }
