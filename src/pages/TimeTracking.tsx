@@ -16,7 +16,7 @@ import { api } from '../utils/api';
 import { formatDate, generateId } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
 import { getSchoolByName } from '../utils/storage-api';
-import { SessionTimeItem } from '../components/SessionTimeItem';
+import { SessionTimeItem } from '../components/session/SessionTimeItem';
 import { EvaluationTimeItem } from '../components/EvaluationTimeItem';
 import { TimesheetNoteDialog } from '../components/TimesheetNoteDialog';
 import { SavedNotesDialog } from '../components/SavedNotesDialog';

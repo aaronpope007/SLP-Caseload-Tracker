@@ -35,7 +35,7 @@ import { generateId } from '../utils/helpers';
 import { useConfirm, useDialog, useSnackbar, useFormValidation } from '../hooks';
 import { useDirty } from '../hooks/useDirty';
 import { useSchool } from '../context/SchoolContext';
-import { SearchBar } from '../components/SearchBar';
+import { SearchBar } from '../components/common/SearchBar';
 import { TeacherAccordionCard } from '../components/TeacherAccordionCard';
 import { formatPhoneNumber, formatPhoneForDisplay } from '../utils/formatters';
 

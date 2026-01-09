@@ -36,16 +36,16 @@ import {
   generateIEPGoals,
   type GoalProgressData,
 } from '../utils/gemini';
-import { GoalFormDialog } from '../components/GoalFormDialog';
-import { GoalSuggestionsDialog } from '../components/GoalSuggestionsDialog';
+import { GoalFormDialog } from '../components/goal/GoalFormDialog';
+import { GoalSuggestionsDialog } from '../components/goal/GoalSuggestionsDialog';
 import { TreatmentRecommendationsDialog } from '../components/TreatmentRecommendationsDialog';
-import { IEPGoalsDialog } from '../components/IEPGoalsDialog';
-import { GoalTemplateDialog } from '../components/GoalTemplateDialog';
-import { StudentInfoCard } from '../components/StudentInfoCard';
-import { GoalActionsBar } from '../components/GoalActionsBar';
-import { GoalsList } from '../components/GoalsList';
-import { CopySubtreeDialog } from '../components/CopySubtreeDialog';
-import { QuickGoalsDialog } from '../components/QuickGoalsDialog';
+import { IEPGoalsDialog } from '../components/goal/IEPGoalsDialog';
+import { GoalTemplateDialog } from '../components/goal/GoalTemplateDialog';
+import { StudentInfoCard } from '../components/student/StudentInfoCard';
+import { GoalActionsBar } from '../components/goal/GoalActionsBar';
+import { GoalsList } from '../components/goal/GoalsList';
+import { CopySubtreeDialog } from '../components/goal/CopySubtreeDialog';
+import { QuickGoalsDialog } from '../components/goal/QuickGoalsDialog';
 import { logError } from '../utils/logger';
 
 export const StudentDetail = () => {

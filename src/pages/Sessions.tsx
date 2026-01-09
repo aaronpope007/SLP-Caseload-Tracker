@@ -20,11 +20,11 @@ import {
 import { useSchool } from '../context/SchoolContext';
 import { useConfirm, useSnackbar, useDialog, useSessionManagement, useSessionForm, useSessionFormHandlers, useSessionSave, useSessionDialogHandlers, useSessionDelete, useSOAPNoteGeneration, useSOAPNoteSave, useSOAPNoteManagement, useSessionPlanning, useSessionDataLoader, usePerformanceHelpers, useLookupHelpers, useSessionPlanGeneration } from '../hooks';
 import { useSessionDialog } from '../context/SessionDialogContext';
-import { SessionsList } from '../components/SessionsList';
-import { SessionPlanDialog } from '../components/SessionPlanDialog';
+import { SessionsList } from '../components/session/SessionsList';
+import { SessionPlanDialog } from '../components/session/SessionPlanDialog';
 import { LogActivityMenu } from '../components/LogActivityMenu';
-import { SessionFormDialog } from '../components/SessionFormDialog';
-import type { SessionFormData } from '../components/SessionFormDialog';
+import { SessionFormDialog } from '../components/session/SessionFormDialog';
+import type { SessionFormData } from '../components/session/SessionFormDialog';
 import { SOAPNoteDialog } from '../components/SOAPNoteDialog';
 import type { SOAPNote } from '../types';
 import { logError } from '../utils/logger';

@@ -75,8 +75,8 @@ import {
 } from '../utils/storage-api';
 import { generateId, toLocalDateTimeString, fromLocalDateTimeString } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
-import { SessionFormDialog } from '../components/SessionFormDialog';
-import { StudentSelector } from '../components/StudentSelector';
+import { SessionFormDialog } from '../components/session/SessionFormDialog';
+import { StudentSelector } from '../components/student/StudentSelector';
 import { CancellationEmailDialog } from '../components/CancellationEmailDialog';
 import { useConfirm } from '../hooks/useConfirm';
 

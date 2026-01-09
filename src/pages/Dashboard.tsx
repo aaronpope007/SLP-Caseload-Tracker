@@ -27,7 +27,7 @@ import {
   getUpcomingDueDateItems,
 } from '../utils/storage-api';
 import { RemindersCard } from '../components/RemindersCard';
-import { DashboardStatsSkeleton, ListSkeleton } from '../components/LoadingSkeletons';
+import { DashboardStatsSkeleton, ListSkeleton } from '../components/common/LoadingSkeletons';
 import { formatDate } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
 import { useAsyncOperation } from '../hooks';

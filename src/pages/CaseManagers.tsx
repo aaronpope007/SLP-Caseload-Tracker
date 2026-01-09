@@ -30,7 +30,7 @@ import { generateId } from '../utils/helpers';
 import { useConfirm, useDialog, useSnackbar, useFormValidation } from '../hooks';
 import { useDirty } from '../hooks/useDirty';
 import { useSchool } from '../context/SchoolContext';
-import { SearchBar } from '../components/SearchBar';
+import { SearchBar } from '../components/common/SearchBar';
 import { CaseManagerAccordionCard } from '../components/CaseManagerAccordionCard';
 import { logError, logInfo } from '../utils/logger';
 import { formatPhoneNumber, formatPhoneForDisplay } from '../utils/formatters';

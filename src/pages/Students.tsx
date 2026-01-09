@@ -37,8 +37,8 @@ import { useSchool } from '../context/SchoolContext';
 import { useConfirm, useDialog, useSnackbar, useFormValidation } from '../hooks';
 import { useDirty } from '../hooks/useDirty';
 import { ApiError } from '../utils/api';
-import { SearchBar } from '../components/SearchBar';
-import { StudentAccordionCard } from '../components/StudentAccordionCard';
+import { SearchBar } from '../components/common/SearchBar';
+import { StudentAccordionCard } from '../components/student/StudentAccordionCard';
 import { logError, logWarn } from '../utils/logger';
 import { getErrorMessage } from '../utils/validators';
 

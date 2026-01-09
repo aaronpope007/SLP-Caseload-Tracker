@@ -1,0 +1,19 @@
+// Goal-related components
+export { ActiveGoalsTrackingPanel } from './ActiveGoalsTrackingPanel';
+export { CopySubtreeDialog } from './CopySubtreeDialog';
+export { GoalActionButtons } from './GoalActionButtons';
+export { GoalActionsBar } from './GoalActionsBar';
+export { GoalCard } from './GoalCard';
+export { GoalDateInfo } from './GoalDateInfo';
+export { GoalFormDialog } from './GoalFormDialog';
+export { GoalHierarchy } from './GoalHierarchy';
+export { GoalMatrixView } from './GoalMatrixView';
+export { GoalProgressChip } from './GoalProgressChip';
+export { GoalSearchBar } from './GoalSearchBar';
+export { GoalsList } from './GoalsList';
+export { GoalSuggestionsDialog } from './GoalSuggestionsDialog';
+export { GoalTemplateDialog } from './GoalTemplateDialog';
+export { IEPGoalsDialog } from './IEPGoalsDialog';
+export { QuickAccessGoalsBar } from './QuickAccessGoalsBar';
+export { QuickGoalsDialog } from './QuickGoalsDialog';
+export { SubGoalList } from './SubGoalList';
