@@ -115,7 +115,7 @@ export const Progress = () => {
     const timelineData = sessions.map((session) => ({
       date: formatDate(session.date),
       sessionCount: 1,
-      goalsTargeted: session.goalsTargeted.length,
+      goalsTargeted: (session.goalsTargeted || []).length,
     }));
 
     // Aggregate by date
@@ -135,7 +135,7 @@ export const Progress = () => {
     // Prepare goal progress data with detailed performance history
     const goalData = goals.map((goal) => {
       const goalSessions = sessions
-        .filter((s) => s.goalsTargeted.includes(goal.id))
+        .filter((s) => (s.goalsTargeted || []).includes(goal.id))
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Sort by date, most recent first
       
       // Get performance history for all sessions
@@ -218,7 +218,7 @@ export const Progress = () => {
 
       // Calculate fresh goal progress data
       const goalSessions = sessions
-        .filter((s) => s.goalsTargeted.includes(targetGoal.id))
+        .filter((s) => (s.goalsTargeted || []).includes(targetGoal.id))
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       
       const performanceHistory = goalSessions.map((s) => {
@@ -305,7 +305,7 @@ export const Progress = () => {
       // Calculate fresh goal progress data for all goals
       const allGoalData = goals.map((goal) => {
         const goalSessions = sessions
-          .filter((s) => s.goalsTargeted.includes(goal.id))
+          .filter((s) => (s.goalsTargeted || []).includes(goal.id))
           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         
         const performanceHistory = goalSessions.map((s) => {

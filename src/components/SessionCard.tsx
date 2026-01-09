@@ -81,13 +81,13 @@ export const SessionCard = ({
         </Box>
         {session.isDirectServices === true ? (
           <>
-            {session.goalsTargeted.length > 0 && (
+            {(session.goalsTargeted || []).length > 0 && (
               <Box sx={{ mb: 1 }}>
                 <Typography variant="subtitle2" gutterBottom>
                   Goals Targeted:
                 </Typography>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                  {session.goalsTargeted.map((goalId) => {
+                  {(session.goalsTargeted || []).map((goalId) => {
                     const perfData = session.performanceData.find(p => p.goalId === goalId);
                     const cuingLevels = perfData?.cuingLevels || [];
                     const cuingLevelLabels: Record<string, string> = {

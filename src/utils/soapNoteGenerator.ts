@@ -63,8 +63,9 @@ export const generateSOAPNote = (
   }
   
   // Goals targeted
-  if (session.goalsTargeted.length > 0) {
-    const goalDescriptions = session.goalsTargeted
+  const goalsTargeted = session.goalsTargeted || [];
+  if (goalsTargeted.length > 0) {
+    const goalDescriptions = goalsTargeted
       .map(goalId => {
         const goal = goals.find(g => g.id === goalId);
         return goal ? goal.description : null;
@@ -147,8 +148,8 @@ export const generateSOAPNote = (
         assessmentParts.push(`${goal.description}: Progress observed during session.`);
       }
     });
-  } else if (session.goalsTargeted.length > 0) {
-    const goalDescriptions = session.goalsTargeted
+  } else if (goalsTargeted.length > 0) {
+    const goalDescriptions = goalsTargeted
       .map(goalId => {
         const goal = goals.find(g => g.id === goalId);
         return goal ? goal.description : null;
@@ -173,7 +174,7 @@ export const generateSOAPNote = (
   } else {
     const planParts: string[] = [];
     
-    if (session.goalsTargeted.length > 0) {
+    if (goalsTargeted.length > 0) {
       planParts.push('Continue targeting current goals in next session.');
       
       // Add specific recommendations based on performance
@@ -317,9 +318,10 @@ export const generateGroupSOAPNote = (
         // Each student starts on a new line
         performanceParts.push(`\n${studentName}:\n${studentPerfParts.join('. ')}`);
       }
-    } else if (session.goalsTargeted.length > 0) {
+    } else if ((session.goalsTargeted || []).length > 0) {
       // If no performance data but goals were targeted, still include the student
-      const goalDescriptions = session.goalsTargeted
+      const sessionGoals = session.goalsTargeted || [];
+      const goalDescriptions = sessionGoals
         .map(goalId => {
           const goal = goals.find(g => g.id === goalId);
           return goal ? goal.description : null;
@@ -362,8 +364,9 @@ export const generateGroupSOAPNote = (
           assessmentParts.push(`${studentName} - ${goal.description}: progress observed during session.`);
         }
       });
-    } else if (session.goalsTargeted.length > 0) {
-      const goalDescriptions = session.goalsTargeted
+    } else if ((session.goalsTargeted || []).length > 0) {
+      const sessionGoals = session.goalsTargeted || [];
+      const goalDescriptions = sessionGoals
         .map(goalId => {
           const goal = goals.find(g => g.id === goalId);
           return goal ? goal.description : null;

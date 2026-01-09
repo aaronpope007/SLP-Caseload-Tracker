@@ -972,7 +972,7 @@ export const SessionCalendar = () => {
 
   const getRecentPerformance = (goalId: string, studentId: string) => {
     const goalSessions = sessions
-      .filter(s => s.studentId === studentId && s.goalsTargeted.includes(goalId))
+      .filter(s => s.studentId === studentId && (s.goalsTargeted || []).includes(goalId))
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 3);
     
@@ -1026,7 +1026,7 @@ export const SessionCalendar = () => {
         const endDate = session.endTime ? new Date(session.endTime) : null;
         
         // Filter out achieved goals when editing
-        const activeGoalsTargeted = session.goalsTargeted.filter(gId => {
+        const activeGoalsTargeted = (session.goalsTargeted || []).filter(gId => {
           const goal = goals.find(g => g.id === gId);
           return goal && !isGoalAchieved(goal);
         });
@@ -1077,7 +1077,7 @@ export const SessionCalendar = () => {
         const allPerformanceData: typeof sessionFormData.performanceData = [];
         
         matchedSessions.forEach(session => {
-          session.goalsTargeted.forEach(gId => {
+          (session.goalsTargeted || []).forEach(gId => {
             const goal = goals.find(g => g.id === gId);
             if (goal && !isGoalAchieved(goal)) {
               allGoalsTargeted.add(gId);
@@ -1152,7 +1152,7 @@ export const SessionCalendar = () => {
       }
 
       // Filter goals to only active ones for the selected students
-      const activeGoals = scheduled.goalsTargeted.filter(gId => {
+      const activeGoals = (scheduled.goalsTargeted || []).filter(gId => {
         const goal = goals.find(g => g.id === gId);
         return goal && !isGoalAchieved(goal) && scheduled.studentIds.includes(goal.studentId);
       });

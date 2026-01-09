@@ -35,7 +35,7 @@ export const useTreatmentRecommendations = ({
       // Convert goals to GoalProgressData format
       const studentSessions = studentId ? await getSessionsByStudent(studentId, selectedSchool) : [];
       const goalProgressData: GoalProgressData[] = goals.map(goal => {
-        const goalSessions = studentSessions.filter(s => s.goalsTargeted.includes(goal.id));
+        const goalSessions = studentSessions.filter(s => (s.goalsTargeted || []).includes(goal.id));
         const latestPerf = goalSessions
           .flatMap(s => s.performanceData.filter(p => p.goalId === goal.id))
           .filter(p => p.accuracy !== undefined)

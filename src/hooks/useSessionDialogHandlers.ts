@@ -50,7 +50,7 @@ export const useSessionDialogHandlers = ({
           // Collect all goals targeted across all sessions (filter out achieved goals)
           const allGoalsTargeted = new Set<string>();
           groupSessions.forEach(s => {
-            s.goalsTargeted.forEach(gId => {
+            (s.goalsTargeted || []).forEach(gId => {
               const goal = goals.find(g => g.id === gId);
               if (goal && !isGoalAchieved(goal)) {
                 allGoalsTargeted.add(gId);
@@ -101,7 +101,7 @@ export const useSessionDialogHandlers = ({
       } else if (session) {
         // Editing a single session
         // Filter out achieved goals when editing
-        const activeGoalsTargeted = session.goalsTargeted.filter(gId => {
+        const activeGoalsTargeted = (session.goalsTargeted || []).filter(gId => {
           const goal = goals.find(g => g.id === gId);
           return goal && !isGoalAchieved(goal);
         });

@@ -168,7 +168,7 @@ export const ProgressReportEditorDialog = ({
     if (section.includeGoals && studentGoals.length > 0) {
       content += '**Goals Progress:**\n\n';
       studentGoals.forEach((goal, index) => {
-        const goalSessions = periodSessions.filter(s => s.goalsTargeted.includes(goal.id));
+        const goalSessions = periodSessions.filter(s => (s.goalsTargeted || []).includes(goal.id));
         const performanceData = goalSessions.flatMap(s => 
           s.performanceData.filter(p => p.goalId === goal.id)
         );
