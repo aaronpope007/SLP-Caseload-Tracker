@@ -27,6 +27,7 @@ import {
   getUpcomingDueDateItems,
 } from '../utils/storage-api';
 import { RemindersCard } from '../components/RemindersCard';
+import { DashboardStatsSkeleton, ListSkeleton } from '../components/LoadingSkeletons';
 import { formatDate } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
 import { useAsyncOperation } from '../hooks';
@@ -149,6 +150,11 @@ export const Dashboard = () => {
         </Button>
       </Box>
 
+      {loading ? (
+        <Box sx={{ mb: 3 }}>
+          <DashboardStatsSkeleton />
+        </Box>
+      ) : (
       <Grid container spacing={3} sx={{ mb: 3 }}>
         {statCards.map((card) => (
           <Grid item xs={12} sm={6} md={4} key={card.title}>
@@ -174,6 +180,7 @@ export const Dashboard = () => {
           </Grid>
         ))}
       </Grid>
+      )}
 
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>

@@ -27,6 +27,7 @@ import { authRouter } from './routes/auth';
 import { errorHandler } from './middleware/errorHandler';
 import { authMiddleware } from './middleware/auth';
 import { isAuthEnabled, isAuthSetup } from './utils/auth';
+import { validateAndLogEnv } from './utils/validateEnv';
 import { getCorsOptions, logCorsConfig } from './config/cors';
 import { apiLimiter, strictLimiter, logRateLimitConfig } from './middleware/rateLimit';
 import { requestLogger } from './middleware/requestLogger';
@@ -90,6 +91,10 @@ app.use(errorHandler);
 const server = app.listen(PORT, () => {
   logger.info({ port: PORT, url: `http://localhost:${PORT}` }, '🚀 Server started');
   logger.info({ path: './data/slp-caseload.db' }, '📊 Database connected');
+  
+  // Validate and log environment configuration
+  validateAndLogEnv();
+  
   logCorsConfig();
   logRateLimitConfig();
   

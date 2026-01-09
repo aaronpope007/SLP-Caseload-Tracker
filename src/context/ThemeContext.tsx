@@ -57,6 +57,60 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
               },
             },
           },
+          // Mobile-responsive dialog defaults
+          MuiDialog: {
+            styleOverrides: {
+              paper: {
+                '@media (max-width: 600px)': {
+                  margin: 16,
+                  width: 'calc(100% - 32px)',
+                  maxHeight: 'calc(100% - 32px)',
+                },
+              },
+            },
+          },
+          // Better touch targets on mobile
+          MuiIconButton: {
+            styleOverrides: {
+              root: {
+                '@media (max-width: 600px)': {
+                  padding: 12,
+                },
+              },
+            },
+          },
+          // Larger touch targets for list items
+          MuiListItemButton: {
+            styleOverrides: {
+              root: {
+                '@media (max-width: 600px)': {
+                  minHeight: 56,
+                },
+              },
+            },
+          },
+          // Better button sizing on mobile
+          MuiButton: {
+            styleOverrides: {
+              root: {
+                '@media (max-width: 600px)': {
+                  minHeight: 44, // Apple's recommended minimum touch target
+                },
+              },
+            },
+          },
+          // Responsive text fields
+          MuiTextField: {
+            styleOverrides: {
+              root: {
+                '@media (max-width: 600px)': {
+                  '& .MuiInputBase-root': {
+                    minHeight: 48,
+                  },
+                },
+              },
+            },
+          },
         },
       }),
     [mode]
