@@ -64,8 +64,11 @@ export const EmailTeacherDialog = ({
   // Check if this is a missed session
   const isMissedSession = sessionDate || sessionStartTime;
   
-  // State for CC checkbox (default to true if Noble Academy and missed session)
-  const [ccSusan, setCcSusan] = useState(true);
+  // State for CC checkboxes based on grade levels (default to true if Noble Academy and missed session)
+  const [ccCaseManager, setCcCaseManager] = useState(true); // For case manager
+  const [ccSusan, setCcSusan] = useState(true); // For 5th and 6th graders (or if Susan is case manager)
+  const [ccKeng, setCcKeng] = useState(true); // For K-4
+  const [ccEranel, setCcEranel] = useState(true); // For 7th-8th
 
   interface TeacherEmailData {
     teacher: Teacher | CaseManager; // Can be either teacher or case manager
@@ -83,6 +86,43 @@ export const EmailTeacherDialog = ({
   const [sendSuccess, setSendSuccess] = useState<string[]>([]); // Track which teachers received emails
   const [selectedTeacherIndex, setSelectedTeacherIndex] = useState<number | null>(null);
 
+  // Helper function to determine which grade-based CC options should be shown
+  const getRelevantCcOptions = (students: Student[]): {
+    showSusan: boolean; // 5th and 6th graders
+    showKeng: boolean; // K-4
+    showEranel: boolean; // 7th-8th
+  } => {
+    const grades = students.map(s => s.grade?.toLowerCase().trim() || '').filter(g => g);
+    
+    const hasK4 = grades.some(g => {
+      // Handle "k", "kindergarten", or numeric grades 0-4
+      if (g === 'k' || g === 'kindergarten' || g.startsWith('k ')) {
+        return true;
+      }
+      // Extract number from strings like "5th", "6th", "1st", etc.
+      const gradeNum = parseInt(g.replace(/[^0-9]/g, ''));
+      return !isNaN(gradeNum) && gradeNum >= 0 && gradeNum <= 4;
+    });
+    
+    const has56 = grades.some(g => {
+      // Extract number from strings like "5th", "6th", etc.
+      const gradeNum = parseInt(g.replace(/[^0-9]/g, ''));
+      return !isNaN(gradeNum) && (gradeNum === 5 || gradeNum === 6);
+    });
+    
+    const has78 = grades.some(g => {
+      // Extract number from strings like "7th", "8th", etc.
+      const gradeNum = parseInt(g.replace(/[^0-9]/g, ''));
+      return !isNaN(gradeNum) && (gradeNum === 7 || gradeNum === 8);
+    });
+    
+    return {
+      showSusan: has56,
+      showKeng: hasK4,
+      showEranel: has78,
+    };
+  };
+
   useEffect(() => {
     if (open && studentsToUse.length > 0) {
       // Reset states when dialog opens
@@ -91,8 +131,12 @@ export const EmailTeacherDialog = ({
       setSendError(null);
       setSendSuccess([]);
       setSelectedTeacherIndex(null);
-      // Reset CC checkbox to true if Noble Academy and missed session
-      setCcSusan(isNobleAcademy && isMissedSession);
+      // Reset CC checkboxes to true if Noble Academy and missed session
+      const shouldShowCc = isNobleAcademy && isMissedSession;
+      setCcCaseManager(shouldShowCc);
+      setCcSusan(shouldShowCc);
+      setCcKeng(shouldShowCc);
+      setCcEranel(shouldShowCc);
       
       loadTeachersAndGenerateEmails().catch((error) => {
         logError('Failed to load teachers and generate emails', error);
@@ -102,7 +146,10 @@ export const EmailTeacherDialog = ({
       setTeacherEmails([]);
       setAvailableTimes([]);
       setSelectedTeacherIndex(null);
+      setCcCaseManager(true);
       setCcSusan(true);
+      setCcKeng(true);
+      setCcEranel(true);
     }
   }, [open, student, studentsProp, studentIds, sessionDate, sessionStartTime, sessionEndTime, isNobleAcademy, isMissedSession]);
 
@@ -871,6 +918,53 @@ export const EmailTeacherDialog = ({
         finalEmailBody += signature;
       }
       
+      // Build CC array based on case manager and grade levels
+      const ccAddresses: string[] = [];
+      if (isMissedSession && isNobleAcademy) {
+        // Get case managers for associated students
+        const studentCaseManagerIds = associatedStudents
+          .map(s => s.caseManagerId)
+          .filter((id): id is string => !!id);
+        const uniqueCaseManagerIds = [...new Set(studentCaseManagerIds)];
+        const studentCaseManagers = uniqueCaseManagerIds
+          .map(id => caseManagers.find(cm => cm.id === id))
+          .filter((cm): cm is CaseManager => !!cm);
+        
+        // Check if any case manager is Susan Welle
+        const isCaseManagerSusan = studentCaseManagers.some(
+          cm => (cm.name.toLowerCase().includes('susan') && cm.name.toLowerCase().includes('welle')) ||
+                cm.emailAddress?.toLowerCase().includes('swelle')
+        );
+        
+        // Add case manager to CC if checkbox is checked
+        if (ccCaseManager && studentCaseManagers.length > 0) {
+          for (const cm of studentCaseManagers) {
+            if (cm.emailAddress) {
+              ccAddresses.push(cm.emailAddress);
+            }
+          }
+        }
+        
+        const relevantCcOptions = getRelevantCcOptions(associatedStudents);
+        // Always add Susan Welle if checkbox is checked and she's not the case manager
+        if (!isCaseManagerSusan && ccSusan) {
+          ccAddresses.push('swelle@nobleacademy.us');
+        }
+        
+        // Add Keng if checkbox is checked
+        if (relevantCcOptions.showKeng && ccKeng) {
+          ccAddresses.push('keng@nobleacademy.us');
+        }
+        
+        // Add Eranel if checkbox is checked
+        if (relevantCcOptions.showEranel && ccEranel) {
+          ccAddresses.push('apolonio@nobleacademy.us');
+        }
+      }
+      
+      // Remove duplicates from CC addresses
+      const uniqueCcAddresses = [...new Set(ccAddresses)];
+
       await api.email.send({
         to: emailData.teacher.emailAddress,
         subject: emailSubject,
@@ -882,11 +976,8 @@ export const EmailTeacherDialog = ({
         smtpUser: emailAddress,
         smtpPassword: emailPassword,
         // Add CC and BCC for missed appointment emails
-        // CC Susan only if checkbox is checked and it's Noble Academy
         ...(isMissedSession && {
-          ...(ccSusan && isNobleAcademy && {
-            cc: 'swelle@nobleacademy.us',
-          }),
+          ...(uniqueCcAddresses.length > 0 && { cc: uniqueCcAddresses }),
           bcc: 'aaronpope007@gmail.com',
         }),
       });
@@ -1075,19 +1166,83 @@ export const EmailTeacherDialog = ({
                   </Alert>
                 )}
 
-                {isMissedSession && isNobleAcademy && (
-                  <Box sx={{ mb: 2 }}>
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={ccSusan}
-                          onChange={(e) => setCcSusan(e.target.checked)}
+                {isMissedSession && isNobleAcademy && (() => {
+                  // Find case manager for associated students
+                  const studentCaseManagerIds = associatedStudentsForCurrent
+                    .map(s => s.caseManagerId)
+                    .filter((id): id is string => !!id);
+                  const uniqueCaseManagerIds = [...new Set(studentCaseManagerIds)];
+                  const studentCaseManagers = uniqueCaseManagerIds
+                    .map(id => caseManagers.find(cm => cm.id === id))
+                    .filter((cm): cm is CaseManager => !!cm);
+                  
+                  // Check if any case manager is Susan Welle
+                  const isCaseManagerSusan = studentCaseManagers.some(
+                    cm => (cm.name.toLowerCase().includes('susan') && cm.name.toLowerCase().includes('welle')) ||
+                          cm.emailAddress?.toLowerCase().includes('swelle')
+                  );
+                  
+                  const relevantCcOptions = getRelevantCcOptions(associatedStudentsForCurrent);
+                  const hasCaseManager = studentCaseManagers.length > 0;
+                  // Always show Susan checkbox if she's not the case manager (regardless of grade)
+                  const showSusanCheckbox = !isCaseManagerSusan;
+                  
+                  if (!hasCaseManager && !showSusanCheckbox && !relevantCcOptions.showKeng && !relevantCcOptions.showEranel) {
+                    return null;
+                  }
+                  
+                  return (
+                    <Box sx={{ mb: 2 }}>
+                      {hasCaseManager && (
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={ccCaseManager}
+                              onChange={(e) => setCcCaseManager(e.target.checked)}
+                            />
+                          }
+                          label={`CC ${studentCaseManagers.map(cm => cm.name).join(', ')}${studentCaseManagers[0]?.emailAddress ? ` (${studentCaseManagers[0].emailAddress})` : ''}`}
                         />
-                      }
-                      label="CC Susan Welle (swelle@nobleacademy.us)"
-                    />
-                  </Box>
-                )}
+                      )}
+                      {relevantCcOptions.showKeng && (
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={ccKeng}
+                              onChange={(e) => setCcKeng(e.target.checked)}
+                            />
+                          }
+                          label="CC Keng (keng@nobleacademy.us) - K-4"
+                          sx={{ display: 'block', mt: hasCaseManager ? 1 : 0 }}
+                        />
+                      )}
+                      {showSusanCheckbox && (
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={ccSusan}
+                              onChange={(e) => setCcSusan(e.target.checked)}
+                            />
+                          }
+                          label="CC Susan Welle (swelle@nobleacademy.us)"
+                          sx={{ display: 'block', mt: (hasCaseManager || relevantCcOptions.showKeng) ? 1 : 0 }}
+                        />
+                      )}
+                      {relevantCcOptions.showEranel && (
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={ccEranel}
+                              onChange={(e) => setCcEranel(e.target.checked)}
+                            />
+                          }
+                          label="CC Eranel Polonio (apolonio@nobleacademy.us) - 7th & 8th Grade"
+                          sx={{ display: 'block', mt: (hasCaseManager || relevantCcOptions.showKeng || showSusanCheckbox) ? 1 : 0 }}
+                        />
+                      )}
+                    </Box>
+                  );
+                })()}
 
                 <TextField
                   fullWidth

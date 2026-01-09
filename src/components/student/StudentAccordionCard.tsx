@@ -202,7 +202,7 @@ export const StudentAccordionCard = ({
               Age: {student.age > 0 ? student.age : 'n/a'}
               {student.grade ? ' | ' : ''}
               {student.grade ? `Grade: ${student.grade}` : ''}
-              {teacher ? ` | ${teacher.name}` : ''}
+              {teacher ? ` | Teacher: ${teacher.name}` : ''}
               {caseManager ? ` | CM: ${caseManager.name} (${caseManager.role})` : ''}
             </Typography>
             <Box sx={{ mt: 1, mb: 1, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>

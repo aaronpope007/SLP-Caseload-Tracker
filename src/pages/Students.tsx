@@ -21,6 +21,7 @@ import {
   Archive as ArchiveIcon,
   UnfoldMore as UnfoldMoreIcon,
   UnfoldLess as UnfoldLessIcon,
+  Group as GroupIcon,
 } from '@mui/icons-material';
 import type { Student, Teacher, CaseManager } from '../types';
 import {
@@ -459,6 +460,145 @@ export const Students = () => {
     }
   };
 
+  // Helper function to determine which case manager to assign based on grade
+  const getCaseManagerForGrade = (grade: string): 'susan' | 'keng' | 'eranel' | null => {
+    const gradeLower = grade?.toLowerCase().trim() || '';
+    if (!gradeLower) return null;
+
+    // Handle "k", "kindergarten", or numeric grades 0-4
+    if (gradeLower === 'k' || gradeLower === 'kindergarten' || gradeLower.startsWith('k ')) {
+      return 'keng';
+    }
+    const gradeNum = parseInt(gradeLower.replace(/[^0-9]/g, ''));
+    if (!isNaN(gradeNum)) {
+      if (gradeNum >= 0 && gradeNum <= 4) {
+        return 'keng';
+      } else if (gradeNum === 5 || gradeNum === 6) {
+        return 'susan';
+      } else if (gradeNum === 7 || gradeNum === 8) {
+        return 'eranel';
+      }
+    }
+    return null;
+  };
+
+  const handleBatchAssignCaseManagers = () => {
+    // Only allow for Noble Academy
+    if (selectedSchool !== 'Noble Academy') {
+      alert('Batch case manager assignment is only available for Noble Academy.');
+      return;
+    }
+
+    confirm({
+      title: 'Batch Assign Case Managers',
+      message: `This will assign case managers to all Noble Academy students based on their grades:
+- K-4: Keng
+- 5th-6th: Susan Welle
+- 7th-8th: Eranel Polonio
+
+Students without a grade or with grades outside these ranges will not be assigned a case manager.
+
+Continue?`,
+      confirmText: 'Assign',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          // Get all Noble Academy students (including archived)
+          const allNobleStudents = await getStudents('Noble Academy');
+          
+          // Get all case managers for Noble Academy
+          const allCaseManagers = await getCaseManagers('Noble Academy');
+          
+          // Find case managers by name/email
+          const susanWelle = allCaseManagers.find(
+            cm => cm.name.toLowerCase().includes('susan') && 
+                  (cm.name.toLowerCase().includes('welle') || cm.emailAddress?.toLowerCase().includes('swelle'))
+          );
+          const keng = allCaseManagers.find(
+            cm => cm.name.toLowerCase().includes('keng') || cm.emailAddress?.toLowerCase().includes('keng')
+          );
+          const eranelPolonio = allCaseManagers.find(
+            cm => (cm.name.toLowerCase().includes('eranel') && cm.name.toLowerCase().includes('polonio')) ||
+                  cm.emailAddress?.toLowerCase().includes('apolonio')
+          );
+
+          if (!susanWelle && !keng && !eranelPolonio) {
+            alert('Could not find any of the required case managers (Susan Welle, Keng, or Eranel Polonio) for Noble Academy. Please ensure they are added as case managers first.');
+            return;
+          }
+
+          let assigned = 0;
+          let skipped = 0;
+          let errors = 0;
+          const missingCaseManagers: string[] = [];
+
+          for (const student of allNobleStudents) {
+            const caseManagerType = getCaseManagerForGrade(student.grade);
+            if (!caseManagerType) {
+              skipped++;
+              continue;
+            }
+
+            let caseManager: CaseManager | undefined;
+            if (caseManagerType === 'susan') {
+              caseManager = susanWelle;
+              if (!caseManager) missingCaseManagers.push('Susan Welle');
+            } else if (caseManagerType === 'keng') {
+              caseManager = keng;
+              if (!caseManager) missingCaseManagers.push('Keng');
+            } else if (caseManagerType === 'eranel') {
+              caseManager = eranelPolonio;
+              if (!caseManager) missingCaseManagers.push('Eranel Polonio');
+            }
+
+            if (!caseManager) {
+              skipped++;
+              continue;
+            }
+
+            // Only update if the case manager is different
+            if (student.caseManagerId !== caseManager.id) {
+              try {
+                await updateStudent(student.id, {
+                  caseManagerId: caseManager.id,
+                });
+                assigned++;
+              } catch (error) {
+                logError(`Failed to assign case manager to ${student.name}`, error);
+                errors++;
+              }
+            } else {
+              skipped++; // Already has the correct case manager
+            }
+          }
+
+          // Show results
+          const messages: string[] = [];
+          if (assigned > 0) {
+            messages.push(`${assigned} student(s) assigned`);
+          }
+          if (skipped > 0) {
+            messages.push(`${skipped} student(s) skipped (no grade match or already assigned)`);
+          }
+          if (errors > 0) {
+            messages.push(`${errors} error(s) occurred`);
+          }
+          if (missingCaseManagers.length > 0) {
+            messages.push(`Missing case managers: ${missingCaseManagers.join(', ')}`);
+          }
+
+          showSnackbar(messages.join('. ') || 'Batch assignment completed', assigned > 0 ? 'success' : 'info');
+          
+          // Reload students to reflect changes
+          await loadStudents();
+        } catch (error) {
+          logError('Failed to batch assign case managers', error);
+          alert('Failed to batch assign case managers. Please try again.');
+        }
+      },
+    });
+  };
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
@@ -486,6 +626,16 @@ export const Students = () => {
               onClick={handleExpandAll}
             >
               {expandedStudents.size === filteredStudents.length ? 'Collapse All' : 'Expand All'}
+            </Button>
+          )}
+          {selectedSchool === 'Noble Academy' && !showArchived && (
+            <Button
+              variant="outlined"
+              startIcon={<GroupIcon />}
+              onClick={handleBatchAssignCaseManagers}
+              color="secondary"
+            >
+              Batch Assign Case Managers
             </Button>
           )}
           <Button
@@ -674,66 +824,70 @@ export const Students = () => {
               ))}
             </TextField>
             <Autocomplete
-              options={[...teachers.map(t => ({ ...t, __type: 'teacher' as const })), ...caseManagers.map(cm => ({ ...cm, __type: 'caseManager' as const }))]}
+              options={teachers}
               getOptionLabel={(option) => {
                 if (!option) return '';
-                if (option.__type === 'teacher') {
-                  // Teacher
-                  return `${option.name}${option.grade ? ` - ${option.grade}` : ''}`;
-                } else {
-                  // Case Manager
-                  return `${option.name}${option.role ? ` - ${option.role}` : ''}`;
-                }
+                return `${option.name}${option.grade ? ` - ${option.grade}` : ''}`;
               }}
               filterOptions={(options, { inputValue }) => {
                 if (!inputValue) return options;
                 const searchTerm = inputValue.toLowerCase().trim();
-                return options.filter((contact) => {
-                  const nameMatch = (contact.name || '').toLowerCase().includes(searchTerm);
-                  const gradeMatch = contact.__type === 'teacher' && (contact.grade || '').toLowerCase().includes(searchTerm);
-                  const roleMatch = contact.__type === 'caseManager' && (contact.role || '').toLowerCase().includes(searchTerm);
-                  return nameMatch || gradeMatch || roleMatch;
+                return options.filter((teacher) => {
+                  const nameMatch = (teacher.name || '').toLowerCase().includes(searchTerm);
+                  const gradeMatch = (teacher.grade || '').toLowerCase().includes(searchTerm);
+                  return nameMatch || gradeMatch;
                 });
               }}
-              value={[
-                ...teachers.filter(t => t.id === formData.teacherId).map(t => ({ ...t, __type: 'teacher' as const })),
-                ...caseManagers.filter(cm => cm.id === formData.caseManagerId).map(cm => ({ ...cm, __type: 'caseManager' as const }))
-              ][0] || null}
+              value={teachers.find(t => t.id === formData.teacherId) || null}
               onChange={(_, newValue) => {
-                if (newValue) {
-                  // Check if it's a teacher or case manager
-                  if (newValue.__type === 'teacher') {
-                    setFormData({
-                      ...formData,
-                      teacherId: newValue.id,
-                      caseManagerId: '',
-                    });
-                  } else {
-                    setFormData({
-                      ...formData,
-                      teacherId: '',
-                      caseManagerId: newValue.id,
-                    });
-                  }
-                } else {
-                  // Clear both if no selection
-                  setFormData({
-                    ...formData,
-                    teacherId: '',
-                    caseManagerId: '',
-                  });
-                }
+                setFormData({
+                  ...formData,
+                  teacherId: newValue?.id || '',
+                });
               }}
               renderInput={(params) => (
                 <TextField
                   {...params}
-                  label="Teacher or Case Manager (Optional)"
+                  label="Teacher (Optional)"
                   InputLabelProps={{
                     shrink: true,
                   }}
                 />
               )}
-              isOptionEqualTo={(option, value) => option.id === value.id && option.__type === value.__type}
+              isOptionEqualTo={(option, value) => option.id === value.id}
+            />
+            <Autocomplete
+              options={caseManagers}
+              getOptionLabel={(option) => {
+                if (!option) return '';
+                return `${option.name}${option.role ? ` - ${option.role}` : ''}`;
+              }}
+              filterOptions={(options, { inputValue }) => {
+                if (!inputValue) return options;
+                const searchTerm = inputValue.toLowerCase().trim();
+                return options.filter((caseManager) => {
+                  const nameMatch = (caseManager.name || '').toLowerCase().includes(searchTerm);
+                  const roleMatch = (caseManager.role || '').toLowerCase().includes(searchTerm);
+                  return nameMatch || roleMatch;
+                });
+              }}
+              value={caseManagers.find(cm => cm.id === formData.caseManagerId) || null}
+              onChange={(_, newValue) => {
+                setFormData({
+                  ...formData,
+                  caseManagerId: newValue?.id || '',
+                });
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Case Manager (Optional)"
+                  InputLabelProps={{
+                    shrink: true,
+                  }}
+                />
+              )}
+              isOptionEqualTo={(option, value) => option.id === value.id}
             />
             <TextField
               label="IEP Date (Optional)"
