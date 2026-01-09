@@ -25,10 +25,10 @@ import type { Goal } from '../../types';
 import { getPriorityBorderColor } from '../../utils/helpers';
 import { SubGoalList } from './SubGoalList';
 import { StatusChip } from './StatusChip';
-import { PriorityChip } from './PriorityChip';
+import { PriorityChip } from '../common/PriorityChip';
 import { GoalProgressChip } from './GoalProgressChip';
 import { GoalDateInfo } from './GoalDateInfo';
-import { AccordionExpandIcon } from './AccordionExpandIcon';
+import { AccordionExpandIcon } from '../common/AccordionExpandIcon';
 
 interface RecentSessionData {
   date: string;

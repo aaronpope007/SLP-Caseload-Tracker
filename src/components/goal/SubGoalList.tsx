@@ -4,11 +4,11 @@ import { Add as AddIcon, FlashOn as FlashOnIcon } from '@mui/icons-material';
 import type { Goal } from '../../types';
 import { organizeGoalsHierarchy } from '../../utils/goalHierarchy';
 import { StatusChip } from './StatusChip';
-import { PriorityChip } from './PriorityChip';
+import { PriorityChip } from '../common/PriorityChip';
 import { GoalProgressChip } from './GoalProgressChip';
 import { GoalDateInfo } from './GoalDateInfo';
 import { GoalActionButtons } from './GoalActionButtons';
-import { AccordionExpandIcon } from './AccordionExpandIcon';
+import { AccordionExpandIcon } from '../common/AccordionExpandIcon';
 import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
 
 interface RecentSessionData {
