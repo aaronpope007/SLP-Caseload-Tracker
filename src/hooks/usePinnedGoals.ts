@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 const PINNED_GOALS_KEY = 'slp-pinned-goals';
 
@@ -28,7 +28,7 @@ export const usePinnedGoals = () => {
     }
   }, [pinnedGoalIds]);
 
-  const togglePin = (goalId: string) => {
+  const togglePin = useCallback((goalId: string) => {
     setPinnedGoalIds(prev => {
       const next = new Set(prev);
       if (next.has(goalId)) {
@@ -38,11 +38,11 @@ export const usePinnedGoals = () => {
       }
       return next;
     });
-  };
+  }, []);
 
-  const clearPinned = () => {
+  const clearPinned = useCallback(() => {
     setPinnedGoalIds(new Set());
-  };
+  }, []);
 
   return {
     pinnedGoalIds,

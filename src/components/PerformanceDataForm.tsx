@@ -1,6 +1,7 @@
-import React, { memo } from 'react';
+import React, { memo, useState, useEffect, useRef } from 'react';
 import { Box, TextField, FormControlLabel, Checkbox, Typography } from '@mui/material';
 import { TrialCounter } from './TrialCounter';
+import { arraysEqual } from '../utils/helpers';
 
 interface PerformanceDataItem {
   goalId: string;
@@ -43,6 +44,44 @@ export const PerformanceDataForm: React.FC<PerformanceDataFormProps> = memo(({
   const incorrectTrials = perfData?.incorrectTrials || 0;
   const totalTrials = correctTrials + incorrectTrials;
   const calculatedAccuracy = totalTrials > 0 ? Math.round((correctTrials / totalTrials) * 100) : 0;
+
+  // Local state for notes to prevent re-renders on every keystroke
+  const [localNotes, setLocalNotes] = useState(perfData?.notes || '');
+  const lastSyncedNotesRef = useRef(perfData?.notes || '');
+
+  // Use ref for callback to keep debounce effect stable
+  const onPerformanceUpdateRef = useRef(onPerformanceUpdate);
+  onPerformanceUpdateRef.current = onPerformanceUpdate;
+
+  // Sync local state when perfData.notes changes externally
+  useEffect(() => {
+    const externalNotes = perfData?.notes || '';
+    if (externalNotes !== lastSyncedNotesRef.current) {
+      setLocalNotes(externalNotes);
+      lastSyncedNotesRef.current = externalNotes;
+    }
+  }, [perfData?.notes]);
+
+  // Debounced sync to parent - uses ref for callback to prevent effect re-runs
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    
+    debounceTimeoutRef.current = setTimeout(() => {
+      if (localNotes !== lastSyncedNotesRef.current) {
+        onPerformanceUpdateRef.current(goalId, studentId, 'notes', localNotes);
+        lastSyncedNotesRef.current = localNotes;
+      }
+    }, 300);
+    
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, [localNotes, goalId, studentId]); // Removed onPerformanceUpdate - using ref instead
 
   return (
     <Box sx={{ 
@@ -118,8 +157,15 @@ export const PerformanceDataForm: React.FC<PerformanceDataFormProps> = memo(({
         fullWidth
         multiline={isCompact}
         rows={isCompact ? 2 : 1}
-        value={perfData?.notes || ''}
-        onChange={(e) => onPerformanceUpdate(goalId, studentId, 'notes', e.target.value)}
+        value={localNotes}
+        onChange={(e) => setLocalNotes(e.target.value)}
+        onBlur={() => {
+          // Immediately sync on blur in case user tabs away quickly
+          if (localNotes !== lastSyncedNotesRef.current) {
+            onPerformanceUpdate(goalId, studentId, 'notes', localNotes);
+            lastSyncedNotesRef.current = localNotes;
+          }
+        }}
       />
     </Box>
   );
@@ -142,6 +188,6 @@ export const PerformanceDataForm: React.FC<PerformanceDataFormProps> = memo(({
          prevPerf.incorrectTrials === nextPerf.incorrectTrials &&
          prevPerf.accuracy === nextPerf.accuracy &&
          prevPerf.notes === nextPerf.notes &&
-         JSON.stringify(prevPerf.cuingLevels) === JSON.stringify(nextPerf.cuingLevels);
+         arraysEqual(prevPerf.cuingLevels || [], nextPerf.cuingLevels || []);
 });
 

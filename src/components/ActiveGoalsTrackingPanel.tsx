@@ -6,7 +6,6 @@ import {
   Chip,
   IconButton,
   Tooltip,
-  Divider,
 } from '@mui/material';
 import {
   KeyboardArrowUp as KeyboardArrowUpIcon,
@@ -16,6 +15,7 @@ import {
 import type { Goal, Student } from '../types';
 import { getGoalPath } from '../utils/goalPaths';
 import { GoalProgressChip } from './GoalProgressChip';
+import { arraysEqual, performanceDataEqual } from '../utils/helpers';
 
 interface PerformanceDataItem {
   goalId: string;
@@ -288,10 +288,11 @@ export const ActiveGoalsTrackingPanel = memo(({
   );
 }, (prevProps, nextProps) => {
   // Custom comparison for memo - only re-render if relevant props change
+  // Using shallow comparison helpers instead of expensive JSON.stringify
   return prevProps.collapsed === nextProps.collapsed &&
          prevProps.focusedGoalId === nextProps.focusedGoalId &&
-         JSON.stringify(prevProps.goalsTargeted) === JSON.stringify(nextProps.goalsTargeted) &&
-         JSON.stringify(prevProps.performanceData) === JSON.stringify(nextProps.performanceData) &&
+         arraysEqual(prevProps.goalsTargeted, nextProps.goalsTargeted) &&
+         performanceDataEqual(prevProps.performanceData, nextProps.performanceData) &&
          prevProps.goals.length === nextProps.goals.length &&
          prevProps.students.length === nextProps.students.length;
 });

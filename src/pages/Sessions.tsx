@@ -219,6 +219,13 @@ export const Sessions = () => {
     goals,
   });
 
+  // Memoized callback for form data changes to prevent unnecessary re-renders
+  const handleFormDataChange = useCallback((updates: Partial<SessionFormData>) => {
+    Object.entries(updates).forEach(([key, value]) => {
+      updateFormField(key as keyof typeof formData, value);
+    });
+  }, [updateFormField]);
+
 
 
 
@@ -302,11 +309,7 @@ export const Sessions = () => {
         isDirty={isDirty}
         onClose={handleCloseDialog}
         onSave={handleSave}
-        onFormDataChange={(updates) => {
-          Object.entries(updates).forEach(([key, value]) => {
-            updateFormField(key as keyof typeof formData, value);
-          });
-        }}
+        onFormDataChange={handleFormDataChange}
         onStudentSearchChange={setStudentSearch}
         onStudentToggle={formHandlers.handleStudentToggle}
         onGoalToggle={formHandlers.handleGoalToggle}

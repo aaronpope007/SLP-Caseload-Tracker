@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { logError } from '../utils/logger';
 import {
   Box,
@@ -1497,6 +1497,13 @@ export const SessionCalendar = () => {
     });
   };
 
+  // Memoized callback for form data changes to prevent memory leaks from excessive re-renders
+  const sessionFormDataRef = useRef(sessionFormData);
+  sessionFormDataRef.current = sessionFormData;
+  const handleSessionFormDataChange = useCallback((updates: Partial<typeof sessionFormData>) => {
+    setSessionFormData(prev => ({ ...prev, ...updates }));
+  }, []);
+
   const getEventsForDay = (day: Date): CalendarEvent[] => {
     const events = calendarEvents.filter(event => isSameDay(event.date, day));
     // Sort events by start time chronologically
@@ -2716,7 +2723,7 @@ export const SessionCalendar = () => {
         onClose={handleCloseSessionDialog}
         onSave={handleSaveSession}
         onDelete={handleDeleteSession}
-        onFormDataChange={(updates) => setSessionFormData({ ...sessionFormData, ...updates })}
+        onFormDataChange={handleSessionFormDataChange}
         onStudentSearchChange={setStudentSearch}
         onStudentToggle={handleStudentToggle}
         onGoalToggle={handleGoalToggle}

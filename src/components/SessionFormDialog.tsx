@@ -129,122 +129,113 @@ export const SessionFormDialog = ({
   const [localCustomSubjective, setLocalCustomSubjective] = useState(formData.customSubjective || '');
   const [localIndirectServicesNotes, setLocalIndirectServicesNotes] = useState(formData.indirectServicesNotes);
 
+  // Use ref for onFormDataChange to keep debounce effect stable
+  const onFormDataChangeRef = useRef(onFormDataChange);
+  onFormDataChangeRef.current = onFormDataChange;
+
+  // Track last synced values to prevent sync loops
+  const lastSyncedRef = useRef({
+    notes: formData.notes,
+    plan: formData.plan || '',
+    activitiesUsed: formData.activitiesUsed.join(', '),
+    customSubjective: formData.customSubjective || '',
+    indirectServicesNotes: formData.indirectServicesNotes,
+  });
+
   // Sync local state when formData changes externally (e.g., when editing a session)
+  // Only update if the change came from outside (not from our own debounced sync)
   useEffect(() => {
-    setLocalNotes(formData.notes);
+    if (formData.notes !== lastSyncedRef.current.notes) {
+      setLocalNotes(formData.notes);
+      lastSyncedRef.current.notes = formData.notes;
+    }
   }, [formData.notes]);
   
   useEffect(() => {
-    setLocalPlan(formData.plan || '');
+    const newPlan = formData.plan || '';
+    if (newPlan !== lastSyncedRef.current.plan) {
+      setLocalPlan(newPlan);
+      lastSyncedRef.current.plan = newPlan;
+    }
   }, [formData.plan]);
   
   useEffect(() => {
-    setLocalActivitiesUsed(formData.activitiesUsed.join(', '));
+    const newActivities = formData.activitiesUsed.join(', ');
+    if (newActivities !== lastSyncedRef.current.activitiesUsed) {
+      setLocalActivitiesUsed(newActivities);
+      lastSyncedRef.current.activitiesUsed = newActivities;
+    }
   }, [formData.activitiesUsed]);
   
   useEffect(() => {
-    setLocalCustomSubjective(formData.customSubjective || '');
+    const newCustomSubjective = formData.customSubjective || '';
+    if (newCustomSubjective !== lastSyncedRef.current.customSubjective) {
+      setLocalCustomSubjective(newCustomSubjective);
+      lastSyncedRef.current.customSubjective = newCustomSubjective;
+    }
   }, [formData.customSubjective]);
   
   useEffect(() => {
-    setLocalIndirectServicesNotes(formData.indirectServicesNotes);
+    if (formData.indirectServicesNotes !== lastSyncedRef.current.indirectServicesNotes) {
+      setLocalIndirectServicesNotes(formData.indirectServicesNotes);
+      lastSyncedRef.current.indirectServicesNotes = formData.indirectServicesNotes;
+    }
   }, [formData.indirectServicesNotes]);
 
-  // Debounced sync for notes field
-  const notesSyncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Single consolidated debounce effect for all text fields
+  // Uses ref for onFormDataChange to prevent effect re-runs when parent provides new callback reference
+  const debounceSyncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   useEffect(() => {
-    if (notesSyncTimeoutRef.current) {
-      clearTimeout(notesSyncTimeoutRef.current);
+    if (debounceSyncTimeoutRef.current) {
+      clearTimeout(debounceSyncTimeoutRef.current);
     }
-    notesSyncTimeoutRef.current = setTimeout(() => {
-      if (localNotes !== formData.notes) {
-        handleFormDataChange({ notes: localNotes });
+    
+    debounceSyncTimeoutRef.current = setTimeout(() => {
+      const updates: Partial<SessionFormData> = {};
+      
+      // Check and collect all changed fields
+      if (localNotes !== lastSyncedRef.current.notes) {
+        updates.notes = localNotes;
+        lastSyncedRef.current.notes = localNotes;
       }
-    }, 500);
-    return () => {
-      if (notesSyncTimeoutRef.current) {
-        clearTimeout(notesSyncTimeoutRef.current);
+      
+      if (localPlan !== lastSyncedRef.current.plan) {
+        updates.plan = localPlan;
+        lastSyncedRef.current.plan = localPlan;
       }
-    };
-  }, [localNotes]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Debounced sync for plan field
-  const planSyncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  useEffect(() => {
-    if (planSyncTimeoutRef.current) {
-      clearTimeout(planSyncTimeoutRef.current);
-    }
-    planSyncTimeoutRef.current = setTimeout(() => {
-      if (localPlan !== (formData.plan || '')) {
-        handleFormDataChange({ plan: localPlan });
-      }
-    }, 500);
-    return () => {
-      if (planSyncTimeoutRef.current) {
-        clearTimeout(planSyncTimeoutRef.current);
-      }
-    };
-  }, [localPlan]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Debounced sync for activities used field
-  const activitiesSyncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  useEffect(() => {
-    if (activitiesSyncTimeoutRef.current) {
-      clearTimeout(activitiesSyncTimeoutRef.current);
-    }
-    activitiesSyncTimeoutRef.current = setTimeout(() => {
+      
       const activities = localActivitiesUsed
         .split(',')
         .map((a) => a.trim())
         .filter((a) => a.length > 0);
-      const currentActivities = formData.activitiesUsed;
-      if (activities.length !== currentActivities.length || 
-          activities.some((a, i) => a !== currentActivities[i])) {
-        handleFormDataChange({ activitiesUsed: activities });
+      const activitiesStr = activities.join(', ');
+      if (activitiesStr !== lastSyncedRef.current.activitiesUsed) {
+        updates.activitiesUsed = activities;
+        lastSyncedRef.current.activitiesUsed = activitiesStr;
+      }
+      
+      if (localCustomSubjective !== lastSyncedRef.current.customSubjective) {
+        updates.customSubjective = localCustomSubjective;
+        lastSyncedRef.current.customSubjective = localCustomSubjective;
+      }
+      
+      if (localIndirectServicesNotes !== lastSyncedRef.current.indirectServicesNotes) {
+        updates.indirectServicesNotes = localIndirectServicesNotes;
+        lastSyncedRef.current.indirectServicesNotes = localIndirectServicesNotes;
+      }
+      
+      // Only call onFormDataChange if there are actual updates
+      if (Object.keys(updates).length > 0) {
+        onFormDataChangeRef.current(updates);
       }
     }, 500);
+    
     return () => {
-      if (activitiesSyncTimeoutRef.current) {
-        clearTimeout(activitiesSyncTimeoutRef.current);
+      if (debounceSyncTimeoutRef.current) {
+        clearTimeout(debounceSyncTimeoutRef.current);
       }
     };
-  }, [localActivitiesUsed]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Debounced sync for custom subjective field
-  const customSubjectiveSyncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  useEffect(() => {
-    if (customSubjectiveSyncTimeoutRef.current) {
-      clearTimeout(customSubjectiveSyncTimeoutRef.current);
-    }
-    customSubjectiveSyncTimeoutRef.current = setTimeout(() => {
-      if (localCustomSubjective !== (formData.customSubjective || '')) {
-        handleFormDataChange({ customSubjective: localCustomSubjective });
-      }
-    }, 500);
-    return () => {
-      if (customSubjectiveSyncTimeoutRef.current) {
-        clearTimeout(customSubjectiveSyncTimeoutRef.current);
-      }
-    };
-  }, [localCustomSubjective]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Debounced sync for indirect services notes field
-  const indirectNotesSyncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  useEffect(() => {
-    if (indirectNotesSyncTimeoutRef.current) {
-      clearTimeout(indirectNotesSyncTimeoutRef.current);
-    }
-    indirectNotesSyncTimeoutRef.current = setTimeout(() => {
-      if (localIndirectServicesNotes !== formData.indirectServicesNotes) {
-        handleFormDataChange({ indirectServicesNotes: localIndirectServicesNotes });
-      }
-    }, 500);
-    return () => {
-      if (indirectNotesSyncTimeoutRef.current) {
-        clearTimeout(indirectNotesSyncTimeoutRef.current);
-      }
-    };
-  }, [localIndirectServicesNotes]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [localNotes, localPlan, localActivitiesUsed, localCustomSubjective, localIndirectServicesNotes]); // Removed onFormDataChange - using ref instead
 
   // Helper function to format student names for the dialog title
   const formatStudentNamesForTitle = (): string => {
@@ -291,50 +282,56 @@ export const SessionFormDialog = ({
     return ` - ${startTime}`;
   };
 
+  // Stable callback wrapper - uses ref to avoid dependency on formData and onFormDataChange
+  // This allows child components to use updater functions without causing re-renders
+  const formDataRef = useRef(formData);
   const handleFormDataChange = useCallback((
     updatesOrUpdater: Partial<SessionFormData> | ((prev: SessionFormData) => SessionFormData)
   ) => {
     if (typeof updatesOrUpdater === 'function') {
-      // If it's an updater function, we need to get the current formData and apply the updater
-      const updated = updatesOrUpdater(formData);
-      // Convert the full updated object to a partial update by extracting only changed fields
-      // Since we're updating performanceData, we'll pass the entire updated object
-      // The parent component will merge it properly
-      onFormDataChange(updated);
+      // Apply the updater function using current ref value
+      const updated = updatesOrUpdater(formDataRef.current);
+      onFormDataChangeRef.current(updated);
     } else {
       // If it's a partial update, pass it through
-      onFormDataChange(updatesOrUpdater);
+      onFormDataChangeRef.current(updatesOrUpdater);
     }
-  }, [formData, onFormDataChange]);
+  }, []); // No dependencies - uses refs for all external values
 
   // Sync all local state to parent state immediately (e.g., before save)
   const syncAllLocalState = useCallback(() => {
     const updates: Partial<SessionFormData> = {};
-    if (localNotes !== formData.notes) {
+    
+    if (localNotes !== lastSyncedRef.current.notes) {
       updates.notes = localNotes;
+      lastSyncedRef.current.notes = localNotes;
     }
-    if (localPlan !== (formData.plan || '')) {
+    if (localPlan !== lastSyncedRef.current.plan) {
       updates.plan = localPlan;
+      lastSyncedRef.current.plan = localPlan;
     }
     const activities = localActivitiesUsed
       .split(',')
       .map((a) => a.trim())
       .filter((a) => a.length > 0);
-    const currentActivities = formData.activitiesUsed;
-    if (activities.length !== currentActivities.length || 
-        activities.some((a, i) => a !== currentActivities[i])) {
+    const activitiesStr = activities.join(', ');
+    if (activitiesStr !== lastSyncedRef.current.activitiesUsed) {
       updates.activitiesUsed = activities;
+      lastSyncedRef.current.activitiesUsed = activitiesStr;
     }
-    if (localCustomSubjective !== (formData.customSubjective || '')) {
+    if (localCustomSubjective !== lastSyncedRef.current.customSubjective) {
       updates.customSubjective = localCustomSubjective;
+      lastSyncedRef.current.customSubjective = localCustomSubjective;
     }
-    if (localIndirectServicesNotes !== formData.indirectServicesNotes) {
+    if (localIndirectServicesNotes !== lastSyncedRef.current.indirectServicesNotes) {
       updates.indirectServicesNotes = localIndirectServicesNotes;
+      lastSyncedRef.current.indirectServicesNotes = localIndirectServicesNotes;
     }
+    
     if (Object.keys(updates).length > 0) {
-      handleFormDataChange(updates);
+      onFormDataChangeRef.current(updates);
     }
-  }, [localNotes, localPlan, localActivitiesUsed, localCustomSubjective, localIndirectServicesNotes, formData, handleFormDataChange]);
+  }, [localNotes, localPlan, localActivitiesUsed, localCustomSubjective, localIndirectServicesNotes]); // Uses ref for onFormDataChange
 
   // Handle save with immediate sync
   const handleSave = useCallback(() => {
@@ -357,32 +354,20 @@ export const SessionFormDialog = ({
   }, [formData.studentIds.length, viewMode]);
 
   // Use refs to avoid re-attaching event listeners on every formData change
-  const formDataRef = useRef(formData);
+  // Direct assignment in render is safe and more efficient than 6 separate useEffects
   const focusedGoalIdRef = useRef(focusedGoalId);
   const goalsRef = useRef(goals);
   const onTrialUpdateRef = useRef(onTrialUpdate);
   const handleFormDataChangeRef = useRef(handleFormDataChange);
   const setFocusedGoalIdRef = useRef(setFocusedGoalId);
 
-  // Keep refs in sync
-  useEffect(() => {
-    formDataRef.current = formData;
-  }, [formData]);
-  useEffect(() => {
-    focusedGoalIdRef.current = focusedGoalId;
-  }, [focusedGoalId]);
-  useEffect(() => {
-    goalsRef.current = goals;
-  }, [goals]);
-  useEffect(() => {
-    onTrialUpdateRef.current = onTrialUpdate;
-  }, [onTrialUpdate]);
-  useEffect(() => {
-    handleFormDataChangeRef.current = handleFormDataChange;
-  }, [handleFormDataChange]);
-  useEffect(() => {
-    setFocusedGoalIdRef.current = setFocusedGoalId;
-  }, [setFocusedGoalId]);
+  // Keep refs in sync - direct assignment in render is more efficient than 6 separate useEffects
+  formDataRef.current = formData;
+  focusedGoalIdRef.current = focusedGoalId;
+  goalsRef.current = goals;
+  onTrialUpdateRef.current = onTrialUpdate;
+  handleFormDataChangeRef.current = handleFormDataChange;
+  setFocusedGoalIdRef.current = setFocusedGoalId;
 
   // Keyboard shortcuts: / to focus search, number keys for trials
   useEffect(() => {

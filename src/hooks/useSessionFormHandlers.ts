@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import type { Goal } from '../types';
 import { getSessionsByStudent } from '../utils/storage-api';
 import { logError } from '../utils/logger';
@@ -33,26 +33,43 @@ export const useSessionFormHandlers = ({
   updateFormField,
   isGoalAchieved,
 }: UseSessionFormHandlersParams) => {
+  // Use refs to keep callbacks stable - prevents memory leaks from excessive re-renders
+  const formDataRef = useRef(formData);
+  const goalsRef = useRef(goals);
+  const editingSessionRef = useRef(editingSession);
+  const editingGroupSessionIdRef = useRef(editingGroupSessionId);
+  
+  // Update refs on each render (direct assignment is more efficient than useEffect)
+  formDataRef.current = formData;
+  goalsRef.current = goals;
+  editingSessionRef.current = editingSession;
+  editingGroupSessionIdRef.current = editingGroupSessionId;
+
   const handleStudentToggle = useCallback(async (studentId: string) => {
-    const isSelected = formData.studentIds.includes(studentId);
+    const currentFormData = formDataRef.current;
+    const currentGoals = goalsRef.current;
+    const currentEditingSession = editingSessionRef.current;
+    const currentEditingGroupSessionId = editingGroupSessionIdRef.current;
+    
+    const isSelected = currentFormData.studentIds.includes(studentId);
     let newStudentIds: string[];
-    let newGoalsTargeted: string[] = [...formData.goalsTargeted];
-    let newPerformanceData = [...formData.performanceData];
-    let newPlan = formData.plan;
+    let newGoalsTargeted: string[] = [...currentFormData.goalsTargeted];
+    let newPerformanceData = [...currentFormData.performanceData];
+    let newPlan = currentFormData.plan;
 
     if (isSelected) {
       // Remove student
-      newStudentIds = formData.studentIds.filter(id => id !== studentId);
+      newStudentIds = currentFormData.studentIds.filter(id => id !== studentId);
       // Remove goals and performance data for this student
-      const studentGoals = goals.filter(g => g.studentId === studentId).map(g => g.id);
-      newGoalsTargeted = formData.goalsTargeted.filter(gId => !studentGoals.includes(gId));
-      newPerformanceData = formData.performanceData.filter(p => p.studentId !== studentId);
+      const studentGoals = currentGoals.filter(g => g.studentId === studentId).map(g => g.id);
+      newGoalsTargeted = currentFormData.goalsTargeted.filter(gId => !studentGoals.includes(gId));
+      newPerformanceData = currentFormData.performanceData.filter(p => p.studentId !== studentId);
     } else {
       // Add student
-      newStudentIds = [...formData.studentIds, studentId];
+      newStudentIds = [...currentFormData.studentIds, studentId];
       
       // If this is the first student selected and we're creating a new session, fetch last session's plan
-      if (formData.studentIds.length === 0 && !editingSession && !editingGroupSessionId) {
+      if (currentFormData.studentIds.length === 0 && !currentEditingSession && !currentEditingGroupSessionId) {
         try {
           const studentSessions = await getSessionsByStudent(studentId);
           // Get the most recent direct services session that wasn't missed and has a plan
@@ -73,33 +90,36 @@ export const useSessionFormHandlers = ({
     updateFormField('goalsTargeted', newGoalsTargeted);
     updateFormField('performanceData', newPerformanceData);
     updateFormField('plan', newPlan);
-  }, [formData, goals, editingSession, editingGroupSessionId, updateFormField]);
+  }, [updateFormField]);
 
   const handleGoalToggle = useCallback((goalId: string, studentId: string) => {
-    const isSelected = formData.goalsTargeted.includes(goalId);
+    const currentFormData = formDataRef.current;
+    const isSelected = currentFormData.goalsTargeted.includes(goalId);
     let newGoalsTargeted: string[];
-    let newPerformanceData = [...formData.performanceData];
+    let newPerformanceData = [...currentFormData.performanceData];
 
     if (isSelected) {
-      newGoalsTargeted = formData.goalsTargeted.filter((id) => id !== goalId);
+      newGoalsTargeted = currentFormData.goalsTargeted.filter((id) => id !== goalId);
       newPerformanceData = newPerformanceData.filter((p) => p.goalId !== goalId || p.studentId !== studentId);
     } else {
-      newGoalsTargeted = [...formData.goalsTargeted, goalId];
+      newGoalsTargeted = [...currentFormData.goalsTargeted, goalId];
       newPerformanceData.push({ goalId, studentId, notes: '', cuingLevels: [] }); // Don't initialize accuracy - let it be undefined so calculated shows
     }
 
     updateFormField('goalsTargeted', newGoalsTargeted);
     updateFormField('performanceData', newPerformanceData);
-  }, [formData, updateFormField]);
+  }, [updateFormField]);
 
   const handlePerformanceUpdate = useCallback((goalId: string, studentId: string, field: 'accuracy' | 'notes', value: string) => {
-    updateFormField('performanceData', formData.performanceData.map((p) =>
+    const currentFormData = formDataRef.current;
+    updateFormField('performanceData', currentFormData.performanceData.map((p) =>
       p.goalId === goalId && p.studentId === studentId ? { ...p, [field]: value } : p
     ));
-  }, [formData.performanceData, updateFormField]);
+  }, [updateFormField]);
 
   const handleCuingLevelToggle = useCallback((goalId: string, studentId: string, cuingLevel: 'independent' | 'verbal' | 'visual' | 'tactile' | 'physical') => {
-    updateFormField('performanceData', formData.performanceData.map((p) => {
+    const currentFormData = formDataRef.current;
+    updateFormField('performanceData', currentFormData.performanceData.map((p) => {
       if (p.goalId !== goalId || p.studentId !== studentId) return p;
       const currentLevels = p.cuingLevels || [];
       const newLevels = currentLevels.includes(cuingLevel)
@@ -107,10 +127,11 @@ export const useSessionFormHandlers = ({
         : [...currentLevels, cuingLevel];
       return { ...p, cuingLevels: newLevels };
     }));
-  }, [formData.performanceData, updateFormField]);
+  }, [updateFormField]);
 
   const handleTrialUpdate = useCallback((goalId: string, studentId: string, isCorrect: boolean) => {
-    updateFormField('performanceData', formData.performanceData.map((p) => {
+    const currentFormData = formDataRef.current;
+    updateFormField('performanceData', currentFormData.performanceData.map((p) => {
       if (p.goalId !== goalId || p.studentId !== studentId) return p;
       const correctTrials = (p.correctTrials || 0) + (isCorrect ? 1 : 0);
       const incorrectTrials = (p.incorrectTrials || 0) + (isCorrect ? 0 : 1);
@@ -123,7 +144,7 @@ export const useSessionFormHandlers = ({
         accuracy: accuracy.toString(),
       };
     }));
-  }, [formData.performanceData, updateFormField]);
+  }, [updateFormField]);
 
   return {
     handleStudentToggle,

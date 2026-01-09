@@ -19,6 +19,7 @@ import {
 import type { Goal } from '../types';
 import { GoalProgressChip } from './GoalProgressChip';
 import { PerformanceDataForm } from './PerformanceDataForm';
+import { arraysEqual, performanceDataEqual } from '../utils/helpers';
 
 interface PerformanceDataItem {
   goalId: string;
@@ -290,10 +291,11 @@ export const GoalHierarchy = memo(({
   );
 }, (prevProps, nextProps) => {
   // Custom comparison for memo - only re-render if relevant props change
+  // Using shallow comparison helpers instead of expensive JSON.stringify
   return prevProps.studentId === nextProps.studentId &&
          prevProps.isCompact === nextProps.isCompact &&
-         JSON.stringify(prevProps.goalsTargeted) === JSON.stringify(nextProps.goalsTargeted) &&
-         JSON.stringify(prevProps.performanceData) === JSON.stringify(nextProps.performanceData) &&
+         arraysEqual(prevProps.goalsTargeted, nextProps.goalsTargeted) &&
+         performanceDataEqual(prevProps.performanceData, nextProps.performanceData) &&
          prevProps.hierarchy.parentGoals.length === nextProps.hierarchy.parentGoals.length &&
          prevProps.hierarchy.orphanGoals.length === nextProps.hierarchy.orphanGoals.length &&
          (prevProps.pinnedGoalIds?.size || 0) === (nextProps.pinnedGoalIds?.size || 0);

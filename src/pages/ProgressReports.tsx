@@ -30,6 +30,8 @@ import {
   Person as PersonIcon,
   CalendarToday as CalendarIcon,
   Add as AddIcon,
+  Edit as EditIcon,
+  Visibility as VisibilityIcon,
 } from '@mui/icons-material';
 import type { ProgressReport, Student } from '../types';
 import {
@@ -44,6 +46,7 @@ import { formatDate, generateId } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
 import { useConfirm, useSnackbar, useDialog } from '../hooks';
 import { logError } from '../utils/logger';
+import { ProgressReportEditorDialog } from '../components/ProgressReportEditorDialog';
 
 const getStatusColor = (status: ProgressReport['status']) => {
   switch (status) {
@@ -75,6 +78,10 @@ export const ProgressReports = () => {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [studentFilter, setStudentFilter] = useState<string>('');
   const [reportTypeFilter, setReportTypeFilter] = useState<string>('');
+
+  // Editor dialog state
+  const [editingReport, setEditingReport] = useState<ProgressReport | null>(null);
+  const editorDialog = useDialog();
 
   // Form data for new report
   const [formData, setFormData] = useState({
@@ -202,6 +209,20 @@ export const ProgressReports = () => {
     }
   };
 
+  const handleViewEdit = (report: ProgressReport) => {
+    setEditingReport(report);
+    editorDialog.openDialog();
+  };
+
+  const handleCloseEditor = () => {
+    editorDialog.closeDialog();
+    setEditingReport(null);
+  };
+
+  const handleEditorSave = async () => {
+    await loadData();
+  };
+
   const handleDelete = (id: string) => {
     const report = reports.find(r => r.id === id);
     confirm({
@@ -280,6 +301,16 @@ export const ProgressReports = () => {
       width: 120,
       getActions: (params: GridRowParams) => {
         const actions = [];
+        const report = reports.find(r => r.id === params.id);
+        if (report) {
+          actions.push(
+            <GridActionsCellItem
+              icon={<EditIcon />}
+              label="View/Edit"
+              onClick={() => handleViewEdit(report)}
+            />
+          );
+        }
         if (params.row.status !== 'completed') {
           actions.push(
             <GridActionsCellItem
@@ -538,6 +569,19 @@ export const ProgressReports = () => {
       <ConfirmDialog />
 
       <SnackbarComponent />
+
+      {editingReport && (() => {
+        const student = students.find(s => s.id === editingReport.studentId);
+        return student ? (
+          <ProgressReportEditorDialog
+            open={editorDialog.open}
+            report={editingReport}
+            student={student}
+            onClose={handleCloseEditor}
+            onSave={handleEditorSave}
+          />
+        ) : null;
+      })()}
     </Box>
   );
 };

@@ -228,3 +228,65 @@ export const extractPercentageFromTarget = (target: string): string => {
   return '';
 };
 
+/**
+ * Performs shallow equality check on two arrays
+ * @param a - First array
+ * @param b - Second array
+ * @returns true if arrays are equal (same length and same values at each index)
+ */
+export const arraysEqual = <T>(a: T[] | undefined | null, b: T[] | undefined | null): boolean => {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+};
+
+/**
+ * Performs equality check on performance data items
+ * Compares goalId, studentId, accuracy, correctTrials, incorrectTrials, notes, and cuingLevels
+ * @param a - First performance data item
+ * @param b - Second performance data item
+ * @returns true if performance data items are equal
+ */
+export const performanceDataEqual = (
+  a: {
+    goalId?: string;
+    studentId?: string;
+    accuracy?: string;
+    correctTrials?: number;
+    incorrectTrials?: number;
+    notes?: string;
+    cuingLevels?: ('independent' | 'verbal' | 'visual' | 'tactile' | 'physical')[];
+  }[] | undefined | null,
+  b: {
+    goalId?: string;
+    studentId?: string;
+    accuracy?: string;
+    correctTrials?: number;
+    incorrectTrials?: number;
+    notes?: string;
+    cuingLevels?: ('independent' | 'verbal' | 'visual' | 'tactile' | 'physical')[];
+  }[] | undefined | null
+): boolean => {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const itemA = a[i];
+    const itemB = b[i];
+    if (itemA.goalId !== itemB.goalId ||
+        itemA.studentId !== itemB.studentId ||
+        itemA.accuracy !== itemB.accuracy ||
+        itemA.correctTrials !== itemB.correctTrials ||
+        itemA.incorrectTrials !== itemB.incorrectTrials ||
+        itemA.notes !== itemB.notes ||
+        !arraysEqual(itemA.cuingLevels, itemB.cuingLevels)) {
+      return false;
+    }
+  }
+  return true;
+};
+
