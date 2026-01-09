@@ -74,7 +74,39 @@ function ensureSchoolExists(schoolName: string): string {
   return existingSchool.name;
 }
 
-// Get all students (optionally filtered by school, teacherId, or caseManagerId)
+/**
+ * @openapi
+ * /api/students:
+ *   get:
+ *     tags: [Students]
+ *     summary: Get all students
+ *     description: Retrieve all students, optionally filtered by school, teacher, or case manager
+ *     parameters:
+ *       - in: query
+ *         name: school
+ *         schema:
+ *           type: string
+ *         description: Filter by school ID
+ *       - in: query
+ *         name: teacherId
+ *         schema:
+ *           type: string
+ *         description: Filter by teacher ID
+ *       - in: query
+ *         name: caseManagerId
+ *         schema:
+ *           type: string
+ *         description: Filter by case manager ID
+ *     responses:
+ *       200:
+ *         description: List of students
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Student'
+ */
 studentsRouter.get('/', asyncHandler(async (req, res) => {
   const { school, teacherId, caseManagerId } = req.query;
   
@@ -114,7 +146,33 @@ studentsRouter.get('/', asyncHandler(async (req, res) => {
   res.json(parsed);
 }));
 
-// Get student by ID
+/**
+ * @openapi
+ * /api/students/{id}:
+ *   get:
+ *     tags: [Students]
+ *     summary: Get student by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Student ID
+ *     responses:
+ *       200:
+ *         description: Student details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Student'
+ *       404:
+ *         description: Student not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 studentsRouter.get('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
   const student = db.prepare('SELECT * FROM students WHERE id = ?').get(id) as StudentRow | undefined;
@@ -131,7 +189,32 @@ studentsRouter.get('/:id', asyncHandler(async (req, res) => {
   });
 }));
 
-// Create student - with validation
+/**
+ * @openapi
+ * /api/students:
+ *   post:
+ *     tags: [Students]
+ *     summary: Create a new student
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Student'
+ *     responses:
+ *       201:
+ *         description: Student created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Student'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 studentsRouter.post('/', validateBody(createStudentSchema), asyncHandler(async (req, res) => {
   const student = req.body;
   
@@ -169,7 +252,34 @@ studentsRouter.post('/', validateBody(createStudentSchema), asyncHandler(async (
   res.status(201).json({ id: studentId, message: 'Student created' });
 }));
 
-// Update student - with validation
+/**
+ * @openapi
+ * /api/students/{id}:
+ *   put:
+ *     tags: [Students]
+ *     summary: Update a student
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Student'
+ *     responses:
+ *       200:
+ *         description: Student updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Student'
+ *       404:
+ *         description: Student not found
+ */
 studentsRouter.put('/:id', validateBody(updateStudentSchema), asyncHandler(async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
@@ -218,7 +328,24 @@ studentsRouter.put('/:id', validateBody(updateStudentSchema), asyncHandler(async
   res.json({ message: 'Student updated' });
 }));
 
-// Delete student
+/**
+ * @openapi
+ * /api/students/{id}:
+ *   delete:
+ *     tags: [Students]
+ *     summary: Delete a student
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Student deleted
+ *       404:
+ *         description: Student not found
+ */
 studentsRouter.delete('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
   const result = db.prepare('DELETE FROM students WHERE id = ?').run(id);

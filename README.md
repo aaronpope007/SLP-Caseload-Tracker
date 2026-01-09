@@ -165,8 +165,12 @@ A comprehensive web application designed to help Speech-Language Pathologists (S
 - **SQLite Backend**: Express.js + SQLite backend for reliable data storage
   - All data stored in SQLite database (`api/data/slp-caseload.db`)
   - Better performance for large datasets
-  - Easy backups (just copy the .db file)
   - Automatic data persistence
+- **Database Backup System**: 
+  - Create, download, and restore database backups from Settings
+  - Automatic cleanup keeps last 10 backups
+  - One-click backup creation
+  - Download backups for offsite storage
 - **Test Data Seeding**: 
   - Create sample test data to explore the app (Settings → Test Data)
   - Includes a test school, teachers, and students
@@ -179,6 +183,23 @@ A comprehensive web application designed to help Speech-Language Pathologists (S
 - **Import Functionality**: 
   - Restore data from previously exported JSON files
 - **Settings**: Configure Google Gemini API key for AI features and manage test data
+
+### 🔐 Security
+- **Authentication System**: 
+  - Optional password protection (enabled in production)
+  - JWT-based authentication with 7-day token expiry
+  - Secure password hashing with bcrypt
+  - Password change in Settings
+- **API Protection**: 
+  - Rate limiting (100 requests/15 min for general, 10/15 min for email)
+  - Input validation with Zod schemas
+  - Environment-based CORS configuration
+
+### 📚 API Documentation
+- **Swagger/OpenAPI**: 
+  - Interactive API documentation at `/api-docs`
+  - Try out API endpoints directly in browser
+  - Full schema documentation for all endpoints
 
 ## Technology Stack
 
@@ -275,16 +296,48 @@ This will automatically start both:
 The app uses an Express + SQLite backend for data storage:
 
 - **Database Location**: `api/data/slp-caseload.db`
+- **Backups Location**: `api/data/backups/`
 - **Automatic Setup**: The database is created automatically on first run
-- **Backup**: Simply copy the `.db` file to backup your data
+- **API Documentation**: Available at `http://localhost:3001/api-docs`
 
 The backend provides:
 - ✅ Reliable data storage (SQLite database)
 - ✅ Better performance for large datasets
-- ✅ Easy backups (just copy the .db file)
+- ✅ Database backup & restore via UI
 - ✅ Export/import endpoints
 - ✅ All CRUD operations via REST API
 - ✅ Full-featured API for all data types
+- ✅ Rate limiting and input validation
+- ✅ Optional authentication
+
+### Environment Configuration
+
+Create a `.env` file in the `api` folder to configure the backend:
+
+```env
+# Server
+NODE_ENV=development
+PORT=3001
+
+# Authentication (disabled by default in development)
+AUTH_ENABLED=false
+JWT_SECRET=your-secret-key-change-in-production
+JWT_EXPIRES_IN=7d
+
+# CORS (allow all origins in development)
+CORS_ORIGIN=*
+
+# Rate Limiting
+RATE_LIMIT_ENABLED=true
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=100
+
+# Backups
+MAX_BACKUPS=10
+
+# Logging
+LOG_LEVEL=info
+```
 
 See the [API README](./api/README.md) for complete API documentation.
 

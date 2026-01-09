@@ -1,245 +1,136 @@
-# Future Improvements & Feature Ideas
+# Future Improvements & Roadmap
 
-This document tracks potential improvements and feature ideas for the SLP Caseload Tracker. Items can be checked off as they are implemented.
+*Last Updated: January 2026*
 
----
-
-## 📋 Clinical Documentation & Compliance
-
-- [x] **SOAP Note Generation**
-  - Auto-generate SOAP notes from session data ✅
-  - Template system for Subjective/Objective/Assessment/Plan sections ✅
-  - Customizable templates by setting/context ✅
-
-- [ ] **Treatment Authorization Tracking**
-  - Track insurance authorizations per student
-  - Authorization period, units approved, units used
-  - Alerts when approaching authorization limits
-  - Renewal reminders and tracking
-
-- [ ] **Billing Code Integration**
-  - CPT code tracking (92507, 92508, 92610, etc.)
-  - Automatic code assignment based on session type
-  - Billing export compatible with common billing systems
-
-- [ ] **Medicaid Compliance Tools**
-  - Medicaid log requirements (daily logs, signature tracking)
-  - Service verification reports
-  - Compliance checklists by state
-
-- [x] **Progress Report Scheduling**
-  - Auto-schedule reports based on IEP/annual review dates
-  - Templates for quarterly/annual reports (structure in place, templates can be created)
-  - Email reminders before report due dates (structure in place, email integration pending)
+This document tracks potential improvements and their implementation status.
 
 ---
 
-## 🔬 Assessment & Testing
+## ✅ Recently Completed (January 2026)
 
-- [ ] **Standardized Assessment Results**
-  - Store scores from common assessments (GFTA, CELF, CASL, etc.)
-  - Score interpretation and percentile tracking
-  - Comparison across multiple assessment administrations
-  - Visual charts for score progression over time
+### Security & Infrastructure
+- [x] **API Input Validation** - Zod schemas for all API endpoints
+- [x] **Environment-Based CORS** - Configurable CORS for production
+- [x] **Rate Limiting** - Protect API from abuse (100 req/15min general, 10/15min for email)
+- [x] **Authentication System** - JWT-based auth with bcrypt password hashing
+- [x] **Database Backup System** - Create, restore, download backups via UI
+- [x] **Structured Logging** - Pino logger with request logging
+- [x] **Environment Validation** - Validate .env on startup with warnings
 
-- [ ] **Informal Assessment Tools**
-  - Built-in language sample analysis (MLU, TTR, etc.)
-  - Articulation inventory tracking
-  - Phonological process checklists
-  - Quick screening tools with automatic scoring
+### Error Handling & UX
+- [x] **React Error Boundaries** - Route-level error handling with recovery
+- [x] **404 Page** - Custom not found page
+- [x] **Frontend Validation Display** - useFormValidation hook for inline errors
+- [x] **Defensive goalsTargeted Checks** - Fixed undefined access crashes
 
-- [ ] **Baseline Data Collection**
-  - Pre-treatment baseline tracking per goal
-  - Multiple baseline probes before starting treatment
-  - Probe tracking separate from treatment sessions
+### Performance & Mobile
+- [x] **Loading Skeletons** - Better perceived performance
+- [x] **Mobile Responsive Theme** - Touch targets, dialog sizing
+- [x] **ResponsiveDialog Component** - Full-screen dialogs on mobile
 
----
-
-## 💼 Session Enhancement
-
-- [x] **Cuing/Prompting Levels**
-  - Track cuing levels (independent, verbal, visual, tactile, physical)
-  - Cuing level progression over time
-  - Analysis of cuing reduction as measure of progress
-
-- [ ] **Session Intensity Tracking**
-  - Frequency tracking (sessions per week/month)
-  - Duration tracking
-  - Intensity reports for authorization justification
-
-- [ ] **Behavior/Attention Tracking**
-  - Note attention/engagement during sessions
-  - Behavior concerns that impact therapy
-  - Behavior intervention tracking
-
-- [ ] **Home Program Tracking**
-  - Assign home practice activities
-  - Track completion and carryover
-  - Parent communication logs
+### Documentation & Testing
+- [x] **API Documentation** - OpenAPI/Swagger at /api-docs
+- [x] **Jest Integration Tests** - API validation tests
 
 ---
 
-## 👨‍👩‍👧 Parent & Team Communication
+## 🔄 In Progress
 
-- [ ] **Parent Portal Features**
-  - Secure portal for parents to view progress
-  - Home program assignments and tracking
-  - Communication log
-  - Progress summaries in parent-friendly language
-
-- [ ] **Teacher Collaboration Tools**
-  - Share goal progress with teachers
-  - Classroom observation notes
-  - Collaboration logs
-  - Push-in/pull-out session tracking
-
-- [ ] **Team Meeting Preparation**
-  - IEP meeting prep checklist
-  - Quick reference cards (current goals, progress, recommendations)
-  - Automated agenda generation
+*None currently*
 
 ---
 
-## 📊 Analytics & Insights
+## 📋 Planned Improvements
 
-- [ ] **Goal Achievement Predictions**
-  - Predict when goals may be achieved based on progress rate
-  - Identify goals at risk of not meeting timelines
-  - Evidence-based timeline recommendations
+### 🟡 Medium Priority
 
-- [ ] **Cohort Analysis**
-  - Compare progress across students with similar goals
-  - Identify most effective activities for specific goal types
-  - Average time-to-achievement by goal domain
+| Feature | Description | Effort |
+|---------|-------------|--------|
+| **Frontend Component Tests** | React Testing Library tests for UI | ~3 hours |
+| **PWA/Offline Support** | Installable app with offline mode | ~4 hours |
+| **Database Migrations** | Versioned migrations with Knex | ~2 hours |
+| **Accessibility Audit** | ARIA labels, keyboard nav, screen readers | ~3 hours |
+| **Virtual Scrolling** | For lists with 100+ items | ~2 hours |
 
-- [ ] **Efficiency Metrics**
-  - Sessions-to-goal-achievement ratios
-  - Most productive times/days analysis
-  - Caseload balance analysis
+### 🟢 Nice to Have
 
-- [ ] **Evidence-Based Practice Integration**
-  - Link goals to research evidence
-  - Treatment intensity recommendations based on research
-  - Intervention effectiveness ratings
-
----
-
-## ⚡ Workflow & Productivity
-
-- [ ] **Quick Session Entry**
-  - One-click session templates (common session types)
-  - Copy previous session feature
-  - Bulk session creation for recurring groups
-
-- [x] **Smart Reminders**
-  - Goal review reminders (when goals stagnant)
-  - Re-evaluation due date alerts
-  - Report deadline notifications
-  - Annual review prep reminders
-
-- [x] **Session Planning Calendar**
-  - Visual calendar view with upcoming sessions
-  - Drag-and-drop session scheduling
-  - Recurring session setup
-  - Conflict detection
-
-- [ ] **Quick Actions Dashboard**
-  - Most recent students quick-access
-  - Common tasks shortcuts
-  - Today's agenda view
+| Feature | Description | Effort |
+|---------|-------------|--------|
+| **Bulk Operations** | Edit/delete multiple items | ~2 hours |
+| **CSV Import** | Import students from spreadsheet | ~3 hours |
+| **Keyboard Shortcuts** | Document and add shortcuts | ~1 hour |
+| **Print Styles** | Better print layout for reports | ~1 hour |
+| **Dark Mode Persistence** | Save theme to database | ~30 min |
+| **Custom Fields** | User-defined fields for students/goals | ~4 hours |
+| **PDF Export** | Generate PDF reports | ~3 hours |
 
 ---
 
-## 🎥 Advanced Features
+## 🚀 Feature Roadmap
 
-- [ ] **Video/Audio Recording Integration**
-  - Link recordings to sessions (with consent)
-  - Time-stamped notes synced to recordings
-  - Analysis tools (speech rate, fluency counts, etc.)
+### Mobile & PWA
+- [ ] Progressive Web App (PWA) manifest
+- [ ] Service Worker for offline caching
+- [ ] Push notifications for reminders
+- [ ] Mobile-optimized session logging
 
-- [ ] **Materials Inventory**
-  - Track therapy materials and resources
-  - Material usage by goal/activity
-  - Shopping lists for needed materials
-  - Digital materials library
+### Collaboration
+- [ ] Multi-user support with roles
+- [ ] Share caseloads between SLPs
+- [ ] Supervisor review workflow
+- [ ] Comment/annotation system
 
-- [ ] **Continuing Education Tracking**
-  - CEU credit tracking
-  - License renewal reminders
-  - Professional development log
+### Advanced Analytics
+- [ ] Goal achievement predictions
+- [ ] Cohort comparison charts
+- [ ] Custom report builder
+- [ ] Benchmark comparisons
 
-- [ ] **Research Participation**
-  - Anonymized data contribution for research
-  - Opt-in for outcome studies
-  - Access to aggregated industry benchmarks
-
----
-
-## 📱 Mobile & Accessibility
-
-- [ ] **Voice-to-Text Notes**
-  - Speech-to-text for session notes
-  - Quick voice memos during sessions
-  - Hands-free data entry
-
-- [ ] **Offline-First Mode**
-  - Full functionality without internet
-  - Sync when connection restored
-  - Critical for school settings with poor connectivity
-
-- [ ] **Accessibility for Diverse Abilities**
-  - Support for students/clients using AAC
-  - Visual schedules and supports
-  - Simplified interfaces for co-treatment scenarios
+### Integrations
+- [ ] Google Calendar sync
+- [ ] Email service integration
+- [ ] EHR system connectors
+- [ ] Assessment tool imports
 
 ---
 
-## 📈 Data & Reporting
+## 🔧 Technical Debt
 
-- [ ] **Custom Report Builder**
-  - Drag-and-drop report creation
-  - Save and reuse report templates
-  - Multiple export formats (PDF, Word, Excel)
+### Code Quality
+- [ ] Increase test coverage to 80%+
+- [ ] Add E2E tests with Playwright
+- [ ] Reduce largest components further
+- [ ] Add Storybook for component docs
 
-- [ ] **Comparative Reports**
-  - Before/after comparison reports
-  - Year-over-year progress
-  - Treatment phase comparisons
+### Infrastructure
+- [ ] Docker containerization
+- [ ] CI/CD pipeline
+- [ ] Automated database backups
+- [ ] Health check dashboard
 
-- [ ] **Caseload Analytics Dashboard**
-  - Caseload distribution by domain
-  - Service delivery model breakdown
-  - Workload analysis tools
-
----
-
-## 🔗 Integration & Interoperability
-
-- [ ] **IEP Management Integration**
-  - Import/export IEP goals
-  - Sync with common IEP platforms
-  - Goal bank integration
-
-- [ ] **Assessment Platform Integration**
-  - Import scores from digital assessments
-  - Link to online assessment results
-  - Automated data entry from assessments
-
-- [ ] **Email Integration**
-  - Send reports directly via email
-  - Automated parent updates
-  - Schedule email reports
+### Security
+- [ ] Security audit
+- [ ] HIPAA compliance review
+- [ ] Audit logging for data changes
+- [ ] Session timeout handling
 
 ---
 
-## Notes
+## 📊 Metrics
 
-- Items are organized by category for easy navigation
-- Check off items as they are implemented by changing `[ ]` to `[x]`
-- Feel free to add notes, priorities, or additional ideas below
-- Consider user feedback and workflow needs when prioritizing
+| Metric | Current | Target |
+|--------|---------|--------|
+| API Test Coverage | ~20% | 80% |
+| Frontend Test Coverage | 0% | 60% |
+| Largest Component | 421 lines | < 400 |
+| API Response Time (avg) | ~50ms | < 100ms |
+| Lighthouse Score | TBD | > 90 |
 
 ---
 
-*Last updated: December 2025*
+## 📝 Notes
 
+- All improvements should maintain backward compatibility
+- TypeScript strict mode should remain enabled
+- New features should include tests
+- Mobile-first approach for new UI components

@@ -28,6 +28,7 @@ import { errorHandler } from './middleware/errorHandler';
 import { authMiddleware } from './middleware/auth';
 import { isAuthEnabled, isAuthSetup } from './utils/auth';
 import { validateAndLogEnv } from './utils/validateEnv';
+import { setupSwagger } from './config/swagger';
 import { getCorsOptions, logCorsConfig } from './config/cors';
 import { apiLimiter, strictLimiter, logRateLimitConfig } from './middleware/rateLimit';
 import { requestLogger } from './middleware/requestLogger';
@@ -57,7 +58,33 @@ app.use('/api', authMiddleware);
 // Initialize database
 initDatabase();
 
+// Setup Swagger API documentation
+setupSwagger(app);
+
 // Health check
+/**
+ * @openapi
+ * /health:
+ *   get:
+ *     tags: [Health]
+ *     summary: Health check endpoint
+ *     description: Returns the current server status
+ *     security: []
+ *     responses:
+ *       200:
+ *         description: Server is healthy
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: ok
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ */
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });

@@ -23,8 +23,26 @@ import { logger } from '../utils/logger';
 export const backupRouter = express.Router();
 
 /**
- * GET /api/backup
- * List all available backups
+ * @openapi
+ * /api/backup:
+ *   get:
+ *     tags: [Backup]
+ *     summary: List all backups
+ *     description: Returns a list of all available database backups
+ *     responses:
+ *       200:
+ *         description: List of backups
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 count:
+ *                   type: integer
+ *                 backups:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Backup'
  */
 backupRouter.get('/', (req, res) => {
   try {
@@ -46,8 +64,30 @@ backupRouter.get('/', (req, res) => {
 });
 
 /**
- * POST /api/backup
- * Create a new backup
+ * @openapi
+ * /api/backup:
+ *   post:
+ *     tags: [Backup]
+ *     summary: Create a new backup
+ *     description: Creates a backup of the current database
+ *     responses:
+ *       201:
+ *         description: Backup created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 filename:
+ *                   type: string
+ *                 size:
+ *                   type: integer
+ *                 sizeFormatted:
+ *                   type: string
+ *       500:
+ *         description: Failed to create backup
  */
 backupRouter.post('/', async (req, res) => {
   try {

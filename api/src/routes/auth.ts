@@ -23,8 +23,20 @@ import { logger } from '../utils/logger';
 export const authRouter = express.Router();
 
 /**
- * GET /api/auth/status
- * Check authentication status
+ * @openapi
+ * /api/auth/status:
+ *   get:
+ *     tags: [Auth]
+ *     summary: Check authentication status
+ *     description: Returns whether authentication is enabled and if a password has been set up
+ *     security: []
+ *     responses:
+ *       200:
+ *         description: Authentication status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthStatus'
  */
 authRouter.get('/status', (req, res) => {
   const enabled = isAuthEnabled();
@@ -39,9 +51,40 @@ authRouter.get('/status', (req, res) => {
 });
 
 /**
- * POST /api/auth/setup
- * Set up authentication with initial password
- * Only works if auth is not already set up
+ * @openapi
+ * /api/auth/setup:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Set up authentication
+ *     description: Set up initial password (only works if auth is not already set up)
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [password]
+ *             properties:
+ *               password:
+ *                 type: string
+ *                 minLength: 6
+ *                 description: Password (minimum 6 characters)
+ *     responses:
+ *       201:
+ *         description: Authentication set up successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 token:
+ *                   type: string
+ *                   description: JWT token
+ *       400:
+ *         description: Password invalid or auth already set up
  */
 authRouter.post('/setup', async (req, res) => {
   const { password } = req.body;
@@ -81,8 +124,37 @@ authRouter.post('/setup', async (req, res) => {
 });
 
 /**
- * POST /api/auth/login
- * Login with password
+ * @openapi
+ * /api/auth/login:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Login with password
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [password]
+ *             properties:
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 token:
+ *                   type: string
+ *                   description: JWT token for subsequent requests
+ *       401:
+ *         description: Invalid password
  */
 authRouter.post('/login', async (req, res) => {
   const { password } = req.body;
