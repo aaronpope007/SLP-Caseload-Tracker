@@ -120,7 +120,7 @@ export const StudentSelector = ({
           </Typography>
         ) : (
           filteredStudents.map((student) => {
-            const grade = student.grade != null && student.grade !== undefined ? ` (${student.grade})` : '';
+            const grade = student.grade != null && student.grade !== undefined && student.grade.trim() !== '' ? ` (${student.grade})` : '';
             return (
               <FormControlLabel
                 key={student.id}

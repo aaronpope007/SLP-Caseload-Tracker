@@ -936,6 +936,12 @@ export const EmailTeacherDialog = ({
                 cm.emailAddress?.toLowerCase().includes('swelle')
         );
         
+        // Check if any case manager is Keng (by name or email)
+        const isCaseManagerKeng = studentCaseManagers.some(
+          cm => cm.name.toLowerCase().includes('keng') ||
+                cm.emailAddress?.toLowerCase().includes('keng')
+        );
+        
         // Add case manager to CC if checkbox is checked
         if (ccCaseManager && studentCaseManagers.length > 0) {
           for (const cm of studentCaseManagers) {
@@ -951,8 +957,8 @@ export const EmailTeacherDialog = ({
           ccAddresses.push('swelle@nobleacademy.us');
         }
         
-        // Add Keng if checkbox is checked
-        if (relevantCcOptions.showKeng && ccKeng) {
+        // Add Keng if checkbox is checked and Keng is not already the case manager
+        if (relevantCcOptions.showKeng && ccKeng && !isCaseManagerKeng) {
           ccAddresses.push('keng@nobleacademy.us');
         }
         
@@ -1182,12 +1188,20 @@ export const EmailTeacherDialog = ({
                           cm.emailAddress?.toLowerCase().includes('swelle')
                   );
                   
+                  // Check if any case manager is Keng (by name or email)
+                  const isCaseManagerKeng = studentCaseManagers.some(
+                    cm => cm.name.toLowerCase().includes('keng') ||
+                          cm.emailAddress?.toLowerCase().includes('keng')
+                  );
+                  
                   const relevantCcOptions = getRelevantCcOptions(associatedStudentsForCurrent);
                   const hasCaseManager = studentCaseManagers.length > 0;
                   // Always show Susan checkbox if she's not the case manager (regardless of grade)
                   const showSusanCheckbox = !isCaseManagerSusan;
+                  // Hide Keng checkbox if Keng is already the case manager
+                  const showKengCheckbox = relevantCcOptions.showKeng && !isCaseManagerKeng;
                   
-                  if (!hasCaseManager && !showSusanCheckbox && !relevantCcOptions.showKeng && !relevantCcOptions.showEranel) {
+                  if (!hasCaseManager && !showSusanCheckbox && !showKengCheckbox && !relevantCcOptions.showEranel) {
                     return null;
                   }
                   
@@ -1204,7 +1218,7 @@ export const EmailTeacherDialog = ({
                           label={`CC ${studentCaseManagers.map(cm => cm.name).join(', ')}${studentCaseManagers[0]?.emailAddress ? ` (${studentCaseManagers[0].emailAddress})` : ''}`}
                         />
                       )}
-                      {relevantCcOptions.showKeng && (
+                      {showKengCheckbox && (
                         <FormControlLabel
                           control={
                             <Checkbox
@@ -1225,7 +1239,7 @@ export const EmailTeacherDialog = ({
                             />
                           }
                           label="CC Susan Welle (swelle@nobleacademy.us)"
-                          sx={{ display: 'block', mt: (hasCaseManager || relevantCcOptions.showKeng) ? 1 : 0 }}
+                          sx={{ display: 'block', mt: (hasCaseManager || showKengCheckbox) ? 1 : 0 }}
                         />
                       )}
                       {relevantCcOptions.showEranel && (
@@ -1237,7 +1251,7 @@ export const EmailTeacherDialog = ({
                             />
                           }
                           label="CC Eranel Polonio (apolonio@nobleacademy.us) - 7th & 8th Grade"
-                          sx={{ display: 'block', mt: (hasCaseManager || relevantCcOptions.showKeng || showSusanCheckbox) ? 1 : 0 }}
+                          sx={{ display: 'block', mt: (hasCaseManager || showKengCheckbox || showSusanCheckbox) ? 1 : 0 }}
                         />
                       )}
                     </Box>
