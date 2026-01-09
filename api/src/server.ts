@@ -22,6 +22,7 @@ import { scheduledSessionsRouter } from './routes/scheduled-sessions';
 import { documentParserRouter } from './routes/document-parser';
 import { timesheetNotesRouter } from './routes/timesheet-notes';
 import { seedTestDataRouter } from './routes/seed-test-data';
+import { backupRouter } from './routes/backup';
 import { errorHandler } from './middleware/errorHandler';
 import { getCorsOptions, logCorsConfig } from './config/cors';
 import { apiLimiter, strictLimiter, logRateLimitConfig } from './middleware/rateLimit';
@@ -72,6 +73,7 @@ app.use('/api/scheduled-sessions', scheduledSessionsRouter);
 app.use('/api/document-parser', documentParserRouter);
 app.use('/api/timesheet-notes', timesheetNotesRouter);
 app.use('/api/seed-test-data', seedTestDataRouter);
+app.use('/api/backup', backupRouter);
 
 // Error handler (must be last)
 app.use(errorHandler);

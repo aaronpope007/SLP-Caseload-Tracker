@@ -15,6 +15,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { ExportDialog } from './ExportDialog';
+import { BackupManager } from './BackupManager';
 import { useTheme } from '../context/ThemeContext';
 import { api } from '../utils/api';
 
@@ -264,11 +265,21 @@ Join instructions
             Data Management
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            All data is stored locally in your browser. Use the export feature to backup your data.
+            Export your data for sharing or backup purposes.
           </Typography>
           <Button variant="outlined" fullWidth onClick={() => setExportOpen(true)} sx={{ mb: 2 }}>
             Export / Import Data
           </Button>
+        </Box>
+        <Divider sx={{ my: 2 }} />
+        <Box>
+          <Typography variant="subtitle2" gutterBottom>
+            Database Backups
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Create and manage database backups. Backups are stored on the server.
+          </Typography>
+          <BackupManager />
         </Box>
         <Divider sx={{ my: 2 }} />
         <Box>

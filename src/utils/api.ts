@@ -634,6 +634,37 @@ export const api = {
     exists: () => 
       request<{ exists: boolean; studentCount?: number; teacherCount?: number }>('/seed-test-data/exists'),
   },
+
+  // Database Backup
+  backup: {
+    list: () =>
+      request<{
+        count: number;
+        backups: Array<{
+          filename: string;
+          size: number;
+          sizeFormatted: string;
+          createdAt: string;
+        }>;
+      }>('/backup'),
+    create: () =>
+      request<{
+        message: string;
+        filename: string;
+        size: number;
+        sizeFormatted: string;
+      }>('/backup', { method: 'POST' }),
+    delete: (filename: string) =>
+      request<{ message: string }>(`/backup/${encodeURIComponent(filename)}`, {
+        method: 'DELETE',
+      }),
+    restore: (filename: string) =>
+      request<{ message: string; warning: string }>(`/backup/${encodeURIComponent(filename)}/restore`, {
+        method: 'POST',
+      }),
+    getDownloadUrl: (filename: string) =>
+      `${API_URL}/backup/${encodeURIComponent(filename)}`,
+  },
 };
 
 // Check if API is available

@@ -4,6 +4,7 @@ import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Box, CircularProgress } from '@mui/material';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { RouteErrorBoundary } from './components/RouteErrorBoundary';
 import { Layout } from './components/Layout';
 import { SchoolProvider } from './context/SchoolContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
@@ -27,6 +28,7 @@ const ProgressReports = lazy(() => import('./pages/ProgressReports').then(m => (
 const DueDateItems = lazy(() => import('./pages/DueDateItems').then(m => ({ default: m.DueDateItems })));
 const SessionCalendar = lazy(() => import('./pages/SessionCalendar').then(m => ({ default: m.SessionCalendar })));
 const Communications = lazy(() => import('./pages/Communications').then(m => ({ default: m.Communications })));
+const NotFound = lazy(() => import('./pages/NotFound').then(m => ({ default: m.NotFound })));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -45,6 +47,7 @@ const router = createBrowserRouter([
         </Suspense>
       </Layout>
     ),
+    errorElement: <RouteErrorBoundary />,
   },
   {
     path: '/students',
@@ -55,6 +58,7 @@ const router = createBrowserRouter([
         </Suspense>
       </Layout>
     ),
+    errorElement: <RouteErrorBoundary />,
   },
   {
     path: '/students/:id',
@@ -65,6 +69,7 @@ const router = createBrowserRouter([
         </Suspense>
       </Layout>
     ),
+    errorElement: <RouteErrorBoundary />,
   },
   {
     path: '/teachers',
@@ -75,6 +80,7 @@ const router = createBrowserRouter([
         </Suspense>
       </Layout>
     ),
+    errorElement: <RouteErrorBoundary />,
   },
   {
     path: '/case-managers',
@@ -85,6 +91,7 @@ const router = createBrowserRouter([
         </Suspense>
       </Layout>
     ),
+    errorElement: <RouteErrorBoundary />,
   },
   {
     path: '/sessions',
@@ -95,6 +102,7 @@ const router = createBrowserRouter([
         </Suspense>
       </Layout>
     ),
+    errorElement: <RouteErrorBoundary />,
   },
   {
     path: '/progress',
@@ -105,6 +113,7 @@ const router = createBrowserRouter([
         </Suspense>
       </Layout>
     ),
+    errorElement: <RouteErrorBoundary />,
   },
   {
     path: '/ideas',
@@ -115,6 +124,7 @@ const router = createBrowserRouter([
         </Suspense>
       </Layout>
     ),
+    errorElement: <RouteErrorBoundary />,
   },
   {
     path: '/documentation',
@@ -125,6 +135,7 @@ const router = createBrowserRouter([
         </Suspense>
       </Layout>
     ),
+    errorElement: <RouteErrorBoundary />,
   },
   {
     path: '/time-tracking',
@@ -135,6 +146,7 @@ const router = createBrowserRouter([
         </Suspense>
       </Layout>
     ),
+    errorElement: <RouteErrorBoundary />,
   },
   {
     path: '/evaluations',
@@ -145,6 +157,7 @@ const router = createBrowserRouter([
         </Suspense>
       </Layout>
     ),
+    errorElement: <RouteErrorBoundary />,
   },
   {
     path: '/schools',
@@ -155,6 +168,7 @@ const router = createBrowserRouter([
         </Suspense>
       </Layout>
     ),
+    errorElement: <RouteErrorBoundary />,
   },
   {
     path: '/soap-notes',
@@ -165,6 +179,7 @@ const router = createBrowserRouter([
         </Suspense>
       </Layout>
     ),
+    errorElement: <RouteErrorBoundary />,
   },
   {
     path: '/progress-reports',
@@ -175,6 +190,7 @@ const router = createBrowserRouter([
         </Suspense>
       </Layout>
     ),
+    errorElement: <RouteErrorBoundary />,
   },
   {
     path: '/due-date-items',
@@ -185,6 +201,7 @@ const router = createBrowserRouter([
         </Suspense>
       </Layout>
     ),
+    errorElement: <RouteErrorBoundary />,
   },
   {
     path: '/session-calendar',
@@ -195,6 +212,7 @@ const router = createBrowserRouter([
         </Suspense>
       </Layout>
     ),
+    errorElement: <RouteErrorBoundary />,
   },
   {
     path: '/communications',
@@ -202,6 +220,18 @@ const router = createBrowserRouter([
       <Layout>
         <Suspense fallback={<PageLoader />}>
           <Communications />
+        </Suspense>
+      </Layout>
+    ),
+    errorElement: <RouteErrorBoundary />,
+  },
+  // 404 catch-all route - must be last
+  {
+    path: '*',
+    element: (
+      <Layout>
+        <Suspense fallback={<PageLoader />}>
+          <NotFound />
         </Suspense>
       </Layout>
     ),
