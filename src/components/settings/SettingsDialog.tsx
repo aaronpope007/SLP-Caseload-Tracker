@@ -16,8 +16,8 @@ import {
 } from '@mui/material';
 import { ExportDialog } from './ExportDialog';
 import { BackupManager } from './BackupManager';
-import { useTheme } from '../context/ThemeContext';
-import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import { api } from '../../utils/api';
 import { logError } from '../../utils/logger';
 

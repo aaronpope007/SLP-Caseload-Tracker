@@ -29,17 +29,17 @@ import {
 } from '@mui/icons-material';
 import type { Student, Goal, Session } from '../../types';
 import { formatDate, formatTime, toLocalDateTimeString, fromLocalDateTimeString } from '../../utils/helpers';
-import { StudentSelector } from './StudentSelector';
+import { StudentSelector } from '../student/StudentSelector';
 import { ServiceTypeSelector } from './ServiceTypeSelector';
-import { GoalHierarchy } from './GoalHierarchy';
+import { GoalHierarchy } from '../goal/GoalHierarchy';
 import { organizeGoalsHierarchy } from '../../utils/goalHierarchy';
 import { COMMON_SUBJECTIVE_STATEMENTS } from '../../utils/soapNoteGenerator';
-import { EmailTeacherDialog } from './EmailTeacherDialog';
+import { EmailTeacherDialog } from '../EmailTeacherDialog';
 import { Email as EmailIcon } from '@mui/icons-material';
-import { GoalSearchBar } from './GoalSearchBar';
-import { QuickAccessGoalsBar } from './QuickAccessGoalsBar';
-import { GoalMatrixView } from './GoalMatrixView';
-import { ActiveGoalsTrackingPanel } from './ActiveGoalsTrackingPanel';
+import { GoalSearchBar } from '../goal/GoalSearchBar';
+import { QuickAccessGoalsBar } from '../goal/QuickAccessGoalsBar';
+import { GoalMatrixView } from '../goal/GoalMatrixView';
+import { ActiveGoalsTrackingPanel } from '../goal/ActiveGoalsTrackingPanel';
 import { usePinnedGoals } from '../../hooks/usePinnedGoals';
 
 export interface SessionFormData {

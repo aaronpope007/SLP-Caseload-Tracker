@@ -18,7 +18,7 @@ import {
 } from '@mui/icons-material';
 import type { Goal } from '../../types';
 import { GoalProgressChip } from './GoalProgressChip';
-import { PerformanceDataForm } from './PerformanceDataForm';
+import { PerformanceDataForm } from '../session/PerformanceDataForm';
 import { arraysEqual, performanceDataEqual } from '../../utils/helpers';
 
 interface PerformanceDataItem {

@@ -25,7 +25,7 @@ import { getReminders } from '../utils/storage-api';
 import { formatDate } from '../utils/helpers';
 import type { Reminder } from '../types';
 import { useSchool } from '../context/SchoolContext';
-import { PriorityChip } from './PriorityChip';
+import { PriorityChip } from './common/PriorityChip';
 
 const getReminderIcon = (type: Reminder['type']) => {
   switch (type) {

@@ -51,7 +51,7 @@ import {
   Email as EmailIcon,
   Logout as LogoutIcon,
 } from '@mui/icons-material';
-import { SettingsDialog } from './SettingsDialog';
+import { SettingsDialog } from './settings/SettingsDialog';
 import { useSchool } from '../context/SchoolContext';
 
 const drawerWidth = 240;

@@ -18,7 +18,7 @@ import type { Goal, Student } from '../../types';
 import { organizeGoalsHierarchy } from '../../utils/goalHierarchy';
 import { getGoalPath } from '../../utils/goalPaths';
 import { GoalProgressChip } from './GoalProgressChip';
-import { PerformanceDataForm } from './PerformanceDataForm';
+import { PerformanceDataForm } from '../session/PerformanceDataForm';
 
 interface PerformanceDataItem {
   goalId: string;
