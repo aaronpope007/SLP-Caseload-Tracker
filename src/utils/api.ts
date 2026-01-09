@@ -149,14 +149,40 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Get the auth token from localStorage
+ */
+function getAuthToken(): string | null {
+  return localStorage.getItem('auth_token');
+}
+
+/**
+ * Set the auth token in localStorage
+ */
+export function setAuthToken(token: string | null): void {
+  if (token) {
+    localStorage.setItem('auth_token', token);
+  } else {
+    localStorage.removeItem('auth_token');
+  }
+}
+
 async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${API_URL}${endpoint}`;
+  
+  // Get auth token and include in headers
+  const token = getAuthToken();
+  const authHeaders: Record<string, string> = {};
+  if (token) {
+    authHeaders['Authorization'] = `Bearer ${token}`;
+  }
   
   try {
     const response = await fetch(url, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
+        ...authHeaders,
         ...options?.headers,
       },
     });
@@ -633,6 +659,36 @@ export const api = {
       }),
     exists: () => 
       request<{ exists: boolean; studentCount?: number; teacherCount?: number }>('/seed-test-data/exists'),
+  },
+
+  // Authentication
+  auth: {
+    status: () =>
+      request<{
+        enabled: boolean;
+        setup: boolean;
+        requiresLogin: boolean;
+        requiresSetup: boolean;
+      }>('/auth/status'),
+    setup: (password: string) =>
+      request<{ message: string; token: string }>('/auth/setup', {
+        method: 'POST',
+        body: JSON.stringify({ password }),
+      }),
+    login: (password: string) =>
+      request<{ message: string; token: string }>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ password }),
+      }),
+    changePassword: (currentPassword: string, newPassword: string) =>
+      request<{ message: string; token: string }>('/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ currentPassword, newPassword }),
+      }),
+    logout: () =>
+      request<{ message: string }>('/auth/logout', {
+        method: 'POST',
+      }),
   },
 
   // Database Backup

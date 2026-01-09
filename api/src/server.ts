@@ -23,7 +23,10 @@ import { documentParserRouter } from './routes/document-parser';
 import { timesheetNotesRouter } from './routes/timesheet-notes';
 import { seedTestDataRouter } from './routes/seed-test-data';
 import { backupRouter } from './routes/backup';
+import { authRouter } from './routes/auth';
 import { errorHandler } from './middleware/errorHandler';
+import { authMiddleware } from './middleware/auth';
+import { isAuthEnabled, isAuthSetup } from './utils/auth';
 import { getCorsOptions, logCorsConfig } from './config/cors';
 import { apiLimiter, strictLimiter, logRateLimitConfig } from './middleware/rateLimit';
 import { requestLogger } from './middleware/requestLogger';
@@ -43,6 +46,12 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Apply rate limiting to all API routes
 app.use('/api', apiLimiter);
+
+// Auth routes (before auth middleware so login/setup work)
+app.use('/api/auth', authRouter);
+
+// Apply authentication middleware to all other API routes
+app.use('/api', authMiddleware);
 
 // Initialize database
 initDatabase();
@@ -83,6 +92,17 @@ const server = app.listen(PORT, () => {
   logger.info({ path: './data/slp-caseload.db' }, '📊 Database connected');
   logCorsConfig();
   logRateLimitConfig();
+  
+  // Log auth status
+  if (isAuthEnabled()) {
+    if (isAuthSetup()) {
+      logger.info('🔐 Authentication: ENABLED (password set)');
+    } else {
+      logger.info('🔐 Authentication: ENABLED (requires setup)');
+    }
+  } else {
+    logger.info('🔓 Authentication: DISABLED (development mode)');
+  }
 });
 
 server.on('error', (err: NodeJS.ErrnoException) => {

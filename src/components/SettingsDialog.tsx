@@ -17,6 +17,7 @@ import {
 import { ExportDialog } from './ExportDialog';
 import { BackupManager } from './BackupManager';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
 
 interface SettingsDialogProps {
@@ -32,9 +33,17 @@ export const SettingsDialog = ({ open, onClose }: SettingsDialogProps) => {
   const [emailAddress, setEmailAddress] = useState('');
   const [emailPassword, setEmailPassword] = useState('');
   const { mode, toggleMode } = useTheme();
+  const { authStatus, changePassword } = useAuth();
   const [testDataExists, setTestDataExists] = useState(false);
   const [testDataLoading, setTestDataLoading] = useState(false);
   const [testDataMessage, setTestDataMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  
+  // Password change state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('gemini_api_key');
@@ -142,6 +151,42 @@ Join instructions
       });
     } finally {
       setTestDataLoading(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    setPasswordMessage(null);
+    
+    if (!currentPassword || !newPassword) {
+      setPasswordMessage({ type: 'error', text: 'Please fill in all password fields' });
+      return;
+    }
+    
+    if (newPassword.length < 6) {
+      setPasswordMessage({ type: 'error', text: 'New password must be at least 6 characters' });
+      return;
+    }
+    
+    if (newPassword !== confirmNewPassword) {
+      setPasswordMessage({ type: 'error', text: 'New passwords do not match' });
+      return;
+    }
+    
+    setPasswordLoading(true);
+    try {
+      const result = await changePassword(currentPassword, newPassword);
+      if (result.success) {
+        setPasswordMessage({ type: 'success', text: 'Password changed successfully!' });
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmNewPassword('');
+      } else {
+        setPasswordMessage({ type: 'error', text: result.error || 'Failed to change password' });
+      }
+    } catch (error: any) {
+      setPasswordMessage({ type: 'error', text: error.message || 'Failed to change password' });
+    } finally {
+      setPasswordLoading(false);
     }
   };
 
@@ -259,6 +304,61 @@ Join instructions
             For Gmail, you'll need to create an App Password in your Google Account settings.
           </Typography>
         </Box>
+        {authStatus?.enabled && authStatus?.setup && (
+          <>
+            <Divider sx={{ my: 2 }} />
+            <Box>
+              <Typography variant="subtitle2" gutterBottom>
+                Security
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Change your password to keep your data secure.
+              </Typography>
+              {passwordMessage && (
+                <Alert severity={passwordMessage.type} sx={{ mb: 2 }} onClose={() => setPasswordMessage(null)}>
+                  {passwordMessage.text}
+                </Alert>
+              )}
+              <TextField
+                fullWidth
+                type="password"
+                label="Current Password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                margin="normal"
+                size="small"
+              />
+              <TextField
+                fullWidth
+                type="password"
+                label="New Password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                margin="normal"
+                size="small"
+                helperText="Minimum 6 characters"
+              />
+              <TextField
+                fullWidth
+                type="password"
+                label="Confirm New Password"
+                value={confirmNewPassword}
+                onChange={(e) => setConfirmNewPassword(e.target.value)}
+                margin="normal"
+                size="small"
+              />
+              <Button
+                variant="outlined"
+                onClick={handleChangePassword}
+                disabled={passwordLoading}
+                sx={{ mt: 1 }}
+                startIcon={passwordLoading ? <CircularProgress size={16} /> : null}
+              >
+                Change Password
+              </Button>
+            </Box>
+          </>
+        )}
         <Divider sx={{ my: 2 }} />
         <Box>
           <Typography variant="subtitle2" gutterBottom>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useDialog } from '../hooks';
+import { useAuth } from '../context/AuthContext';
 import {
   AppBar,
   Box,
@@ -48,6 +49,7 @@ import {
   CalendarToday as CalendarTodayIcon,
   Person as PersonIcon,
   Email as EmailIcon,
+  Logout as LogoutIcon,
 } from '@mui/icons-material';
 import { SettingsDialog } from './SettingsDialog';
 import { useSchool } from '../context/SchoolContext';
@@ -143,6 +145,12 @@ export const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const { logout, authStatus } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login', { replace: true });
+  };
   const { selectedSchool, setSelectedSchool, availableSchools, addSchool } = useSchool();
 
   const handleDrawerToggle = () => {
@@ -253,6 +261,16 @@ export const Layout = ({ children }: LayoutProps) => {
           >
             Settings
           </Button>
+          {authStatus?.enabled && (
+            <Button
+              color="inherit"
+              startIcon={<LogoutIcon />}
+              onClick={handleLogout}
+              sx={{ ml: 1 }}
+            >
+              Logout
+            </Button>
+          )}
         </Toolbar>
       </AppBar>
       <Box
