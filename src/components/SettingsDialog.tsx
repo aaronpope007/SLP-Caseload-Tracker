@@ -319,43 +319,48 @@ Join instructions
                   {passwordMessage.text}
                 </Alert>
               )}
-              <TextField
-                fullWidth
-                type="password"
-                label="Current Password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                margin="normal"
-                size="small"
-              />
-              <TextField
-                fullWidth
-                type="password"
-                label="New Password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                margin="normal"
-                size="small"
-                helperText="Minimum 6 characters"
-              />
-              <TextField
-                fullWidth
-                type="password"
-                label="Confirm New Password"
-                value={confirmNewPassword}
-                onChange={(e) => setConfirmNewPassword(e.target.value)}
-                margin="normal"
-                size="small"
-              />
-              <Button
-                variant="outlined"
-                onClick={handleChangePassword}
-                disabled={passwordLoading}
-                sx={{ mt: 1 }}
-                startIcon={passwordLoading ? <CircularProgress size={16} /> : null}
-              >
-                Change Password
-              </Button>
+              <form onSubmit={(e) => { e.preventDefault(); handleChangePassword(); }}>
+                <TextField
+                  fullWidth
+                  type="password"
+                  label="Current Password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  margin="normal"
+                  size="small"
+                  autoComplete="current-password"
+                />
+                <TextField
+                  fullWidth
+                  type="password"
+                  label="New Password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  margin="normal"
+                  size="small"
+                  helperText="Minimum 6 characters"
+                  autoComplete="new-password"
+                />
+                <TextField
+                  fullWidth
+                  type="password"
+                  label="Confirm New Password"
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  margin="normal"
+                  size="small"
+                  autoComplete="new-password"
+                />
+                <Button
+                  type="submit"
+                  variant="outlined"
+                  disabled={passwordLoading}
+                  sx={{ mt: 1 }}
+                  startIcon={passwordLoading ? <CircularProgress size={16} /> : null}
+                >
+                  Change Password
+                </Button>
+              </form>
             </Box>
           </>
         )}

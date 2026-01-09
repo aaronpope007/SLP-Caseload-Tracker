@@ -134,6 +134,7 @@ export function Login() {
               onChange={(e) => setPassword(e.target.value)}
               margin="normal"
               autoFocus
+              autoComplete={isSetupMode ? 'new-password' : 'current-password'}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -161,6 +162,7 @@ export function Login() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 margin="normal"
+                autoComplete="new-password"
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
