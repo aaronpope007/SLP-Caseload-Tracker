@@ -10,6 +10,7 @@
  */
 
 import rateLimit from 'express-rate-limit';
+import { logger } from '../utils/logger';
 
 /**
  * Check if rate limiting should be enabled
@@ -84,10 +85,12 @@ export function logRateLimitConfig(): void {
   const config = getRateLimitConfig();
   
   if (enabled) {
-    console.log(`🚦 Rate limiting: ENABLED`);
-    console.log(`   Window: ${config.windowMs / 1000}s, Max requests: ${config.max}`);
+    logger.info({ 
+      windowMs: config.windowMs, 
+      maxRequests: config.max 
+    }, '🚦 Rate limiting: ENABLED');
   } else {
-    console.log('🚦 Rate limiting: DISABLED (development mode)');
+    logger.info('🚦 Rate limiting: DISABLED (development mode)');
   }
 }
 

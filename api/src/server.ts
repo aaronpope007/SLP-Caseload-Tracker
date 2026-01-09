@@ -25,6 +25,8 @@ import { seedTestDataRouter } from './routes/seed-test-data';
 import { errorHandler } from './middleware/errorHandler';
 import { getCorsOptions, logCorsConfig } from './config/cors';
 import { apiLimiter, strictLimiter, logRateLimitConfig } from './middleware/rateLimit';
+import { requestLogger } from './middleware/requestLogger';
+import { logger } from './utils/logger';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -33,6 +35,8 @@ const PORT = process.env.PORT || 3001;
 // Configure CORS based on environment
 // Set CORS_ORIGIN in .env for production (comma-separated origins)
 app.use(cors(getCorsOptions()));
+// Request logging
+app.use(requestLogger);
 // Increase JSON payload limit for file uploads
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -73,22 +77,19 @@ app.use('/api/seed-test-data', seedTestDataRouter);
 app.use(errorHandler);
 
 const server = app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`📊 Database location: ./data/slp-caseload.db`);
+  logger.info({ port: PORT, url: `http://localhost:${PORT}` }, '🚀 Server started');
+  logger.info({ path: './data/slp-caseload.db' }, '📊 Database connected');
   logCorsConfig();
   logRateLimitConfig();
 });
 
 server.on('error', (err: NodeJS.ErrnoException) => {
   if (err.code === 'EADDRINUSE') {
-    console.error(`\n❌ Port ${PORT} is already in use!`);
-    console.error(`\nTo fix this, run:`);
-    console.error(`  cd api && npm run kill-port`);
-    console.error(`\nOr manually:`);
-    console.error(`  netstat -ano | findstr :${PORT}`);
-    console.error(`  taskkill /F /PID <PID>\n`);
+    logger.fatal({ port: PORT, code: err.code }, `❌ Port ${PORT} is already in use!`);
+    logger.info('To fix this, run: cd api && npm run kill-port');
     process.exit(1);
   } else {
+    logger.fatal({ error: err }, 'Server failed to start');
     throw err;
   }
 });

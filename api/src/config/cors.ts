@@ -12,6 +12,7 @@
  */
 
 import { CorsOptions } from 'cors';
+import { logger } from '../utils/logger';
 
 /**
  * Get allowed origins from environment
@@ -35,7 +36,7 @@ function getAllowedOrigins(): string[] | true {
   }
   
   // In production without CORS_ORIGIN, only allow localhost (restrictive default)
-  console.warn('⚠️  CORS_ORIGIN not set in production. Only localhost origins allowed.');
+  logger.warn('⚠️  CORS_ORIGIN not set in production. Only localhost origins allowed.');
   return ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'];
 }
 
@@ -76,10 +77,9 @@ export function logCorsConfig(): void {
   const origins = getAllowedOrigins();
   
   if (origins === true) {
-    console.log('🔓 CORS: All origins allowed (development mode)');
+    logger.info({ env: nodeEnv }, '🔓 CORS: All origins allowed (development mode)');
   } else {
-    console.log(`🔐 CORS: Allowed origins: ${origins.join(', ')}`);
+    logger.info({ env: nodeEnv, origins }, '🔐 CORS configured with restricted origins');
   }
-  console.log(`   Environment: ${nodeEnv}`);
 }
 
