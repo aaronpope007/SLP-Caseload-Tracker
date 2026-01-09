@@ -22,7 +22,8 @@ export const usePerformanceHelpers = ({
     
     // Single pass: collect sessions by goal/student key
     sessions.forEach(session => {
-      session.goalsTargeted.forEach(goalId => {
+      const goalsTargeted = session.goalsTargeted || [];
+      goalsTargeted.forEach(goalId => {
         const key = `${goalId}:${session.studentId}`;
         if (!goalStudentMap.has(key)) {
           goalStudentMap.set(key, []);
