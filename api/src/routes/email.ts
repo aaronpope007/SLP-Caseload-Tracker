@@ -1,24 +1,12 @@
 import express from 'express';
 import nodemailer from 'nodemailer';
 import { asyncHandler } from '../middleware/asyncHandler';
+import { validateBody } from '../middleware/validateRequest';
+import { emailSchema } from '../schemas';
 
 const router = express.Router();
 
-interface SendEmailRequest {
-  to: string;
-  subject: string;
-  body: string;
-  fromEmail?: string;
-  fromName?: string;
-  smtpHost?: string;
-  smtpPort?: number;
-  smtpUser?: string;
-  smtpPassword?: string;
-  cc?: string | string[];
-  bcc?: string | string[];
-}
-
-router.post('/send', asyncHandler(async (req, res) => {
+router.post('/send', validateBody(emailSchema), asyncHandler(async (req, res) => {
   const {
     to,
     subject,
@@ -31,14 +19,16 @@ router.post('/send', asyncHandler(async (req, res) => {
     smtpPassword,
     cc,
     bcc,
-  }: SendEmailRequest = req.body;
-
-  if (!to || !subject || !body) {
-    return res.status(400).json({ error: 'Missing required fields: to, subject, body' });
-  }
+  } = req.body;
 
   if (!smtpUser || !smtpPassword) {
-    return res.status(400).json({ error: 'SMTP credentials are required' });
+    return res.status(400).json({ 
+      error: 'SMTP credentials are required',
+      details: [
+        { field: 'smtpUser', message: 'SMTP username is required' },
+        { field: 'smtpPassword', message: 'SMTP password is required' }
+      ]
+    });
   }
 
   // Truncate subject if too long to avoid SMTP "command line too long" error
@@ -104,4 +94,3 @@ router.post('/send', asyncHandler(async (req, res) => {
 }));
 
 export { router as emailRouter };
-

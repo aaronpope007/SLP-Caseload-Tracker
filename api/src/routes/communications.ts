@@ -1,6 +1,8 @@
 import express from 'express';
 import { db } from '../db';
 import { asyncHandler } from '../middleware/asyncHandler';
+import { validateBody } from '../middleware/validateRequest';
+import { createCommunicationSchema, updateCommunicationSchema } from '../schemas';
 
 // Database row types
 interface CommunicationRow {
@@ -28,17 +30,17 @@ communicationsRouter.get('/', asyncHandler(async (req, res) => {
   let query = 'SELECT * FROM communications WHERE 1=1';
   const params: string[] = [];
   
-  if (studentId) {
+  if (studentId && typeof studentId === 'string') {
     query += ' AND studentId = ?';
-    params.push(studentId as string);
+    params.push(studentId);
   }
   
-  if (contactType) {
+  if (contactType && typeof contactType === 'string') {
     query += ' AND contactType = ?';
-    params.push(contactType as string);
+    params.push(contactType);
   }
   
-  if (school) {
+  if (school && typeof school === 'string') {
     // Join with students table to filter by school
     // Only show communications for students in the specified school
     // Exclude general communications (those without a studentId) when filtering by school
@@ -47,27 +49,27 @@ communicationsRouter.get('/', asyncHandler(async (req, res) => {
       INNER JOIN students s ON c.studentId = s.id
       WHERE s.school = ?
     `;
-    params.unshift(school as string);
+    params.unshift(school);
     
     // Re-apply other filters
-    if (studentId) {
+    if (studentId && typeof studentId === 'string') {
       query += ' AND c.studentId = ?';
-      params.push(studentId as string);
+      params.push(studentId);
     }
-    if (contactType) {
+    if (contactType && typeof contactType === 'string') {
       query += ' AND c.contactType = ?';
-      params.push(contactType as string);
+      params.push(contactType);
     }
   } else {
     // If no school filter, show all communications
     // But still apply other filters
-    if (studentId) {
+    if (studentId && typeof studentId === 'string') {
       query += ' AND studentId = ?';
-      params.push(studentId as string);
+      params.push(studentId);
     }
-    if (contactType) {
+    if (contactType && typeof contactType === 'string') {
       query += ' AND contactType = ?';
-      params.push(contactType as string);
+      params.push(contactType);
     }
   }
   
@@ -97,6 +99,11 @@ communicationsRouter.get('/', asyncHandler(async (req, res) => {
 // Get communication by ID
 communicationsRouter.get('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
+  
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'Invalid communication ID' });
+  }
+  
   const communication = db.prepare('SELECT * FROM communications WHERE id = ?').get(id) as CommunicationRow | undefined;
   
   if (!communication) {
@@ -120,14 +127,14 @@ communicationsRouter.get('/:id', asyncHandler(async (req, res) => {
   });
 }));
 
-// Create communication
-communicationsRouter.post('/', asyncHandler(async (req, res) => {
+// Create communication - with validation
+communicationsRouter.post('/', validateBody(createCommunicationSchema), asyncHandler(async (req, res) => {
   const communication = req.body;
-  const id = communication.id || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  const dateCreated = communication.dateCreated || new Date().toISOString();
+  const id = communication.id || `comm-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const dateCreated = new Date().toISOString();
   
   // Ensure date is always set - use current date if not provided
-  const communicationDate = communication.date || new Date().toISOString();
+  const communicationDate = communication.date || dateCreated;
   
   db.prepare(`
     INSERT INTO communications (id, studentId, contactType, contactId, contactName, contactEmail, 
@@ -140,8 +147,8 @@ communicationsRouter.post('/', asyncHandler(async (req, res) => {
     communication.contactId || null,
     communication.contactName,
     communication.contactEmail || null,
-    communication.subject,
-    communication.body,
+    communication.subject || '',
+    communication.body || '',
     communication.method,
     communicationDate,
     communication.sessionId || null,
@@ -152,10 +159,14 @@ communicationsRouter.post('/', asyncHandler(async (req, res) => {
   res.status(201).json({ id, message: 'Communication created' });
 }));
 
-// Update communication
-communicationsRouter.put('/:id', asyncHandler(async (req, res) => {
+// Update communication - with validation
+communicationsRouter.put('/:id', validateBody(updateCommunicationSchema), asyncHandler(async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
+  
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'Invalid communication ID' });
+  }
   
   const existing = db.prepare('SELECT * FROM communications WHERE id = ?').get(id) as CommunicationRow | undefined;
   if (!existing) {
@@ -175,8 +186,8 @@ communicationsRouter.put('/:id', asyncHandler(async (req, res) => {
     updated.contactId || null,
     updated.contactName,
     updated.contactEmail || null,
-    updated.subject,
-    updated.body,
+    updated.subject || '',
+    updated.body || '',
     updated.method,
     updated.date,
     updated.sessionId || null,
@@ -191,6 +202,10 @@ communicationsRouter.put('/:id', asyncHandler(async (req, res) => {
 communicationsRouter.delete('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
   
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'Invalid communication ID' });
+  }
+  
   const existing = db.prepare('SELECT * FROM communications WHERE id = ?').get(id) as CommunicationRow | undefined;
   if (!existing) {
     return res.status(404).json({ error: 'Communication not found' });
@@ -202,4 +217,3 @@ communicationsRouter.delete('/:id', asyncHandler(async (req, res) => {
 }));
 
 export { communicationsRouter };
-

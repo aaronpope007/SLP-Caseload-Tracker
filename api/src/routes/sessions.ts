@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { db } from '../db';
 import { asyncHandler } from '../middleware/asyncHandler';
+import { validateBody } from '../middleware/validateRequest';
 import { parseJsonField, stringifyJsonField } from '../utils/jsonHelpers';
+import { createSessionSchema, updateSessionSchema } from '../schemas';
 
 // Database row types
 interface SessionRow {
@@ -22,6 +24,16 @@ interface SessionRow {
   plan: string | null;
 }
 
+// Performance data type for proper parsing
+interface PerformanceDataItem {
+  goalId: string;
+  accuracy?: number;
+  correctTrials?: number;
+  incorrectTrials?: number;
+  notes?: string;
+  cuingLevels?: string[];
+}
+
 export const sessionsRouter = Router();
 
 // Get all sessions (optionally filtered by studentId or school)
@@ -31,17 +43,17 @@ sessionsRouter.get('/', asyncHandler(async (req, res) => {
   let query = 'SELECT * FROM sessions';
   const params: string[] = [];
   
-  if (studentId) {
+  if (studentId && typeof studentId === 'string') {
     query += ' WHERE studentId = ? ORDER BY date DESC';
-    params.push(studentId as string);
-  } else if (school) {
+    params.push(studentId);
+  } else if (school && typeof school === 'string') {
     query = `
       SELECT s.* FROM sessions s
       INNER JOIN students st ON s.studentId = st.id
       WHERE st.school = ?
       ORDER BY s.date DESC
     `;
-    params.push(school as string);
+    params.push(school);
   } else {
     query += ' ORDER BY date DESC';
   }
@@ -53,7 +65,7 @@ sessionsRouter.get('/', asyncHandler(async (req, res) => {
     ...s,
     goalsTargeted: parseJsonField<string[]>(s.goalsTargeted, []),
     activitiesUsed: parseJsonField<string[]>(s.activitiesUsed, []),
-    performanceData: parseJsonField<any[]>(s.performanceData, []),
+    performanceData: parseJsonField<PerformanceDataItem[]>(s.performanceData, []),
     isDirectServices: s.isDirectServices === 1,
     missedSession: s.missedSession === 1,
     selectedSubjectiveStatements: parseJsonField<string[]>(s.selectedSubjectiveStatements, undefined),
@@ -67,6 +79,11 @@ sessionsRouter.get('/', asyncHandler(async (req, res) => {
 // Get session by ID
 sessionsRouter.get('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
+  
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'Invalid session ID' });
+  }
+  
   const session = db.prepare('SELECT * FROM sessions WHERE id = ?').get(id) as SessionRow | undefined;
   
   if (!session) {
@@ -77,7 +94,7 @@ sessionsRouter.get('/:id', asyncHandler(async (req, res) => {
     ...session,
     goalsTargeted: parseJsonField<string[]>(session.goalsTargeted, []),
     activitiesUsed: parseJsonField<string[]>(session.activitiesUsed, []),
-    performanceData: parseJsonField<any[]>(session.performanceData, []),
+    performanceData: parseJsonField<PerformanceDataItem[]>(session.performanceData, []),
     isDirectServices: session.isDirectServices === 1,
     missedSession: session.missedSession === 1,
     selectedSubjectiveStatements: parseJsonField<string[]>(session.selectedSubjectiveStatements, undefined),
@@ -86,9 +103,18 @@ sessionsRouter.get('/:id', asyncHandler(async (req, res) => {
   });
 }));
 
-// Create session
-sessionsRouter.post('/', asyncHandler(async (req, res) => {
+// Create session - with validation
+sessionsRouter.post('/', validateBody(createSessionSchema), asyncHandler(async (req, res) => {
   const session = req.body;
+  
+  // Verify student exists
+  const student = db.prepare('SELECT id FROM students WHERE id = ?').get(session.studentId);
+  if (!student) {
+    return res.status(400).json({ error: 'Student not found', details: [{ field: 'studentId', message: 'Student does not exist' }] });
+  }
+  
+  // Generate ID if not provided
+  const sessionId = session.id || `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   
   db.prepare(`
     INSERT INTO sessions (id, studentId, date, endTime, goalsTargeted, activitiesUsed, 
@@ -96,14 +122,14 @@ sessionsRouter.post('/', asyncHandler(async (req, res) => {
                          groupSessionId, missedSession, selectedSubjectiveStatements, customSubjective, plan)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    session.id,
+    sessionId,
     session.studentId,
     session.date,
     session.endTime || null,
     stringifyJsonField(session.goalsTargeted || []),
     stringifyJsonField(session.activitiesUsed || []),
     stringifyJsonField(session.performanceData || []),
-    session.notes,
+    session.notes || '',
     session.isDirectServices !== false ? 1 : 0,
     session.indirectServicesNotes || null,
     session.groupSessionId || null,
@@ -113,17 +139,29 @@ sessionsRouter.post('/', asyncHandler(async (req, res) => {
     session.plan || null
   );
   
-  res.status(201).json({ id: session.id, message: 'Session created' });
+  res.status(201).json({ id: sessionId, message: 'Session created' });
 }));
 
-// Update session
-sessionsRouter.put('/:id', asyncHandler(async (req, res) => {
+// Update session - with validation
+sessionsRouter.put('/:id', validateBody(updateSessionSchema), asyncHandler(async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
+  
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'Invalid session ID' });
+  }
   
   const existing = db.prepare('SELECT * FROM sessions WHERE id = ?').get(id) as SessionRow | undefined;
   if (!existing) {
     return res.status(404).json({ error: 'Session not found' });
+  }
+  
+  // If studentId is being updated, verify the new student exists
+  if (updates.studentId && updates.studentId !== existing.studentId) {
+    const student = db.prepare('SELECT id FROM students WHERE id = ?').get(updates.studentId);
+    if (!student) {
+      return res.status(400).json({ error: 'Student not found', details: [{ field: 'studentId', message: 'Student does not exist' }] });
+    }
   }
   
   // Filter out undefined values from updates to prevent overwriting existing values with undefined
@@ -132,6 +170,14 @@ sessionsRouter.put('/:id', asyncHandler(async (req, res) => {
   );
   
   const session = { ...existing, ...cleanUpdates };
+  
+  // Handle boolean/number coercion for isDirectServices and missedSession
+  const isDirectServices = typeof session.isDirectServices === 'boolean' 
+    ? session.isDirectServices 
+    : session.isDirectServices === 1;
+  const missedSession = typeof session.missedSession === 'boolean'
+    ? session.missedSession
+    : session.missedSession === 1;
   
   db.prepare(`
     UPDATE sessions 
@@ -146,11 +192,11 @@ sessionsRouter.put('/:id', asyncHandler(async (req, res) => {
     stringifyJsonField(session.goalsTargeted || []),
     stringifyJsonField(session.activitiesUsed || []),
     stringifyJsonField(session.performanceData || []),
-    session.notes,
-    session.isDirectServices !== false ? 1 : 0,
+    session.notes || '',
+    isDirectServices ? 1 : 0,
     session.indirectServicesNotes || null,
     session.groupSessionId || null,
-    session.missedSession ? 1 : 0,
+    missedSession ? 1 : 0,
     stringifyJsonField(session.selectedSubjectiveStatements),
     session.customSubjective || null,
     session.plan || null,
@@ -163,6 +209,11 @@ sessionsRouter.put('/:id', asyncHandler(async (req, res) => {
 // Delete session
 sessionsRouter.delete('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
+  
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'Invalid session ID' });
+  }
+  
   const result = db.prepare('DELETE FROM sessions WHERE id = ?').run(id);
   
   if (result.changes === 0) {
@@ -171,4 +222,3 @@ sessionsRouter.delete('/:id', asyncHandler(async (req, res) => {
   
   res.json({ message: 'Session deleted' });
 }));
-

@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { db } from '../db';
 import { asyncHandler } from '../middleware/asyncHandler';
+import { validateBody } from '../middleware/validateRequest';
 import { parseJsonField, stringifyJsonField } from '../utils/jsonHelpers';
+import { createStudentSchema, updateStudentSchema } from '../schemas';
 
 // Database row types
 interface StudentRow {
@@ -34,6 +36,43 @@ interface SchoolRow {
 }
 
 export const studentsRouter = Router();
+
+/**
+ * Ensure a school exists, creating it if necessary
+ * Returns the normalized school name from the database
+ */
+function ensureSchoolExists(schoolName: string): string {
+  const trimmedName = schoolName.trim();
+  if (!trimmedName) return '';
+
+  // Check for exact match first
+  let existingSchool = db.prepare('SELECT * FROM schools WHERE name = ?').get(trimmedName) as SchoolRow | undefined;
+  
+  // If no exact match, try case-insensitive
+  if (!existingSchool) {
+    const allSchools = db.prepare('SELECT * FROM schools').all() as SchoolRow[];
+    existingSchool = allSchools.find(s => s.name.trim().toLowerCase() === trimmedName.toLowerCase());
+  }
+  
+  if (!existingSchool) {
+    // Create the school automatically
+    const schoolId = `school-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    db.prepare(`
+      INSERT INTO schools (id, name, state, teletherapy, dateCreated)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(
+      schoolId,
+      trimmedName,
+      'NC', // Default state
+      0, // Default teletherapy
+      new Date().toISOString()
+    );
+    return trimmedName;
+  }
+  
+  // Return the exact name from database (handles case sensitivity)
+  return existingSchool.name;
+}
 
 // Get all students (optionally filtered by school, teacherId, or caseManagerId)
 studentsRouter.get('/', asyncHandler(async (req, res) => {
@@ -92,53 +131,29 @@ studentsRouter.get('/:id', asyncHandler(async (req, res) => {
   });
 }));
 
-// Create student
-studentsRouter.post('/', asyncHandler(async (req, res) => {
+// Create student - with validation
+studentsRouter.post('/', validateBody(createStudentSchema), asyncHandler(async (req, res) => {
   const student = req.body;
   
   // Ensure the school exists (create it if it doesn't)
-  let schoolName = student.school?.trim();
-  if (schoolName) {
-    // Check for exact match first
-    let existingSchool = db.prepare('SELECT * FROM schools WHERE name = ?').get(schoolName) as SchoolRow | undefined;
-    
-    // If no exact match, try case-insensitive
-    if (!existingSchool) {
-      const allSchools = db.prepare('SELECT * FROM schools').all() as SchoolRow[];
-      existingSchool = allSchools.find(s => s.name.trim().toLowerCase() === schoolName.toLowerCase());
-    }
-    
-    if (!existingSchool) {
-      // Create the school automatically
-      const schoolId = `school-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      db.prepare(`
-        INSERT INTO schools (id, name, state, teletherapy, dateCreated)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(
-        schoolId,
-        schoolName,
-        'NC', // Default state
-        0, // Default teletherapy
-        new Date().toISOString()
-      );
-    } else {
-      // Use the exact name from database (handles case sensitivity)
-      schoolName = existingSchool.name;
-    }
-  }
+  const schoolName = ensureSchoolExists(student.school);
+  
+  // Generate ID if not provided
+  const studentId = student.id || `student-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const dateAdded = new Date().toISOString();
   
   db.prepare(`
     INSERT INTO students (id, name, age, grade, concerns, exceptionality, status, dateAdded, archived, dateArchived, school, teacherId, caseManagerId, iepDate, annualReviewDate, progressReportFrequency, frequencyPerWeek, frequencyType)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    student.id,
+    studentId,
     student.name,
     student.age,
-    student.grade,
+    student.grade || '',
     stringifyJsonField(student.concerns || []),
     stringifyJsonField(student.exceptionality),
-    student.status,
-    student.dateAdded,
+    student.status || 'active',
+    dateAdded,
     student.archived ? 1 : 0,
     student.dateArchived || null,
     schoolName,
@@ -147,15 +162,15 @@ studentsRouter.post('/', asyncHandler(async (req, res) => {
     student.iepDate || null,
     student.annualReviewDate || null,
     student.progressReportFrequency || null,
-    student.frequencyPerWeek || null,
+    student.frequencyPerWeek ?? null,
     student.frequencyType || null
   );
   
-  res.status(201).json({ id: student.id, message: 'Student created' });
+  res.status(201).json({ id: studentId, message: 'Student created' });
 }));
 
-// Update student
-studentsRouter.put('/:id', asyncHandler(async (req, res) => {
+// Update student - with validation
+studentsRouter.put('/:id', validateBody(updateStudentSchema), asyncHandler(async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
   
@@ -164,38 +179,16 @@ studentsRouter.put('/:id', asyncHandler(async (req, res) => {
     return res.status(404).json({ error: 'Student not found' });
   }
   
-  const student = { ...existing, ...updates };
+  // Merge existing with updates
+  const student = {
+    ...existing,
+    concerns: parseJsonField<string[]>(existing.concerns, []),
+    exceptionality: parseJsonField<string[]>(existing.exceptionality, undefined),
+    ...updates,
+  };
   
   // Ensure the school exists (create it if it doesn't)
-  let schoolName = student.school?.trim();
-  if (schoolName) {
-    // Check for exact match first
-    let existingSchool = db.prepare('SELECT * FROM schools WHERE name = ?').get(schoolName) as SchoolRow | undefined;
-    
-    // If no exact match, try case-insensitive
-    if (!existingSchool) {
-      const allSchools = db.prepare('SELECT * FROM schools').all() as SchoolRow[];
-      existingSchool = allSchools.find(s => s.name.trim().toLowerCase() === schoolName.toLowerCase());
-    }
-    
-    if (!existingSchool) {
-      // Create the school automatically
-      const schoolId = `school-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      db.prepare(`
-        INSERT INTO schools (id, name, state, teletherapy, dateCreated)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(
-        schoolId,
-        schoolName,
-        'NC', // Default state
-        0, // Default teletherapy
-        new Date().toISOString()
-      );
-    } else {
-      // Use the exact name from database (handles case sensitivity)
-      schoolName = existingSchool.name;
-    }
-  }
+  const schoolName = student.school ? ensureSchoolExists(student.school) : existing.school;
   
   db.prepare(`
     UPDATE students 
@@ -205,7 +198,7 @@ studentsRouter.put('/:id', asyncHandler(async (req, res) => {
   `).run(
     student.name,
     student.age,
-    student.grade,
+    student.grade || '',
     stringifyJsonField(student.concerns || []),
     stringifyJsonField(student.exceptionality),
     student.status,
@@ -217,7 +210,7 @@ studentsRouter.put('/:id', asyncHandler(async (req, res) => {
     student.iepDate || null,
     student.annualReviewDate || null,
     student.progressReportFrequency || null,
-    student.frequencyPerWeek || null,
+    student.frequencyPerWeek ?? null,
     student.frequencyType || null,
     id
   );
@@ -236,4 +229,3 @@ studentsRouter.delete('/:id', asyncHandler(async (req, res) => {
   
   res.json({ message: 'Student deleted' });
 }));
-

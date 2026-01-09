@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { db } from '../db';
 import { asyncHandler } from '../middleware/asyncHandler';
+import { validateBody } from '../middleware/validateRequest';
 import { parseJsonField, stringifyJsonField } from '../utils/jsonHelpers';
+import { createGoalSchema, updateGoalSchema } from '../schemas';
 
 // Database row types
 interface GoalRow {
@@ -29,17 +31,17 @@ goalsRouter.get('/', asyncHandler(async (req, res) => {
   let query = 'SELECT * FROM goals';
   const params: string[] = [];
   
-  if (studentId) {
+  if (studentId && typeof studentId === 'string') {
     query += ' WHERE studentId = ?';
-    params.push(studentId as string);
-  } else if (school) {
+    params.push(studentId);
+  } else if (school && typeof school === 'string') {
     // Get goals for students in a specific school
     query = `
       SELECT g.* FROM goals g
       INNER JOIN students s ON g.studentId = s.id
       WHERE s.school = ?
     `;
-    params.push(school as string);
+    params.push(school);
   }
   
   const goals = db.prepare(query).all(...params) as GoalRow[];
@@ -56,6 +58,11 @@ goalsRouter.get('/', asyncHandler(async (req, res) => {
 // Get goal by ID
 goalsRouter.get('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
+  
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'Invalid goal ID' });
+  }
+  
   const goal = db.prepare('SELECT * FROM goals WHERE id = ?').get(id) as GoalRow | undefined;
   
   if (!goal) {
@@ -68,22 +75,32 @@ goalsRouter.get('/:id', asyncHandler(async (req, res) => {
   });
 }));
 
-// Create goal
-goalsRouter.post('/', asyncHandler(async (req, res) => {
+// Create goal - with validation
+goalsRouter.post('/', validateBody(createGoalSchema), asyncHandler(async (req, res) => {
   const goal = req.body;
+  
+  // Verify student exists
+  const student = db.prepare('SELECT id FROM students WHERE id = ?').get(goal.studentId);
+  if (!student) {
+    return res.status(400).json({ error: 'Student not found', details: [{ field: 'studentId', message: 'Student does not exist' }] });
+  }
+  
+  // Generate ID if not provided
+  const goalId = goal.id || `goal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const dateCreated = new Date().toISOString();
   
   db.prepare(`
     INSERT INTO goals (id, studentId, description, baseline, target, status, dateCreated, 
                        dateAchieved, parentGoalId, subGoalIds, domain, priority, templateId)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    goal.id,
+    goalId,
     goal.studentId,
     goal.description,
-    goal.baseline,
-    goal.target,
-    goal.status,
-    goal.dateCreated,
+    goal.baseline || '',
+    goal.target || '',
+    goal.status || 'in-progress',
+    dateCreated,
     goal.dateAchieved || null,
     goal.parentGoalId || null,
     stringifyJsonField(goal.subGoalIds),
@@ -92,20 +109,36 @@ goalsRouter.post('/', asyncHandler(async (req, res) => {
     goal.templateId || null
   );
   
-  res.status(201).json({ id: goal.id, message: 'Goal created' });
+  res.status(201).json({ id: goalId, message: 'Goal created' });
 }));
 
-// Update goal
-goalsRouter.put('/:id', asyncHandler(async (req, res) => {
+// Update goal - with validation
+goalsRouter.put('/:id', validateBody(updateGoalSchema), asyncHandler(async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
+  
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'Invalid goal ID' });
+  }
   
   const existing = db.prepare('SELECT * FROM goals WHERE id = ?').get(id) as GoalRow | undefined;
   if (!existing) {
     return res.status(404).json({ error: 'Goal not found' });
   }
   
-  const goal = { ...existing, ...updates };
+  // If studentId is being updated, verify the new student exists
+  if (updates.studentId && updates.studentId !== existing.studentId) {
+    const student = db.prepare('SELECT id FROM students WHERE id = ?').get(updates.studentId);
+    if (!student) {
+      return res.status(400).json({ error: 'Student not found', details: [{ field: 'studentId', message: 'Student does not exist' }] });
+    }
+  }
+  
+  const goal = { 
+    ...existing, 
+    subGoalIds: parseJsonField<string[]>(existing.subGoalIds, undefined),
+    ...updates 
+  };
   
   db.prepare(`
     UPDATE goals 
@@ -115,8 +148,8 @@ goalsRouter.put('/:id', asyncHandler(async (req, res) => {
   `).run(
     goal.studentId,
     goal.description,
-    goal.baseline,
-    goal.target,
+    goal.baseline || '',
+    goal.target || '',
     goal.status,
     goal.dateAchieved || null,
     goal.parentGoalId || null,
@@ -133,6 +166,11 @@ goalsRouter.put('/:id', asyncHandler(async (req, res) => {
 // Delete goal
 goalsRouter.delete('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
+  
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'Invalid goal ID' });
+  }
+  
   const result = db.prepare('DELETE FROM goals WHERE id = ?').run(id);
   
   if (result.changes === 0) {
@@ -141,4 +179,3 @@ goalsRouter.delete('/:id', asyncHandler(async (req, res) => {
   
   res.json({ message: 'Goal deleted' });
 }));
-

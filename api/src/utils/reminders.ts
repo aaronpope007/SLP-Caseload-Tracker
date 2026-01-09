@@ -1,5 +1,5 @@
 import { db } from '../db';
-import type { Reminder } from '../../src/types';
+import type { Reminder } from '../types';
 
 /**
  * Calculate days between two dates
@@ -466,7 +466,7 @@ export function getAllReminders(school?: string): Reminder[] {
   
   // Sort by priority (high first) and then by days until due
   reminders.sort((a, b) => {
-    const priorityOrder = { high: 0, medium: 1, low: 2 };
+    const priorityOrder: Record<'high' | 'medium' | 'low', number> = { high: 0, medium: 1, low: 2 };
     const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
     if (priorityDiff !== 0) return priorityDiff;
     

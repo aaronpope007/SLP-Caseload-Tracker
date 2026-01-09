@@ -35,4 +35,5 @@ export { useSessionSave } from './useSessionSave';
 export { useSessionDialogHandlers } from './useSessionDialogHandlers';
 export { useSOAPNoteManagement } from './useSOAPNoteManagement';
 export { useSessionPlanning } from './useSessionPlanning';
+export { useFormValidation } from './useFormValidation';
 

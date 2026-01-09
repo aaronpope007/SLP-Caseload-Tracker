@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { initDatabase } from './db';
@@ -22,23 +23,21 @@ import { documentParserRouter } from './routes/document-parser';
 import { timesheetNotesRouter } from './routes/timesheet-notes';
 import { seedTestDataRouter } from './routes/seed-test-data';
 import { errorHandler } from './middleware/errorHandler';
+import { getCorsOptions, logCorsConfig } from './config/cors';
+import { apiLimiter, strictLimiter, logRateLimitConfig } from './middleware/rateLimit';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
-// Configure CORS to allow all origins (for development)
-// In production, you should specify allowed origins
-app.use(cors({
-  origin: true, // Allow all origins
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  exposedHeaders: ['Content-Length', 'Content-Type'],
-}));
+// Configure CORS based on environment
+// Set CORS_ORIGIN in .env for production (comma-separated origins)
+app.use(cors(getCorsOptions()));
 // Increase JSON payload limit for file uploads
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Apply rate limiting to all API routes
+app.use('/api', apiLimiter);
 
 // Initialize database
 initDatabase();
@@ -63,7 +62,7 @@ app.use('/api/progress-reports', progressReportsRouter);
 app.use('/api/progress-report-templates', progressReportTemplatesRouter);
 app.use('/api/due-date-items', dueDateItemsRouter);
 app.use('/api/reminders', remindersRouter);
-app.use('/api/email', emailRouter);
+app.use('/api/email', strictLimiter, emailRouter); // Stricter rate limit for email
 app.use('/api/communications', communicationsRouter);
 app.use('/api/scheduled-sessions', scheduledSessionsRouter);
 app.use('/api/document-parser', documentParserRouter);
@@ -76,6 +75,8 @@ app.use(errorHandler);
 const server = app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📊 Database location: ./data/slp-caseload.db`);
+  logCorsConfig();
+  logRateLimitConfig();
 });
 
 server.on('error', (err: NodeJS.ErrnoException) => {

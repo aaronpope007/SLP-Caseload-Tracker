@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { db } from '../db';
 import { asyncHandler } from '../middleware/asyncHandler';
+import { validateBody } from '../middleware/validateRequest';
+import { createSOAPNoteSchema, updateSOAPNoteSchema } from '../schemas';
 
 // Database row types
 interface SOAPNoteRow {
@@ -26,12 +28,12 @@ soapNotesRouter.get('/', asyncHandler(async (req, res) => {
   let query = 'SELECT * FROM soap_notes';
   const params: string[] = [];
   
-  if (sessionId) {
+  if (sessionId && typeof sessionId === 'string') {
     query += ' WHERE sessionId = ? ORDER BY date DESC';
-    params.push(sessionId as string);
-  } else if (studentId) {
+    params.push(sessionId);
+  } else if (studentId && typeof studentId === 'string') {
     query += ' WHERE studentId = ? ORDER BY date DESC';
-    params.push(studentId as string);
+    params.push(studentId);
   } else {
     query += ' ORDER BY date DESC';
   }
@@ -43,6 +45,11 @@ soapNotesRouter.get('/', asyncHandler(async (req, res) => {
 // Get SOAP note by ID
 soapNotesRouter.get('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
+  
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'Invalid SOAP note ID' });
+  }
+  
   const soapNote = db.prepare('SELECT * FROM soap_notes WHERE id = ?').get(id) as SOAPNoteRow | undefined;
   
   if (!soapNote) {
@@ -52,35 +59,55 @@ soapNotesRouter.get('/:id', asyncHandler(async (req, res) => {
   res.json(soapNote);
 }));
 
-// Create SOAP note
-soapNotesRouter.post('/', asyncHandler(async (req, res) => {
+// Create SOAP note - with validation
+soapNotesRouter.post('/', validateBody(createSOAPNoteSchema), asyncHandler(async (req, res) => {
   const soapNote = req.body;
+  
+  // Verify session exists
+  const session = db.prepare('SELECT id FROM sessions WHERE id = ?').get(soapNote.sessionId);
+  if (!session) {
+    return res.status(400).json({ error: 'Session not found', details: [{ field: 'sessionId', message: 'Session does not exist' }] });
+  }
+  
+  // Verify student exists
+  const student = db.prepare('SELECT id FROM students WHERE id = ?').get(soapNote.studentId);
+  if (!student) {
+    return res.status(400).json({ error: 'Student not found', details: [{ field: 'studentId', message: 'Student does not exist' }] });
+  }
+  
+  // Generate ID if not provided
+  const noteId = soapNote.id || `soap-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const now = new Date().toISOString();
   
   db.prepare(`
     INSERT INTO soap_notes (id, sessionId, studentId, date, templateId, subjective, 
                            objective, assessment, plan, dateCreated, dateUpdated)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    soapNote.id,
+    noteId,
     soapNote.sessionId,
     soapNote.studentId,
     soapNote.date,
     soapNote.templateId || null,
-    soapNote.subjective,
-    soapNote.objective,
-    soapNote.assessment,
-    soapNote.plan,
-    soapNote.dateCreated,
-    soapNote.dateUpdated
+    soapNote.subjective || '',
+    soapNote.objective || '',
+    soapNote.assessment || '',
+    soapNote.plan || '',
+    now,
+    now
   );
   
-  res.status(201).json({ id: soapNote.id, message: 'SOAP note created' });
+  res.status(201).json({ id: noteId, message: 'SOAP note created' });
 }));
 
-// Update SOAP note
-soapNotesRouter.put('/:id', asyncHandler(async (req, res) => {
+// Update SOAP note - with validation
+soapNotesRouter.put('/:id', validateBody(updateSOAPNoteSchema), asyncHandler(async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
+  
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'Invalid SOAP note ID' });
+  }
   
   const existing = db.prepare('SELECT * FROM soap_notes WHERE id = ?').get(id) as SOAPNoteRow | undefined;
   if (!existing) {
@@ -110,10 +137,10 @@ soapNotesRouter.put('/:id', asyncHandler(async (req, res) => {
     soapNote.studentId,
     soapNote.date,
     soapNote.templateId || null,
-    soapNote.subjective,
-    soapNote.objective,
-    soapNote.assessment,
-    soapNote.plan,
+    soapNote.subjective || '',
+    soapNote.objective || '',
+    soapNote.assessment || '',
+    soapNote.plan || '',
     soapNote.dateUpdated,
     id
   );
@@ -128,6 +155,11 @@ soapNotesRouter.put('/:id', asyncHandler(async (req, res) => {
 // Delete SOAP note
 soapNotesRouter.delete('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
+  
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'Invalid SOAP note ID' });
+  }
+  
   const result = db.prepare('DELETE FROM soap_notes WHERE id = ?').run(id);
   
   if (result.changes === 0) {
@@ -136,4 +168,3 @@ soapNotesRouter.delete('/:id', asyncHandler(async (req, res) => {
   
   res.json({ message: 'SOAP note deleted' });
 }));
-

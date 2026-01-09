@@ -1,5 +1,5 @@
 import { db } from '../db';
-import type { ProgressReport } from '../../src/types';
+import type { ProgressReport } from '../types';
 
 interface Quarter {
   start: Date;

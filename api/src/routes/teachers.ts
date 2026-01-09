@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { db } from '../db';
 import { asyncHandler } from '../middleware/asyncHandler';
+import { validateBody } from '../middleware/validateRequest';
+import { createTeacherSchema, updateTeacherSchema } from '../schemas';
 
 // Database row types
 interface TeacherRow {
@@ -22,6 +24,43 @@ interface SchoolRow {
 }
 
 export const teachersRouter = Router();
+
+/**
+ * Ensure a school exists, creating it if necessary
+ * Returns the normalized school name from the database
+ */
+function ensureSchoolExists(schoolName: string): string {
+  const trimmedName = schoolName.trim();
+  if (!trimmedName) return '';
+
+  // Check for exact match first
+  let existingSchool = db.prepare('SELECT * FROM schools WHERE name = ?').get(trimmedName) as SchoolRow | undefined;
+  
+  // If no exact match, try case-insensitive
+  if (!existingSchool) {
+    const allSchools = db.prepare('SELECT * FROM schools').all() as SchoolRow[];
+    existingSchool = allSchools.find(s => s.name.trim().toLowerCase() === trimmedName.toLowerCase());
+  }
+  
+  if (!existingSchool) {
+    // Create the school automatically
+    const schoolId = `school-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    db.prepare(`
+      INSERT INTO schools (id, name, state, teletherapy, dateCreated)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(
+      schoolId,
+      trimmedName,
+      'NC', // Default state
+      0, // Default teletherapy
+      new Date().toISOString()
+    );
+    return trimmedName;
+  }
+  
+  // Return the exact name from database (handles case sensitivity)
+  return existingSchool.name;
+}
 
 // Get all teachers (optionally filtered by school)
 teachersRouter.get('/', asyncHandler(async (req, res) => {
@@ -50,6 +89,11 @@ teachersRouter.get('/', asyncHandler(async (req, res) => {
 // Get teacher by ID
 teachersRouter.get('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
+  
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'Invalid teacher ID' });
+  }
+  
   const teacher = db.prepare('SELECT * FROM teachers WHERE id = ?').get(id) as TeacherRow | undefined;
   
   if (!teacher) {
@@ -59,61 +103,41 @@ teachersRouter.get('/:id', asyncHandler(async (req, res) => {
   res.json(teacher);
 }));
 
-// Create teacher
-teachersRouter.post('/', asyncHandler(async (req, res) => {
+// Create teacher - with validation
+teachersRouter.post('/', validateBody(createTeacherSchema), asyncHandler(async (req, res) => {
   const teacher = req.body;
   
   // Ensure the school exists (create it if it doesn't)
-  let schoolName = teacher.school?.trim();
-  if (schoolName) {
-    // Check for exact match first
-    let existingSchool = db.prepare('SELECT * FROM schools WHERE name = ?').get(schoolName) as SchoolRow | undefined;
-    
-    // If no exact match, try case-insensitive
-    if (!existingSchool) {
-      const allSchools = db.prepare('SELECT * FROM schools').all() as SchoolRow[];
-      existingSchool = allSchools.find(s => s.name.trim().toLowerCase() === schoolName.toLowerCase());
-    }
-    
-    if (!existingSchool) {
-      // Create the school automatically
-      const schoolId = `school-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      db.prepare(`
-        INSERT INTO schools (id, name, state, teletherapy, dateCreated)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(
-        schoolId,
-        schoolName,
-        'NC', // Default state
-        0, // Default teletherapy
-        new Date().toISOString()
-      );
-    } else {
-      // Use the exact name from database (handles case sensitivity)
-      schoolName = existingSchool.name;
-    }
-  }
+  const schoolName = ensureSchoolExists(teacher.school);
+  
+  // Generate ID if not provided
+  const teacherId = teacher.id || `teacher-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const dateCreated = new Date().toISOString();
 
   db.prepare(`
     INSERT INTO teachers (id, name, grade, school, phoneNumber, emailAddress, dateCreated)
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `).run(
-    teacher.id,
+    teacherId,
     teacher.name,
-    teacher.grade,
-    schoolName || '',
+    teacher.grade || '',
+    schoolName,
     teacher.phoneNumber || null,
     teacher.emailAddress || null,
-    teacher.dateCreated
+    dateCreated
   );
   
-  res.status(201).json({ id: teacher.id, message: 'Teacher created' });
+  res.status(201).json({ id: teacherId, message: 'Teacher created' });
 }));
 
-// Update teacher
-teachersRouter.put('/:id', asyncHandler(async (req, res) => {
+// Update teacher - with validation
+teachersRouter.put('/:id', validateBody(updateTeacherSchema), asyncHandler(async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
+  
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'Invalid teacher ID' });
+  }
   
   const existing = db.prepare('SELECT * FROM teachers WHERE id = ?').get(id) as TeacherRow | undefined;
   if (!existing) {
@@ -123,35 +147,7 @@ teachersRouter.put('/:id', asyncHandler(async (req, res) => {
   const teacher = { ...existing, ...updates };
   
   // Ensure the school exists (create it if it doesn't)
-  let schoolName = teacher.school?.trim();
-  if (schoolName) {
-    // Check for exact match first
-    let existingSchool = db.prepare('SELECT * FROM schools WHERE name = ?').get(schoolName) as SchoolRow | undefined;
-    
-    // If no exact match, try case-insensitive
-    if (!existingSchool) {
-      const allSchools = db.prepare('SELECT * FROM schools').all() as SchoolRow[];
-      existingSchool = allSchools.find(s => s.name.trim().toLowerCase() === schoolName.toLowerCase());
-    }
-    
-    if (!existingSchool) {
-      // Create the school automatically
-      const schoolId = `school-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      db.prepare(`
-        INSERT INTO schools (id, name, state, teletherapy, dateCreated)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(
-        schoolId,
-        schoolName,
-        'NC', // Default state
-        0, // Default teletherapy
-        new Date().toISOString()
-      );
-    } else {
-      // Use the exact name from database (handles case sensitivity)
-      schoolName = existingSchool.name;
-    }
-  }
+  const schoolName = teacher.school ? ensureSchoolExists(teacher.school) : existing.school;
 
   db.prepare(`
     UPDATE teachers 
@@ -159,8 +155,8 @@ teachersRouter.put('/:id', asyncHandler(async (req, res) => {
     WHERE id = ?
   `).run(
     teacher.name,
-    teacher.grade,
-    schoolName || '',
+    teacher.grade || '',
+    schoolName,
     teacher.phoneNumber || null,
     teacher.emailAddress || null,
     id
@@ -172,6 +168,11 @@ teachersRouter.put('/:id', asyncHandler(async (req, res) => {
 // Delete teacher
 teachersRouter.delete('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
+  
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'Invalid teacher ID' });
+  }
+  
   const result = db.prepare('DELETE FROM teachers WHERE id = ?').run(id);
   
   if (result.changes === 0) {
@@ -180,4 +181,3 @@ teachersRouter.delete('/:id', asyncHandler(async (req, res) => {
   
   res.json({ message: 'Teacher deleted' });
 }));
-

@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { db } from '../db';
 import { asyncHandler } from '../middleware/asyncHandler';
+import { validateBody } from '../middleware/validateRequest';
+import { createEvaluationSchema, updateEvaluationSchema } from '../schemas';
 
 // Database row types
 interface EvaluationRow {
@@ -30,17 +32,17 @@ evaluationsRouter.get('/', asyncHandler(async (req, res) => {
   let query = 'SELECT * FROM evaluations';
   const params: string[] = [];
   
-  if (studentId) {
+  if (studentId && typeof studentId === 'string') {
     query += ' WHERE studentId = ? ORDER BY dateCreated DESC';
-    params.push(studentId as string);
-  } else if (school) {
+    params.push(studentId);
+  } else if (school && typeof school === 'string') {
     query = `
       SELECT e.* FROM evaluations e
       INNER JOIN students s ON e.studentId = s.id
       WHERE s.school = ?
       ORDER BY e.dateCreated DESC
     `;
-    params.push(school as string);
+    params.push(school);
   } else {
     query += ' ORDER BY dateCreated DESC';
   }
@@ -52,6 +54,11 @@ evaluationsRouter.get('/', asyncHandler(async (req, res) => {
 // Get evaluation by ID
 evaluationsRouter.get('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
+  
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'Invalid evaluation ID' });
+  }
+  
   const evaluation = db.prepare('SELECT * FROM evaluations WHERE id = ?').get(id) as EvaluationRow | undefined;
   
   if (!evaluation) {
@@ -61,9 +68,19 @@ evaluationsRouter.get('/:id', asyncHandler(async (req, res) => {
   res.json(evaluation);
 }));
 
-// Create evaluation
-evaluationsRouter.post('/', asyncHandler(async (req, res) => {
+// Create evaluation - with validation
+evaluationsRouter.post('/', validateBody(createEvaluationSchema), asyncHandler(async (req, res) => {
   const evaluation = req.body;
+  
+  // Verify student exists
+  const student = db.prepare('SELECT id FROM students WHERE id = ?').get(evaluation.studentId);
+  if (!student) {
+    return res.status(400).json({ error: 'Student not found', details: [{ field: 'studentId', message: 'Student does not exist' }] });
+  }
+  
+  // Generate ID if not provided
+  const evaluationId = evaluation.id || `eval-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const now = new Date().toISOString();
   
   db.prepare(`
     INSERT INTO evaluations (id, studentId, grade, evaluationType, areasOfConcern, teacher, 
@@ -71,11 +88,11 @@ evaluationsRouter.post('/', asyncHandler(async (req, res) => {
                              iepCompleted, meetingDate, dateCreated, dateUpdated)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    evaluation.id,
+    evaluationId,
     evaluation.studentId,
-    evaluation.grade,
+    evaluation.grade || '',
     evaluation.evaluationType,
-    evaluation.areasOfConcern,
+    evaluation.areasOfConcern || '',
     evaluation.teacher || null,
     evaluation.resultsOfScreening || null,
     evaluation.dueDate || null,
@@ -84,21 +101,33 @@ evaluationsRouter.post('/', asyncHandler(async (req, res) => {
     evaluation.reportCompleted || null,
     evaluation.iepCompleted || null,
     evaluation.meetingDate || null,
-    evaluation.dateCreated,
-    evaluation.dateUpdated
+    now,
+    now
   );
   
-  res.status(201).json({ id: evaluation.id, message: 'Evaluation created' });
+  res.status(201).json({ id: evaluationId, message: 'Evaluation created' });
 }));
 
-// Update evaluation
-evaluationsRouter.put('/:id', asyncHandler(async (req, res) => {
+// Update evaluation - with validation
+evaluationsRouter.put('/:id', validateBody(updateEvaluationSchema), asyncHandler(async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
+  
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'Invalid evaluation ID' });
+  }
   
   const existing = db.prepare('SELECT * FROM evaluations WHERE id = ?').get(id) as EvaluationRow | undefined;
   if (!existing) {
     return res.status(404).json({ error: 'Evaluation not found' });
+  }
+  
+  // If studentId is being updated, verify the new student exists
+  if (updates.studentId && updates.studentId !== existing.studentId) {
+    const student = db.prepare('SELECT id FROM students WHERE id = ?').get(updates.studentId);
+    if (!student) {
+      return res.status(400).json({ error: 'Student not found', details: [{ field: 'studentId', message: 'Student does not exist' }] });
+    }
   }
   
   const evaluation = { ...existing, ...updates, dateUpdated: new Date().toISOString() };
@@ -111,9 +140,9 @@ evaluationsRouter.put('/:id', asyncHandler(async (req, res) => {
     WHERE id = ?
   `).run(
     evaluation.studentId,
-    evaluation.grade,
+    evaluation.grade || '',
     evaluation.evaluationType,
-    evaluation.areasOfConcern,
+    evaluation.areasOfConcern || '',
     evaluation.teacher || null,
     evaluation.resultsOfScreening || null,
     evaluation.dueDate || null,
@@ -132,6 +161,11 @@ evaluationsRouter.put('/:id', asyncHandler(async (req, res) => {
 // Delete evaluation
 evaluationsRouter.delete('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
+  
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'Invalid evaluation ID' });
+  }
+  
   const result = db.prepare('DELETE FROM evaluations WHERE id = ?').run(id);
   
   if (result.changes === 0) {
@@ -140,4 +174,3 @@ evaluationsRouter.delete('/:id', asyncHandler(async (req, res) => {
   
   res.json({ message: 'Evaluation deleted' });
 }));
-

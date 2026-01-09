@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { db } from '../db';
 import { asyncHandler } from '../middleware/asyncHandler';
+import { validateBody } from '../middleware/validateRequest';
+import { createDueDateItemSchema, updateDueDateItemSchema } from '../schemas';
 
 // Database row types
 interface DueDateItemRow {
@@ -59,38 +61,38 @@ dueDateItemsRouter.get('/', asyncHandler(async (req, res) => {
   const params: string[] = [];
   const conditions: string[] = [];
 
-  if (studentId) {
+  if (studentId && typeof studentId === 'string') {
     conditions.push('studentId = ?');
-    params.push(studentId as string);
+    params.push(studentId);
   }
 
-  if (status) {
+  if (status && typeof status === 'string') {
     conditions.push('status = ?');
-    params.push(status as string);
+    params.push(status);
   }
 
-  if (category) {
+  if (category && typeof category === 'string') {
     conditions.push('category = ?');
-    params.push(category as string);
+    params.push(category);
   }
 
-  if (startDate) {
+  if (startDate && typeof startDate === 'string') {
     conditions.push('dueDate >= ?');
-    params.push(startDate as string);
+    params.push(startDate);
   }
 
-  if (endDate) {
+  if (endDate && typeof endDate === 'string') {
     conditions.push('dueDate <= ?');
-    params.push(endDate as string);
+    params.push(endDate);
   }
 
-  if (school) {
+  if (school && typeof school === 'string') {
     query = `
       SELECT ddi.* FROM due_date_items ddi
       INNER JOIN students s ON ddi.studentId = s.id
     `;
     conditions.push('s.school = ?');
-    params.push(school as string);
+    params.push(school);
   }
 
   if (conditions.length > 0) {
@@ -133,13 +135,13 @@ dueDateItemsRouter.get('/upcoming', asyncHandler(async (req, res) => {
   `;
   const params: string[] = [cutoffDateStr, todayStr];
 
-  if (school) {
+  if (school && typeof school === 'string') {
     query = `
       SELECT ddi.* FROM due_date_items ddi
       INNER JOIN students s ON ddi.studentId = s.id
       WHERE ddi.status != 'completed' AND ddi.dueDate <= ? AND ddi.dueDate >= ? AND s.school = ?
     `;
-    params.push(school as string);
+    params.push(school);
   }
 
   query += ' ORDER BY dueDate ASC, priority DESC';
@@ -160,6 +162,11 @@ dueDateItemsRouter.get('/upcoming', asyncHandler(async (req, res) => {
 // Get due date item by ID
 dueDateItemsRouter.get('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
+  
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'Invalid due date item ID' });
+  }
+  
   const item = db.prepare('SELECT * FROM due_date_items WHERE id = ?').get(id) as DueDateItemRow | undefined;
   
   if (!item) {
@@ -173,14 +180,18 @@ dueDateItemsRouter.get('/:id', asyncHandler(async (req, res) => {
   });
 }));
 
-// Create due date item
-dueDateItemsRouter.post('/', asyncHandler(async (req, res) => {
+// Create due date item - with validation
+dueDateItemsRouter.post('/', validateBody(createDueDateItemSchema), asyncHandler(async (req, res) => {
   const item = req.body;
+  
+  // Generate ID if not provided
+  const itemId = item.id || `ddi-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const now = new Date().toISOString();
   
   // Determine initial status
   const dueDate = new Date(item.dueDate);
-  const now = new Date();
-  const initialStatus = dueDate < now ? 'overdue' : 'pending';
+  const today = new Date();
+  const initialStatus = dueDate < today ? 'overdue' : 'pending';
   
   db.prepare(`
     INSERT INTO due_date_items (
@@ -188,7 +199,7 @@ dueDateItemsRouter.post('/', asyncHandler(async (req, res) => {
       category, priority, dateCreated, dateUpdated
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    item.id,
+    itemId,
     item.title,
     item.description || null,
     item.dueDate,
@@ -197,17 +208,21 @@ dueDateItemsRouter.post('/', asyncHandler(async (req, res) => {
     item.completedDate || null,
     item.category || null,
     item.priority || null,
-    item.dateCreated,
-    item.dateUpdated
+    now,
+    now
   );
   
-  res.status(201).json({ id: item.id, message: 'Due date item created' });
+  res.status(201).json({ id: itemId, message: 'Due date item created' });
 }));
 
-// Update due date item
-dueDateItemsRouter.put('/:id', asyncHandler(async (req, res) => {
+// Update due date item - with validation
+dueDateItemsRouter.put('/:id', validateBody(updateDueDateItemSchema), asyncHandler(async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
+  
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'Invalid due date item ID' });
+  }
   
   const existing = db.prepare('SELECT * FROM due_date_items WHERE id = ?').get(id) as DueDateItemRow | undefined;
   if (!existing) {
@@ -253,6 +268,11 @@ dueDateItemsRouter.put('/:id', asyncHandler(async (req, res) => {
 // Mark item as completed
 dueDateItemsRouter.post('/:id/complete', asyncHandler(async (req, res) => {
   const { id } = req.params;
+  
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'Invalid due date item ID' });
+  }
+  
   const existing = db.prepare('SELECT * FROM due_date_items WHERE id = ?').get(id) as DueDateItemRow | undefined;
   
   if (!existing) {
@@ -271,6 +291,11 @@ dueDateItemsRouter.post('/:id/complete', asyncHandler(async (req, res) => {
 // Delete due date item
 dueDateItemsRouter.delete('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
+  
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'Invalid due date item ID' });
+  }
+  
   const result = db.prepare('DELETE FROM due_date_items WHERE id = ?').run(id);
   
   if (result.changes === 0) {
@@ -279,4 +304,3 @@ dueDateItemsRouter.delete('/:id', asyncHandler(async (req, res) => {
   
   res.json({ message: 'Due date item deleted' });
 }));
-

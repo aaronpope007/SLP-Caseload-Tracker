@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { db } from '../db';
 import { asyncHandler } from '../middleware/asyncHandler';
+import { validateBody } from '../middleware/validateRequest';
 import { parseJsonField, stringifyJsonField } from '../utils/jsonHelpers';
+import { createActivitySchema, updateActivitySchema } from '../schemas';
 
 // Database row types
 interface ActivityRow {
@@ -34,6 +36,11 @@ activitiesRouter.get('/', asyncHandler(async (req, res) => {
 // Get activity by ID
 activitiesRouter.get('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
+  
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'Invalid activity ID' });
+  }
+  
   const activity = db.prepare('SELECT * FROM activities WHERE id = ?').get(id) as ActivityRow | undefined;
   
   if (!activity) {
@@ -47,38 +54,50 @@ activitiesRouter.get('/:id', asyncHandler(async (req, res) => {
   });
 }));
 
-// Create activity
-activitiesRouter.post('/', asyncHandler(async (req, res) => {
+// Create activity - with validation
+activitiesRouter.post('/', validateBody(createActivitySchema), asyncHandler(async (req, res) => {
   const activity = req.body;
+  
+  // Generate ID if not provided
+  const activityId = activity.id || `activity-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const dateCreated = new Date().toISOString();
   
   db.prepare(`
     INSERT INTO activities (id, description, goalArea, ageRange, materials, isFavorite, source, dateCreated)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    activity.id,
+    activityId,
     activity.description,
     activity.goalArea,
-    activity.ageRange,
+    activity.ageRange || '',
     stringifyJsonField(activity.materials || []),
     activity.isFavorite ? 1 : 0,
-    activity.source,
-    activity.dateCreated
+    activity.source || 'manual',
+    dateCreated
   );
   
-  res.status(201).json({ id: activity.id, message: 'Activity created' });
+  res.status(201).json({ id: activityId, message: 'Activity created' });
 }));
 
-// Update activity
-activitiesRouter.put('/:id', asyncHandler(async (req, res) => {
+// Update activity - with validation
+activitiesRouter.put('/:id', validateBody(updateActivitySchema), asyncHandler(async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
+  
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'Invalid activity ID' });
+  }
   
   const existing = db.prepare('SELECT * FROM activities WHERE id = ?').get(id) as ActivityRow | undefined;
   if (!existing) {
     return res.status(404).json({ error: 'Activity not found' });
   }
   
-  const activity = { ...existing, ...updates };
+  const activity = { 
+    ...existing, 
+    materials: parseJsonField<string[]>(existing.materials, []),
+    ...updates 
+  };
   
   db.prepare(`
     UPDATE activities 
@@ -87,10 +106,10 @@ activitiesRouter.put('/:id', asyncHandler(async (req, res) => {
   `).run(
     activity.description,
     activity.goalArea,
-    activity.ageRange,
+    activity.ageRange || '',
     stringifyJsonField(activity.materials || []),
     activity.isFavorite ? 1 : 0,
-    activity.source,
+    activity.source || 'manual',
     id
   );
   
@@ -100,6 +119,11 @@ activitiesRouter.put('/:id', asyncHandler(async (req, res) => {
 // Delete activity
 activitiesRouter.delete('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
+  
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'Invalid activity ID' });
+  }
+  
   const result = db.prepare('DELETE FROM activities WHERE id = ?').run(id);
   
   if (result.changes === 0) {
@@ -108,4 +132,3 @@ activitiesRouter.delete('/:id', asyncHandler(async (req, res) => {
   
   res.json({ message: 'Activity deleted' });
 }));
-

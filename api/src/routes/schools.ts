@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { db } from '../db';
 import { asyncHandler } from '../middleware/asyncHandler';
+import { validateBody } from '../middleware/validateRequest';
 import { parseJsonField, stringifyJsonField } from '../utils/jsonHelpers';
+import { createSchoolSchema, updateSchoolSchema } from '../schemas';
 
 // Database row types
 interface SchoolRow {
@@ -52,6 +54,11 @@ schoolsRouter.get('/', asyncHandler(async (req, res) => {
 // Get school by ID
 schoolsRouter.get('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
+  
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'Invalid school ID' });
+  }
+  
   const school = db.prepare('SELECT * FROM schools WHERE id = ?').get(id) as SchoolRow | undefined;
   
   if (!school) {
@@ -68,6 +75,11 @@ schoolsRouter.get('/:id', asyncHandler(async (req, res) => {
 // Get school by name
 schoolsRouter.get('/name/:name', asyncHandler(async (req, res) => {
   const { name } = req.params;
+  
+  if (!name || typeof name !== 'string') {
+    return res.status(400).json({ error: 'School name is required' });
+  }
+  
   const school = db.prepare('SELECT * FROM schools WHERE name = ?').get(name) as SchoolRow | undefined;
   
   if (!school) {
@@ -81,14 +93,10 @@ schoolsRouter.get('/name/:name', asyncHandler(async (req, res) => {
   });
 }));
 
-// Create school
-schoolsRouter.post('/', asyncHandler(async (req, res) => {
+// Create school - with validation
+schoolsRouter.post('/', validateBody(createSchoolSchema), asyncHandler(async (req, res) => {
   const school = req.body;
-  const schoolName = school.name?.trim();
-  
-  if (!schoolName) {
-    return res.status(400).json({ error: 'School name is required' });
-  }
+  const schoolName = school.name.trim();
   
   // Check for duplicate schools (case-insensitive)
   const allSchools = db.prepare('SELECT * FROM schools').all() as SchoolRow[];
@@ -105,25 +113,33 @@ schoolsRouter.post('/', asyncHandler(async (req, res) => {
     });
   }
   
+  // Generate ID if not provided
+  const schoolId = school.id || `school-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const dateCreated = new Date().toISOString();
+  
   db.prepare(`
     INSERT INTO schools (id, name, state, teletherapy, dateCreated, schoolHours)
     VALUES (?, ?, ?, ?, ?, ?)
   `).run(
-    school.id,
+    schoolId,
     schoolName,
     school.state || '',
     school.teletherapy ? 1 : 0,
-    school.dateCreated,
+    dateCreated,
     stringifyJsonField(school.schoolHours)
   );
   
-  res.status(201).json({ id: school.id, message: 'School created' });
+  res.status(201).json({ id: schoolId, message: 'School created' });
 }));
 
-// Update school
-schoolsRouter.put('/:id', asyncHandler(async (req, res) => {
+// Update school - with validation
+schoolsRouter.put('/:id', validateBody(updateSchoolSchema), asyncHandler(async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
+  
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'Invalid school ID' });
+  }
   
   const existing = db.prepare('SELECT * FROM schools WHERE id = ?').get(id) as SchoolRow | undefined;
   if (!existing) {
@@ -131,7 +147,7 @@ schoolsRouter.put('/:id', asyncHandler(async (req, res) => {
   }
   
   // Use updates directly, not merged with existing (to properly handle schoolHours)
-  const name = updates.name !== undefined ? updates.name : existing.name;
+  const name = updates.name !== undefined ? updates.name.trim() : existing.name;
   const state = updates.state !== undefined ? updates.state : existing.state;
   const teletherapy = updates.teletherapy !== undefined ? (updates.teletherapy ? 1 : 0) : (existing.teletherapy === 1 ? 1 : 0);
   const schoolHours = updates.schoolHours !== undefined 
@@ -156,6 +172,10 @@ schoolsRouter.put('/:id', asyncHandler(async (req, res) => {
 // Delete school
 schoolsRouter.delete('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
+  
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'Invalid school ID' });
+  }
   
   // First check if school exists
   const existing = db.prepare('SELECT * FROM schools WHERE id = ?').get(id) as SchoolRow | undefined;
@@ -183,4 +203,3 @@ schoolsRouter.get('/debug/count', asyncHandler(async (_req, res) => {
     databasePath: process.cwd() + '/data/slp-caseload.db'
   });
 }));
-

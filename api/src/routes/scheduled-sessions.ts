@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { db } from '../db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { parseJsonField, stringifyJsonField } from '../utils/jsonHelpers';
-import type { ScheduledSession } from '../../../src/types';
+import type { ScheduledSession } from '../types';
 
 // Database row types
 interface ScheduledSessionRow {

@@ -12,18 +12,31 @@ import { logError } from './logger';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 /**
+ * Validation error detail from the API
+ */
+export interface ValidationErrorDetail {
+  field: string;
+  message: string;
+}
+
+/**
  * Custom API Error class for better error handling
- * Provides status code, endpoint, and user-friendly error messages
+ * Provides status code, endpoint, validation errors, and user-friendly error messages
  */
 export class ApiError extends Error {
+  /** Validation error details from the API (for 400 errors) */
+  public validationErrors?: ValidationErrorDetail[];
+
   constructor(
     message: string,
     public status?: number,
     public endpoint?: string,
-    public originalError?: unknown
+    public originalError?: unknown,
+    validationErrors?: ValidationErrorDetail[]
   ) {
     super(message);
     this.name = 'ApiError';
+    this.validationErrors = validationErrors;
     
     // Maintains proper stack trace for where our error was thrown (only available on V8)
     if (Error.captureStackTrace) {
@@ -35,6 +48,14 @@ export class ApiError extends Error {
    * Get a user-friendly error message based on status code
    */
   getUserMessage(): string {
+    // If we have validation errors, format them nicely
+    if (this.validationErrors && this.validationErrors.length > 0) {
+      if (this.validationErrors.length === 1) {
+        return this.validationErrors[0].message;
+      }
+      return this.validationErrors.map(e => `• ${e.message}`).join('\n');
+    }
+
     if (this.status) {
       switch (this.status) {
         case 400:
@@ -49,6 +70,8 @@ export class ApiError extends Error {
           return 'This resource already exists. Please check for duplicates.';
         case 422:
           return 'The request could not be processed. Please check your input.';
+        case 429:
+          return 'Too many requests. Please wait a moment and try again.';
         case 500:
           return 'A server error occurred. Please try again later.';
         case 503:
@@ -69,6 +92,27 @@ export class ApiError extends Error {
     
     // Return the original message if no specific handling
     return this.message;
+  }
+
+  /**
+   * Check if this is a validation error (400 with details)
+   */
+  isValidationError(): boolean {
+    return this.status === 400 && !!this.validationErrors && this.validationErrors.length > 0;
+  }
+
+  /**
+   * Get validation error for a specific field
+   */
+  getFieldError(fieldName: string): string | undefined {
+    return this.validationErrors?.find(e => e.field === fieldName)?.message;
+  }
+
+  /**
+   * Get all field names that have errors
+   */
+  getErrorFields(): string[] {
+    return this.validationErrors?.map(e => e.field) || [];
   }
 
   /**
@@ -96,6 +140,13 @@ export class ApiError extends Error {
   isServerError(): boolean {
     return this.status !== undefined && this.status >= 500;
   }
+
+  /**
+   * Check if this is a rate limit error (429)
+   */
+  isRateLimitError(): boolean {
+    return this.status === 429;
+  }
 }
 
 async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
@@ -114,24 +165,33 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
       // Try to parse error response
       let errorMessage = response.statusText;
       let errorData: unknown = null;
+      let validationErrors: ValidationErrorDetail[] | undefined;
       
       try {
         errorData = await response.json();
-        if (errorData && typeof errorData === 'object' && 'message' in errorData) {
-          errorMessage = String(errorData.message);
-        } else if (errorData && typeof errorData === 'object' && 'error' in errorData) {
-          errorMessage = String(errorData.error);
+        if (errorData && typeof errorData === 'object') {
+          // Extract validation error details if present
+          if ('details' in errorData && Array.isArray(errorData.details)) {
+            validationErrors = errorData.details as ValidationErrorDetail[];
+          }
+          // Extract error message
+          if ('message' in errorData) {
+            errorMessage = String(errorData.message);
+          } else if ('error' in errorData) {
+            errorMessage = String(errorData.error);
+          }
         }
       } catch {
         // If JSON parsing fails, use status text
       }
 
-      // Create ApiError with status code and endpoint
+      // Create ApiError with status code, endpoint, and validation errors
       throw new ApiError(
         errorMessage || `HTTP ${response.status}`,
         response.status,
         endpoint,
-        errorData
+        errorData,
+        validationErrors
       );
     }
 
@@ -585,4 +645,6 @@ export async function checkApiHealth(): Promise<boolean> {
     return false;
   }
 }
+
+// Force module refresh
 
