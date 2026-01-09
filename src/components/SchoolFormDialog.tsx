@@ -29,6 +29,9 @@ interface SchoolFormDialogProps {
   onClose: () => void;
   onSave: () => void;
   onFormDataChange: (data: Partial<{ name: string; state: string; teletherapy: boolean; schoolHours?: { startHour: number; endHour: number } }>) => void;
+  // Validation error props
+  fieldErrors?: Record<string, string | undefined>;
+  onClearError?: (field: string) => void;
 }
 
 export const SchoolFormDialog = ({
@@ -39,7 +42,12 @@ export const SchoolFormDialog = ({
   onClose,
   onSave,
   onFormDataChange,
+  fieldErrors = {},
+  onClearError,
 }: SchoolFormDialogProps) => {
+  const hasError = (field: string) => !!fieldErrors[field];
+  const getError = (field: string) => fieldErrors[field];
+  const clearError = (field: string) => onClearError?.(field);
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
@@ -51,10 +59,15 @@ export const SchoolFormDialog = ({
             label="School Name"
             fullWidth
             value={formData.name}
-            onChange={(e) => onFormDataChange({ name: e.target.value })}
+            onChange={(e) => {
+              onFormDataChange({ name: e.target.value });
+              clearError('name');
+            }}
             required
             autoFocus
             margin="normal"
+            error={hasError('name')}
+            helperText={getError('name')}
           />
           <TextField
             select

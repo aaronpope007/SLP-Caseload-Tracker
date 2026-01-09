@@ -39,7 +39,8 @@ import {
 } from '../utils/storage-api';
 import { generateId } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
-import { useConfirm, useDialog, useSnackbar } from '../hooks';
+import { useConfirm, useDialog, useSnackbar, useFormValidation } from '../hooks';
+import { ApiError } from '../utils/api';
 import { getStudents } from '../utils/storage-api';
 import { SchoolCard } from '../components/SchoolCard';
 import { SchoolFormDialog } from '../components/SchoolFormDialog';
@@ -111,6 +112,7 @@ export const Schools = () => {
   const schoolDialog = useDialog();
   const { showSnackbar, SnackbarComponent } = useSnackbar();
   const { confirm, ConfirmDialog } = useConfirm();
+  const { fieldErrors, hasError, getError, clearError, handleApiError, clearAllErrors } = useFormValidation();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -246,6 +248,7 @@ export const Schools = () => {
         },
       });
     }
+    clearAllErrors(); // Clear any previous validation errors
     schoolDialog.openDialog();
   };
 
@@ -291,7 +294,14 @@ export const Schools = () => {
       handleCloseDialog();
     } catch (error) {
       logError('Failed to save school', error);
-      alert(`Failed to save school: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      
+      // Handle validation errors from the API
+      if (error instanceof ApiError && handleApiError(error)) {
+        showSnackbar('Please fix the validation errors', 'error');
+        return;
+      }
+      
+      showSnackbar(`Failed to save school: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
     }
   };
 
@@ -378,6 +388,8 @@ export const Schools = () => {
         onClose={handleCloseDialog}
         onSave={handleSave}
         onFormDataChange={(updates) => setFormData({ ...formData, ...updates })}
+        fieldErrors={fieldErrors}
+        onClearError={clearError}
       />
 
       <ConfirmDialog />

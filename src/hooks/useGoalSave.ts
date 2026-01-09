@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import type { Goal } from '../types';
 import { getGoals } from '../utils/storage-api';
 import { logError } from '../utils/logger';
+import { ApiError } from '../utils/api';
 
 interface UseGoalSaveParams {
   studentId: string;
@@ -24,6 +25,7 @@ interface UseGoalSaveParams {
   resetForm: () => void;
   resetDirty: () => void;
   showSnackbar: (message: string, severity: 'success' | 'error' | 'info' | 'warning') => void;
+  onValidationError?: (error: ApiError) => boolean;
 }
 
 export const useGoalSave = ({
@@ -39,6 +41,7 @@ export const useGoalSave = ({
   resetForm,
   resetDirty,
   showSnackbar,
+  onValidationError,
 }: UseGoalSaveParams) => {
   const handleSave = useCallback(async () => {
     if (!studentId) return;
@@ -112,6 +115,13 @@ export const useGoalSave = ({
       resetForm();
     } catch (error) {
       logError('Failed to save goal', error);
+      
+      // Handle validation errors from the API
+      if (error instanceof ApiError && onValidationError?.(error)) {
+        showSnackbar('Please fix the validation errors', 'error');
+        return;
+      }
+      
       showSnackbar('Failed to save goal. Please try again.', 'error');
     }
   }, [
@@ -127,6 +137,7 @@ export const useGoalSave = ({
     resetForm,
     resetDirty,
     showSnackbar,
+    onValidationError,
   ]);
 
   return { handleSave };

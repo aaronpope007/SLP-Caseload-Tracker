@@ -27,8 +27,9 @@ import {
 } from '../utils/storage-api';
 import { generateId } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
-import { useConfirm, useSnackbar, useGoalManagement, useGoalForm, useGoalTemplate, useGoalSubtree, useQuickGoals, useGoalSave, useGoalDialogHandlers, useGoalDelete, useTreatmentRecommendations, useAIFeatures, useDialog, useStudentData, useSessionData, usePerformanceHelpers, useGoalTemplateHandler, useGoalSubtreeHandler } from '../hooks';
+import { useConfirm, useSnackbar, useGoalManagement, useGoalForm, useGoalTemplate, useGoalSubtree, useQuickGoals, useGoalSave, useGoalDialogHandlers, useGoalDelete, useTreatmentRecommendations, useAIFeatures, useDialog, useStudentData, useSessionData, usePerformanceHelpers, useGoalTemplateHandler, useGoalSubtreeHandler, useFormValidation } from '../hooks';
 import { useDirty } from '../hooks/useDirty';
+import { ApiError } from '../utils/api';
 import {
   generateGoalSuggestions,
   generateTreatmentRecommendations,
@@ -56,6 +57,7 @@ export const StudentDetail = () => {
   const [sessions, setSessions] = useState<Session[]>([]);
   const { confirm, ConfirmDialog } = useConfirm();
   const { showSnackbar, SnackbarComponent } = useSnackbar();
+  const { fieldErrors, hasError, getError, clearError, handleApiError, clearAllErrors } = useFormValidation();
   
   // Student data loading hook - must be declared early
   const { loadStudent } = useStudentData({
@@ -168,6 +170,7 @@ export const StudentDetail = () => {
     resetForm,
     resetDirty,
     showSnackbar,
+    onValidationError: handleApiError,
   });
 
   // Goal delete hook
@@ -327,6 +330,8 @@ export const StudentDetail = () => {
           aiFeatures.setGoalSuggestions('');
           goalSuggestionsDialog.openDialog();
         }}
+        fieldErrors={fieldErrors}
+        onClearError={clearError}
       />
 
       <GoalSuggestionsDialog

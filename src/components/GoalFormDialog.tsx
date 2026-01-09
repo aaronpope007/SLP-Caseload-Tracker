@@ -35,6 +35,9 @@ interface GoalFormDialogProps {
   onSave: () => void;
   onFormDataChange: (data: Partial<GoalFormData>) => void;
   onOpenGoalSuggestions: () => void;
+  // Validation error props
+  fieldErrors?: Record<string, string | undefined>;
+  onClearError?: (field: string) => void;
 }
 
 export const GoalFormDialog: React.FC<GoalFormDialogProps> = ({
@@ -47,7 +50,12 @@ export const GoalFormDialog: React.FC<GoalFormDialogProps> = ({
   onSave,
   onFormDataChange,
   onOpenGoalSuggestions,
+  fieldErrors = {},
+  onClearError,
 }) => {
+  const hasError = (field: string) => !!fieldErrors[field];
+  const getError = (field: string) => fieldErrors[field];
+  const clearError = (field: string) => onClearError?.(field);
   // Filter out any undefined/null goals first, then filter out the goal being edited (can't be its own parent)
   const validGoals = allGoals.filter(g => g != null);
   const availableParentGoals = validGoals.filter(g => !editingGoal || g.id !== editingGoal.id);
@@ -126,8 +134,13 @@ export const GoalFormDialog: React.FC<GoalFormDialogProps> = ({
               multiline
               rows={3}
               value={formData.description}
-              onChange={(e) => onFormDataChange({ description: e.target.value })}
+              onChange={(e) => {
+                onFormDataChange({ description: e.target.value });
+                clearError('description');
+              }}
               required
+              error={hasError('description')}
+              helperText={getError('description')}
             />
             <Button
               variant="outlined"

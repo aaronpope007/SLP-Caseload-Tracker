@@ -34,8 +34,9 @@ import {
 } from '../utils/storage-api';
 import { generateId } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
-import { useConfirm, useDialog, useSnackbar } from '../hooks';
+import { useConfirm, useDialog, useSnackbar, useFormValidation } from '../hooks';
 import { useDirty } from '../hooks/useDirty';
+import { ApiError } from '../utils/api';
 import { SearchBar } from '../components/SearchBar';
 import { StudentAccordionCard } from '../components/StudentAccordionCard';
 import { logError, logWarn } from '../utils/logger';
@@ -57,6 +58,7 @@ export const Students = () => {
   // Dialog and snackbar hooks
   const studentDialog = useDialog();
   const { showSnackbar, SnackbarComponent } = useSnackbar();
+  const { fieldErrors, hasError, getError, clearError, handleApiError, clearAllErrors } = useFormValidation();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -289,6 +291,7 @@ export const Students = () => {
     }
     setFormData(newFormData);
     setInitialFormData(newFormData);
+    clearAllErrors(); // Clear any previous validation errors
     studentDialog.openDialog();
   };
 
@@ -371,8 +374,17 @@ export const Students = () => {
       setEditingStudent(null);
     } catch (error: unknown) {
       logError('Failed to save student', error);
+      
+      // Handle validation errors from the API
+      if (error instanceof ApiError && handleApiError(error)) {
+        // Field errors are now set, form will show them inline
+        showSnackbar('Please fix the validation errors', 'error');
+        return;
+      }
+      
+      // For other errors, show a general message
       const errorMessage = getErrorMessage(error);
-      alert(`Failed to save student: ${errorMessage}\n\nMake sure the API server is running on http://localhost:3001`);
+      showSnackbar(`Failed to save student: ${errorMessage}`, 'error');
     }
   };
 
@@ -571,25 +583,38 @@ export const Students = () => {
               label="Name"
               fullWidth
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, name: e.target.value });
+                clearError('name');
+              }}
               required
               autoFocus
+              error={hasError('name')}
+              helperText={getError('name')}
             />
             <TextField
               label="Age (optional)"
               type="number"
               fullWidth
               value={formData.age}
-              onChange={(e) => setFormData({ ...formData, age: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, age: e.target.value });
+                clearError('age');
+              }}
               inputProps={{ min: 1 }}
-              helperText={formData.age && parseInt(formData.age) < 1 ? 'Age must be at least 1' : 'Leave blank if unknown'}
-              error={formData.age !== '' && parseInt(formData.age) < 1}
+              helperText={getError('age') || (formData.age && parseInt(formData.age) < 1 ? 'Age must be at least 1' : 'Leave blank if unknown')}
+              error={hasError('age') || (formData.age !== '' && parseInt(formData.age) < 1)}
             />
             <TextField
               label="Grade"
               fullWidth
               value={formData.grade}
-              onChange={(e) => setFormData({ ...formData, grade: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, grade: e.target.value });
+                clearError('grade');
+              }}
+              error={hasError('grade')}
+              helperText={getError('grade')}
             />
             <TextField
               label="Concerns (comma-separated)"
