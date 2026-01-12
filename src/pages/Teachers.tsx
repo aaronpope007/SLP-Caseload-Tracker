@@ -37,7 +37,7 @@ import { useDirty } from '../hooks/useDirty';
 import { useSchool } from '../context/SchoolContext';
 import { SearchBar } from '../components/common/SearchBar';
 import { TeacherAccordionCard } from '../components/TeacherAccordionCard';
-import { formatPhoneNumber, formatPhoneForDisplay } from '../utils/formatters';
+import { formatPhoneNumber, formatPhoneForDisplay, stripPhoneFormatting } from '../utils/formatters';
 
 export const Teachers = () => {
   const { selectedSchool, availableSchools } = useSchool();

@@ -964,7 +964,7 @@ export const EmailTeacherDialog = ({
         
         // Add Eranel if checkbox is checked
         if (relevantCcOptions.showEranel && ccEranel) {
-          ccAddresses.push('apolonio@nobleacademy.us');
+          ccAddresses.push('eranelpolonio@nobleacademy.us');
         }
       }
       
@@ -1250,7 +1250,7 @@ export const EmailTeacherDialog = ({
                               onChange={(e) => setCcEranel(e.target.checked)}
                             />
                           }
-                          label="CC Eranel Polonio (apolonio@nobleacademy.us) - 7th & 8th Grade"
+                          label="CC Eranel Polonio (eranelpolonio@nobleacademy.us) - 7th & 8th Grade"
                           sx={{ display: 'block', mt: (hasCaseManager || showKengCheckbox || showSusanCheckbox) ? 1 : 0 }}
                         />
                       )}

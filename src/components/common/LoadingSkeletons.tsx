@@ -38,7 +38,7 @@ export function CardGridSkeleton({ count = 6 }: { count?: number }) {
   return (
     <Grid container spacing={2}>
       {Array.from({ length: count }).map((_, i) => (
-        <Grid size={{ xs: 12, sm: 6, md: 4 }} key={i}>
+        <Grid item xs={12} sm={6} md={4} key={i}>
           <Card>
             <CardContent>
               <Skeleton variant="text" width="60%" height={28} sx={{ mb: 1 }} />
@@ -93,7 +93,7 @@ export function DashboardStatsSkeleton() {
   return (
     <Grid container spacing={2}>
       {Array.from({ length: 4 }).map((_, i) => (
-        <Grid size={{ xs: 6, md: 3 }} key={i}>
+        <Grid item xs={6} md={3} key={i}>
           <Paper sx={{ p: 2 }}>
             <Skeleton variant="text" width="60%" height={20} />
             <Skeleton variant="text" width="40%" height={40} sx={{ mt: 1 }} />
@@ -122,7 +122,7 @@ export function DetailPageSkeleton() {
       
       {/* Content sections */}
       <Grid container spacing={3}>
-        <Grid size={{ xs: 12, md: 8 }}>
+        <Grid item xs={12} md={8}>
           <Paper sx={{ p: 2, mb: 2 }}>
             <Skeleton variant="text" width="20%" height={28} sx={{ mb: 2 }} />
             <Skeleton variant="text" width="100%" height={20} />
@@ -134,7 +134,7 @@ export function DetailPageSkeleton() {
             <ListSkeleton items={3} />
           </Paper>
         </Grid>
-        <Grid size={{ xs: 12, md: 4 }}>
+        <Grid item xs={12} md={4}>
           <Paper sx={{ p: 2 }}>
             <Skeleton variant="text" width="40%" height={28} sx={{ mb: 2 }} />
             <Skeleton variant="rectangular" width="100%" height={200} />

@@ -46,6 +46,11 @@ export function extractPhoneDigits(formattedPhone: string): string {
 }
 
 /**
+ * Strip phone formatting (alias for extractPhoneDigits for backward compatibility)
+ */
+export const stripPhoneFormatting = extractPhoneDigits;
+
+/**
  * Validate phone number (10 digits)
  */
 export function isValidPhoneNumber(phone: string): boolean {

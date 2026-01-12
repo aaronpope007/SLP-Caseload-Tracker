@@ -33,7 +33,7 @@ import { useSchool } from '../context/SchoolContext';
 import { SearchBar } from '../components/common/SearchBar';
 import { CaseManagerAccordionCard } from '../components/CaseManagerAccordionCard';
 import { logError, logInfo } from '../utils/logger';
-import { formatPhoneNumber, formatPhoneForDisplay } from '../utils/formatters';
+import { formatPhoneNumber, formatPhoneForDisplay, stripPhoneFormatting } from '../utils/formatters';
 
 export const CaseManagers = () => {
   const { selectedSchool, availableSchools } = useSchool();

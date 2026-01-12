@@ -41,6 +41,7 @@ import { QuickAccessGoalsBar } from '../goal/QuickAccessGoalsBar';
 import { GoalMatrixView } from '../goal/GoalMatrixView';
 import { ActiveGoalsTrackingPanel } from '../goal/ActiveGoalsTrackingPanel';
 import { usePinnedGoals } from '../../hooks/usePinnedGoals';
+import { PreviousSessionGoals } from './PreviousSessionGoals';
 
 export interface SessionFormData {
   studentIds: string[];
@@ -721,6 +722,20 @@ export const SessionFormDialog = ({
             <>
               {formData.studentIds.length > 0 && (
                 <Box>
+                  {/* Previous Session Goals */}
+                  {!editingSession && !editingGroupSessionId && (
+                    <PreviousSessionGoals
+                      students={students}
+                      goals={goals}
+                      sessions={sessions}
+                      selectedStudentIds={formData.studentIds}
+                      goalsTargeted={formData.goalsTargeted}
+                      getRecentPerformance={getRecentPerformance}
+                      onGoalToggle={onGoalToggle}
+                      isDirectServices={formData.isDirectServices}
+                    />
+                  )}
+
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
                     <Typography variant="subtitle2">
                       Goals Targeted:
