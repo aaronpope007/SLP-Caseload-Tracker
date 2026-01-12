@@ -1325,6 +1325,7 @@ export const SessionCalendar = () => {
           missedSession: sessionFormData.isDirectServices ? (sessionFormData.missedSession || false) : undefined,
           selectedSubjectiveStatements: sessionFormData.selectedSubjectiveStatements.length > 0 ? sessionFormData.selectedSubjectiveStatements : undefined,
           customSubjective: sessionFormData.customSubjective.trim() || undefined,
+          plan: sessionFormData.plan.trim() || undefined,
         };
 
         await updateSession(editingSession.id, updates);
@@ -1358,6 +1359,7 @@ export const SessionCalendar = () => {
             missedSession: sessionFormData.isDirectServices ? (sessionFormData.missedSession || false) : undefined,
             selectedSubjectiveStatements: sessionFormData.selectedSubjectiveStatements.length > 0 ? sessionFormData.selectedSubjectiveStatements : undefined,
             customSubjective: sessionFormData.customSubjective.trim() || undefined,
+            plan: sessionFormData.plan.trim() || undefined,
           };
 
           await updateSession(existingSession.id, updates);
@@ -1395,6 +1397,7 @@ export const SessionCalendar = () => {
             missedSession: sessionFormData.isDirectServices ? (sessionFormData.missedSession || false) : undefined,
             selectedSubjectiveStatements: sessionFormData.selectedSubjectiveStatements.length > 0 ? sessionFormData.selectedSubjectiveStatements : undefined,
             customSubjective: sessionFormData.customSubjective.trim() || undefined,
+            plan: sessionFormData.plan.trim() || undefined,
             scheduledSessionId: currentEvent?.scheduledSessionId, // Link to the scheduled session
           };
 

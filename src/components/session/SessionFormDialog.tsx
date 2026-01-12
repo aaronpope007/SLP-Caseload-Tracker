@@ -563,6 +563,69 @@ export const SessionFormDialog = ({
     return studentSessions[0]?.plan || null;
   }, [editingSession, editingGroupSessionId, formData.studentIds, formData.plan, sessions]);
 
+  // Get previous session's plan to display above goals (for new sessions only)
+  // Memoized to prevent expensive recalculation on every render
+  const previousSessionPlan = useMemo(() => {
+    if (editingSession || editingGroupSessionId || formData.studentIds.length === 0 || !formData.isDirectServices) {
+      return null;
+    }
+
+    // Filter sessions to only direct services, non-missed sessions with plans
+    const validSessions = sessions.filter(
+      s => s.isDirectServices && !s.missedSession && s.plan && s.plan.trim()
+    );
+
+    if (formData.studentIds.length === 1) {
+      // Single student: find the most recent session for that student
+      const studentId = formData.studentIds[0];
+      const studentSessions = validSessions
+        .filter(s => s.studentId === studentId)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      
+      return studentSessions[0]?.plan || null;
+    } else {
+      // Multiple students: find the most recent group session that matches all selected students
+      // Group sessions by groupSessionId
+      const groupSessionsMap = new Map<string, Session[]>();
+      validSessions.forEach(session => {
+        if (session.groupSessionId) {
+          if (!groupSessionsMap.has(session.groupSessionId)) {
+            groupSessionsMap.set(session.groupSessionId, []);
+          }
+          groupSessionsMap.get(session.groupSessionId)!.push(session);
+        }
+      });
+
+      // Find the most recent group session that includes all selected students
+      const matchingGroups: { groupId: string; sessions: Session[]; date: Date }[] = [];
+      
+      groupSessionsMap.forEach((groupSessions, groupId) => {
+        const groupStudentIds = groupSessions.map(s => s.studentId);
+        const allStudentsMatch = formData.studentIds.every(id => groupStudentIds.includes(id)) &&
+                                 groupStudentIds.length === formData.studentIds.length;
+        
+        if (allStudentsMatch && groupSessions.length > 0) {
+          // Use the date from the first session in the group
+          matchingGroups.push({
+            groupId,
+            sessions: groupSessions,
+            date: new Date(groupSessions[0].date),
+          });
+        }
+      });
+
+      // Sort by date descending and take the most recent
+      matchingGroups.sort((a, b) => b.date.getTime() - a.date.getTime());
+      
+      if (matchingGroups.length > 0) {
+        // For group sessions, use the plan from the first session (they should all have the same plan)
+        return matchingGroups[0].sessions[0]?.plan || null;
+      }
+    }
+
+    return null;
+  }, [editingSession, editingGroupSessionId, formData.studentIds, formData.isDirectServices, sessions]);
+
   // Get goals for all selected students, grouped by student, separated into active and completed
   // Memoized to prevent expensive recalculation on every render
   const availableGoalsByStudent = useMemo(() => {
@@ -733,6 +796,26 @@ export const SessionFormDialog = ({
                       getRecentPerformance={getRecentPerformance}
                       onGoalToggle={onGoalToggle}
                       isDirectServices={formData.isDirectServices}
+                    />
+                  )}
+
+                  {/* Previous Session Plan - Read-only field above goals */}
+                  {previousSessionPlan && (
+                    <TextField
+                      label="Plan for Next Session (from Previous Session)"
+                      fullWidth
+                      multiline
+                      rows={4}
+                      value={previousSessionPlan}
+                      InputProps={{
+                        readOnly: true,
+                      }}
+                      sx={{
+                        mb: 2,
+                        '& .MuiInputBase-root': {
+                          bgcolor: 'action.hover',
+                        },
+                      }}
                     />
                   )}
 
