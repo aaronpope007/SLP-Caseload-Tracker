@@ -72,9 +72,9 @@ export const useSessionFormHandlers = ({
       if (currentFormData.studentIds.length === 0 && !currentEditingSession && !currentEditingGroupSessionId) {
         try {
           const studentSessions = await getSessionsByStudent(studentId);
-          // Get the most recent direct services session that wasn't missed and has a plan
+          // Get the most recent direct services session with a plan (include missed sessions)
           const lastSession = studentSessions
-            .filter(s => s.isDirectServices && !s.missedSession && s.plan)
+            .filter(s => s.isDirectServices && s.plan && s.plan.trim())
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
           
           if (lastSession && lastSession.plan) {

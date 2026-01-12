@@ -257,15 +257,92 @@ export const SessionFormDialog = ({
     }
     
     if (selectedStudents.length === 1) {
-      return ` for ${selectedStudents[0]}`;
+      return selectedStudents[0];
     } else if (selectedStudents.length === 2) {
-      return ` for ${selectedStudents[0]} and ${selectedStudents[1]}`;
+      return `${selectedStudents[0]} and ${selectedStudents[1]}`;
     } else {
       const allButLast = selectedStudents.slice(0, -1).join(', ');
       const last = selectedStudents[selectedStudents.length - 1];
-      return ` for ${allButLast} and ${last}`;
+      return `${allButLast} and ${last}`;
     }
   };
+
+  // Update browser tab title when dialog is open with selected students
+  const originalTitleRef = useRef<string | null>(null);
+  const hasTitleChangedRef = useRef<boolean>(false);
+  
+  // Initialize original title once on mount
+  useEffect(() => {
+    if (originalTitleRef.current === null) {
+      originalTitleRef.current = document.title;
+    }
+  }, []); // Only run once on mount
+  
+  // Memoize formatted start time to avoid unnecessary effect re-runs
+  const formattedStartTime = useMemo(() => {
+    if (!formData.date) {
+      return '';
+    }
+    return formatTime(formData.date);
+  }, [formData.date]);
+  
+  // Memoize selected student names to avoid unnecessary effect re-runs
+  const selectedStudentNames = useMemo(() => {
+    if (formData.studentIds.length === 0) {
+      return '';
+    }
+    
+    const selectedStudents = formData.studentIds
+      .map(id => students.find(s => s.id === id))
+      .filter((s): s is Student => s !== undefined)
+      .map(s => {
+        const grade = s.grade != null && s.grade !== undefined && s.grade.trim() !== '' ? ` (${s.grade})` : '';
+        return `${s.name}${grade}`;
+      });
+    
+    if (selectedStudents.length === 0) {
+      return '';
+    }
+    
+    if (selectedStudents.length === 1) {
+      return selectedStudents[0];
+    } else if (selectedStudents.length === 2) {
+      return `${selectedStudents[0]} and ${selectedStudents[1]}`;
+    } else {
+      return `${selectedStudents.slice(0, -1).join(', ')} and ${selectedStudents[selectedStudents.length - 1]}`;
+    }
+  }, [formData.studentIds, students]);
+  
+  useEffect(() => {
+    // Skip if original title not yet initialized
+    if (originalTitleRef.current === null) {
+      return;
+    }
+    
+    if (open && selectedStudentNames) {
+      // Format: "Start Time - Student Names - SLP Caseload Tracker"
+      const timePart = formattedStartTime ? `${formattedStartTime} - ` : '';
+      const newTitle = `${timePart}${selectedStudentNames} - SLP Caseload Tracker`;
+      if (document.title !== newTitle) {
+        document.title = newTitle;
+        hasTitleChangedRef.current = true;
+      }
+    } else {
+      // Restore original title when dialog closes or no students selected
+      if (hasTitleChangedRef.current && originalTitleRef.current !== null) {
+        document.title = originalTitleRef.current;
+        hasTitleChangedRef.current = false;
+      }
+    }
+    
+    // Cleanup: restore original title when component unmounts or dialog closes
+    return () => {
+      if (hasTitleChangedRef.current && originalTitleRef.current !== null) {
+        document.title = originalTitleRef.current;
+        hasTitleChangedRef.current = false;
+      }
+    };
+  }, [open, formattedStartTime, selectedStudentNames]);
 
   // Helper function to format scheduled time for the dialog title
   const formatScheduledTimeForTitle = (): string => {
@@ -335,13 +412,23 @@ export const SessionFormDialog = ({
   }, [localNotes, localPlan, localActivitiesUsed, localCustomSubjective, localIndirectServicesNotes]); // Uses ref for onFormDataChange
 
   // Handle save with immediate sync
+  // Helper function to restore original title
+  const restoreTitle = useCallback(() => {
+    if (hasTitleChangedRef.current && originalTitleRef.current !== null) {
+      document.title = originalTitleRef.current;
+      hasTitleChangedRef.current = false;
+    }
+  }, []);
+
   const handleSave = useCallback(() => {
     syncAllLocalState();
+    // Restore title when saving
+    restoreTitle();
     // Use setTimeout to ensure state updates are processed before save
     setTimeout(() => {
       onSave();
     }, 0);
-  }, [syncAllLocalState, onSave]);
+  }, [syncAllLocalState, onSave, restoreTitle]);
 
   // Check isDirty only when dialog tries to close - not continuously while typing
 
@@ -558,7 +645,7 @@ export const SessionFormDialog = ({
     
     const firstStudentId = formData.studentIds[0];
     const studentSessions = sessions
-      .filter(s => s.studentId === firstStudentId && s.isDirectServices && !s.missedSession && s.plan)
+      .filter(s => s.studentId === firstStudentId && s.isDirectServices && s.plan && s.plan.trim())
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     return studentSessions[0]?.plan || null;
   }, [editingSession, editingGroupSessionId, formData.studentIds, formData.plan, sessions]);
@@ -570,9 +657,9 @@ export const SessionFormDialog = ({
       return null;
     }
 
-    // Filter sessions to only direct services, non-missed sessions with plans
+    // Filter sessions to only direct services sessions with plans (include missed sessions)
     const validSessions = sessions.filter(
-      s => s.isDirectServices && !s.missedSession && s.plan && s.plan.trim()
+      s => s.isDirectServices && s.plan && s.plan.trim()
     );
 
     if (formData.studentIds.length === 1) {
@@ -667,10 +754,10 @@ export const SessionFormDialog = ({
     >
       <DialogTitle>
         {editingGroupSessionId 
-          ? `Edit Group Session${formatStudentNamesForTitle()}${formatScheduledTimeForTitle()}` 
+          ? `Edit Group Session for ${formatStudentNamesForTitle()}${formatScheduledTimeForTitle()}` 
           : editingSession 
-            ? `Edit Activity${formatStudentNamesForTitle()}${formatScheduledTimeForTitle()}` 
-            : `Log New Activity${formatStudentNamesForTitle()}${formatScheduledTimeForTitle()}`}
+            ? `Edit Activity for ${formatStudentNamesForTitle()}${formatScheduledTimeForTitle()}` 
+            : `Log New Activity for ${formatStudentNamesForTitle()}${formatScheduledTimeForTitle()}`}
       </DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
