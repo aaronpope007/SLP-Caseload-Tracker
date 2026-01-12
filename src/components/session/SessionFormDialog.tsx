@@ -185,8 +185,19 @@ export const SessionFormDialog = ({
 
   // Single consolidated debounce effect for all text fields
   // Uses ref for onFormDataChange to prevent effect re-runs when parent provides new callback reference
+  // Only runs when dialog is open to prevent unnecessary timers
   const debounceSyncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   useEffect(() => {
+    // Don't create debounce timers when dialog is closed
+    if (!open) {
+      // Clear any pending timeout when dialog closes
+      if (debounceSyncTimeoutRef.current) {
+        clearTimeout(debounceSyncTimeoutRef.current);
+        debounceSyncTimeoutRef.current = null;
+      }
+      return;
+    }
+    
     if (debounceSyncTimeoutRef.current) {
       clearTimeout(debounceSyncTimeoutRef.current);
     }
@@ -234,9 +245,10 @@ export const SessionFormDialog = ({
     return () => {
       if (debounceSyncTimeoutRef.current) {
         clearTimeout(debounceSyncTimeoutRef.current);
+        debounceSyncTimeoutRef.current = null;
       }
     };
-  }, [localNotes, localPlan, localActivitiesUsed, localCustomSubjective, localIndirectServicesNotes]); // Removed onFormDataChange - using ref instead
+  }, [open, localNotes, localPlan, localActivitiesUsed, localCustomSubjective, localIndirectServicesNotes]); // Added 'open' to deps
 
   // Helper function to format student names for the dialog title
   const formatStudentNamesForTitle = (): string => {
@@ -328,21 +340,24 @@ export const SessionFormDialog = ({
         hasTitleChangedRef.current = true;
       }
     } else {
-      // Restore original title when dialog closes or no students selected
-      if (hasTitleChangedRef.current && originalTitleRef.current !== null) {
-        document.title = originalTitleRef.current;
+      // Restore title to "SLP Tracker" when dialog closes or no students selected
+      if (hasTitleChangedRef.current) {
+        document.title = 'SLP Tracker';
         hasTitleChangedRef.current = false;
       }
     }
-    
-    // Cleanup: restore original title when component unmounts or dialog closes
+  }, [open, formattedStartTime, selectedStudentNames]);
+  
+  // Separate effect for cleanup on unmount only
+  useEffect(() => {
     return () => {
-      if (hasTitleChangedRef.current && originalTitleRef.current !== null) {
-        document.title = originalTitleRef.current;
+      // Restore title to "SLP Tracker" when component unmounts
+      if (hasTitleChangedRef.current) {
+        document.title = 'SLP Tracker';
         hasTitleChangedRef.current = false;
       }
     };
-  }, [open, formattedStartTime, selectedStudentNames]);
+  }, []); // Empty deps - only runs on mount/unmount
 
   // Helper function to format scheduled time for the dialog title
   const formatScheduledTimeForTitle = (): string => {
@@ -412,10 +427,10 @@ export const SessionFormDialog = ({
   }, [localNotes, localPlan, localActivitiesUsed, localCustomSubjective, localIndirectServicesNotes]); // Uses ref for onFormDataChange
 
   // Handle save with immediate sync
-  // Helper function to restore original title
+  // Helper function to restore title to "SLP Tracker"
   const restoreTitle = useCallback(() => {
-    if (hasTitleChangedRef.current && originalTitleRef.current !== null) {
-      document.title = originalTitleRef.current;
+    if (hasTitleChangedRef.current) {
+      document.title = 'SLP Tracker';
       hasTitleChangedRef.current = false;
     }
   }, []);
@@ -738,7 +753,9 @@ export const SessionFormDialog = ({
   return (
     <Dialog 
       open={open} 
-      onClose={(event, reason) => {
+      onClose={() => {
+        // Restore title when closing
+        restoreTitle();
         // Always call onClose - the parent's handleCloseDialog will check isDirty
         // and show confirmation if needed, preventing actual close when dirty
         onClose();
