@@ -554,6 +554,11 @@ export const api = {
   reminders: {
     getAll: (school?: string) => 
       request<Reminder[]>(`/reminders${buildQueryString({ school })}`),
+    dismiss: (id: string, data: { type: string; studentId: string; relatedId?: string; dismissedState?: string }) =>
+      request<{ message: string }>(`/reminders/${id}/dismiss`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
   },
 
   // Email

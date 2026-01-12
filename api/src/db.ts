@@ -466,6 +466,24 @@ export function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_scheduled_sessions_startDate ON scheduled_sessions(startDate);
   `);
 
+  // Dismissed Reminders table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS dismissed_reminders (
+      id TEXT PRIMARY KEY,
+      reminderType TEXT NOT NULL,
+      studentId TEXT NOT NULL,
+      relatedId TEXT,
+      dismissedAt TEXT NOT NULL,
+      dismissedState TEXT,
+      FOREIGN KEY (studentId) REFERENCES students(id) ON DELETE CASCADE
+    )
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_dismissed_reminders_studentId ON dismissed_reminders(studentId);
+    CREATE INDEX IF NOT EXISTS idx_dismissed_reminders_type ON dismissed_reminders(reminderType);
+  `);
+
   // Drop lunches table if it exists (removed feature)
   try {
     // Check if lunches table exists

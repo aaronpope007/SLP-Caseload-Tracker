@@ -10,6 +10,44 @@ function daysBetween(date1: Date, date2: Date): number {
 }
 
 /**
+ * Get dismissed reminder record for a reminder ID
+ */
+function getDismissedReminder(reminderId: string): { dismissedState?: string } | null {
+  const dismissed = db.prepare(`
+    SELECT dismissedState FROM dismissed_reminders
+    WHERE id = ?
+  `).get(reminderId) as { dismissedState?: string } | undefined;
+  
+  return dismissed || null;
+}
+
+/**
+ * Check if a frequency alert should be shown (not dismissed or situation worsened)
+ */
+function shouldShowFrequencyAlert(studentId: string, currentSessionsBehind: number): boolean {
+  const reminderId = `frequency-alert-${studentId}`;
+  const dismissed = getDismissedReminder(reminderId);
+  
+  if (!dismissed) {
+    return true; // Not dismissed, show it
+  }
+  
+  // If dismissed, only show if situation has worsened
+  if (dismissed.dismissedState) {
+    try {
+      const dismissedSessionsBehind = parseInt(dismissed.dismissedState, 10);
+      // Only show if current is worse (more sessions behind) than when dismissed
+      return currentSessionsBehind > dismissedSessionsBehind;
+    } catch (e) {
+      // If we can't parse, show it to be safe
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+/**
  * Get goal review reminders for stagnant goals
  * A goal is considered stagnant if it hasn't been targeted in a session for 30+ days
  */
@@ -303,14 +341,15 @@ function getFrequencyAlerts(school?: string): Reminder[] {
     const sessionsBehind = expectedSessions - actualSessions;
 
     // Alert if student is behind by 1 or more sessions
-    if (sessionsBehind >= 1) {
+    // Only show if not dismissed or if situation has worsened
+    if (sessionsBehind >= 1 && shouldShowFrequencyAlert(student.id, sessionsBehind)) {
       const periodDays = frequencyType === 'per-week' ? 28 : 30;
       const frequencyDisplay = frequencyType === 'per-week' 
         ? `${frequencyPerWeek} per week` 
         : `${frequencyPerWeek} per month`;
       
       reminders.push({
-        id: `frequency-alert-${student.id}-${now.toISOString()}`,
+        id: `frequency-alert-${student.id}`,
         type: 'frequency-alert',
         title: 'Frequency Behind Schedule',
         description: `Student is ${sessionsBehind} session${sessionsBehind > 1 ? 's' : ''} behind expected frequency (${frequencyDisplay}). Had ${actualSessions} of ${expectedSessions} expected sessions in the last ${periodDays} days.`,
@@ -451,6 +490,22 @@ function getNoTargetReminders(school?: string): Reminder[] {
 }
 
 /**
+ * Filter out dismissed reminders (except frequency alerts which are handled in getFrequencyAlerts)
+ */
+function filterDismissedReminders(reminders: Reminder[]): Reminder[] {
+  return reminders.filter(reminder => {
+    // Frequency alerts are already filtered in getFrequencyAlerts
+    if (reminder.type === 'frequency-alert') {
+      return true;
+    }
+    
+    // Check if this reminder is dismissed
+    const dismissed = getDismissedReminder(reminder.id);
+    return !dismissed;
+  });
+}
+
+/**
  * Get all reminders for a school (or all schools if not specified)
  */
 export function getAllReminders(school?: string): Reminder[] {
@@ -464,8 +519,11 @@ export function getAllReminders(school?: string): Reminder[] {
   reminders.push(...getNoGoalsReminders(school));
   reminders.push(...getNoTargetReminders(school));
   
+  // Filter out dismissed reminders
+  const filteredReminders = filterDismissedReminders(reminders);
+  
   // Sort by priority (high first) and then by days until due
-  reminders.sort((a, b) => {
+  filteredReminders.sort((a, b) => {
     const priorityOrder: Record<'high' | 'medium' | 'low', number> = { high: 0, medium: 1, low: 2 };
     const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
     if (priorityDiff !== 0) return priorityDiff;
@@ -476,6 +534,18 @@ export function getAllReminders(school?: string): Reminder[] {
     return daysA - daysB;
   });
   
-  return reminders;
+  return filteredReminders;
+}
+
+/**
+ * Dismiss a reminder
+ */
+export function dismissReminder(reminderId: string, reminderType: string, studentId: string, relatedId: string | undefined, dismissedState?: string): void {
+  const now = new Date().toISOString();
+  
+  db.prepare(`
+    INSERT OR REPLACE INTO dismissed_reminders (id, reminderType, studentId, relatedId, dismissedAt, dismissedState)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(reminderId, reminderType, studentId, relatedId || null, now, dismissedState || null);
 }
 

@@ -631,6 +631,25 @@ export const getReminders = async (school?: string): Promise<Reminder[]> => {
   }
 };
 
+export const dismissReminder = async (reminder: Reminder): Promise<void> => {
+  try {
+    // For frequency alerts, store the sessions behind count as dismissedState
+    const dismissedState = reminder.type === 'frequency-alert' && reminder.daysUntilDue !== undefined
+      ? String(Math.abs(reminder.daysUntilDue))
+      : undefined;
+    
+    await api.reminders.dismiss(reminder.id, {
+      type: reminder.type,
+      studentId: reminder.studentId,
+      relatedId: reminder.relatedId,
+      dismissedState,
+    });
+  } catch (error) {
+    logError('Failed to dismiss reminder', error);
+    throw error;
+  }
+};
+
 // Scheduled Sessions
 export const getScheduledSessions = async (school?: string): Promise<ScheduledSession[]> => {
   try {
