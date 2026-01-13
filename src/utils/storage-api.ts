@@ -111,8 +111,9 @@ export const saveGoals = async (goals: Goal[]): Promise<void> => {
   }
 };
 
-export const addGoal = async (goal: Goal): Promise<void> => {
-  await api.goals.create(goal);
+export const addGoal = async (goal: Omit<Goal, 'id' | 'dateCreated'>): Promise<string> => {
+  const response = await api.goals.create(goal);
+  return response.id;
 };
 
 export const updateGoal = async (id: string, updates: Partial<Goal>): Promise<void> => {
@@ -416,7 +417,9 @@ export const importData = async (jsonString: string): Promise<void> => {
     }
     if (data.goals) {
       for (const goal of data.goals) {
-        await addGoal(goal);
+        // Strip id and dateCreated to let API generate new ones
+        const { id, dateCreated, ...goalWithoutId } = goal;
+        await addGoal(goalWithoutId);
       }
     }
     if (data.sessions) {

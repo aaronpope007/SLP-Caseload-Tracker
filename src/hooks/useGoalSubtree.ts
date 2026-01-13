@@ -63,9 +63,23 @@ export const useGoalSubtree = ({
       }
 
       // Save all new goals first
+      // Track the mapping from original IDs to created IDs
+      const idMap = new Map<string, string>();
+      const createdGoals: Goal[] = [];
+      
       for (const newGoal of newGoals) {
         try {
-          await createGoal(newGoal);
+          const originalId = newGoal.id;
+          // Map parentGoalId if the parent was created earlier in this batch
+          const goalToCreate = {
+            ...newGoal,
+            parentGoalId: newGoal.parentGoalId ? (idMap.get(newGoal.parentGoalId) || newGoal.parentGoalId) : undefined,
+          };
+          const createdGoal = await createGoal(goalToCreate);
+          if (createdGoal) {
+            idMap.set(originalId, createdGoal.id);
+            createdGoals.push(createdGoal);
+          }
         } catch (error) {
           logError(`Failed to add goal ${newGoal.id}`, error);
           throw new Error(`Failed to add goal: ${error instanceof Error ? error.message : String(error)}`);
@@ -74,13 +88,14 @@ export const useGoalSubtree = ({
 
       // Then update parent's subGoalIds for all new goals that have a parent
       // Group by parent to avoid multiple updates to the same parent
+      // Use the created IDs from the API
       const goalsByParent = new Map<string, string[]>();
-      for (const newGoal of newGoals) {
-        if (newGoal.parentGoalId) {
-          if (!goalsByParent.has(newGoal.parentGoalId)) {
-            goalsByParent.set(newGoal.parentGoalId, []);
+      for (const createdGoal of createdGoals) {
+        if (createdGoal.parentGoalId) {
+          if (!goalsByParent.has(createdGoal.parentGoalId)) {
+            goalsByParent.set(createdGoal.parentGoalId, []);
           }
-          goalsByParent.get(newGoal.parentGoalId)!.push(newGoal.id);
+          goalsByParent.get(createdGoal.parentGoalId)!.push(createdGoal.id);
         }
       }
 

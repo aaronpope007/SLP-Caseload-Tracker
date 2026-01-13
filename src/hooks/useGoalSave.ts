@@ -94,8 +94,7 @@ export const useGoalSave = ({
         const newGoal = await createGoal({
           ...goalData,
           studentId: studentId,
-          dateCreated: new Date().toISOString(),
-        } as Goal);
+        });
         
         // If this is a sub-goal, update parent's subGoalIds
         if (newGoal && newGoal.parentGoalId) {

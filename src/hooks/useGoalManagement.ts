@@ -44,29 +44,32 @@ export const useGoalManagement = ({
     if (!studentId) return null;
 
     try {
-      // Construct the complete goal object
-      const goalToCreate: Goal = {
+      // Construct the goal object without id and dateCreated (API will generate these)
+      const goalToCreate: Omit<Goal, 'id' | 'dateCreated'> = {
         ...goalData,
         studentId,
         school,
+        description: goalData.description || '',
+        status: goalData.status || 'in-progress',
+      } as Omit<Goal, 'id' | 'dateCreated'>;
+      
+      // Save the goal and get the returned ID
+      const createdId = await addGoal(goalToCreate);
+      
+      // Construct the complete goal object with the returned ID
+      const createdGoal: Goal = {
+        ...goalToCreate,
+        id: createdId,
+        dateCreated: new Date().toISOString(),
       } as Goal;
-      
-      // Ensure the goal has required fields
-      if (!goalToCreate.id) {
-        logError('Goal missing required id field', { goalToCreate });
-        throw new Error('Failed to create goal: missing required id field');
-      }
-      
-      // Save the goal (addGoal returns void)
-      await addGoal(goalToCreate);
       
       setGoals((prev) => {
         // Filter out any undefined values and add the new goal
         const validGoals = prev.filter((g): g is Goal => g !== undefined && g !== null);
-        return [...validGoals, goalToCreate];
+        return [...validGoals, createdGoal];
       });
-      onGoalAdded?.(goalToCreate);
-      return goalToCreate;
+      onGoalAdded?.(createdGoal);
+      return createdGoal;
     } catch (err) {
       logError('Failed to create goal', err);
       setError('Failed to create goal');
