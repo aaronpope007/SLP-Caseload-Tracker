@@ -28,7 +28,7 @@ export function initDatabase() {
     )
   `);
   
-  // Add schoolHours column if it doesn't exist (for existing databases)
+  // Add schoolHours and studentTimes columns if they don't exist (for existing databases)
   try {
     const schoolTableInfo = db.prepare('PRAGMA table_info(schools)').all() as Array<{ name: string }>;
     const schoolColumnNames = schoolTableInfo.map(col => col.name);
@@ -36,8 +36,11 @@ export function initDatabase() {
     if (!schoolColumnNames.includes('schoolHours')) {
       db.exec(`ALTER TABLE schools ADD COLUMN schoolHours TEXT`);
     }
+    if (!schoolColumnNames.includes('studentTimes')) {
+      db.exec(`ALTER TABLE schools ADD COLUMN studentTimes TEXT`);
+    }
   } catch (e: any) {
-    console.warn('Could not add schoolHours column to schools table:', e.message);
+    console.warn('Could not add schoolHours or studentTimes column to schools table:', e.message);
   }
 
   // Teachers table

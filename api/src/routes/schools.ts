@@ -13,6 +13,7 @@ interface SchoolRow {
   teletherapy: number;
   dateCreated: string;
   schoolHours: string | null; // JSON string
+  studentTimes: string | null; // JSON string
 }
 
 export const schoolsRouter = Router();
@@ -51,7 +52,7 @@ schoolsRouter.get('/', asyncHandler(async (req, res) => {
     countMap.set(key, existing + row.count);
   }
   
-  // Parse boolean, schoolHours JSON, and add student count
+  // Parse boolean, schoolHours JSON, studentTimes JSON, and add student count
   const parsed = schools.map((s) => {
     const key = s.name.toLowerCase();
     const studentCount = countMap.get(key) || 0;
@@ -59,6 +60,7 @@ schoolsRouter.get('/', asyncHandler(async (req, res) => {
       ...s,
       teletherapy: s.teletherapy === 1,
       schoolHours: parseJsonField<{ startHour: number; endHour: number }>(s.schoolHours, undefined),
+      studentTimes: parseJsonField<{ startTime: string; endTime: string }>(s.studentTimes, undefined),
       studentCount,
     };
   });
@@ -84,6 +86,7 @@ schoolsRouter.get('/:id', asyncHandler(async (req, res) => {
     ...school,
     teletherapy: school.teletherapy === 1,
     schoolHours: parseJsonField<{ startHour: number; endHour: number }>(school.schoolHours, undefined),
+    studentTimes: parseJsonField<{ startTime: string; endTime: string }>(school.studentTimes, undefined),
   });
 }));
 
@@ -105,6 +108,7 @@ schoolsRouter.get('/name/:name', asyncHandler(async (req, res) => {
     ...school,
     teletherapy: school.teletherapy === 1,
     schoolHours: parseJsonField<{ startHour: number; endHour: number }>(school.schoolHours, undefined),
+    studentTimes: parseJsonField<{ startTime: string; endTime: string }>(school.studentTimes, undefined),
   });
 }));
 
@@ -150,15 +154,16 @@ schoolsRouter.post('/', validateBody(createSchoolSchema), asyncHandler(async (re
   const dateCreated = new Date().toISOString();
   
   db.prepare(`
-    INSERT INTO schools (id, name, state, teletherapy, dateCreated, schoolHours)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO schools (id, name, state, teletherapy, dateCreated, schoolHours, studentTimes)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `).run(
     schoolId,
     schoolName,
     school.state || '',
     school.teletherapy ? 1 : 0,
     dateCreated,
-    stringifyJsonField(school.schoolHours)
+    stringifyJsonField(school.schoolHours),
+    stringifyJsonField(school.studentTimes)
   );
   
   res.status(201).json({ id: schoolId, message: 'School created' });
@@ -178,23 +183,27 @@ schoolsRouter.put('/:id', validateBody(updateSchoolSchema), asyncHandler(async (
     return res.status(404).json({ error: 'School not found' });
   }
   
-  // Use updates directly, not merged with existing (to properly handle schoolHours)
+  // Use updates directly, not merged with existing (to properly handle schoolHours and studentTimes)
   const name = updates.name !== undefined ? updates.name.trim() : existing.name;
   const state = updates.state !== undefined ? updates.state : existing.state;
   const teletherapy = updates.teletherapy !== undefined ? (updates.teletherapy ? 1 : 0) : (existing.teletherapy === 1 ? 1 : 0);
   const schoolHours = updates.schoolHours !== undefined 
     ? stringifyJsonField(updates.schoolHours)
     : existing.schoolHours;
+  const studentTimes = updates.studentTimes !== undefined
+    ? stringifyJsonField(updates.studentTimes)
+    : existing.studentTimes;
   
   db.prepare(`
     UPDATE schools 
-    SET name = ?, state = ?, teletherapy = ?, schoolHours = ?
+    SET name = ?, state = ?, teletherapy = ?, schoolHours = ?, studentTimes = ?
     WHERE id = ?
   `).run(
     name,
     state,
     teletherapy,
     schoolHours,
+    studentTimes,
     id
   );
   

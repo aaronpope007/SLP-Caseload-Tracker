@@ -39,6 +39,10 @@ export const schoolSchema = z.object({
     startHour: z.number().int().min(0).max(23).default(8),
     endHour: z.number().int().min(0).max(23).default(17),
   }).optional(),
+  studentTimes: z.object({
+    startTime: z.string().regex(/^\d{2}:\d{2}$/, 'Start time must be in HH:mm format').default('08:00'),
+    endTime: z.string().regex(/^\d{2}:\d{2}$/, 'End time must be in HH:mm format').default('15:00'),
+  }).optional(),
 });
 
 export const createSchoolSchema = schoolSchema.omit({ id: true });

@@ -24,11 +24,15 @@ interface SchoolFormDialogProps {
       startHour: number;
       endHour: number;
     };
+    studentTimes?: {
+      startTime: string;
+      endTime: string;
+    };
   };
   states: Array<{ value: string; label: string }>;
   onClose: () => void;
   onSave: () => void;
-  onFormDataChange: (data: Partial<{ name: string; state: string; teletherapy: boolean; schoolHours?: { startHour: number; endHour: number } }>) => void;
+  onFormDataChange: (data: Partial<{ name: string; state: string; teletherapy: boolean; schoolHours?: { startHour: number; endHour: number }; studentTimes?: { startTime: string; endTime: string } }>) => void;
   // Validation error props
   fieldErrors?: Record<string, string | undefined>;
   onClearError?: (field: string) => void;
@@ -147,6 +151,54 @@ export const SchoolFormDialog = ({
             </Grid>
             <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
               Defaults to 8 AM - 5 PM if not set. Used for calendar week view time slots.
+            </Typography>
+          </Box>
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>
+              Student Hours (for Email Rescheduling)
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={6}>
+                <TextField
+                  label="Student Start Time"
+                  type="time"
+                  fullWidth
+                  value={formData.studentTimes?.startTime ?? '08:00'}
+                  onChange={(e) => {
+                    onFormDataChange({
+                      studentTimes: {
+                        startTime: e.target.value,
+                        endTime: formData.studentTimes?.endTime ?? '15:00',
+                      },
+                    });
+                  }}
+                  inputProps={{ step: 60 }}
+                  helperText="24-hour format (HH:mm)"
+                  margin="normal"
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  label="Student End Time"
+                  type="time"
+                  fullWidth
+                  value={formData.studentTimes?.endTime ?? '15:00'}
+                  onChange={(e) => {
+                    onFormDataChange({
+                      studentTimes: {
+                        startTime: formData.studentTimes?.startTime ?? '08:00',
+                        endTime: e.target.value,
+                      },
+                    });
+                  }}
+                  inputProps={{ step: 60 }}
+                  helperText="24-hour format (HH:mm)"
+                  margin="normal"
+                />
+              </Grid>
+            </Grid>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+              Defaults to 8:00 AM - 3:00 PM if not set. Used for finding available times when rescheduling missed sessions.
             </Typography>
           </Box>
         </Box>

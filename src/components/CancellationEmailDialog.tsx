@@ -269,11 +269,24 @@ export const CancellationEmailDialog = ({
       return isSameDay(sessionDate, todayStart);
     });
 
-    // Get school hours
+    // Get student times from school settings (for finding available reschedule times)
     const school = await getSchoolByName(primaryStudent.school);
+    // Use studentTimes if available, otherwise fall back to schoolHours converted to time format
+    let startTime = '08:00';
+    let endTime = '15:00';
+    if (school?.studentTimes) {
+      startTime = school.studentTimes.startTime;
+      endTime = school.studentTimes.endTime;
+    } else if (school?.schoolHours) {
+      // Fall back to schoolHours if studentTimes not set
+      startTime = `${String(school.schoolHours.startHour).padStart(2, '0')}:00`;
+      endTime = `${String(school.schoolHours.endHour).padStart(2, '0')}:00`;
+    }
+    const [startHour, startMin] = startTime.split(':').map(Number);
+    const [endHour, endMin] = endTime.split(':').map(Number);
     const schoolHours = {
-      start: school?.schoolHours?.startHour ?? 8,
-      end: school?.schoolHours?.endHour ?? 17,
+      start: startHour * 60 + startMin, // Convert to minutes
+      end: endHour * 60 + endMin, // Convert to minutes
     };
 
     // Build occupied time slots
@@ -325,8 +338,8 @@ export const CancellationEmailDialog = ({
 
     const occupiedSlots = mergedOccupiedSlots;
     const openSlots: string[] = [];
-    const workStartMinutes = schoolHours.start * 60;
-    const workEndMinutes = schoolHours.end * 60;
+    const workStartMinutes = schoolHours.start; // Already in minutes
+    const workEndMinutes = schoolHours.end; // Already in minutes
 
     // Get current time
     const now = new Date();

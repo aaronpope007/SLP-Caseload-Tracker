@@ -9,6 +9,10 @@ export interface School {
     startHour: number; // Start hour (0-23), default 8
     endHour: number; // End hour (0-23), default 17 (5 PM)
   };
+  studentTimes?: {
+    startTime: string; // Student start time in HH:mm format (e.g., "08:00"), default "08:00"
+    endTime: string; // Student end time in HH:mm format (e.g., "15:00"), default "15:00"
+  };
 }
 
 export interface Teacher {

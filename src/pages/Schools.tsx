@@ -122,6 +122,10 @@ export const Schools = () => {
       startHour: 8,
       endHour: 17,
     },
+    studentTimes: {
+      startTime: '08:00',
+      endTime: '15:00',
+    },
   });
 
   const loadSchools = async () => {
@@ -235,6 +239,7 @@ export const Schools = () => {
         state: school.state || '',
         teletherapy: school.teletherapy || false,
         schoolHours: school.schoolHours || { startHour: 8, endHour: 17 },
+        studentTimes: school.studentTimes || { startTime: '08:00', endTime: '15:00' },
       });
     } else {
       setEditingSchool(null);
@@ -245,6 +250,10 @@ export const Schools = () => {
         schoolHours: {
           startHour: 8,
           endHour: 17,
+        },
+        studentTimes: {
+          startTime: '08:00',
+          endTime: '15:00',
         },
       });
     }
@@ -263,6 +272,10 @@ export const Schools = () => {
         startHour: 8,
         endHour: 17,
       },
+      studentTimes: {
+        startTime: '08:00',
+        endTime: '15:00',
+      },
     });
   };
 
@@ -277,6 +290,7 @@ export const Schools = () => {
         state: formData.state,
         teletherapy: formData.teletherapy,
         schoolHours: formData.schoolHours,
+        studentTimes: formData.studentTimes,
       };
       
       if (editingSchool) {
