@@ -10,12 +10,14 @@ import {
 import {
   Description as DescriptionIcon,
   Folder as FolderIcon,
+  Event as EventIcon,
 } from '@mui/icons-material';
 
 interface TimeTrackingFilterProps {
   selectedDate: string;
   onDateChange: (date: string) => void;
   onGenerateTimesheet: () => void;
+  onGenerateProspectiveNote: () => void;
   onOpenSavedNotes: () => void;
   hasItems: boolean;
   useSpecificTimes: boolean;
@@ -26,6 +28,7 @@ export const TimeTrackingFilter = ({
   selectedDate,
   onDateChange,
   onGenerateTimesheet,
+  onGenerateProspectiveNote,
   onOpenSavedNotes,
   hasItems,
   useSpecificTimes,
@@ -45,15 +48,25 @@ export const TimeTrackingFilter = ({
           />
         </Grid>
         <Grid item xs={12} sm={6} md={4}>
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             <Button
               variant="contained"
               startIcon={<DescriptionIcon />}
               onClick={onGenerateTimesheet}
               disabled={!hasItems}
-              sx={{ flex: 1 }}
+              sx={{ flex: 1, minWidth: 'fit-content' }}
             >
               Generate Timesheet Note
+            </Button>
+            <Button
+              variant="contained"
+              color="secondary"
+              startIcon={<EventIcon />}
+              onClick={onGenerateProspectiveNote}
+              disabled={!selectedDate}
+              sx={{ flex: 1, minWidth: 'fit-content' }}
+            >
+              Generate Prospective Note
             </Button>
             <Button
               variant="outlined"

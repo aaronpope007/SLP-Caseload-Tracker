@@ -6,11 +6,12 @@ import {
   CardContent,
   Typography,
 } from '@mui/material';
-import type { Session, Evaluation, Student, Communication } from '../types';
+import type { Session, Evaluation, Student, Communication, ScheduledSession } from '../types';
 import {
   getSessions,
   getEvaluations,
   getStudents,
+  getScheduledSessions,
 } from '../utils/storage-api';
 import { api } from '../utils/api';
 import { formatDate, generateId } from '../utils/helpers';
@@ -21,7 +22,7 @@ import { EvaluationTimeItem } from '../components/EvaluationTimeItem';
 import { TimesheetNoteDialog } from '../components/TimesheetNoteDialog';
 import { SavedNotesDialog } from '../components/SavedNotesDialog';
 import { TimeTrackingFilter } from '../components/TimeTrackingFilter';
-import { generateTimesheetNote } from '../utils/timesheetNoteGenerator';
+import { generateTimesheetNote, generateProspectiveTimesheetNote } from '../utils/timesheetNoteGenerator';
 import { useConfirm, useSnackbar, useDialog } from '../hooks';
 import type { TimesheetNote } from '../types';
 import { migrateTimesheetNotes } from '../utils/migrateTimesheetNotes';
@@ -61,6 +62,7 @@ export const TimeTracking = () => {
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [communications, setCommunications] = useState<Communication[]>([]);
+  const [scheduledSessions, setScheduledSessions] = useState<ScheduledSession[]>([]);
   // Get current date in YYYY-MM-DD format for date input
   const getCurrentDateString = () => {
     const today = new Date();
@@ -106,6 +108,15 @@ export const TimeTracking = () => {
     } catch (error) {
       logError('Failed to fetch communications', error);
       setCommunications([]);
+    }
+    
+    // Load scheduled sessions for the selected school
+    try {
+      const schoolScheduledSessions = await getScheduledSessions(selectedSchool);
+      setScheduledSessions(schoolScheduledSessions);
+    } catch (error) {
+      logError('Failed to fetch scheduled sessions', error);
+      setScheduledSessions([]);
     }
   };
 
@@ -326,6 +337,29 @@ export const TimeTracking = () => {
     timesheetDialog.openDialog();
   };
 
+  const handleGenerateProspectiveNote = async () => {
+    if (!selectedDate) {
+      showSnackbar('Please select a date first', 'error');
+      return;
+    }
+
+    const school = await getSchoolByName(selectedSchool);
+    const isTeletherapy = school?.teletherapy || false;
+    
+    const note = generateProspectiveTimesheetNote({
+      scheduledSessions,
+      targetDate: selectedDate,
+      getStudent,
+      getStudentInitials,
+      isTeletherapy,
+      useSpecificTimes,
+      formatTimeRange,
+    });
+    
+    setTimesheetNote(note);
+    timesheetDialog.openDialog();
+  };
+
   const handleSaveNote = async () => {
     if (!timesheetNote.trim()) {
       showSnackbar('Cannot save empty note', 'error');
@@ -391,6 +425,7 @@ export const TimeTracking = () => {
         selectedDate={selectedDate}
         onDateChange={setSelectedDate}
         onGenerateTimesheet={handleGenerateTimesheetNote}
+        onGenerateProspectiveNote={handleGenerateProspectiveNote}
         onOpenSavedNotes={() => savedNotesDialog.openDialog()}
         hasItems={filteredItems.length > 0}
         useSpecificTimes={useSpecificTimes}
