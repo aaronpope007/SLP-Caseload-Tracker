@@ -21,6 +21,7 @@ import { communicationsRouter } from './routes/communications';
 import { scheduledSessionsRouter } from './routes/scheduled-sessions';
 import { documentParserRouter } from './routes/document-parser';
 import { timesheetNotesRouter } from './routes/timesheet-notes';
+import { todosRouter } from './routes/todos';
 import { seedTestDataRouter } from './routes/seed-test-data';
 import { backupRouter } from './routes/backup';
 import { authRouter } from './routes/auth';
@@ -109,6 +110,7 @@ app.use('/api/communications', communicationsRouter);
 app.use('/api/scheduled-sessions', scheduledSessionsRouter);
 app.use('/api/document-parser', documentParserRouter);
 app.use('/api/timesheet-notes', timesheetNotesRouter);
+app.use('/api/todos', todosRouter);
 app.use('/api/seed-test-data', seedTestDataRouter);
 app.use('/api/backup', backupRouter);
 

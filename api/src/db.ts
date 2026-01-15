@@ -484,6 +484,23 @@ export function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_dismissed_reminders_type ON dismissed_reminders(reminderType);
   `);
 
+  // Todos table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS todos (
+      id TEXT PRIMARY KEY,
+      text TEXT NOT NULL,
+      completed INTEGER NOT NULL DEFAULT 0,
+      dateCreated TEXT NOT NULL,
+      dateUpdated TEXT NOT NULL,
+      completedDate TEXT
+    )
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_todos_completed ON todos(completed);
+    CREATE INDEX IF NOT EXISTS idx_todos_dateCreated ON todos(dateCreated);
+  `);
+
   // Drop lunches table if it exists (removed feature)
   try {
     // Check if lunches table exists

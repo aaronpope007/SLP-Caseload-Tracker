@@ -387,6 +387,20 @@ export const createTimesheetNoteSchema = timesheetNoteSchema;
 export const updateTimesheetNoteSchema = timesheetNoteSchema.partial();
 
 // ============================================================================
+// Todo Schema
+// ============================================================================
+
+export const todoSchema = z.object({
+  id: idString.optional(),
+  text: nonEmptyString.pipe(z.string().max(500, 'Todo text must be 500 characters or less')),
+  completed: z.boolean().default(false),
+  completedDate: optionalIsoDate,
+});
+
+export const createTodoSchema = todoSchema.omit({ id: true });
+export const updateTodoSchema = todoSchema.partial();
+
+// ============================================================================
 // Query Parameter Schemas
 // ============================================================================
 
@@ -436,4 +450,5 @@ export type DueDateItemInput = z.infer<typeof createDueDateItemSchema>;
 export type CommunicationInput = z.infer<typeof createCommunicationSchema>;
 export type EmailInput = z.infer<typeof emailSchema>;
 export type TimesheetNoteInput = z.infer<typeof createTimesheetNoteSchema>;
+export type TodoInput = z.infer<typeof createTodoSchema>;
 

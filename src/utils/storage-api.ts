@@ -3,7 +3,7 @@
  * This replaces localStorage with API calls to the Express + SQLite backend
  */
 
-import type { Student, Goal, Session, Activity, Evaluation, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Reminder, ScheduledSession } from '../types';
+import type { Student, Goal, Session, Activity, Evaluation, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Reminder, ScheduledSession, Todo } from '../types';
 import { api } from './api';
 import { logError, logDebug } from './logger';
 
@@ -682,5 +682,32 @@ export const updateScheduledSession = async (id: string, updates: Partial<Schedu
 
 export const deleteScheduledSession = async (id: string): Promise<void> => {
   await api.scheduledSessions.delete(id);
+};
+
+// Todos
+export const getTodos = async (): Promise<Todo[]> => {
+  try {
+    return await api.todos.getAll();
+  } catch (error) {
+    logError('Failed to fetch todos', error);
+    return [];
+  }
+};
+
+export const createTodo = async (todo: Omit<Todo, 'id' | 'dateCreated' | 'dateUpdated'>): Promise<string> => {
+  const result = await api.todos.create(todo);
+  return result.id;
+};
+
+export const updateTodo = async (id: string, updates: Partial<Todo>): Promise<void> => {
+  await api.todos.update(id, updates);
+};
+
+export const toggleTodo = async (id: string): Promise<void> => {
+  await api.todos.toggle(id);
+};
+
+export const deleteTodo = async (id: string): Promise<void> => {
+  await api.todos.delete(id);
 };
 

@@ -5,7 +5,7 @@
  * Set VITE_API_URL in your .env file or it defaults to http://localhost:3001
  */
 
-import type { Student, Goal, Session, Activity, Evaluation, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Reminder, Communication, ScheduledSession, TimesheetNote } from '../types';
+import type { Student, Goal, Session, Activity, Evaluation, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Reminder, Communication, ScheduledSession, TimesheetNote, Todo } from '../types';
 import { buildQueryString } from './queryHelpers';
 import { logError } from './logger';
 
@@ -725,6 +725,32 @@ export const api = {
       }),
     getDownloadUrl: (filename: string) =>
       `${API_URL}/backup/${encodeURIComponent(filename)}`,
+  },
+
+  // Todos
+  todos: {
+    getAll: () =>
+      request<Todo[]>('/todos'),
+    getById: (id: string) =>
+      request<Todo>(`/todos/${id}`),
+    create: (todo: Omit<Todo, 'id' | 'dateCreated' | 'dateUpdated'>) =>
+      request<{ id: string; message: string }>('/todos', {
+        method: 'POST',
+        body: JSON.stringify(todo),
+      }),
+    update: (id: string, updates: Partial<Todo>) =>
+      request<{ message: string }>(`/todos/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      }),
+    toggle: (id: string) =>
+      request<{ message: string }>(`/todos/${id}/toggle`, {
+        method: 'POST',
+      }),
+    delete: (id: string) =>
+      request<{ message: string }>(`/todos/${id}`, {
+        method: 'DELETE',
+      }),
   },
 };
 

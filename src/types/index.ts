@@ -259,3 +259,12 @@ export interface TimesheetNote {
   dateFor?: string; // Optional date the note is for (YYYY-MM-DD format)
   school: string;
 }
+
+export interface Todo {
+  id: string;
+  text: string;
+  completed: boolean;
+  dateCreated: string;
+  dateUpdated: string;
+  completedDate?: string; // ISO string - when completed
+}

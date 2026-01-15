@@ -27,6 +27,7 @@ import {
   getUpcomingDueDateItems,
 } from '../utils/storage-api';
 import { RemindersCard } from '../components/RemindersCard';
+import { TodoTracker } from '../components/TodoTracker';
 import { DashboardStatsSkeleton, ListSkeleton } from '../components/common/LoadingSkeletons';
 import { formatDate } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
@@ -318,6 +319,10 @@ export const Dashboard = () => {
               )}
             </CardContent>
           </Card>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <TodoTracker />
         </Grid>
 
         <Grid item xs={12}>
