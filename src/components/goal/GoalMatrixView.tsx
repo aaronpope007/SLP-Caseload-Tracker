@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, memo } from 'react';
 import {
   Box,
   Grid,
@@ -54,7 +54,7 @@ interface GoalMatrixViewProps {
 /**
  * Matrix view for 2-student sessions: shows goals side-by-side for easy comparison and logging
  */
-export const GoalMatrixView = ({
+export const GoalMatrixView = memo(({
   students,
   goals,
   goalsTargeted,
@@ -316,5 +316,5 @@ export const GoalMatrixView = ({
       </Grid>
     </Box>
   );
-};
+});
 

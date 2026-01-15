@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, useTransition, useDeferredValue } from 'react';
 import {
   Box,
   Button,
@@ -122,6 +122,9 @@ export const SessionFormDialog = ({
   const [trackingPanelCollapsed, setTrackingPanelCollapsed] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { pinnedGoalIds, togglePin, clearPinned } = usePinnedGoals();
+  
+  // Use transition for non-urgent goal hierarchy updates to keep typing responsive
+  const [isPending, startTransition] = useTransition();
 
   // Local state for text fields to prevent re-renders on every keystroke
   const [localNotes, setLocalNotes] = useState(formData.notes);
@@ -653,6 +656,7 @@ export const SessionFormDialog = ({
 
   // Get last session's plan for the first selected student (for new sessions only, and only if plan is empty)
   // Memoized to prevent expensive recalculation on every render
+  // NOTE: Excludes formData.notes from dependencies - only recalculates when relevant fields change
   const lastSessionPlan = useMemo(() => {
     if (editingSession || editingGroupSessionId || formData.studentIds.length === 0 || (formData.plan || '').trim()) {
       return null;
@@ -667,6 +671,7 @@ export const SessionFormDialog = ({
 
   // Get previous session's plan to display above goals (for new sessions only)
   // Memoized to prevent expensive recalculation on every render
+  // NOTE: Excludes formData.notes from dependencies - only recalculates when relevant fields change
   const previousSessionPlan = useMemo(() => {
     if (editingSession || editingGroupSessionId || formData.studentIds.length === 0 || !formData.isDirectServices) {
       return null;
@@ -728,8 +733,24 @@ export const SessionFormDialog = ({
     return null;
   }, [editingSession, editingGroupSessionId, formData.studentIds, formData.isDirectServices, sessions]);
 
+  // Memoize goal hierarchies per student to avoid recalculating on every render
+  // This cache only updates when goals for that specific student change
+  const goalHierarchiesByStudent = useMemo(() => {
+    const cache = new Map<string, ReturnType<typeof organizeGoalsHierarchy>>();
+    // Get unique student IDs from goals
+    const studentIds = new Set(goals.map(g => g.studentId));
+    studentIds.forEach(studentId => {
+      const studentGoals = goals.filter(g => g.studentId === studentId);
+      const activeGoals = studentGoals.filter(g => !isGoalAchieved(g));
+      cache.set(studentId, organizeGoalsHierarchy(activeGoals));
+    });
+    return cache;
+  }, [goals, isGoalAchieved]);
+
   // Get goals for all selected students, grouped by student, separated into active and completed
   // Memoized to prevent expensive recalculation on every render
+  // Uses cached hierarchies and only recalculates when studentIds, goals, or students change
+  // NOTE: Excludes formData.notes and other form fields from dependencies
   const availableGoalsByStudent = useMemo(() => {
     if (formData.studentIds.length === 0) {
       return [];
@@ -739,7 +760,8 @@ export const SessionFormDialog = ({
       const studentGoals = goals.filter((g) => g.studentId === studentId);
       const activeGoals = studentGoals.filter(g => !isGoalAchieved(g));
       const completedGoals = studentGoals.filter(g => isGoalAchieved(g));
-      const hierarchy = organizeGoalsHierarchy(activeGoals);
+      // Use cached hierarchy instead of recalculating
+      const hierarchy = goalHierarchiesByStudent.get(studentId) || organizeGoalsHierarchy(activeGoals);
       return {
         studentId,
         studentName: students.find(s => s.id === studentId)?.name || 'Unknown',
@@ -748,7 +770,13 @@ export const SessionFormDialog = ({
         hierarchy,
       };
     });
-  }, [formData.studentIds, goals, students, isGoalAchieved]);
+  }, [formData.studentIds, goals, students, isGoalAchieved, goalHierarchiesByStudent]);
+
+  // Defer goal-related updates when typing to keep input responsive
+  // This allows typing in notes without blocking on expensive goal hierarchy recalculations
+  const deferredAvailableGoalsByStudent = useDeferredValue(availableGoalsByStudent);
+  const deferredGoalsTargeted = useDeferredValue(formData.goalsTargeted);
+  const deferredPerformanceData = useDeferredValue(formData.performanceData);
 
   return (
     <Dialog 
@@ -997,8 +1025,8 @@ export const SessionFormDialog = ({
                       <GoalMatrixView
                         students={students.filter(s => formData.studentIds.includes(s.id))}
                         goals={goals}
-                        goalsTargeted={formData.goalsTargeted}
-                        performanceData={formData.performanceData}
+                        goalsTargeted={deferredGoalsTargeted}
+                        performanceData={deferredPerformanceData}
                         getRecentPerformance={getRecentPerformance}
                         onGoalToggle={onGoalToggle}
                         onTrialUpdate={onTrialUpdate}
@@ -1015,14 +1043,14 @@ export const SessionFormDialog = ({
                   {/* Hierarchy View (original layout) */}
                   {viewMode === 'hierarchy' && (
                     <Box>
-                  {availableGoalsByStudent.length === 0 ? (
+                  {deferredAvailableGoalsByStudent.length === 0 ? (
                     <Typography color="text.secondary" variant="body2">
                       No students selected. Please select at least one student.
                     </Typography>
-                  ) : availableGoalsByStudent.length === 1 ? (
+                  ) : deferredAvailableGoalsByStudent.length === 1 ? (
                     // Single student layout (original column layout)
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-                      {availableGoalsByStudent.map(({ studentId, studentName, goals: studentGoals, completedGoals, hierarchy }) => (
+                      {deferredAvailableGoalsByStudent.map(({ studentId, studentName, goals: studentGoals, completedGoals, hierarchy }) => (
                         <Box key={studentId}>
                           <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
                             <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold', color: 'primary.main' }}>
@@ -1036,8 +1064,8 @@ export const SessionFormDialog = ({
                               <GoalHierarchy
                                 hierarchy={hierarchy}
                                 studentId={studentId}
-                                goalsTargeted={formData.goalsTargeted}
-                                performanceData={formData.performanceData}
+                                goalsTargeted={deferredGoalsTargeted}
+                                performanceData={deferredPerformanceData}
                                 isCompact={false}
                                 getRecentPerformance={getRecentPerformance}
                                 onGoalToggle={onGoalToggle}
@@ -1088,7 +1116,7 @@ export const SessionFormDialog = ({
                   ) : (
                     // Multiple students layout (side-by-side)
                     <Grid container spacing={2} sx={{ mt: 1 }}>
-                      {availableGoalsByStudent.map(({ studentId, studentName, goals: studentGoals, completedGoals, hierarchy }) => (
+                      {deferredAvailableGoalsByStudent.map(({ studentId, studentName, goals: studentGoals, completedGoals, hierarchy }) => (
                         <Grid item xs={12} sm={6} md={availableGoalsByStudent.length === 2 ? 6 : 4} key={studentId}>
                           <Box
                             sx={{
@@ -1126,8 +1154,8 @@ export const SessionFormDialog = ({
                               <GoalHierarchy
                                 hierarchy={hierarchy}
                                 studentId={studentId}
-                                goalsTargeted={formData.goalsTargeted}
-                                performanceData={formData.performanceData}
+                                goalsTargeted={deferredGoalsTargeted}
+                                performanceData={deferredPerformanceData}
                                 isCompact={true}
                                 getRecentPerformance={getRecentPerformance}
                                 onGoalToggle={onGoalToggle}

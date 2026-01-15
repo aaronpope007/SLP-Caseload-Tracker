@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, useTransition } from 'react';
 import { logError } from '../utils/logger';
 import {
   Box,
@@ -955,27 +955,57 @@ export const SessionCalendar = () => {
     });
   };
 
-  // Session form handlers
-  const isGoalAchieved = (goal: Goal): boolean => {
+  // Pre-index sessions by (studentId, goalId) for O(1) lookup instead of O(n) filtering
+  // This dramatically improves performance when getRecentPerformance is called many times
+  const sessionsByStudentAndGoal = useMemo(() => {
+    const index = new Map<string, Session[]>();
+    sessions.forEach(session => {
+      const studentId = session.studentId;
+      (session.goalsTargeted || []).forEach(goalId => {
+        const key = `${studentId}:${goalId}`;
+        if (!index.has(key)) {
+          index.set(key, []);
+        }
+        index.get(key)!.push(session);
+      });
+    });
+    // Sort each array by date descending (most recent first)
+    index.forEach((sessionArray) => {
+      sessionArray.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    });
+    return index;
+  }, [sessions]);
+
+  // Pre-index goals by ID for O(1) lookup
+  const goalsById = useMemo(() => {
+    const index = new Map<string, Goal>();
+    goals.forEach(goal => {
+      index.set(goal.id, goal);
+    });
+    return index;
+  }, [goals]);
+
+  // Memoize isGoalAchieved to prevent unnecessary recalculations
+  const isGoalAchieved = useCallback((goal: Goal): boolean => {
     if (goal.status === 'achieved') {
       return true;
     }
     if (goal.parentGoalId) {
-      const parentGoal = goals.find(g => g.id === goal.parentGoalId);
+      const parentGoal = goalsById.get(goal.parentGoalId);
       if (parentGoal && parentGoal.status === 'achieved') {
         return true;
       }
     }
     return false;
-  };
+  }, [goalsById]);
 
-  const getRecentPerformance = (goalId: string, studentId: string) => {
-    const goalSessions = sessions
-      .filter(s => s.studentId === studentId && (s.goalsTargeted || []).includes(goalId))
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 3);
+  // Memoize getRecentPerformance with pre-indexed data for O(1) lookup
+  const getRecentPerformance = useCallback((goalId: string, studentId: string): number | null => {
+    const key = `${studentId}:${goalId}`;
+    const goalSessions = sessionsByStudentAndGoal.get(key) || [];
+    const recentSessions = goalSessions.slice(0, 3);
     
-    const recentData = goalSessions.map(s => {
+    const recentData = recentSessions.map(s => {
       const perf = s.performanceData.find(p => p.goalId === goalId);
       return perf?.accuracy;
     }).filter((a): a is number => a !== undefined);
@@ -985,7 +1015,7 @@ export const SessionCalendar = () => {
       : null;
 
     return average;
-  };
+  }, [sessionsByStudentAndGoal]);
 
   const handleOpenSessionDialog = (event: CalendarEvent) => {
     if (!Array.isArray(scheduledSessions)) return;
