@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import type { Session, Student, Goal, SOAPNote, Activity } from '../types';
 import { generateId, fromLocalDateTimeString } from '../utils/helpers';
 import { getSessions, getSOAPNotesBySession, getActivities, addActivity } from '../utils/storage-api';
@@ -64,6 +64,15 @@ export const useSessionSave = ({
   setStudentSearch,
   showSnackbar,
 }: UseSessionSaveParams) => {
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const handleSave = useCallback(async () => {
     if (formData.studentIds.length === 0) {
       showSnackbar('Please select at least one student', 'error');
@@ -345,18 +354,22 @@ export const useSessionSave = ({
       // Create activities from activitiesUsed if they don't exist
       if (formData.activitiesUsed.length > 0) {
         try {
+          if (!isMountedRef.current) return;
           const existingActivities = await getActivities();
+          if (!isMountedRef.current) return;
           const existingActivityDescriptions = new Set(
             existingActivities.map(a => a.description.toLowerCase().trim())
           );
 
           // For each activity name, create it for each student if it doesn't exist
           for (const activityName of formData.activitiesUsed) {
+            if (!isMountedRef.current) return;
             const trimmedName = activityName.trim();
             if (!trimmedName) continue;
 
             // Create activity for each student in the session
             for (const studentId of formData.studentIds) {
+              if (!isMountedRef.current) return;
               const student = students.find(s => s.id === studentId);
               if (student) {
                 // Format: "FirstName LastName (grade)"
@@ -385,23 +398,27 @@ export const useSessionSave = ({
                   };
                   
                   await addActivity(newActivity);
+                  if (!isMountedRef.current) return;
                   existingActivityDescriptions.add(activityDescription.toLowerCase());
                 }
               }
             }
           }
         } catch (error) {
+          if (!isMountedRef.current) return;
           logError('Failed to create activities from session', error);
           // Don't fail the session save if activity creation fails
         }
       }
 
       await loadData();
+      if (!isMountedRef.current) return;
       closeDialog();
       resetForm();
       setStudentSearch('');
       showSnackbar(editingSession ? 'Session updated successfully' : 'Session created successfully', 'success');
     } catch (error) {
+      if (!isMountedRef.current) return;
       logError('Failed to save session', error);
       showSnackbar('Failed to save session. Please try again.', 'error');
     }
