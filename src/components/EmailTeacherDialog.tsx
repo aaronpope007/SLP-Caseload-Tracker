@@ -27,7 +27,7 @@ import {
 } from '@mui/icons-material';
 import type { Student, Teacher, CaseManager, ScheduledSession, Session } from '../types';
 import { getTeachers, getCaseManagers, getSessionsBySchool, getSchoolByName } from '../utils/storage-api';
-import { getScheduledSessions } from '../utils/storage-api';
+import { getScheduledSessions, getMeetings } from '../utils/storage-api';
 import { format, isBefore, isAfter, addMinutes, parse, isSameDay, startOfDay } from 'date-fns';
 import { api } from '../utils/api';
 import { useSchool } from '../context/SchoolContext';
@@ -585,13 +585,32 @@ export const EmailTeacherDialog = ({
       return { start: startMinutes, end: endMinutes };
     });
 
-    // Combine both scheduled and logged sessions, then sort
+    // Build occupied time slots from meetings (for the school)
+    // Meetings block time slots, so students cannot be scheduled during meetings
+    const todayMeetings = await getMeetings(undefined, primaryStudent.school, undefined, todayStr, todayStr);
+    const occupiedSlotsFromMeetings: Array<{ start: number; end: number }> = todayMeetings.map(meeting => {
+      const meetingDate = new Date(meeting.date);
+      const startMinutes = meetingDate.getHours() * 60 + meetingDate.getMinutes();
+      
+      let endMinutes: number;
+      if (meeting.endTime) {
+        const endDate = new Date(meeting.endTime);
+        endMinutes = endDate.getHours() * 60 + endDate.getMinutes();
+      } else {
+        // Default to 1 hour if no end time
+        endMinutes = startMinutes + 60;
+      }
+      
+      return { start: startMinutes, end: endMinutes };
+    });
+
+    // Combine scheduled sessions, logged sessions, and meetings, then sort
     // Note: Convert scheduled slots to match logged slots format (without studentIds)
     const scheduledSlotsForMerge = occupiedSlotsFromScheduled.map(slot => ({
       start: slot.start,
       end: slot.end,
     }));
-    const allOccupiedSlots = [...scheduledSlotsForMerge, ...occupiedSlotsFromLogged];
+    const allOccupiedSlots = [...scheduledSlotsForMerge, ...occupiedSlotsFromLogged, ...occupiedSlotsFromMeetings];
     
     // Remove duplicates and merge overlapping slots
     const mergedOccupiedSlots: Array<{ start: number; end: number }> = [];

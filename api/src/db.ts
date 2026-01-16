@@ -504,6 +504,29 @@ export function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_todos_dateCreated ON todos(dateCreated);
   `);
 
+  // Meetings table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS meetings (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      description TEXT,
+      date TEXT NOT NULL,
+      endTime TEXT,
+      school TEXT NOT NULL,
+      studentId TEXT,
+      category TEXT,
+      dateCreated TEXT NOT NULL,
+      dateUpdated TEXT NOT NULL,
+      FOREIGN KEY (studentId) REFERENCES students(id) ON DELETE SET NULL
+    )
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_meetings_school ON meetings(school);
+    CREATE INDEX IF NOT EXISTS idx_meetings_date ON meetings(date);
+    CREATE INDEX IF NOT EXISTS idx_meetings_studentId ON meetings(studentId);
+  `);
+
   // Drop lunches table if it exists (removed feature)
   try {
     // Check if lunches table exists

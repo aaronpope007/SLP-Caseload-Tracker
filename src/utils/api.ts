@@ -5,7 +5,7 @@
  * Set VITE_API_URL in your .env file or it defaults to http://localhost:3001
  */
 
-import type { Student, Goal, Session, Activity, Evaluation, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Reminder, Communication, ScheduledSession, TimesheetNote, Todo } from '../types';
+import type { Student, Goal, Session, Activity, Evaluation, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Meeting, Reminder, Communication, ScheduledSession, TimesheetNote, Todo } from '../types';
 import { buildQueryString } from './queryHelpers';
 import { logError } from './logger';
 
@@ -546,6 +546,28 @@ export const api = {
       }),
     delete: (id: string) => 
       request<{ message: string }>(`/due-date-items/${id}`, {
+        method: 'DELETE',
+      }),
+  },
+
+  // Meetings
+  meetings: {
+    getAll: (studentId?: string, school?: string, category?: string, startDate?: string, endDate?: string) => 
+      request<Meeting[]>(`/meetings${buildQueryString({ studentId, school, category, startDate, endDate })}`),
+    getById: (id: string) => 
+      request<Meeting>(`/meetings/${id}`),
+    create: (meeting: Omit<Meeting, 'id' | 'dateCreated' | 'dateUpdated'>) => 
+      request<{ id: string; message: string }>('/meetings', {
+        method: 'POST',
+        body: JSON.stringify(meeting),
+      }),
+    update: (id: string, updates: Partial<Meeting>) => 
+      request<{ message: string }>(`/meetings/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      }),
+    delete: (id: string) => 
+      request<{ message: string }>(`/meetings/${id}`, {
         method: 'DELETE',
       }),
   },

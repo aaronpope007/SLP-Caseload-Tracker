@@ -25,14 +25,18 @@ import {
   getGoals,
   getUpcomingProgressReports,
   getUpcomingDueDateItems,
+  getMeetings,
+  createMeeting,
 } from '../utils/storage-api';
 import { RemindersCard } from '../components/RemindersCard';
 import { TodoTracker } from '../components/TodoTracker';
+import { LogActivityMenu } from '../components/LogActivityMenu';
+import { MeetingFormDialog } from '../components/meeting/MeetingFormDialog';
 import { DashboardStatsSkeleton, ListSkeleton } from '../components/common/LoadingSkeletons';
-import { formatDate } from '../utils/helpers';
+import { formatDate, generateId, toLocalDateTimeString } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
 import { useAsyncOperation } from '../hooks';
-import type { Student, ProgressReport, DueDateItem } from '../types';
+import type { Student, ProgressReport, DueDateItem, Meeting } from '../types';
 
 interface DashboardData {
   stats: {
@@ -54,6 +58,11 @@ export const Dashboard = () => {
     navigate('/sessions?add=true');
   };
 
+  const handleSaveMeeting = async (meeting: Omit<Meeting, 'id' | 'dateCreated' | 'dateUpdated'>) => {
+    await createMeeting(meeting);
+    await loadDashboardData();
+  };
+
   const { loading, execute } = useAsyncOperation<DashboardData>();
 
   const [stats, setStats] = useState({
@@ -63,6 +72,8 @@ export const Dashboard = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [upcomingReports, setUpcomingReports] = useState<ProgressReport[]>([]);
   const [upcomingItems, setUpcomingItems] = useState<DueDateItem[]>([]);
+  const [upcomingMeetings, setUpcomingMeetings] = useState<Meeting[]>([]);
+  const [meetingDialogOpen, setMeetingDialogOpen] = useState(false);
 
   const loadDashboardData = async () => {
     try {
@@ -94,6 +105,20 @@ export const Dashboard = () => {
         // Load upcoming due date items (next 30 days)
         const items = await getUpcomingDueDateItems(30, selectedSchool);
 
+        // Load upcoming meetings (next 30 days)
+        const today = new Date();
+        const thirtyDaysFromNow = new Date();
+        thirtyDaysFromNow.setDate(today.getDate() + 30);
+        const meetings = await getMeetings(
+          undefined,
+          selectedSchool,
+          undefined,
+          today.toISOString(),
+          thirtyDaysFromNow.toISOString()
+        );
+        // Sort by date
+        meetings.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
         const dashboardData: DashboardData = {
           stats: statsData,
           students: schoolStudents,
@@ -106,6 +131,7 @@ export const Dashboard = () => {
         setStudents(dashboardData.students);
         setUpcomingReports(dashboardData.upcomingReports);
         setUpcomingItems(dashboardData.upcomingItems);
+        setUpcomingMeetings(meetings.slice(0, 5));
 
         return dashboardData;
       });
@@ -142,13 +168,10 @@ export const Dashboard = () => {
         <Typography variant="h4" component="h1">
           Dashboard
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleDocumentSession}
-        >
-          Log Activity
-        </Button>
+        <LogActivityMenu
+          onAddSession={handleDocumentSession}
+          onAddMeeting={() => setMeetingDialogOpen(true)}
+        />
       </Box>
 
       {loading ? (
@@ -282,12 +305,36 @@ export const Dashboard = () => {
                   View All
                 </Button>
               </Box>
-              {upcomingItems.length === 0 ? (
+              {upcomingItems.length === 0 && upcomingMeetings.length === 0 ? (
                 <Typography color="text.secondary">
                   No upcoming items
                 </Typography>
               ) : (
                 <List>
+                  {upcomingMeetings.map((meeting) => {
+                    const meetingDate = new Date(meeting.date);
+                    return (
+                      <ListItem 
+                        key={`meeting-${meeting.id}`}
+                        sx={{
+                          borderLeft: '4px solid #ff9800',
+                          pl: 1.5,
+                        }}
+                      >
+                        <ListItemText
+                          primary={`Meeting: ${meeting.title}`}
+                          secondary={
+                            <>
+                              <Box component="span" sx={{ fontSize: '0.75rem', display: 'block', mb: 0.5 }}>
+                                Date: {formatDate(meeting.date)}
+                                {meeting.category && ` • ${meeting.category}`}
+                              </Box>
+                            </>
+                          }
+                        />
+                      </ListItem>
+                    );
+                  })}
                   {upcomingItems.map((item) => {
                     const isOverdue = item.status === 'overdue';
                     return (
@@ -329,6 +376,14 @@ export const Dashboard = () => {
           <RemindersCard maxItems={10} />
         </Grid>
       </Grid>
+
+      <MeetingFormDialog
+        open={meetingDialogOpen}
+        editingMeeting={null}
+        onClose={() => setMeetingDialogOpen(false)}
+        onSave={handleSaveMeeting}
+        students={students.filter(s => s.status === 'active' && s.archived !== true)}
+      />
     </Box>
   );
 };

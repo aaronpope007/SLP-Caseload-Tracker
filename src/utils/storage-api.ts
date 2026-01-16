@@ -3,7 +3,7 @@
  * This replaces localStorage with API calls to the Express + SQLite backend
  */
 
-import type { Student, Goal, Session, Activity, Evaluation, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Reminder, ScheduledSession, Todo } from '../types';
+import type { Student, Goal, Session, Activity, Evaluation, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Meeting, Reminder, ScheduledSession, Todo } from '../types';
 import { api } from './api';
 import { logError, logDebug } from './logger';
 
@@ -622,6 +622,38 @@ export const deleteDueDateItem = async (id: string): Promise<void> => {
 
 export const completeDueDateItem = async (id: string): Promise<void> => {
   await api.dueDateItems.complete(id);
+};
+
+// Meetings
+export const getMeetings = async (studentId?: string, school?: string, category?: string, startDate?: string, endDate?: string): Promise<Meeting[]> => {
+  try {
+    return await api.meetings.getAll(studentId, school, category, startDate, endDate);
+  } catch (error) {
+    logError('Failed to fetch meetings', error);
+    return [];
+  }
+};
+
+export const getMeeting = async (id: string): Promise<Meeting | undefined> => {
+  try {
+    return await api.meetings.getById(id);
+  } catch (error) {
+    logError('Failed to fetch meeting', error);
+    return undefined;
+  }
+};
+
+export const createMeeting = async (meeting: Omit<Meeting, 'id' | 'dateCreated' | 'dateUpdated'>): Promise<string> => {
+  const response = await api.meetings.create(meeting);
+  return response.id;
+};
+
+export const updateMeeting = async (id: string, updates: Partial<Meeting>): Promise<void> => {
+  await api.meetings.update(id, updates);
+};
+
+export const deleteMeeting = async (id: string): Promise<void> => {
+  await api.meetings.delete(id);
 };
 
 // Reminders

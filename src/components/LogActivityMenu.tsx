@@ -13,10 +13,12 @@ import {
 
 interface LogActivityMenuProps {
   onAddSession: () => void;
+  onAddMeeting?: () => void;
 }
 
 export const LogActivityMenu = ({
   onAddSession,
+  onAddMeeting,
 }: LogActivityMenuProps) => {
   const navigate = useNavigate();
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
@@ -83,6 +85,16 @@ export const LogActivityMenu = ({
         >
           <AddIcon sx={{ mr: 1 }} /> Add <span style={{ textDecoration: 'underline' }}>E</span>valuation
         </MenuItem>
+        {onAddMeeting && (
+          <MenuItem
+            onClick={() => {
+              setMenuAnchorEl(null);
+              onAddMeeting();
+            }}
+          >
+            <AddIcon sx={{ mr: 1 }} /> Add <span style={{ textDecoration: 'underline' }}>M</span>eeting
+          </MenuItem>
+        )}
       </Menu>
     </Box>
   );

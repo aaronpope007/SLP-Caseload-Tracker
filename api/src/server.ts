@@ -15,6 +15,7 @@ import { soapNotesRouter } from './routes/soap-notes';
 import { progressReportsRouter } from './routes/progress-reports';
 import { progressReportTemplatesRouter } from './routes/progress-report-templates';
 import { dueDateItemsRouter } from './routes/due-date-items';
+import { meetingsRouter } from './routes/meetings';
 import { remindersRouter } from './routes/reminders';
 import { emailRouter } from './routes/email';
 import { communicationsRouter } from './routes/communications';
@@ -104,6 +105,7 @@ app.use('/api/export', exportRouter);
 app.use('/api/progress-reports', progressReportsRouter);
 app.use('/api/progress-report-templates', progressReportTemplatesRouter);
 app.use('/api/due-date-items', dueDateItemsRouter);
+app.use('/api/meetings', meetingsRouter);
 app.use('/api/reminders', remindersRouter);
 app.use('/api/email', strictLimiter, emailRouter); // Stricter rate limit for email
 app.use('/api/communications', communicationsRouter);

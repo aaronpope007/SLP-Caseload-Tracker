@@ -57,7 +57,7 @@ import {
   isBefore,
   addMinutes,
 } from 'date-fns';
-import type { ScheduledSession, Student, Session, Goal, School } from '../types';
+import type { ScheduledSession, Student, Session, Goal, School, Meeting } from '../types';
 import {
   getScheduledSessions,
   addScheduledSession,
@@ -72,6 +72,8 @@ import {
   updateSession,
   deleteSession,
   getSchoolByName,
+  getMeetings,
+  deleteMeeting,
 } from '../utils/storage-api';
 import { generateId, toLocalDateTimeString, fromLocalDateTimeString } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
@@ -94,6 +96,8 @@ interface CalendarEvent {
   isLogged: boolean;
   isMissed: boolean;
   matchedSessions?: Session[]; // Store matched sessions for logged events
+  isMeeting?: boolean; // True if this is a meeting (blocks time slot)
+  meetingId?: string; // ID of the meeting if this is a meeting
 }
 
 export const SessionCalendar = () => {
@@ -105,6 +109,7 @@ export const SessionCalendar = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [school, setSchool] = useState<School | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingScheduledSession, setEditingScheduledSession] = useState<ScheduledSession | null>(null);
@@ -176,6 +181,8 @@ export const SessionCalendar = () => {
       setGoals(allGoals.filter(g => studentIds.has(g.studentId)));
       const scheduled = await getScheduledSessions(selectedSchool);
       setScheduledSessions(scheduled);
+      const schoolMeetings = await getMeetings(undefined, selectedSchool);
+      setMeetings(schoolMeetings);
     } catch (error) {
       logError('Calendar: Error loading data', error);
     }
@@ -727,9 +734,44 @@ export const SessionCalendar = () => {
       return true;
     });
     
-    // Combine: scheduled events (which may or may not be logged) + valid logged sessions without schedule
-    return [...events, ...validLoggedSessionsWithoutSchedule];
-  }, [scheduledSessions, students, currentDate, sessions]);
+    // Add meetings as blocked time slots
+    const meetingEvents: CalendarEvent[] = meetings
+      .filter(meeting => {
+        const meetingDate = startOfDay(new Date(meeting.date));
+        return !isBefore(meetingDate, viewStart) && !isAfter(meetingDate, viewEnd);
+      })
+      .map(meeting => {
+        const meetingDate = new Date(meeting.date);
+        const startTime = format(meetingDate, 'HH:mm');
+        let endTime: string;
+        if (meeting.endTime) {
+          const endTimeDate = new Date(meeting.endTime);
+          endTime = format(endTimeDate, 'HH:mm');
+        } else {
+          // Default to 1 hour if no end time
+          const defaultEnd = addMinutes(meetingDate, 60);
+          endTime = format(defaultEnd, 'HH:mm');
+        }
+        
+        return {
+          id: `meeting-${meeting.id}`,
+          scheduledSessionId: '',
+          studentIds: [],
+          date: startOfDay(meetingDate),
+          startTime: startTime,
+          endTime: endTime,
+          title: `Meeting: ${meeting.title}`,
+          hasConflict: false,
+          isLogged: false,
+          isMissed: false,
+          isMeeting: true,
+          meetingId: meeting.id,
+        };
+      });
+    
+    // Combine: scheduled events (which may or may not be logged) + valid logged sessions without schedule + meetings
+    return [...events, ...validLoggedSessionsWithoutSchedule, ...meetingEvents];
+  }, [scheduledSessions, students, currentDate, sessions, meetings]);
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
@@ -1699,6 +1741,26 @@ export const SessionCalendar = () => {
     setCancellationEmailDialogOpen(true);
   };
 
+  const handleDeleteMeeting = async (event: CalendarEvent) => {
+    if (!event.isMeeting || !event.meetingId) return;
+
+    confirm({
+      title: 'Delete Meeting',
+      message: `Are you sure you want to delete "${event.title}"?`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          await deleteMeeting(event.meetingId!);
+          await loadData();
+        } catch (error) {
+          logError('Failed to delete meeting', error);
+          alert('Failed to delete meeting. Please try again.');
+        }
+      },
+    });
+  };
+
   const handleCancellationEmailSent = async () => {
     if (pendingCancellation?.event) {
       await performCancellation(pendingCancellation.event);
@@ -1996,12 +2058,26 @@ export const SessionCalendar = () => {
                                 <Chip
                                   label={event.title}
                                   size="small"
-                                  color={event.hasConflict ? 'error' : event.isMissed ? 'error' : event.isLogged ? 'success' : 'primary'}
+                                  color={
+                                    event.isMeeting 
+                                      ? 'default' 
+                                      : event.hasConflict 
+                                        ? 'error' 
+                                        : event.isMissed 
+                                          ? 'error' 
+                                          : event.isLogged 
+                                            ? 'success' 
+                                            : 'primary'
+                                  }
                                   icon={<EventIcon />}
-                                  draggable
-                                  onDragStart={() => handleDragStart(event.id)}
+                                  draggable={!event.isMeeting}
+                                  onDragStart={!event.isMeeting ? () => handleDragStart(event.id) : undefined}
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    if (event.isMeeting) {
+                                      // TODO: Open meeting edit dialog
+                                      return;
+                                    }
                                     handleOpenSessionDialog(event);
                                   }}
                                   sx={{
@@ -2009,6 +2085,13 @@ export const SessionCalendar = () => {
                                     height: '100%',
                                     width: '100%',
                                     justifyContent: 'flex-start',
+                                    ...(event.isMeeting && {
+                                      backgroundColor: '#ba68c8', // Light purple
+                                      color: '#fff',
+                                      '&:hover': {
+                                        backgroundColor: '#ab47bc', // Slightly darker purple on hover
+                                      },
+                                    }),
                                     '& .MuiChip-label': {
                                       whiteSpace: 'normal',
                                       display: 'flex',
@@ -2024,15 +2107,19 @@ export const SessionCalendar = () => {
                                     className="cancel-button"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      confirm({
-                                        title: 'Cancel Session',
-                                        message: `Cancel this session on ${format(event.date, 'MMM d, yyyy')}?`,
-                                        confirmText: 'Cancel Session',
-                                        cancelText: 'Keep Scheduled',
-                                        onConfirm: () => {
-                                          handleCancelEvent(event);
-                                        },
-                                      });
+                                      if (event.isMeeting) {
+                                        handleDeleteMeeting(event);
+                                      } else {
+                                        confirm({
+                                          title: 'Cancel Session',
+                                          message: `Cancel this session on ${format(event.date, 'MMM d, yyyy')}?`,
+                                          confirmText: 'Cancel Session',
+                                          cancelText: 'Keep Scheduled',
+                                          onConfirm: () => {
+                                            handleCancelEvent(event);
+                                          },
+                                        });
+                                      }
                                     }}
                                     sx={{
                                       position: 'absolute',
@@ -2248,12 +2335,26 @@ export const SessionCalendar = () => {
                                 <Chip
                                   label={event.title}
                                   size="small"
-                                  color={event.hasConflict ? 'error' : event.isMissed ? 'error' : event.isLogged ? 'success' : 'primary'}
+                                  color={
+                                    event.isMeeting 
+                                      ? 'default' 
+                                      : event.hasConflict 
+                                        ? 'error' 
+                                        : event.isMissed 
+                                          ? 'error' 
+                                          : event.isLogged 
+                                            ? 'success' 
+                                            : 'primary'
+                                  }
                                   icon={<EventIcon />}
-                                  draggable
-                                  onDragStart={() => handleDragStart(event.id)}
+                                  draggable={!event.isMeeting}
+                                  onDragStart={!event.isMeeting ? () => handleDragStart(event.id) : undefined}
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    if (event.isMeeting) {
+                                      // TODO: Open meeting edit dialog
+                                      return;
+                                    }
                                     handleOpenSessionDialog(event);
                                   }}
                                   sx={{
@@ -2261,6 +2362,13 @@ export const SessionCalendar = () => {
                                     height: '100%',
                                     width: '100%',
                                     justifyContent: 'flex-start',
+                                    ...(event.isMeeting && {
+                                      backgroundColor: '#ba68c8', // Light purple
+                                      color: '#fff',
+                                      '&:hover': {
+                                        backgroundColor: '#ab47bc', // Slightly darker purple on hover
+                                      },
+                                    }),
                                     '& .MuiChip-label': {
                                       whiteSpace: 'normal',
                                       display: 'flex',
@@ -2275,15 +2383,19 @@ export const SessionCalendar = () => {
                                     className="cancel-button"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      confirm({
-                                        title: 'Cancel Session',
-                                        message: `Cancel this session on ${format(event.date, 'MMM d, yyyy')}?`,
-                                        confirmText: 'Cancel Session',
-                                        cancelText: 'Keep Scheduled',
-                                        onConfirm: () => {
-                                          handleCancelEvent(event);
-                                        },
-                                      });
+                                      if (event.isMeeting) {
+                                        handleDeleteMeeting(event);
+                                      } else {
+                                        confirm({
+                                          title: 'Cancel Session',
+                                          message: `Cancel this session on ${format(event.date, 'MMM d, yyyy')}?`,
+                                          confirmText: 'Cancel Session',
+                                          cancelText: 'Keep Scheduled',
+                                          onConfirm: () => {
+                                            handleCancelEvent(event);
+                                          },
+                                        });
+                                      }
                                     }}
                                     sx={{
                                       position: 'absolute',
@@ -2439,12 +2551,26 @@ export const SessionCalendar = () => {
                             <Chip
                               label={event.title}
                               size="small"
-                              color={event.hasConflict ? 'error' : event.isMissed ? 'error' : event.isLogged ? 'success' : 'primary'}
+                              color={
+                                event.isMeeting 
+                                  ? 'default' 
+                                  : event.hasConflict 
+                                    ? 'error' 
+                                    : event.isMissed 
+                                      ? 'error' 
+                                      : event.isLogged 
+                                        ? 'success' 
+                                        : 'primary'
+                              }
                               icon={<EventIcon />}
-                              draggable
-                              onDragStart={() => handleDragStart(event.id)}
+                              draggable={!event.isMeeting}
+                              onDragStart={!event.isMeeting ? () => handleDragStart(event.id) : undefined}
                               onClick={(e) => {
                                 e.stopPropagation();
+                                if (event.isMeeting) {
+                                  // TODO: Open meeting edit dialog
+                                  return;
+                                }
                                 handleOpenSessionDialog(event);
                               }}
                               sx={{
@@ -2453,6 +2579,13 @@ export const SessionCalendar = () => {
                                 flex: 1,
                                 '& .MuiChip-label': { px: 0.5 },
                                 justifyContent: 'flex-start',
+                                ...(event.isMeeting && {
+                                  backgroundColor: '#ba68c8', // Light purple
+                                  color: '#fff',
+                                  '&:hover': {
+                                    backgroundColor: '#ab47bc', // Slightly darker purple on hover
+                                  },
+                                }),
                               }}
                             />
                             {canCancel && (
@@ -2461,15 +2594,19 @@ export const SessionCalendar = () => {
                                 className="cancel-button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  confirm({
-                                    title: 'Cancel Session',
-                                    message: `Cancel this session on ${format(event.date, 'MMM d, yyyy')}?`,
-                                    confirmText: 'Cancel Session',
-                                    cancelText: 'Keep Scheduled',
-                                    onConfirm: () => {
-                                      handleCancelEvent(event);
-                                    },
-                                  });
+                                  if (event.isMeeting) {
+                                    handleDeleteMeeting(event);
+                                  } else {
+                                    confirm({
+                                      title: 'Cancel Session',
+                                      message: `Cancel this session on ${format(event.date, 'MMM d, yyyy')}?`,
+                                      confirmText: 'Cancel Session',
+                                      cancelText: 'Keep Scheduled',
+                                      onConfirm: () => {
+                                        handleCancelEvent(event);
+                                      },
+                                    });
+                                  }
                                 }}
                                 sx={{
                                   opacity: 0,

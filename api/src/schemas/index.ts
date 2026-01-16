@@ -334,6 +334,24 @@ export const createDueDateItemSchema = dueDateItemSchema.omit({ id: true });
 export const updateDueDateItemSchema = dueDateItemSchema.partial();
 
 // ============================================================================
+// Meeting Schema
+// ============================================================================
+
+export const meetingSchema = z.object({
+  id: idString.optional(),
+  title: nonEmptyString.pipe(z.string().max(200)),
+  description: optionalString,
+  date: isoDateString,
+  endTime: optionalIsoDate,
+  school: nonEmptyString,
+  studentId: optionalString,
+  category: optionalString,
+});
+
+export const createMeetingSchema = meetingSchema.omit({ id: true });
+export const updateMeetingSchema = meetingSchema.partial();
+
+// ============================================================================
 // Communication Schema
 // ============================================================================
 
@@ -451,6 +469,7 @@ export type SOAPNoteInput = z.infer<typeof createSOAPNoteSchema>;
 export type ProgressReportInput = z.infer<typeof createProgressReportSchema>;
 export type ProgressReportTemplateInput = z.infer<typeof createProgressReportTemplateSchema>;
 export type DueDateItemInput = z.infer<typeof createDueDateItemSchema>;
+export type MeetingInput = z.infer<typeof createMeetingSchema>;
 export type CommunicationInput = z.infer<typeof createCommunicationSchema>;
 export type EmailInput = z.infer<typeof emailSchema>;
 export type TimesheetNoteInput = z.infer<typeof createTimesheetNoteSchema>;

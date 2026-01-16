@@ -272,3 +272,16 @@ export interface Todo {
   dateUpdated: string;
   completedDate?: string; // ISO string - when completed
 }
+
+export interface Meeting {
+  id: string;
+  title: string;
+  description?: string;
+  date: string; // ISO string - meeting date/time (start)
+  endTime?: string; // ISO string - meeting end time
+  school: string; // School name the meeting is for
+  studentId?: string; // Optional - link to student if meeting is student-specific
+  category?: string; // e.g., "IEP", "Staff Meeting", "Team Meeting", "Other"
+  dateCreated: string;
+  dateUpdated: string;
+}
