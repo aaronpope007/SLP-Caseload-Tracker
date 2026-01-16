@@ -141,6 +141,7 @@ studentsRouter.get('/', asyncHandler(async (req, res) => {
     concerns: parseJsonField<string[]>(s.concerns, []),
     exceptionality: parseJsonField<string[]>(s.exceptionality, undefined),
     archived: s.archived === 1,
+    gender: s.gender || undefined,
   }));
   
   res.json(parsed);
@@ -186,6 +187,7 @@ studentsRouter.get('/:id', asyncHandler(async (req, res) => {
     concerns: parseJsonField<string[]>(student.concerns, []),
     exceptionality: parseJsonField<string[]>(student.exceptionality, undefined),
     archived: student.archived === 1,
+    gender: student.gender || undefined,
   });
 }));
 
@@ -226,8 +228,8 @@ studentsRouter.post('/', validateBody(createStudentSchema), asyncHandler(async (
   const dateAdded = new Date().toISOString();
   
   db.prepare(`
-    INSERT INTO students (id, name, age, grade, concerns, exceptionality, status, dateAdded, archived, dateArchived, school, teacherId, caseManagerId, iepDate, annualReviewDate, progressReportFrequency, frequencyPerWeek, frequencyType)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO students (id, name, age, grade, concerns, exceptionality, status, dateAdded, archived, dateArchived, school, teacherId, caseManagerId, iepDate, annualReviewDate, progressReportFrequency, frequencyPerWeek, frequencyType, gender)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     studentId,
     student.name,
@@ -246,7 +248,8 @@ studentsRouter.post('/', validateBody(createStudentSchema), asyncHandler(async (
     student.annualReviewDate || null,
     student.progressReportFrequency || null,
     student.frequencyPerWeek ?? null,
-    student.frequencyType || null
+    student.frequencyType || null,
+    student.gender || null
   );
   
   res.status(201).json({ id: studentId, message: 'Student created' });
@@ -303,7 +306,7 @@ studentsRouter.put('/:id', validateBody(updateStudentSchema), asyncHandler(async
   db.prepare(`
     UPDATE students 
     SET name = ?, age = ?, grade = ?, concerns = ?, exceptionality = ?, status = ?, 
-        archived = ?, dateArchived = ?, school = ?, teacherId = ?, caseManagerId = ?, iepDate = ?, annualReviewDate = ?, progressReportFrequency = ?, frequencyPerWeek = ?, frequencyType = ?
+        archived = ?, dateArchived = ?, school = ?, teacherId = ?, caseManagerId = ?, iepDate = ?, annualReviewDate = ?, progressReportFrequency = ?, frequencyPerWeek = ?, frequencyType = ?, gender = ?
     WHERE id = ?
   `).run(
     student.name,
@@ -322,6 +325,7 @@ studentsRouter.put('/:id', validateBody(updateStudentSchema), asyncHandler(async
     student.progressReportFrequency || null,
     student.frequencyPerWeek ?? null,
     student.frequencyType || null,
+    student.gender || null,
     id
   );
   

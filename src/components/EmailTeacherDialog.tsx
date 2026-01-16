@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { logError, logWarn } from '../utils/logger';
 import { getErrorMessage } from '../utils/validators';
 import {
@@ -84,6 +84,15 @@ export const EmailTeacherDialog = ({
   const [sendSuccess, setSendSuccess] = useState<string[]>([]); // Track which teachers received emails
   const [selectedTeacherIndex, setSelectedTeacherIndex] = useState<number | null>(null);
 
+  // Track if component is mounted to prevent state updates after unmount
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (open && studentsToUse.length > 0) {
@@ -128,6 +137,58 @@ export const EmailTeacherDialog = ({
     const period = hours >= 12 ? 'PM' : 'AM';
     const displayHours = hours % 12 || 12;
     return `${displayHours}:${mins.toString().padStart(2, '0')} ${period}`;
+  };
+
+  // Helper function to extract last name from full name
+  const extractLastName = (fullName: string): string | null => {
+    const nameParts = fullName.trim().split(/\s+/);
+    return nameParts.length > 1 ? nameParts[nameParts.length - 1] : null;
+  };
+
+  // Helper function to get salutation based on gender and lastName
+  const getSalutation = (teacher: Teacher | CaseManager | null): string => {
+    if (!teacher) return 'Dear Teacher';
+    
+    const teacherName = teacher.name || 'Teacher';
+    const lastName = extractLastName(teacherName);
+    const gender = teacher.gender;
+    
+    // If gender and lastName are available, use formal salutation
+    if (gender && lastName) {
+      if (gender === 'male') {
+        return `Dear Mr. ${lastName}`;
+      } else if (gender === 'female') {
+        return `Dear Ms. ${lastName}`;
+      } else if (gender === 'non-binary') {
+        return `Dear ${teacherName}`; // Use full name for non-binary
+      }
+    }
+    
+    // If no lastName, use full name
+    if (!lastName) {
+      return `Dear ${teacherName}`;
+    }
+    
+    // If no gender specified, use full name (backward compatibility)
+    return `Dear ${teacherName}`;
+  };
+
+  // Helper function to get pronoun for a student
+  const getStudentPronoun = (student: Student): 'he' | 'she' | 'they' => {
+    if (student.gender === 'male') return 'he';
+    if (student.gender === 'female') return 'she';
+    if (student.gender === 'non-binary') return 'they';
+    // Default to 'they' for backward compatibility when gender not specified
+    return 'they';
+  };
+
+  // Helper function to get possessive pronoun for a student
+  const getStudentPossessivePronoun = (student: Student): 'his' | 'her' | 'their' => {
+    if (student.gender === 'male') return 'his';
+    if (student.gender === 'female') return 'her';
+    if (student.gender === 'non-binary') return 'their';
+    // Default to 'their' for backward compatibility when gender not specified
+    return 'their';
   };
 
   const generateEmailText = (
@@ -192,9 +253,14 @@ export const EmailTeacherDialog = ({
       scheduledTimeText = ` (${displayHours}:${startMinutes.toString().padStart(2, '0')} ${period})`;
     }
 
-    let email = `Dear ${teacherName},\n\n`;
+    // Get salutation based on teacher gender and lastName
+    const salutation = getSalutation(teacher);
+    
+    let email = `${salutation},\n\n`;
     if (associatedStudents.length === 1) {
-      email += `${studentNamesText} is late for their scheduled speech therapy session${scheduledTimeText}. Will they be able to attend the session? The zoom link is below.\n\n`;
+      const student = associatedStudents[0];
+      const pronoun = getStudentPronoun(student);
+      email += `${studentNamesText} ${pronoun === 'they' ? 'are' : 'is'} late for ${pronoun === 'they' ? 'their' : pronoun === 'he' ? 'his' : 'her'} scheduled speech therapy session${scheduledTimeText}. Will ${pronoun === 'they' ? 'they' : pronoun} be able to attend the session? The zoom link is below.\n\n`;
     } else {
       email += `${studentNamesText} are late for their scheduled speech therapy session${scheduledTimeText}. Will they be able to attend the session? The zoom link is below.\n\n`;
     }
@@ -223,10 +289,12 @@ export const EmailTeacherDialog = ({
 
   const loadTeachersAndGenerateEmails = async () => {
     if (studentsToUse.length === 0) return;
+    if (!isMountedRef.current) return;
 
     // Find available times first (using first student's school)
     const primaryStudent = studentsToUse[0];
     const availableTimesList = await findAvailableTimes(primaryStudent);
+    if (!isMountedRef.current) return;
     setAvailableTimes(availableTimesList);
 
     // Get scheduled sessions to determine end time if only start time is available
@@ -328,6 +396,8 @@ export const EmailTeacherDialog = ({
       teacherMap.set('no-teacher', { teacher: noTeacher, studentIds: studentsWithoutContact });
     }
 
+    if (!isMountedRef.current) return;
+
     // Generate email for each teacher
     const emails: TeacherEmailData[] = [];
     for (const [_, { teacher, studentIds: associatedStudentIds }] of teacherMap) {
@@ -343,6 +413,7 @@ export const EmailTeacherDialog = ({
       });
     }
 
+    if (!isMountedRef.current) return;
     setTeacherEmails(emails);
     
     // Auto-select first teacher if available

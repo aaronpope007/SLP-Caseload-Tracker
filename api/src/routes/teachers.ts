@@ -147,8 +147,8 @@ teachersRouter.post('/', validateBody(createTeacherSchema), asyncHandler(async (
   const dateCreated = new Date().toISOString();
 
   db.prepare(`
-    INSERT INTO teachers (id, name, grade, school, phoneNumber, emailAddress, dateCreated)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO teachers (id, name, grade, school, phoneNumber, emailAddress, dateCreated, gender)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     teacherId,
     teacher.name,
@@ -156,7 +156,8 @@ teachersRouter.post('/', validateBody(createTeacherSchema), asyncHandler(async (
     schoolName,
     teacher.phoneNumber || null,
     teacher.emailAddress || null,
-    dateCreated
+    dateCreated,
+    teacher.gender || null
   );
   
   res.status(201).json({ id: teacherId, message: 'Teacher created' });
@@ -183,7 +184,7 @@ teachersRouter.put('/:id', validateBody(updateTeacherSchema), asyncHandler(async
 
   db.prepare(`
     UPDATE teachers 
-    SET name = ?, grade = ?, school = ?, phoneNumber = ?, emailAddress = ?
+    SET name = ?, grade = ?, school = ?, phoneNumber = ?, emailAddress = ?, gender = ?
     WHERE id = ?
   `).run(
     teacher.name,
@@ -191,6 +192,7 @@ teachersRouter.put('/:id', validateBody(updateTeacherSchema), asyncHandler(async
     schoolName,
     teacher.phoneNumber || null,
     teacher.emailAddress || null,
+    teacher.gender || null,
     id
   );
   

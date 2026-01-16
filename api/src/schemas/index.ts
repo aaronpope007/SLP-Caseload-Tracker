@@ -59,6 +59,7 @@ export const teacherSchema = z.object({
   school: nonEmptyString,
   phoneNumber: optionalString,
   emailAddress: z.string().email('Invalid email address').optional().or(z.literal('')),
+  gender: z.enum(['male', 'female', 'non-binary']).optional(),
 });
 
 export const createTeacherSchema = teacherSchema.omit({ id: true });
@@ -75,6 +76,7 @@ export const caseManagerSchema = z.object({
   school: nonEmptyString,
   phoneNumber: optionalString,
   emailAddress: z.string().email('Invalid email address').optional().or(z.literal('')),
+  gender: z.enum(['male', 'female', 'non-binary']).optional(),
 });
 
 export const createCaseManagerSchema = caseManagerSchema.omit({ id: true });
@@ -106,6 +108,7 @@ export const studentSchema = z.object({
   progressReportFrequency: progressReportFrequencySchema.optional(),
   frequencyPerWeek: z.number().int().min(1).max(10).optional().nullable(),
   frequencyType: frequencyTypeSchema.optional(),
+  gender: z.enum(['male', 'female', 'non-binary']).optional(),
 });
 
 export const createStudentSchema = studentSchema.omit({ id: true });

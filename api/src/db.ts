@@ -180,6 +180,9 @@ export function initDatabase() {
     if (!studentColumnNames.includes('frequencyType')) {
       db.exec(`ALTER TABLE students ADD COLUMN frequencyType TEXT CHECK(frequencyType IN ('per-week', 'per-month'))`);
     }
+    if (!studentColumnNames.includes('gender')) {
+      db.exec(`ALTER TABLE students ADD COLUMN gender TEXT CHECK(gender IN ('male', 'female', 'non-binary'))`);
+    }
   } catch (e: any) {
     console.warn('Could not add columns to students table:', e.message);
   }
@@ -191,6 +194,9 @@ export function initDatabase() {
     
     if (!teacherColumnNames.includes('school')) {
       db.exec(`ALTER TABLE teachers ADD COLUMN school TEXT NOT NULL DEFAULT ''`);
+    }
+    if (!teacherColumnNames.includes('gender')) {
+      db.exec(`ALTER TABLE teachers ADD COLUMN gender TEXT CHECK(gender IN ('male', 'female', 'non-binary'))`);
     }
     
     // Migrate existing teachers: try to infer school from students that have this teacher assigned
@@ -232,6 +238,9 @@ export function initDatabase() {
     
     if (!caseManagerColumnNames.includes('school')) {
       db.exec(`ALTER TABLE case_managers ADD COLUMN school TEXT NOT NULL DEFAULT ''`);
+    }
+    if (!caseManagerColumnNames.includes('gender')) {
+      db.exec(`ALTER TABLE case_managers ADD COLUMN gender TEXT CHECK(gender IN ('male', 'female', 'non-binary'))`);
     }
   } catch (e: any) {
     console.warn('Could not add school column to case_managers table:', e.message);

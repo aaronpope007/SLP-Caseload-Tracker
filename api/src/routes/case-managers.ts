@@ -121,8 +121,8 @@ caseManagersRouter.post('/', validateBody(createCaseManagerSchema), asyncHandler
   const schoolName = ensureSchoolExists(caseManager.school);
   
   db.prepare(`
-    INSERT INTO case_managers (id, name, role, school, phoneNumber, emailAddress, dateCreated)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO case_managers (id, name, role, school, phoneNumber, emailAddress, dateCreated, gender)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     caseManagerId,
     caseManager.name,
@@ -130,7 +130,8 @@ caseManagersRouter.post('/', validateBody(createCaseManagerSchema), asyncHandler
     schoolName,
     caseManager.phoneNumber || null,
     caseManager.emailAddress || null,
-    dateCreated
+    dateCreated,
+    caseManager.gender || null
   );
   
   res.status(201).json({ id: caseManagerId, message: 'Case manager created' });
@@ -157,7 +158,7 @@ caseManagersRouter.put('/:id', validateBody(updateCaseManagerSchema), asyncHandl
   
   db.prepare(`
     UPDATE case_managers 
-    SET name = ?, role = ?, school = ?, phoneNumber = ?, emailAddress = ?
+    SET name = ?, role = ?, school = ?, phoneNumber = ?, emailAddress = ?, gender = ?
     WHERE id = ?
   `).run(
     caseManager.name,
@@ -165,6 +166,7 @@ caseManagersRouter.put('/:id', validateBody(updateCaseManagerSchema), asyncHandl
     schoolName,
     caseManager.phoneNumber || null,
     caseManager.emailAddress || null,
+    caseManager.gender || null,
     id
   );
   

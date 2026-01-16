@@ -23,6 +23,7 @@ export interface Teacher {
   phoneNumber?: string;
   emailAddress?: string;
   dateCreated: string;
+  gender?: 'male' | 'female' | 'non-binary';
 }
 
 export interface CaseManager {
@@ -33,6 +34,7 @@ export interface CaseManager {
   phoneNumber?: string;
   emailAddress?: string;
   dateCreated: string;
+  gender?: 'male' | 'female' | 'non-binary';
 }
 
 export interface Student {
@@ -54,6 +56,7 @@ export interface Student {
   progressReportFrequency?: 'quarterly' | 'annual'; // Default report frequency
   frequencyPerWeek?: number; // Number of sessions per week (e.g., 2, 3)
   frequencyType?: 'per-week' | 'per-month'; // Whether frequency is per week or per month
+  gender?: 'male' | 'female' | 'non-binary';
 }
 
 export interface Goal {

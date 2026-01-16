@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { logError, logWarn } from '../utils/logger';
 import { getErrorMessage } from '../utils/validators';
 import {
@@ -23,8 +23,8 @@ import {
   Email as EmailIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
-import type { Student, Teacher, ScheduledSession, Session } from '../types';
-import { getTeachers, getSessionsBySchool, getSchoolByName } from '../utils/storage-api';
+import type { Student, Teacher, CaseManager, ScheduledSession, Session } from '../types';
+import { getTeachers, getSessionsBySchool, getSchoolByName, getMeetings } from '../utils/storage-api';
 import { getScheduledSessions } from '../utils/storage-api';
 import { format, isBefore, isAfter, parse, isSameDay, startOfDay } from 'date-fns';
 import { api } from '../utils/api';
@@ -62,6 +62,16 @@ export const CancellationEmailDialog = ({
   const [sendError, setSendError] = useState<string | null>(null);
   const [sendSuccess, setSendSuccess] = useState<string[]>([]); // Track which teachers received emails
   const [selectedTeacherIndex, setSelectedTeacherIndex] = useState<number | null>(null);
+
+  // Track if component is mounted to prevent state updates after unmount
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (open && studentIds.length > 0) {
@@ -112,6 +122,40 @@ export const CancellationEmailDialog = ({
     return `${displayHours}:${mins.toString().padStart(2, '0')} ${period}`;
   };
 
+  // Helper function to extract last name from full name
+  const extractLastName = (fullName: string): string | null => {
+    const nameParts = fullName.trim().split(/\s+/);
+    return nameParts.length > 1 ? nameParts[nameParts.length - 1] : null;
+  };
+
+  // Helper function to get salutation based on gender and lastName
+  const getSalutation = (teacher: Teacher | null): string => {
+    if (!teacher) return 'Dear Teacher';
+    
+    const teacherName = teacher.name || 'Teacher';
+    const lastName = extractLastName(teacherName);
+    const gender = teacher.gender;
+    
+    // If gender and lastName are available, use formal salutation
+    if (gender && lastName) {
+      if (gender === 'male') {
+        return `Dear Mr. ${lastName}`;
+      } else if (gender === 'female') {
+        return `Dear Ms. ${lastName}`;
+      } else if (gender === 'non-binary') {
+        return `Dear ${teacherName}`; // Use full name for non-binary
+      }
+    }
+    
+    // If no lastName, use full name
+    if (!lastName) {
+      return `Dear ${teacherName}`;
+    }
+    
+    // If no gender specified, use full name (backward compatibility)
+    return `Dear ${teacherName}`;
+  };
+
   const generateEmailText = (teacher: Teacher, associatedStudents: Student[], times: string[] = []): string => {
     const teacherName = teacher?.name || 'Teacher';
     const userName = localStorage.getItem('user_name') || 'Aaron Pope';
@@ -131,7 +175,10 @@ export const CancellationEmailDialog = ({
     const dateStr = format(sessionDate, 'EEEE, MMMM d, yyyy');
     const timeStr = formatTimeRange(sessionTime, sessionEndTime);
 
-    let email = `Dear ${teacherName},\n\n`;
+    // Get salutation based on teacher gender and lastName
+    const salutation = getSalutation(teacher);
+    
+    let email = `${salutation},\n\n`;
     email += `I am writing to inform you that the speech therapy session scheduled for ${studentNamesText} on ${dateStr} at ${timeStr} has been cancelled.\n\n`;
     
     if (times.length > 0) {
@@ -318,8 +365,24 @@ export const CancellationEmailDialog = ({
       return { start: startMinutes, end: endMinutes };
     });
 
-    // Merge occupied slots
-    const allOccupiedSlots = [...occupiedSlotsFromScheduled, ...occupiedSlotsFromLogged];
+    // Get meetings for today (for this school)
+    const todayMeetings = await getMeetings(undefined, primaryStudent.school, undefined, todayStr, todayStr);
+    const occupiedSlotsFromMeetings = todayMeetings.map(meeting => {
+      const meetingDate = new Date(meeting.date);
+      const startMinutes = meetingDate.getHours() * 60 + meetingDate.getMinutes();
+      let endMinutes: number;
+      if (meeting.endTime) {
+        const endDate = new Date(meeting.endTime);
+        endMinutes = endDate.getHours() * 60 + endDate.getMinutes();
+      } else {
+        // Default to 1 hour for meetings without end time
+        endMinutes = startMinutes + 60;
+      }
+      return { start: startMinutes, end: endMinutes };
+    });
+
+    // Merge occupied slots from scheduled sessions, logged sessions, and meetings
+    const allOccupiedSlots = [...occupiedSlotsFromScheduled, ...occupiedSlotsFromLogged, ...occupiedSlotsFromMeetings];
     const mergedOccupiedSlots: Array<{ start: number; end: number }> = [];
     allOccupiedSlots.sort((a, b) => a.start - b.start);
     
@@ -437,13 +500,16 @@ export const CancellationEmailDialog = ({
 
   const loadTeachersAndGenerateEmails = async () => {
     if (studentIds.length === 0) return;
+    if (!isMountedRef.current) return;
 
     // Find available times first
     const availableTimesList = await findAvailableTimes();
+    if (!isMountedRef.current) return;
     setAvailableTimes(availableTimesList);
 
     // Get all teachers
     const allTeachers = await getTeachers();
+    if (!isMountedRef.current) return;
     setTeachers(allTeachers);
 
     // Group students by teacher
@@ -483,6 +549,8 @@ export const CancellationEmailDialog = ({
       teacherMap.set('no-teacher', { teacher: noTeacher, studentIds: studentsWithoutTeacher });
     }
 
+    if (!isMountedRef.current) return;
+
     // Generate email for each teacher
     const emails: TeacherEmailData[] = [];
     for (const [_, { teacher, studentIds: associatedStudentIds }] of teacherMap) {
@@ -498,6 +566,7 @@ export const CancellationEmailDialog = ({
       });
     }
 
+    if (!isMountedRef.current) return;
     setTeacherEmails(emails);
     
     // Auto-select first teacher if available

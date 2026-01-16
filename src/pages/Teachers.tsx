@@ -15,6 +15,10 @@ import {
   Typography,
   Snackbar,
   Alert,
+  FormControlLabel,
+  Checkbox,
+  FormGroup,
+  FormLabel,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -53,6 +57,7 @@ export const Teachers = () => {
     school: '',
     phoneNumber: '',
     emailAddress: '',
+    gender: '' as '' | 'male' | 'female' | 'non-binary',
   });
   const [initialFormData, setInitialFormData] = useState(formData);
   
@@ -71,7 +76,8 @@ export const Teachers = () => {
       formData.grade !== initialFormData.grade ||
       formData.school !== initialFormData.school ||
       formData.phoneNumber !== initialFormData.phoneNumber ||
-      formData.emailAddress !== initialFormData.emailAddress
+      formData.emailAddress !== initialFormData.emailAddress ||
+      formData.gender !== initialFormData.gender
     );
   };
 
@@ -166,6 +172,7 @@ export const Teachers = () => {
         school: teacher.school || selectedSchool,
         phoneNumber: teacher.phoneNumber ? formatPhoneForDisplay(teacher.phoneNumber) : '',
         emailAddress: teacher.emailAddress || '',
+        gender: teacher.gender || '',
       };
     } else {
       setEditingTeacher(null);
@@ -175,6 +182,7 @@ export const Teachers = () => {
         school: selectedSchool,
         phoneNumber: '',
         emailAddress: '',
+        gender: '' as '' | 'male' | 'female' | 'non-binary',
       };
     }
     setFormData(newFormData);
@@ -230,6 +238,7 @@ export const Teachers = () => {
         school: formData.school.trim() || selectedSchool,
         phoneNumber: phoneDigits || undefined,
         emailAddress: emailTrimmed || undefined,
+        gender: formData.gender || undefined,
       };
 
       if (editingTeacher) {
@@ -490,6 +499,53 @@ export const Teachers = () => {
                 : ''}
               error={formData.emailAddress.trim() !== '' && !formData.emailAddress.includes('@')}
             />
+            <Box>
+              <FormLabel component="legend">Gender (Optional)</FormLabel>
+              <FormGroup row>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={formData.gender === 'male'}
+                      onChange={(e) => {
+                        setFormData({
+                          ...formData,
+                          gender: e.target.checked ? 'male' : '',
+                        });
+                      }}
+                    />
+                  }
+                  label="Male"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={formData.gender === 'female'}
+                      onChange={(e) => {
+                        setFormData({
+                          ...formData,
+                          gender: e.target.checked ? 'female' : '',
+                        });
+                      }}
+                    />
+                  }
+                  label="Female"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={formData.gender === 'non-binary'}
+                      onChange={(e) => {
+                        setFormData({
+                          ...formData,
+                          gender: e.target.checked ? 'non-binary' : '',
+                        });
+                      }}
+                    />
+                  }
+                  label="Non-binary"
+                />
+              </FormGroup>
+            </Box>
           </Box>
         </DialogContent>
         <DialogActions>

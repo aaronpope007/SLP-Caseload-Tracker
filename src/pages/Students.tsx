@@ -15,6 +15,10 @@ import {
   Snackbar,
   Alert,
   Autocomplete,
+  FormControlLabel,
+  Checkbox,
+  FormGroup,
+  FormLabel,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -75,6 +79,7 @@ export const Students = () => {
     progressReportFrequency: 'quarterly' as 'quarterly' | 'annual',
     frequencyPerWeek: '',
     frequencyType: 'per-week' as 'per-week' | 'per-month',
+    gender: '' as '' | 'male' | 'female' | 'non-binary',
   });
   const [initialFormData, setInitialFormData] = useState(formData);
   const { confirm, ConfirmDialog } = useConfirm();
@@ -96,7 +101,8 @@ export const Students = () => {
       formData.annualReviewDate !== initialFormData.annualReviewDate ||
       formData.progressReportFrequency !== initialFormData.progressReportFrequency ||
       formData.frequencyPerWeek !== initialFormData.frequencyPerWeek ||
-      formData.frequencyType !== initialFormData.frequencyType
+      formData.frequencyType !== initialFormData.frequencyType ||
+      formData.gender !== initialFormData.gender
     );
   };
 
@@ -269,6 +275,7 @@ export const Students = () => {
         progressReportFrequency: student.progressReportFrequency || 'quarterly',
         frequencyPerWeek: student.frequencyPerWeek ? student.frequencyPerWeek.toString() : '',
         frequencyType: student.frequencyType || 'per-week',
+        gender: student.gender || '',
       };
     } else {
       setEditingStudent(null);
@@ -287,6 +294,7 @@ export const Students = () => {
         progressReportFrequency: 'quarterly' as 'quarterly' | 'annual',
         frequencyPerWeek: '',
         frequencyType: 'per-week' as 'per-week' | 'per-month',
+        gender: '' as '' | 'male' | 'female' | 'non-binary',
       };
     }
     setFormData(newFormData);
@@ -355,6 +363,7 @@ export const Students = () => {
         progressReportFrequency: formData.progressReportFrequency,
         frequencyPerWeek: frequencyPerWeekValue,
         frequencyType: frequencyPerWeekValue ? formData.frequencyType : undefined,
+        gender: formData.gender || undefined,
       };
 
       if (editingStudent) {
@@ -541,6 +550,12 @@ export const Students = () => {
                             school: selectedSchool,
                             teacherId: '',
                             caseManagerId: '',
+                            iepDate: '',
+                            annualReviewDate: '',
+                            progressReportFrequency: 'quarterly',
+                            frequencyPerWeek: '',
+                            frequencyType: 'per-week',
+                            gender: '',
                           });
                           setEditingStudent(null);
                           studentDialog.openDialog();
@@ -635,6 +650,53 @@ export const Students = () => {
               onChange={(e) => setFormData({ ...formData, exceptionality: e.target.value })}
               helperText="e.g., ASD, DD, SLI"
             />
+            <Box>
+              <FormLabel component="legend">Gender (Optional)</FormLabel>
+              <FormGroup row>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={formData.gender === 'male'}
+                      onChange={(e) => {
+                        setFormData({
+                          ...formData,
+                          gender: e.target.checked ? 'male' : '',
+                        });
+                      }}
+                    />
+                  }
+                  label="Male"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={formData.gender === 'female'}
+                      onChange={(e) => {
+                        setFormData({
+                          ...formData,
+                          gender: e.target.checked ? 'female' : '',
+                        });
+                      }}
+                    />
+                  }
+                  label="Female"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={formData.gender === 'non-binary'}
+                      onChange={(e) => {
+                        setFormData({
+                          ...formData,
+                          gender: e.target.checked ? 'non-binary' : '',
+                        });
+                      }}
+                    />
+                  }
+                  label="Non-binary"
+                />
+              </FormGroup>
+            </Box>
             <TextField
               select
               label="Status"
