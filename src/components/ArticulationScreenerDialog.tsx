@@ -443,7 +443,16 @@ export const ArticulationScreenerDialog = ({
                     label={dp.phoneme}
                     color="primary"
                     onDelete={() => handlePhonemeToggle(dp.phoneme)}
-                    sx={{ minWidth: '50px' }}
+                    sx={{ 
+                      '& .MuiChip-label': {
+                        fontSize: '1rem',
+                        fontWeight: 'bold',
+                        color: 'white',
+                        px: 1,
+                        whiteSpace: 'nowrap',
+                        overflow: 'visible',
+                      },
+                    }}
                   />
                   <TextField
                     fullWidth
