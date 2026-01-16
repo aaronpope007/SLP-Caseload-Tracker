@@ -162,6 +162,22 @@ export interface Evaluation {
   dateUpdated: string;
 }
 
+export interface DisorderedPhoneme {
+  phoneme: string; // IPA symbol (e.g., 'p', 'θ', 'ʃ')
+  note?: string; // Optional note about the disordered phoneme
+}
+
+export interface ArticulationScreener {
+  id: string;
+  studentId: string;
+  date: string; // Date the screening was performed
+  disorderedPhonemes: DisorderedPhoneme[]; // Array of disordered phonemes with optional notes
+  report?: string; // Generated screening report
+  evaluationId?: string; // Optional link to an evaluation
+  dateCreated: string;
+  dateUpdated: string;
+}
+
 export interface SOAPNote {
   id: string;
   sessionId: string; // Link to session

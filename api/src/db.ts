@@ -375,6 +375,22 @@ export function initDatabase() {
     )
   `);
 
+  // Articulation Screeners table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS articulation_screeners (
+      id TEXT PRIMARY KEY,
+      studentId TEXT NOT NULL,
+      date TEXT NOT NULL,
+      disorderedPhonemes TEXT NOT NULL,
+      report TEXT,
+      evaluationId TEXT,
+      dateCreated TEXT NOT NULL,
+      dateUpdated TEXT NOT NULL,
+      FOREIGN KEY (studentId) REFERENCES students(id) ON DELETE CASCADE,
+      FOREIGN KEY (evaluationId) REFERENCES evaluations(id) ON DELETE SET NULL
+    )
+  `);
+
   // SOAP Notes table
   db.exec(`
     CREATE TABLE IF NOT EXISTS soap_notes (

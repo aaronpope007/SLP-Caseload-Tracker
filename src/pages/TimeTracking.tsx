@@ -6,12 +6,13 @@ import {
   CardContent,
   Typography,
 } from '@mui/material';
-import type { Session, Evaluation, Student, Communication, ScheduledSession } from '../types';
+import type { Session, Evaluation, Student, Communication, ScheduledSession, ArticulationScreener } from '../types';
 import {
   getSessions,
   getEvaluations,
   getStudents,
   getScheduledSessions,
+  getArticulationScreeners,
 } from '../utils/storage-api';
 import { api } from '../utils/api';
 import { formatDate, generateId } from '../utils/helpers';
@@ -19,6 +20,7 @@ import { useSchool } from '../context/SchoolContext';
 import { getSchoolByName } from '../utils/storage-api';
 import { SessionTimeItem } from '../components/session/SessionTimeItem';
 import { EvaluationTimeItem } from '../components/EvaluationTimeItem';
+import { ArticulationScreenerTimeItem } from '../components/ArticulationScreenerTimeItem';
 import { TimesheetNoteDialog } from '../components/TimesheetNoteDialog';
 import { SavedNotesDialog } from '../components/SavedNotesDialog';
 import { TimeTrackingFilter } from '../components/TimeTrackingFilter';
@@ -29,9 +31,9 @@ import { migrateTimesheetNotes } from '../utils/migrateTimesheetNotes';
 
 interface TimeTrackingItem {
   id: string;
-  type: 'session' | 'evaluation';
+  type: 'session' | 'evaluation' | 'screener';
   date: string;
-  data: Session | Evaluation;
+  data: Session | Evaluation | ArticulationScreener;
 }
 
 // Storage functions for timesheet notes (now using API)
@@ -60,6 +62,7 @@ export const TimeTracking = () => {
   const savedNotesDialog = useDialog();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
+  const [screeners, setScreeners] = useState<ArticulationScreener[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [communications, setCommunications] = useState<Communication[]>([]);
   const [scheduledSessions, setScheduledSessions] = useState<ScheduledSession[]>([]);
@@ -92,13 +95,15 @@ export const TimeTracking = () => {
   }, [selectedSchool]);
 
   const loadData = async () => {
-    // Load all sessions and evaluations (will be filtered by selectedSchool)
+    // Load all sessions, evaluations, and screeners (will be filtered by selectedSchool)
     const allSessions = await getSessions();
     const allEvaluations = await getEvaluations();
+    const allScreeners = await getArticulationScreeners();
     const allStudents = await getStudents();
     
     setSessions(allSessions);
     setEvaluations(allEvaluations);
+    setScreeners(allScreeners);
     setStudents(allStudents);
     
     // Load communications for the selected school
@@ -210,6 +215,22 @@ export const TimeTracking = () => {
       });
     });
     
+    // Add articulation screeners
+    screeners.forEach(screener => {
+      // Filter by the actively selected school
+      const screenerSchool = getSchoolForItem(screener.studentId);
+      if (screenerSchool !== selectedSchool) {
+        return; // Skip this screener if it doesn't match the selected school
+      }
+      
+      items.push({
+        id: screener.id,
+        type: 'screener' as const,
+        date: screener.date,
+        data: screener,
+      });
+    });
+    
     // Sort all items by date/time chronologically (most recent first)
     // This ensures group sessions, individual sessions, and evaluations are all intermingled correctly
     const sorted = items.sort((a, b) => {
@@ -223,7 +244,7 @@ export const TimeTracking = () => {
     });
     
     return sorted;
-  }, [sessions, evaluations, students, selectedSchool]);
+  }, [sessions, evaluations, screeners, students, selectedSchool]);
 
   // Filter items by selected date
   const filteredItems = useMemo(() => {
@@ -462,6 +483,14 @@ export const TimeTracking = () => {
                 <EvaluationTimeItem
                   key={item.id}
                   evaluation={item.data as Evaluation}
+                  getStudentName={getStudentName}
+                />
+              );
+            } else if (item.type === 'screener') {
+              return (
+                <ArticulationScreenerTimeItem
+                  key={item.id}
+                  screener={item.data as ArticulationScreener}
                   getStudentName={getStudentName}
                 />
               );

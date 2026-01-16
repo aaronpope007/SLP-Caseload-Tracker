@@ -1,11 +1,11 @@
-import type { Session, Student, Evaluation, Communication, ScheduledSession } from '../types';
+import type { Session, Student, Evaluation, Communication, ScheduledSession, ArticulationScreener } from '../types';
 import { parse, format, isSameDay, isBefore, isAfter, setHours, setMinutes } from 'date-fns';
 
 interface TimeTrackingItem {
   id: string;
-  type: 'session' | 'evaluation';
+  type: 'session' | 'evaluation' | 'screener';
   date: string;
-  data: Session | Evaluation;
+  data: Session | Evaluation | ArticulationScreener;
 }
 
 interface GenerateTimesheetNoteParams {

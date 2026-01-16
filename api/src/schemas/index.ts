@@ -246,6 +246,27 @@ export const createEvaluationSchema = evaluationSchema.omit({ id: true });
 export const updateEvaluationSchema = evaluationSchema.partial();
 
 // ============================================================================
+// Articulation Screener Schema
+// ============================================================================
+
+export const disorderedPhonemeSchema = z.object({
+  phoneme: nonEmptyString.pipe(z.string().max(10, 'Phoneme must be 10 characters or less')),
+  note: optionalString,
+});
+
+export const articulationScreenerSchema = z.object({
+  id: idString.optional(),
+  studentId: idString,
+  date: isoDateString,
+  disorderedPhonemes: z.array(disorderedPhonemeSchema).min(0, 'Disordered phonemes array is required'),
+  report: optionalString,
+  evaluationId: optionalString,
+});
+
+export const createArticulationScreenerSchema = articulationScreenerSchema.omit({ id: true });
+export const updateArticulationScreenerSchema = articulationScreenerSchema.partial();
+
+// ============================================================================
 // SOAP Note Schema
 // ============================================================================
 
@@ -477,4 +498,5 @@ export type CommunicationInput = z.infer<typeof createCommunicationSchema>;
 export type EmailInput = z.infer<typeof emailSchema>;
 export type TimesheetNoteInput = z.infer<typeof createTimesheetNoteSchema>;
 export type TodoInput = z.infer<typeof createTodoSchema>;
+export type ArticulationScreenerInput = z.infer<typeof createArticulationScreenerSchema>;
 

@@ -5,7 +5,7 @@
  * Set VITE_API_URL in your .env file or it defaults to http://localhost:3001
  */
 
-import type { Student, Goal, Session, Activity, Evaluation, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Meeting, Reminder, Communication, ScheduledSession, TimesheetNote, Todo } from '../types';
+import type { Student, Goal, Session, Activity, Evaluation, ArticulationScreener, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Meeting, Reminder, Communication, ScheduledSession, TimesheetNote, Todo } from '../types';
 import { buildQueryString } from './queryHelpers';
 import { logError } from './logger';
 
@@ -363,6 +363,28 @@ export const api = {
       }),
     delete: (id: string) => 
       request<{ message: string }>(`/evaluations/${id}`, {
+        method: 'DELETE',
+      }),
+  },
+
+  // Articulation Screeners
+  articulationScreeners: {
+    getAll: (studentId?: string, school?: string) => 
+      request<ArticulationScreener[]>(`/articulation-screeners${buildQueryString({ studentId, school })}`),
+    getById: (id: string) => 
+      request<ArticulationScreener>(`/articulation-screeners/${id}`),
+    create: (screener: Omit<ArticulationScreener, 'id' | 'dateCreated' | 'dateUpdated'>) => 
+      request<{ id: string; message: string }>('/articulation-screeners', {
+        method: 'POST',
+        body: JSON.stringify(screener),
+      }),
+    update: (id: string, updates: Partial<ArticulationScreener>) => 
+      request<{ message: string }>(`/articulation-screeners/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      }),
+    delete: (id: string) => 
+      request<{ message: string }>(`/articulation-screeners/${id}`, {
         method: 'DELETE',
       }),
   },

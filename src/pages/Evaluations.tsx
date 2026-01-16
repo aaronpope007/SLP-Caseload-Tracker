@@ -25,18 +25,22 @@ import {
   Delete as DeleteIcon,
   Edit as EditIcon,
   Person as PersonIcon,
+  RecordVoiceOver as RecordVoiceOverIcon,
 } from '@mui/icons-material';
-import type { Evaluation, Student } from '../types';
+import type { Evaluation, Student, ArticulationScreener } from '../types';
 import {
   getEvaluations,
   addEvaluation,
   updateEvaluation,
   deleteEvaluation,
   getStudents,
+  getArticulationScreeners,
+  getArticulationScreenersByStudent,
 } from '../utils/storage-api';
 import { generateId, formatDate } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
 import { useConfirm, useSnackbar, useDialog } from '../hooks';
+import { ArticulationScreenerDialog } from '../components/ArticulationScreenerDialog';
 
 export const Evaluations = () => {
   const navigate = useNavigate();
@@ -44,9 +48,13 @@ export const Evaluations = () => {
   const { confirm, ConfirmDialog } = useConfirm();
   const { showSnackbar, SnackbarComponent } = useSnackbar();
   const evaluationDialog = useDialog();
+  const screenerDialog = useDialog();
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [editingEvaluation, setEditingEvaluation] = useState<Evaluation | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [screenerStudentId, setScreenerStudentId] = useState<string>('');
+  const [editingScreener, setEditingScreener] = useState<ArticulationScreener | null>(null);
   const [formData, setFormData] = useState({
     studentId: '',
     grade: '',
@@ -180,6 +188,25 @@ export const Evaluations = () => {
     });
   };
 
+  const handleOpenScreener = () => {
+    if (screenerStudentId) {
+      const student = students.find(s => s.id === screenerStudentId);
+      if (student) {
+        setSelectedStudent(student);
+        setEditingScreener(null);
+        screenerDialog.openDialog();
+      }
+    } else {
+      alert('Please select a student first');
+    }
+  };
+
+  const handleCloseScreener = () => {
+    screenerDialog.closeDialog();
+    setSelectedStudent(null);
+    setEditingScreener(null);
+  };
+
 
   const columns: GridColDef[] = [
     {
@@ -301,13 +328,37 @@ export const Evaluations = () => {
         <Typography variant="h4" component="h1">
           Evaluation Tracker
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => handleOpenDialog()}
-        >
-          Add Evaluation
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <FormControl size="small" sx={{ minWidth: 200 }}>
+            <InputLabel>Select Student for Screener</InputLabel>
+            <Select
+              value={screenerStudentId}
+              onChange={(e) => setScreenerStudentId(e.target.value)}
+              label="Select Student for Screener"
+            >
+              {students.map((student) => (
+                <MenuItem key={student.id} value={student.id}>
+                  {student.name} ({student.grade})
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <Button
+            variant="outlined"
+            startIcon={<RecordVoiceOverIcon />}
+            onClick={handleOpenScreener}
+            disabled={!screenerStudentId}
+          >
+            Articulation Screener
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpenDialog()}
+          >
+            Add Evaluation
+          </Button>
+        </Box>
       </Box>
 
       <Box sx={{ height: 'calc(100vh - 200px)', width: '100%' }}>
@@ -453,6 +504,18 @@ export const Evaluations = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {selectedStudent && (
+        <ArticulationScreenerDialog
+          open={screenerDialog.open}
+          onClose={handleCloseScreener}
+          student={selectedStudent}
+          evaluation={editingEvaluation || undefined}
+          onScreenerCreated={() => {
+            loadData();
+          }}
+        />
+      )}
 
       <ConfirmDialog />
 

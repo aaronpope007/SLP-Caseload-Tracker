@@ -3,7 +3,7 @@
  * This replaces localStorage with API calls to the Express + SQLite backend
  */
 
-import type { Student, Goal, Session, Activity, Evaluation, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Meeting, Reminder, ScheduledSession, Todo } from '../types';
+import type { Student, Goal, Session, Activity, Evaluation, ArticulationScreener, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Meeting, Reminder, ScheduledSession, Todo } from '../types';
 import { api } from './api';
 import { logError, logDebug } from './logger';
 
@@ -257,6 +257,46 @@ export const updateEvaluation = async (id: string, updates: Partial<Evaluation>)
 
 export const deleteEvaluation = async (id: string): Promise<void> => {
   await api.evaluations.delete(id);
+};
+
+// Articulation Screeners
+export const getArticulationScreeners = async (school?: string): Promise<ArticulationScreener[]> => {
+  try {
+    return await api.articulationScreeners.getAll(undefined, school);
+  } catch (error) {
+    logError('Failed to fetch articulation screeners', error);
+    return [];
+  }
+};
+
+export const getArticulationScreenersByStudent = async (studentId: string): Promise<ArticulationScreener[]> => {
+  try {
+    return await api.articulationScreeners.getAll(studentId);
+  } catch (error) {
+    logError('Failed to fetch articulation screeners', error);
+    return [];
+  }
+};
+
+export const getArticulationScreenerById = async (id: string): Promise<ArticulationScreener | null> => {
+  try {
+    return await api.articulationScreeners.getById(id);
+  } catch (error) {
+    logError('Failed to fetch articulation screener', error);
+    return null;
+  }
+};
+
+export const addArticulationScreener = async (screener: ArticulationScreener): Promise<void> => {
+  await api.articulationScreeners.create(screener);
+};
+
+export const updateArticulationScreener = async (id: string, updates: Partial<ArticulationScreener>): Promise<void> => {
+  await api.articulationScreeners.update(id, updates);
+};
+
+export const deleteArticulationScreener = async (id: string): Promise<void> => {
+  await api.articulationScreeners.delete(id);
 };
 
 // Schools

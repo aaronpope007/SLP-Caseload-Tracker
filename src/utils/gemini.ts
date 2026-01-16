@@ -653,3 +653,93 @@ Format the template clearly with sections, subsections, and appropriate structur
   }
 };
 
+// Articulation Screening Report
+export const generateArticulationScreeningReport = async (
+  apiKey: string,
+  studentAge: number,
+  studentGrade: string,
+  disorderedPhonemes: Array<{ phoneme: string; note?: string }>
+): Promise<string> => {
+  if (!apiKey) {
+    throw new Error('API key is required');
+  }
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+  
+  let availableModels = await getAvailableModels(apiKey);
+  if (availableModels.length === 0) {
+    availableModels = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
+  }
+
+  // Format disordered phonemes data (without PHI - no student name)
+  const phonemesList = disorderedPhonemes.map(dp => {
+    let entry = `- ${dp.phoneme}`;
+    if (dp.note) {
+      entry += `: ${dp.note}`;
+    }
+    return entry;
+  }).join('\n');
+
+  const phonemesText = disorderedPhonemes.length > 0 
+    ? phonemesList 
+    : 'None identified';
+
+  const prompt = `You are an expert speech-language pathologist creating an articulation screening report. Based on the following screening data, generate a comprehensive, professional screening report:
+
+Student Age: ${studentAge}
+Grade: ${studentGrade}
+
+Disordered Phonemes Identified:
+${phonemesText}
+
+Generate a professional articulation screening report that includes:
+1. **Summary** - Brief overview of the screening findings
+2. **Disordered Phonemes** - List and organize the identified disordered phonemes by:
+   - Place of articulation (Bilabial, Labiodental, Dental, Alveolar, Post-alveolar, Palatal, Velar, Glottal)
+   - Manner of articulation (Stop, Fricative, Affricate, Nasal, Liquid, Glide)
+   - Voicing (Voiced/Voiceless)
+3. **Error Patterns** - Identify common phonological processes or error patterns observed (e.g., fronting, stopping, cluster reduction, etc.)
+4. **Severity Analysis** - Provide an assessment of severity level (mild, moderate, moderate-severe, severe) based on the number and types of disordered phonemes
+5. **Impact on Speech Intelligibility** - Discuss how the identified errors may affect overall speech clarity
+6. **Age-Appropriateness** - Note which phonemes are typically acquired by the student's age vs. those that may still be developing
+7. **Recommendations** - Provide specific, actionable recommendations including:
+   - Need for comprehensive evaluation (if indicated)
+   - Suggested treatment targets and priorities
+   - Expected prognosis
+   - Suggested goals for therapy (if treatment is recommended)
+8. **Conclusion** - Summary statement about next steps
+
+Format the report in clear sections with professional SLP terminology. Use objective language and base recommendations on evidence-based practice. Be specific about phoneme characteristics and error patterns observed.`;
+
+  let lastError: Error | null = null;
+
+  for (const modelName of availableModels) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      return response.text();
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStatus = (error as { status?: number })?.status;
+      lastError = error instanceof Error ? error : new Error(errorMessage);
+      if (errorStatus === 404 || errorMessage?.includes('404') || errorMessage?.includes('not found')) {
+        continue;
+      }
+      break;
+    }
+  }
+
+  const errorMessage = lastError?.message || 'Unknown error';
+  const errorStatus = (lastError as { status?: number })?.status;
+  if (errorStatus === 404 || errorMessage?.includes('404') || errorMessage?.includes('not found')) {
+    throw new Error('No available Gemini models found. Please check your API key permissions in Google AI Studio or try regenerating your API key.');
+  } else if (errorStatus === 401 || errorMessage?.includes('401')) {
+    throw new Error('Invalid API key. Please check your API key in Settings.');
+  } else if (errorStatus === 403 || errorMessage?.includes('403')) {
+    throw new Error('API key does not have permission. Please enable Gemini API in Google Cloud Console.');
+  } else {
+    throw new Error(`Failed to generate articulation screening report: ${errorMessage}`);
+  }
+};
+
