@@ -656,9 +656,11 @@ Format the template clearly with sections, subsections, and appropriate structur
 // Articulation Screening Report
 export const generateArticulationScreeningReport = async (
   apiKey: string,
+  studentName: string,
   studentAge: number,
   studentGrade: string,
-  disorderedPhonemes: Array<{ phoneme: string; note?: string }>
+  disorderedPhonemes: Array<{ phoneme: string; note?: string }>,
+  slpName: string = 'Aaron Pope'
 ): Promise<string> => {
   if (!apiKey) {
     throw new Error('API key is required');
@@ -671,11 +673,11 @@ export const generateArticulationScreeningReport = async (
     availableModels = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
   }
 
-  // Format disordered phonemes data (without PHI - no student name)
+  // Format disordered phonemes data with proper markdown formatting
   const phonemesList = disorderedPhonemes.map(dp => {
-    let entry = `- ${dp.phoneme}`;
+    let entry = `- **Phoneme: /${dp.phoneme}/**`;
     if (dp.note) {
-      entry += `: ${dp.note}`;
+      entry += `\n  - ${dp.note}`;
     }
     return entry;
   }).join('\n');
@@ -686,15 +688,23 @@ export const generateArticulationScreeningReport = async (
 
   const prompt = `You are an expert speech-language pathologist creating an articulation screening report. Based on the following screening data, generate a comprehensive, professional screening report:
 
+Student Name: ${studentName}
 Student Age: ${studentAge}
 Grade: ${studentGrade}
+Speech-Language Pathologist: ${slpName}
 
 Disordered Phonemes Identified:
 ${phonemesText}
 
 Generate a professional articulation screening report that includes:
 1. **Summary** - Brief overview of the screening findings
-2. **Disordered Phonemes** - List and organize the identified disordered phonemes by:
+2. **Disordered Phonemes** - List and organize the identified disordered phonemes. For each phoneme, use this format:
+   - **Phoneme: /phoneme/**
+     - **Place:** [Place of articulation]
+     - **Manner:** [Manner of articulation]
+     - **Voicing:** [Voiced/Voiceless]
+     - **Error Observed:** [Description of the error]
+   Organize by:
    - Place of articulation (Bilabial, Labiodental, Dental, Alveolar, Post-alveolar, Palatal, Velar, Glottal)
    - Manner of articulation (Stop, Fricative, Affricate, Nasal, Liquid, Glide)
    - Voicing (Voiced/Voiceless)
@@ -709,7 +719,7 @@ Generate a professional articulation screening report that includes:
    - Suggested goals for therapy (if treatment is recommended)
 8. **Conclusion** - Summary statement about next steps
 
-Format the report in clear sections with professional SLP terminology. Use objective language and base recommendations on evidence-based practice. Be specific about phoneme characteristics and error patterns observed.`;
+Format the report in clear sections with professional SLP terminology. Use objective language and base recommendations on evidence-based practice. Be specific about phoneme characteristics and error patterns observed. Include the student's name and your name (${slpName}) as the SLP in the report header or signature section.`;
 
   let lastError: Error | null = null;
 

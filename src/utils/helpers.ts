@@ -290,3 +290,190 @@ export const performanceDataEqual = (
   return true;
 };
 
+/**
+ * Converts markdown and HTML to properly formatted HTML
+ * @param text - Text that may contain HTML tags or markdown formatting
+ * @returns HTML string with formatting preserved
+ */
+export const convertMarkupToHtml = (text: string): string => {
+  if (!text) return '';
+  
+  let html = text;
+  
+  // Process line by line to handle lists properly
+  const lines = html.split('\n');
+  const processedLines: string[] = [];
+  let inList = false;
+  let listType = '';
+  
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i];
+    const trimmed = line.trim();
+    
+    if (!trimmed) {
+      // Empty line - close list if open, add paragraph break
+      if (inList) {
+        processedLines.push(`</${listType}>`);
+        inList = false;
+        listType = '';
+      }
+      continue;
+    }
+    
+    // Check for headers
+    if (trimmed.startsWith('### ')) {
+      if (inList) {
+        processedLines.push(`</${listType}>`);
+        inList = false;
+        listType = '';
+      }
+      processedLines.push(`<h3>${trimmed.substring(4)}</h3>`);
+      continue;
+    }
+    if (trimmed.startsWith('## ')) {
+      if (inList) {
+        processedLines.push(`</${listType}>`);
+        inList = false;
+        listType = '';
+      }
+      processedLines.push(`<h2>${trimmed.substring(3)}</h2>`);
+      continue;
+    }
+    if (trimmed.startsWith('# ')) {
+      if (inList) {
+        processedLines.push(`</${listType}>`);
+        inList = false;
+        listType = '';
+      }
+      processedLines.push(`<h1>${trimmed.substring(2)}</h1>`);
+      continue;
+    }
+    
+    // Check for unordered list (including nested with indentation)
+    const ulMatch = line.match(/^([\s]*)[-*]\s+(.+)$/);
+    if (ulMatch) {
+      const indentLevel = ulMatch[1].length;
+      const itemContent = ulMatch[2];
+      
+      // Check if this is a nested list item (indented)
+      if (indentLevel > 0 && inList && listType === 'ul') {
+        // This is a nested item - check if we need to open a nested list
+        // For now, we'll handle it as a nested list item
+        // Process the content for inline markdown
+        let processedContent = itemContent;
+        processedContent = processedContent.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        processedContent = processedContent.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+        processedContent = processedContent.replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, '<em>$1</em>');
+        processedContent = processedContent.replace(/(?<!_)_([^_\n]+?)_(?!_)/g, '<em>$1</em>');
+        processedContent = processedContent.replace(/`([^`]+)`/g, '<code>$1</code>');
+        
+        // Add as nested list
+        processedLines.push(`<ul><li>${processedContent}</li></ul>`);
+        continue;
+      }
+      
+      // Regular list item
+      if (!inList || listType !== 'ul') {
+        if (inList) {
+          processedLines.push(`</${listType}>`);
+        }
+        processedLines.push('<ul>');
+        inList = true;
+        listType = 'ul';
+      }
+      
+      // Process the list item content for inline markdown
+      let processedContent = itemContent;
+      processedContent = processedContent.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+      processedContent = processedContent.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+      processedContent = processedContent.replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, '<em>$1</em>');
+      processedContent = processedContent.replace(/(?<!_)_([^_\n]+?)_(?!_)/g, '<em>$1</em>');
+      processedContent = processedContent.replace(/`([^`]+)`/g, '<code>$1</code>');
+      
+      processedLines.push(`<li>${processedContent}</li>`);
+      continue;
+    }
+    
+    // Check for ordered list
+    const olMatch = trimmed.match(/^\d+\.\s+(.+)$/);
+    if (olMatch) {
+      if (!inList || listType !== 'ol') {
+        if (inList) {
+          processedLines.push(`</${listType}>`);
+        }
+        processedLines.push('<ol>');
+        inList = true;
+        listType = 'ol';
+      }
+      processedLines.push(`<li>${olMatch[1]}</li>`);
+      continue;
+    }
+    
+    // Check for horizontal rule
+    if (/^[-*]{3,}$/.test(trimmed)) {
+      if (inList) {
+        processedLines.push(`</${listType}>`);
+        inList = false;
+        listType = '';
+      }
+      processedLines.push('<hr />');
+      continue;
+    }
+    
+    // Check for blockquote
+    if (trimmed.startsWith('> ')) {
+      if (inList) {
+        processedLines.push(`</${listType}>`);
+        inList = false;
+        listType = '';
+      }
+      processedLines.push(`<blockquote>${trimmed.substring(2)}</blockquote>`);
+      continue;
+    }
+    
+    // Regular paragraph text
+    if (inList) {
+      processedLines.push(`</${listType}>`);
+      inList = false;
+      listType = '';
+    }
+    
+    // Convert inline markdown in the line
+    let processedLine = trimmed;
+    
+    // Convert code blocks first (before other formatting)
+    processedLine = processedLine.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+    
+    // Convert inline code
+    processedLine = processedLine.replace(/`([^`]+)`/g, '<code>$1</code>');
+    
+    // Convert bold (**text** or __text__) - do this first
+    processedLine = processedLine.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    processedLine = processedLine.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+    
+    // Convert italic (*text* or _text_) - only single asterisks/underscores not part of bold
+    // Match single * or _ that aren't adjacent to another * or _
+    processedLine = processedLine.replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, '<em>$1</em>');
+    processedLine = processedLine.replace(/(?<!_)_([^_\n]+?)_(?!_)/g, '<em>$1</em>');
+    
+    // Convert links [text](url)
+    processedLine = processedLine.replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    
+    // If it's a pre block, don't wrap in paragraph
+    if (processedLine.includes('<pre>')) {
+      processedLines.push(processedLine);
+    } else {
+      processedLines.push(`<p>${processedLine}</p>`);
+    }
+  }
+  
+  // Close any open list
+  if (inList) {
+    processedLines.push(`</${listType}>`);
+  }
+  
+  html = processedLines.join('\n');
+  
+  return html;
+};
+

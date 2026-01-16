@@ -191,11 +191,16 @@ export const ArticulationScreenerDialog = ({
         note: phonemeNotes[dp.phoneme] || dp.note || undefined,
       }));
 
+      // Get SLP name from localStorage
+      const slpName = localStorage.getItem('user_name') || 'Aaron Pope';
+      
       const generatedReport = await generateArticulationScreeningReport(
         apiKey,
+        student.name,
         student.age,
         student.grade,
-        phonemesWithNotes
+        phonemesWithNotes,
+        slpName
       );
 
       if (!isMountedRef.current) return;
