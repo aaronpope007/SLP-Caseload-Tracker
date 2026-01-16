@@ -163,28 +163,52 @@ export const SessionCalendar = () => {
   });
   const initialFormDataRef = useRef<typeof formData | null>(null);
   const initialSessionFormDataRef = useRef<typeof sessionFormData | null>(null);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    isMountedRef.current = true;
     loadData();
   }, [selectedSchool]);
 
   const loadData = async () => {
     try {
       const schoolObj = await getSchoolByName(selectedSchool);
-      setSchool(schoolObj || null);
+      if (isMountedRef.current) {
+        setSchool(schoolObj || null);
+      }
       const schoolStudents = await getStudents(selectedSchool);
-      setStudents(schoolStudents.filter(s => s.archived !== true));
+      if (isMountedRef.current) {
+        setStudents(schoolStudents.filter(s => s.archived !== true));
+      }
       const allSessions = await getSessions();
-      const studentIds = new Set(schoolStudents.map(s => s.id));
-      setSessions(allSessions.filter(s => studentIds.has(s.studentId)));
+      if (isMountedRef.current) {
+        const studentIds = new Set(schoolStudents.map(s => s.id));
+        setSessions(allSessions.filter(s => studentIds.has(s.studentId)));
+      }
       const allGoals = await getGoals();
-      setGoals(allGoals.filter(g => studentIds.has(g.studentId)));
+      if (isMountedRef.current) {
+        const studentIds = new Set(schoolStudents.map(s => s.id));
+        setGoals(allGoals.filter(g => studentIds.has(g.studentId)));
+      }
       const scheduled = await getScheduledSessions(selectedSchool);
-      setScheduledSessions(scheduled);
+      if (isMountedRef.current) {
+        setScheduledSessions(scheduled);
+      }
       const schoolMeetings = await getMeetings(undefined, selectedSchool);
-      setMeetings(schoolMeetings);
+      if (isMountedRef.current) {
+        setMeetings(schoolMeetings);
+      }
     } catch (error) {
-      logError('Calendar: Error loading data', error);
+      if (isMountedRef.current) {
+        logError('Calendar: Error loading data', error);
+      }
     }
   };
 
@@ -944,6 +968,7 @@ export const SessionCalendar = () => {
   };
 
   const handleSave = async () => {
+    if (!isMountedRef.current) return;
     if (formData.studentIds.length === 0) {
       alert('Please select at least one student');
       return;
@@ -973,13 +998,16 @@ export const SessionCalendar = () => {
       } else {
         await addScheduledSession(scheduledSession);
       }
+      if (!isMountedRef.current) return;
     } catch (error) {
+      if (!isMountedRef.current) return;
       logError('Calendar: Error saving scheduled session', error);
       alert('Failed to save scheduled session. Please try again.');
       return;
     }
 
     await loadData();
+    if (!isMountedRef.current) return;
     initialFormDataRef.current = null;
     doCloseDialog();
   };
@@ -1338,6 +1366,7 @@ export const SessionCalendar = () => {
       confirmText: 'Delete',
       cancelText: 'Cancel',
       onConfirm: async () => {
+        if (!isMountedRef.current) return;
         try {
           if (editingSession) {
             // Delete single session
@@ -1348,13 +1377,17 @@ export const SessionCalendar = () => {
             const groupSessions = sessions.filter(s => s.groupSessionId === editingGroupSessionId && s.groupSessionId !== null);
             for (const session of groupSessions) {
               await deleteSession(session.id);
+              if (!isMountedRef.current) return;
             }
           }
 
+          if (!isMountedRef.current) return;
           // Reload data to update calendar
           await loadData();
+          if (!isMountedRef.current) return;
           handleCloseSessionDialog();
         } catch (error) {
+          if (!isMountedRef.current) return;
           logError('Failed to delete session', error);
           alert('Failed to delete session. Please try again.');
         }
@@ -1363,6 +1396,7 @@ export const SessionCalendar = () => {
   };
 
   const handleSaveSession = async () => {
+    if (!isMountedRef.current) return;
     if (sessionFormData.studentIds.length === 0) {
       alert('Please select at least one student');
       return;
@@ -1401,6 +1435,7 @@ export const SessionCalendar = () => {
         };
 
         await updateSession(editingSession.id, updates);
+        if (!isMountedRef.current) return;
       } else if (editingGroupSessionId) {
         // Editing a group session - update all sessions in the group
         const groupSessions = sessions.filter(s => s.groupSessionId === editingGroupSessionId);
@@ -1435,6 +1470,7 @@ export const SessionCalendar = () => {
           };
 
           await updateSession(existingSession.id, updates);
+          if (!isMountedRef.current) return;
         }
       } else {
         // Creating new session(s)
@@ -1474,13 +1510,17 @@ export const SessionCalendar = () => {
           };
 
           await addSession(sessionData);
+          if (!isMountedRef.current) return;
         }
       }
 
+      if (!isMountedRef.current) return;
       // Reload data to show the updated/new session and update calendar colors
       await loadData();
+      if (!isMountedRef.current) return;
       handleCloseSessionDialog(true); // Force close without confirmation since we just saved
     } catch (error) {
+      if (!isMountedRef.current) return;
       logError('Failed to save session', error);
       alert('Failed to save session. Please try again.');
     }
@@ -1670,6 +1710,7 @@ export const SessionCalendar = () => {
   };
 
   const handleDrop = async (targetDate: Date) => {
+    if (!isMountedRef.current) return;
     if (!draggedSession) return;
 
     const event = calendarEvents.find(e => e.id === draggedSession);
@@ -1684,6 +1725,7 @@ export const SessionCalendar = () => {
       await updateScheduledSession(scheduled.id, {
         startDate: format(targetDate, 'yyyy-MM-dd'),
       });
+      if (!isMountedRef.current) return;
     } else if (scheduled.recurrencePattern === 'specific-dates') {
       const oldDateStr = format(event.date, 'yyyy-MM-dd');
       const newDates = scheduled.specificDates?.filter(d => d !== oldDateStr) || [];
@@ -1691,6 +1733,7 @@ export const SessionCalendar = () => {
       await updateScheduledSession(scheduled.id, {
         specificDates: newDates.sort(),
       });
+      if (!isMountedRef.current) return;
     }
 
     setDraggedSession(null);
@@ -1702,6 +1745,7 @@ export const SessionCalendar = () => {
   };
 
   const performCancellation = async (event: CalendarEvent) => {
+    if (!isMountedRef.current) return;
     if (!Array.isArray(scheduledSessions)) return;
     const scheduled = scheduledSessions.find(s => s.id === event.scheduledSessionId);
     if (!scheduled) return;
@@ -1720,6 +1764,7 @@ export const SessionCalendar = () => {
       await updateScheduledSession(scheduled.id, {
         cancelledDates: [...cancelledDates, dateStr],
       });
+      if (!isMountedRef.current) return;
       await loadData();
     }
   };
@@ -1750,10 +1795,13 @@ export const SessionCalendar = () => {
       confirmText: 'Delete',
       cancelText: 'Cancel',
       onConfirm: async () => {
+        if (!isMountedRef.current) return;
         try {
           await deleteMeeting(event.meetingId!);
+          if (!isMountedRef.current) return;
           await loadData();
         } catch (error) {
+          if (!isMountedRef.current) return;
           logError('Failed to delete meeting', error);
           alert('Failed to delete meeting. Please try again.');
         }
@@ -1762,13 +1810,16 @@ export const SessionCalendar = () => {
   };
 
   const handleCancellationEmailSent = async () => {
+    if (!isMountedRef.current) return;
     if (pendingCancellation?.event) {
       await performCancellation(pendingCancellation.event);
+      if (!isMountedRef.current) return;
       setPendingCancellation(null);
     } else if (pendingCancellation?.events) {
       // Handle multiple events cancellation
       for (const event of pendingCancellation.events) {
         await performCancellation(event);
+        if (!isMountedRef.current) return;
       }
       setPendingCancellation(null);
     }
@@ -2908,13 +2959,16 @@ export const SessionCalendar = () => {
         <CancellationEmailDialog
           open={cancellationEmailDialogOpen}
           onClose={async () => {
+            if (!isMountedRef.current) return;
             setCancellationEmailDialogOpen(false);
             // Perform cancellation when dialog closes (whether email was sent or not)
             if (pendingCancellation?.event) {
               await performCancellation(pendingCancellation.event);
+              if (!isMountedRef.current) return;
             } else if (pendingCancellation?.events) {
               for (const event of pendingCancellation.events) {
                 await performCancellation(event);
+                if (!isMountedRef.current) return;
               }
             }
             setPendingCancellation(null);
