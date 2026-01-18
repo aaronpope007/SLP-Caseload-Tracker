@@ -132,6 +132,7 @@ export const useAIFeatures = ({ apiKey, studentName, studentAge, studentGrade }:
     treatmentRecsError,
     generateTreatmentRecs,
     setTreatmentRecommendations,
+    setTreatmentRecsError,
 
     // IEP Goals
     iepGoals,

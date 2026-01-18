@@ -1,41 +1,22 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Button,
-  Card,
-  CardContent,
-  Chip,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   Grid,
   Typography,
-  Snackbar,
-  Alert,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
-  Add as AddIcon,
-  Psychology as PsychologyIcon,
-  School as SchoolIcon,
 } from '@mui/icons-material';
-import type { Student, Goal, Session, GoalTemplate } from '../types';
-import {
-  getGoals,
-} from '../utils/storage-api';
-import { generateId } from '../utils/helpers';
+import type { Student, Goal, Session } from '../types';
 import { useSchool } from '../context/SchoolContext';
 import { useConfirm, useSnackbar, useGoalManagement, useGoalForm, useGoalTemplate, useGoalSubtree, useQuickGoals, useGoalSave, useGoalDialogHandlers, useGoalDelete, useTreatmentRecommendations, useAIFeatures, useDialog, useStudentData, useSessionData, usePerformanceHelpers, useGoalTemplateHandler, useGoalSubtreeHandler, useFormValidation } from '../hooks';
 import { useDirty } from '../hooks/useDirty';
-import { ApiError } from '../utils/api';
-import {
-  generateGoalSuggestions,
-  generateTreatmentRecommendations,
-  generateIEPGoals,
-  type GoalProgressData,
-} from '../utils/gemini';
 import { GoalFormDialog } from '../components/goal/GoalFormDialog';
 import { GoalSuggestionsDialog } from '../components/goal/GoalSuggestionsDialog';
 import { TreatmentRecommendationsDialog } from '../components/TreatmentRecommendationsDialog';
@@ -46,7 +27,6 @@ import { GoalActionsBar } from '../components/goal/GoalActionsBar';
 import { GoalsList } from '../components/goal/GoalsList';
 import { CopySubtreeDialog } from '../components/goal/CopySubtreeDialog';
 import { QuickGoalsDialog } from '../components/goal/QuickGoalsDialog';
-import { logError } from '../utils/logger';
 
 export const StudentDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -57,7 +37,17 @@ export const StudentDetail = () => {
   const [sessions, setSessions] = useState<Session[]>([]);
   const { confirm, ConfirmDialog } = useConfirm();
   const { showSnackbar, SnackbarComponent } = useSnackbar();
-  const { fieldErrors, hasError, getError, clearError, handleApiError, clearAllErrors } = useFormValidation();
+  const { fieldErrors, clearError, handleApiError } = useFormValidation();
+  
+  // Track if component is mounted to prevent memory leaks
+  const isMountedRef = useRef(true);
+  
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
   
   // Student data loading hook - must be declared early
   const { loadStudent } = useStudentData({
@@ -110,8 +100,13 @@ export const StudentDetail = () => {
     message: 'You have unsaved changes to this goal. Are you sure you want to leave?',
   });
   
+  // Wrapper for updateFormField to match useGoalTemplate's expected signature
+  const updateFormFieldWrapper = useCallback((field: string, value: unknown) => {
+    updateFormField(field as keyof typeof formData, value as typeof formData[keyof typeof formData]);
+  }, [updateFormField]);
+
   // Goal template selection hook
-  const goalTemplate = useGoalTemplate(updateFormField);
+  const goalTemplate = useGoalTemplate(updateFormFieldWrapper);
 
   // AI Features Hook - must be declared before useTreatmentRecommendations
   const apiKey = localStorage.getItem('gemini_api_key') || '';
@@ -122,11 +117,24 @@ export const StudentDetail = () => {
     studentGrade: student?.grade || '',
   });
 
+  // Wrapper functions for goalSubtree to match expected types
+  const createGoalWrapper = useCallback(async (goal: Goal): Promise<Goal> => {
+    const result = await createGoal(goal);
+    if (!result) {
+      throw new Error('Failed to create goal');
+    }
+    return result;
+  }, [createGoal]);
+
+  const updateGoalWrapper = useCallback(async (goalId: string, updates: Partial<Goal>): Promise<void> => {
+    await updateGoalById(goalId, updates);
+  }, [updateGoalById]);
+
   // Copy subtree hook
   const goalSubtree = useGoalSubtree({
     studentId: id || '',
-    createGoal,
-    updateGoal: updateGoalById,
+    createGoal: createGoalWrapper,
+    updateGoal: updateGoalWrapper,
     loadGoals,
     loadSessions,
     showSnackbar,
@@ -135,18 +143,23 @@ export const StudentDetail = () => {
   // Quick goals hook
   const quickGoals = useQuickGoals({
     studentId: id || '',
-    createGoal,
-    updateGoal: updateGoalById,
+    createGoal: createGoalWrapper,
+    updateGoal: updateGoalWrapper,
     loadGoals,
     loadSessions,
     showSnackbar,
   });
 
+  // Wrapper for updateFormField to match useGoalDialogHandlers' expected signature
+  const updateFormFieldForHandlers = useCallback((field: string, value: unknown) => {
+    updateFormField(field as keyof typeof formData, value as typeof formData[keyof typeof formData]);
+  }, [updateFormField]);
+
   // Goal dialog handlers hook
   const goalDialogHandlers = useGoalDialogHandlers({
     goals,
     initializeForm,
-    updateFormField,
+    updateFormField: updateFormFieldForHandlers,
     clearTemplate: goalTemplate.clearTemplate,
     openDialog: goalFormDialog.openDialog,
     closeDialog: goalFormDialog.closeDialog,
@@ -163,7 +176,7 @@ export const StudentDetail = () => {
     editingGoal,
     selectedTemplateId: goalTemplate.selectedTemplate?.id,
     createGoal,
-    updateGoal: updateGoalById,
+    updateGoal: updateGoalWrapper,
     loadGoals,
     loadSessions,
     closeDialog: goalFormDialog.closeDialog,
@@ -210,7 +223,7 @@ export const StudentDetail = () => {
       goalFormDialog.openDialog();
       setSearchParams({}, { replace: true });
     }
-  }, [searchParams, student, goals.length, goalFormDialog.open, setSearchParams, initializeForm, goalFormDialog]);
+  }, [searchParams, student, goals.length, goalFormDialog.open, setSearchParams, initializeForm, goalFormDialog, goalTemplate]);
 
   // Check for goalId query parameter and open edit dialog for that goal
   useEffect(() => {
@@ -286,8 +299,10 @@ export const StudentDetail = () => {
           iepGoalsDialog.openDialog();
         }}
         onGenerateTreatmentRecommendations={async () => {
+          if (!isMountedRef.current) return;
           aiFeatures.setTreatmentRecommendations('');
           await handleGenerateTreatmentRecommendations();
+          if (!isMountedRef.current) return;
           treatmentRecsDialog.openDialog();
         }}
         hasGoals={goals.length > 0}
@@ -342,7 +357,9 @@ export const StudentDetail = () => {
         error={aiFeatures.goalSuggestionsError}
         onClose={goalSuggestionsDialog.closeDialog}
         onGoalAreaChange={aiFeatures.setGoalArea}
-        onGenerate={aiFeatures.generateSuggestions}
+        onGenerate={() => {
+          aiFeatures.generateSuggestions(aiFeatures.goalArea, student?.concerns);
+        }}
       />
 
       <TreatmentRecommendationsDialog
@@ -361,7 +378,9 @@ export const StudentDetail = () => {
         error={aiFeatures.iepGoalsError}
         onClose={iepGoalsDialog.closeDialog}
         onAssessmentDataChange={aiFeatures.setAssessmentData}
-        onGenerate={aiFeatures.generateIEPGoalsFromAssessment}
+        onGenerate={() => {
+          aiFeatures.generateIEPGoalsFromAssessment(aiFeatures.assessmentData, student?.concerns);
+        }}
       />
 
       <GoalTemplateDialog
