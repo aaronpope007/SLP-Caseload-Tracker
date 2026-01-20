@@ -158,6 +158,48 @@ The migration script will:
 
 ### Export
 - `GET /api/export/all` - Export all data as JSON
+- `GET /api/export/backup-info` - Get backup information
+
+### Articulation Screeners
+- `GET /api/articulation-screeners` - Get all articulation screeners (optional `?studentId=id&school=name` filters)
+- `POST /api/articulation-screeners` - Create articulation screener
+- `GET /api/articulation-screeners/:id` - Get articulation screener by ID
+- `PUT /api/articulation-screeners/:id` - Update articulation screener
+- `DELETE /api/articulation-screeners/:id` - Delete articulation screener
+
+### Meetings
+- `GET /api/meetings` - Get all meetings (optional `?studentId=id&school=name&category=category&startDate=date&endDate=date` filters)
+- `POST /api/meetings` - Create meeting
+- `GET /api/meetings/:id` - Get meeting by ID
+- `PUT /api/meetings/:id` - Update meeting
+- `DELETE /api/meetings/:id` - Delete meeting
+
+### Todos
+- `GET /api/todos` - Get all todos
+- `POST /api/todos` - Create todo
+- `GET /api/todos/:id` - Get todo by ID
+- `PUT /api/todos/:id` - Update todo
+- `POST /api/todos/:id/toggle` - Toggle todo completion status
+- `DELETE /api/todos/:id` - Delete todo
+
+### Seed Test Data
+- `POST /api/seed-test-data` - Create test data (school, teachers, students)
+- `DELETE /api/seed-test-data` - Delete all test data
+- `GET /api/seed-test-data/exists` - Check if test data exists
+
+### Backup
+- `GET /api/backup` - List all backups
+- `POST /api/backup` - Create a new backup
+- `GET /api/backup/:filename` - Download a backup file
+- `DELETE /api/backup/:filename` - Delete a backup
+- `POST /api/backup/:filename/restore` - Restore database from backup
+
+### Authentication
+- `GET /api/auth/status` - Check authentication status (public endpoint)
+- `POST /api/auth/setup` - Set up authentication with initial password
+- `POST /api/auth/login` - Login with password
+- `POST /api/auth/change-password` - Change password
+- `POST /api/auth/logout` - Logout (client-side token removal)
 
 ## Backup
 

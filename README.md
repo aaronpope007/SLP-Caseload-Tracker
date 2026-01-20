@@ -376,13 +376,29 @@ curl http://localhost:3001/api/export/all > backup.json
 
 ```
 SLP Caseload Tracker/
+├── api/                  # Backend API server (Express + SQLite)
+│   ├── src/
+│   │   ├── routes/       # API route handlers
+│   │   ├── db.ts         # Database setup and schema
+│   │   ├── server.ts     # Express server
+│   │   ├── middleware/   # Express middleware
+│   │   ├── schemas/      # Zod validation schemas
+│   │   ├── utils/        # Backend utilities
+│   │   └── config/       # Configuration files
+│   ├── data/             # SQLite database storage
+│   │   ├── slp-caseload.db
+│   │   └── backups/      # Database backups
+│   ├── package.json
+│   └── README.md         # API documentation
 ├── src/
-│   ├── components/        # Reusable UI components
-│   │   ├── ErrorBoundary.tsx
-│   │   ├── ExportDialog.tsx
-│   │   ├── Layout.tsx
-│   │   └── SettingsDialog.tsx
-│   ├── pages/            # Main application pages
+│   ├── components/       # Reusable UI components
+│   │   ├── common/       # Common/shared components
+│   │   ├── goal/         # Goal-related components
+│   │   ├── session/      # Session-related components
+│   │   ├── student/      # Student-related components
+│   │   ├── settings/     # Settings components
+│   │   └── ...
+│   ├── pages/            # Main application pages (routes)
 │   │   ├── Dashboard.tsx
 │   │   ├── Students.tsx
 │   │   ├── StudentDetail.tsx
@@ -399,23 +415,30 @@ SLP Caseload Tracker/
 │   │   ├── Teachers.tsx
 │   │   ├── CaseManagers.tsx
 │   │   ├── Communications.tsx
-│   │   └── DueDateItems.tsx
+│   │   ├── DueDateItems.tsx
+│   │   ├── Login.tsx
+│   │   └── NotFound.tsx
+│   ├── hooks/            # Custom React hooks
+│   │   ├── useAIFeatures.ts
+│   │   ├── useSessionManagement.ts
+│   │   ├── useGoalManagement.ts
+│   │   └── ...
+│   ├── context/          # React context providers
+│   │   ├── SchoolContext.tsx
+│   │   ├── ThemeContext.tsx
+│   │   ├── AuthContext.tsx
+│   │   └── SessionDialogContext.tsx
 │   ├── types/            # TypeScript type definitions
 │   │   └── index.ts
 │   ├── utils/            # Utility functions
 │   │   ├── api.ts        # API client for backend communication
+│   │   ├── storage-api.ts # Legacy storage API (if any)
 │   │   ├── helpers.ts    # Helper functions
 │   │   ├── gemini.ts     # Gemini AI integration
 │   │   ├── goalTemplates.ts  # Goal templates library
 │   │   ├── soapNoteGenerator.ts  # SOAP note generation
-│   │   └── timesheetNoteGenerator.ts  # Timesheet note generation
-│   └── api/              # Backend API server
-│       ├── src/
-│       │   ├── routes/   # API route handlers
-│       │   ├── db.ts     # Database setup and schema
-│       │   └── server.ts # Express server
-│       └── data/         # SQLite database storage
-│           └── slp-caseload.db
+│   │   ├── timesheetNoteGenerator.ts  # Timesheet note generation
+│   │   └── ...
 │   ├── App.tsx           # Main app component
 │   └── main.tsx          # Application entry point
 └── package.json
