@@ -19,12 +19,15 @@ import {
   Checkbox,
   FormGroup,
   FormLabel,
+  InputAdornment,
+  IconButton,
 } from '@mui/material';
 import {
   Add as AddIcon,
   UnfoldMore as UnfoldMoreIcon,
   UnfoldLess as UnfoldLessIcon,
   UploadFile as UploadFileIcon,
+  Clear as ClearIcon,
 } from '@mui/icons-material';
 import type { Teacher, CaseManager } from '../types';
 import {
@@ -66,7 +69,7 @@ export const Teachers = () => {
   const importDialog = useDialog();
   const { showSnackbar, SnackbarComponent } = useSnackbar();
   const { confirm, ConfirmDialog } = useConfirm();
-  const { hasError, getError, clearError, clearAllErrors, handleApiError } = useFormValidation();
+  const { hasError, getError, clearError, clearAllErrors, handleApiError, setFieldErrors } = useFormValidation();
 
   // Check if form is dirty
   const isFormDirty = () => {
@@ -220,7 +223,7 @@ export const Teachers = () => {
     // Validate phone number if provided
     const phoneDigits = stripPhoneFormatting(formData.phoneNumber);
     if (formData.phoneNumber.trim() && phoneDigits.length !== 10) {
-      alert('Phone number must be exactly 10 digits');
+      setFieldErrors({ phoneNumber: 'Phone number must be exactly 10 digits' });
       return;
     }
 
@@ -480,12 +483,30 @@ export const Teachers = () => {
               onChange={(e) => {
                 const formatted = formatPhoneNumber(e.target.value);
                 setFormData({ ...formData, phoneNumber: formatted });
+                clearError('phoneNumber');
               }}
               placeholder="(612) 555-5555"
-              helperText={formData.phoneNumber.trim() && stripPhoneFormatting(formData.phoneNumber).length !== 10 
+              helperText={getError('phoneNumber') || (formData.phoneNumber.trim() && stripPhoneFormatting(formData.phoneNumber).length !== 10 
                 ? 'Phone number must be 10 digits' 
-                : 'Enter 10-digit phone number'}
-              error={formData.phoneNumber.trim() !== '' && stripPhoneFormatting(formData.phoneNumber).length !== 10}
+                : 'Enter 10-digit phone number')}
+              error={hasError('phoneNumber') || (formData.phoneNumber.trim() !== '' && stripPhoneFormatting(formData.phoneNumber).length !== 10)}
+              InputProps={{
+                endAdornment: formData.phoneNumber && (
+                  <InputAdornment position="end">
+                    <IconButton
+                      edge="end"
+                      onClick={() => {
+                        setFormData({ ...formData, phoneNumber: '' });
+                        clearError('phoneNumber');
+                      }}
+                      size="small"
+                      aria-label="clear phone number"
+                    >
+                      <ClearIcon />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
             />
             <TextField
               label="Email Address (Optional)"
