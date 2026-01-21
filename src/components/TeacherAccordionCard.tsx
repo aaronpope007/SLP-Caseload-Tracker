@@ -21,6 +21,8 @@ import {
   ExpandMore as ExpandMoreIcon,
   Person as PersonIcon,
   School as SchoolIcon,
+  Male as MaleIcon,
+  Female as FemaleIcon,
 } from '@mui/icons-material';
 import type { Teacher, Student } from '../types';
 import { getStudentsByTeacher } from '../utils/storage-api';
@@ -119,7 +121,27 @@ export const TeacherAccordionCard = ({
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', pr: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <PersonIcon color="primary" />
-              <Typography variant="h6" component="div">{teacher.name}</Typography>
+              <Box
+                component="span"
+                sx={{
+                  fontSize: '1.25rem',
+                  fontWeight: 500,
+                  margin: 0,
+                  lineHeight: 1.334,
+                  letterSpacing: '0.0075em',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                }}
+              >
+                {teacher.name}
+                {teacher.gender === 'male' && (
+                  <MaleIcon sx={{ fontSize: '1.25rem', color: 'text.secondary' }} />
+                )}
+                {teacher.gender === 'female' && (
+                  <FemaleIcon sx={{ fontSize: '1.25rem', color: 'text.secondary' }} />
+                )}
+              </Box>
             </Box>
             <IconButton
               size="small"
