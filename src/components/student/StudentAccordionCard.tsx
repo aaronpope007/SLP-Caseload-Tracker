@@ -18,6 +18,8 @@ import {
   ExpandMore as ExpandMoreIcon,
   Archive as ArchiveIcon,
   Unarchive as UnarchiveIcon,
+  Male as MaleIcon,
+  Female as FemaleIcon,
 } from '@mui/icons-material';
 import type { Student, Teacher, CaseManager } from '../../types';
 
@@ -185,9 +187,18 @@ export const StudentAccordionCard = ({
               margin: 0,
               lineHeight: 1.334,
               letterSpacing: '0.0075em',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
             }}
           >
             {student.name}
+            {student.gender === 'male' && (
+              <MaleIcon sx={{ fontSize: '1.25rem', color: 'text.secondary' }} />
+            )}
+            {student.gender === 'female' && (
+              <FemaleIcon sx={{ fontSize: '1.25rem', color: 'text.secondary' }} />
+            )}
           </Box>
           <IconButton
             size="small"
