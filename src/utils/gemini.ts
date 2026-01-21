@@ -11,7 +11,9 @@ async function getAvailableModels(apiKey: string): Promise<string[]> {
     if (data.models) {
       return data.models
         .filter((m) => m.supportedGenerationMethods?.includes('generateContent'))
-        .map((m) => m.name.replace('models/', ''));
+        .map((m) => m.name.replace('models/', ''))
+        // Filter out deprecated -latest aliases that will be updated to Gemini 3
+        .filter((m) => !m.includes('gemini-pro-latest') && !m.includes('gemini-flash-latest'));
     }
   } catch (e) {
     logError('Error fetching available models', e);
@@ -39,9 +41,14 @@ export const generateTreatmentIdeas = async (
     logInfo('Available models', availableModels);
   }
   
-  // If we couldn't get the list, use default model names to try
+  // Filter out deprecated -latest aliases that will be updated to Gemini 3
+  availableModels = availableModels.filter(
+    (m) => !m.includes('gemini-pro-latest') && !m.includes('gemini-flash-latest')
+  );
+  
+  // If we couldn't get the list, use default model names to try (prioritize Gemini 3 models)
   if (availableModels.length === 0) {
-    availableModels = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
+    availableModels = ['gemini-3-flash-preview', 'gemini-3-pro-preview', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
   }
 
   const materialsText = materials.length > 0 
@@ -140,8 +147,12 @@ export const generateProgressNote = async (
   const genAI = new GoogleGenerativeAI(apiKey);
   
   let availableModels = await getAvailableModels(apiKey);
+  // Filter out deprecated -latest aliases that will be updated to Gemini 3
+  availableModels = availableModels.filter(
+    (m) => !m.includes('gemini-pro-latest') && !m.includes('gemini-flash-latest')
+  );
   if (availableModels.length === 0) {
-    availableModels = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
+    availableModels = ['gemini-3-flash-preview', 'gemini-3-pro-preview', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
   }
 
   // Format goals data for the prompt
@@ -240,8 +251,12 @@ export const generateGoalSuggestions = async (
   const genAI = new GoogleGenerativeAI(apiKey);
   
   let availableModels = await getAvailableModels(apiKey);
+  // Filter out deprecated -latest aliases that will be updated to Gemini 3
+  availableModels = availableModels.filter(
+    (m) => !m.includes('gemini-pro-latest') && !m.includes('gemini-flash-latest')
+  );
   if (availableModels.length === 0) {
-    availableModels = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
+    availableModels = ['gemini-3-flash-preview', 'gemini-3-pro-preview', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
   }
 
   const concernsText = concerns.length > 0 ? concerns.join(', ') : 'Not specified';
@@ -315,8 +330,12 @@ export const generateSessionPlan = async (
   const genAI = new GoogleGenerativeAI(apiKey);
   
   let availableModels = await getAvailableModels(apiKey);
+  // Filter out deprecated -latest aliases that will be updated to Gemini 3
+  availableModels = availableModels.filter(
+    (m) => !m.includes('gemini-pro-latest') && !m.includes('gemini-flash-latest')
+  );
   if (availableModels.length === 0) {
-    availableModels = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
+    availableModels = ['gemini-3-flash-preview', 'gemini-3-pro-preview', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
   }
 
   const goalsText = goals.map((g, idx) => 
@@ -401,8 +420,12 @@ export const generateTreatmentRecommendations = async (
   const genAI = new GoogleGenerativeAI(apiKey);
   
   let availableModels = await getAvailableModels(apiKey);
+  // Filter out deprecated -latest aliases that will be updated to Gemini 3
+  availableModels = availableModels.filter(
+    (m) => !m.includes('gemini-pro-latest') && !m.includes('gemini-flash-latest')
+  );
   if (availableModels.length === 0) {
-    availableModels = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
+    availableModels = ['gemini-3-flash-preview', 'gemini-3-pro-preview', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
   }
 
   const goalsText = goals.map((goal, idx) => {
@@ -493,8 +516,12 @@ export const generateIEPGoals = async (
   const genAI = new GoogleGenerativeAI(apiKey);
   
   let availableModels = await getAvailableModels(apiKey);
+  // Filter out deprecated -latest aliases that will be updated to Gemini 3
+  availableModels = availableModels.filter(
+    (m) => !m.includes('gemini-pro-latest') && !m.includes('gemini-flash-latest')
+  );
   if (availableModels.length === 0) {
-    availableModels = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
+    availableModels = ['gemini-3-flash-preview', 'gemini-3-pro-preview', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
   }
 
   const concernsText = concerns.length > 0 ? concerns.join(', ') : 'Not specified';
@@ -576,8 +603,12 @@ export const generateDocumentationTemplate = async (
   const genAI = new GoogleGenerativeAI(apiKey);
   
   let availableModels = await getAvailableModels(apiKey);
+  // Filter out deprecated -latest aliases that will be updated to Gemini 3
+  availableModels = availableModels.filter(
+    (m) => !m.includes('gemini-pro-latest') && !m.includes('gemini-flash-latest')
+  );
   if (availableModels.length === 0) {
-    availableModels = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
+    availableModels = ['gemini-3-flash-preview', 'gemini-3-pro-preview', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
   }
 
   const templateDescriptions: Record<string, string> = {
@@ -669,8 +700,12 @@ export const generateArticulationScreeningReport = async (
   const genAI = new GoogleGenerativeAI(apiKey);
   
   let availableModels = await getAvailableModels(apiKey);
+  // Filter out deprecated -latest aliases that will be updated to Gemini 3
+  availableModels = availableModels.filter(
+    (m) => !m.includes('gemini-pro-latest') && !m.includes('gemini-flash-latest')
+  );
   if (availableModels.length === 0) {
-    availableModels = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
+    availableModels = ['gemini-3-flash-preview', 'gemini-3-pro-preview', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
   }
 
   // Format disordered phonemes data with proper markdown formatting
@@ -752,4 +787,93 @@ Format the report in clear sections with professional SLP terminology. Use objec
     throw new Error(`Failed to generate articulation screening report: ${errorMessage}`);
   }
 };
+
+/**
+ * Helper functions for handling thought signatures with Gemini 3 models
+ * These are required when using function calling with gemini-3-pro-preview or gemini-3-flash-preview
+ * 
+ * Note: The Google Generative AI SDK (v0.24.1+) should handle thought signatures automatically
+ * when using chat history. These helpers are provided for advanced use cases or manual handling.
+ */
+
+/**
+ * Extracts thought signatures from a Gemini API response
+ * Thought signatures are required for function calling with Gemini 3 models
+ */
+export function extractThoughtSignatures(response: { candidates?: Array<{ content?: { parts?: unknown[] } }> }): Map<string, string> {
+  const signatures = new Map<string, string>();
+  
+  if (!response.candidates?.[0]?.content?.parts) {
+    return signatures;
+  }
+
+  const parts = response.candidates[0].content.parts as Array<{ functionCall?: { name?: string }; thoughtSignature?: string }>;
+  
+  for (const part of parts) {
+    if (part.functionCall?.name && part.thoughtSignature) {
+      signatures.set(part.functionCall.name, part.thoughtSignature);
+    }
+  }
+  
+  return signatures;
+}
+
+/**
+ * Validates that thought signatures are present for function calls
+ * Throws an error if signatures are missing (required for Gemini 3 models)
+ */
+export function validateThoughtSignatures(
+  response: { candidates?: Array<{ content?: { parts?: unknown[] } }> },
+  modelName: string
+): void {
+  // Only validate for Gemini 3 models
+  if (!modelName.includes('gemini-3')) {
+    return;
+  }
+
+  if (!response.candidates?.[0]?.content?.parts) {
+    return;
+  }
+
+  const parts = response.candidates[0].content.parts as Array<{ functionCall?: { name?: string }; thoughtSignature?: string }>;
+  const functionCalls = parts.filter((p) => p.functionCall);
+  
+  if (functionCalls.length === 0) {
+    return; // No function calls, no validation needed
+  }
+
+  // For parallel function calls, only the first one needs a signature
+  const firstFunctionCall = functionCalls[0];
+  if (!firstFunctionCall.thoughtSignature) {
+    throw new Error(
+      `Thought signature is required for function calling with Gemini 3 models. ` +
+      `Missing signature for function: ${firstFunctionCall.functionCall?.name || 'unknown'}. ` +
+      `Please ensure you're using @google/generative-ai SDK v0.24.1+ and passing chat history correctly.`
+    );
+  }
+}
+
+/**
+ * Creates a function response part with the associated thought signature
+ * This is used when responding to function calls from Gemini 3 models
+ */
+export function createFunctionResponsePart(
+  functionName: string,
+  functionResponse: unknown,
+  thoughtSignature?: string
+): { functionResponse: { name: string; response: unknown }; thoughtSignature?: string } {
+  const part: { functionResponse: { name: string; response: unknown }; thoughtSignature?: string } = {
+    functionResponse: {
+      name: functionName,
+      response: functionResponse,
+    },
+  };
+  
+  // Include thought signature if provided (required for Gemini 3 models)
+  if (thoughtSignature) {
+    part.thoughtSignature = thoughtSignature;
+  }
+  
+  return part;
+}
 

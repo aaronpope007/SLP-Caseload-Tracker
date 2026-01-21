@@ -50,7 +50,9 @@ async function getAvailableModels(apiKey: string): Promise<string[]> {
     if (data.models) {
       return data.models
         .filter((m) => m.supportedGenerationMethods?.includes('generateContent'))
-        .map((m) => m.name.replace('models/', ''));
+        .map((m) => m.name.replace('models/', ''))
+        // Filter out deprecated -latest aliases that will be updated to Gemini 3
+        .filter((m) => !m.includes('gemini-pro-latest') && !m.includes('gemini-flash-latest'));
     }
   } catch (e) {
     console.warn('Error fetching available models:', e);
@@ -85,8 +87,13 @@ async function parseDocumentWithGemini(
   // Get available models (same pattern as rest of app)
   let availableModels = await getAvailableModels(apiKey);
   
+  // Filter out deprecated -latest aliases that will be updated to Gemini 3
+  availableModels = availableModels.filter(
+    (m) => !m.includes('gemini-pro-latest') && !m.includes('gemini-flash-latest')
+  );
+  
   if (availableModels.length === 0) {
-    availableModels = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
+    availableModels = ['gemini-3-flash-preview', 'gemini-3-pro-preview', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
   }
 
   const schoolContext = schoolName 

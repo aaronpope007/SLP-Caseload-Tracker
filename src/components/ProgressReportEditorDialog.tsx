@@ -271,10 +271,36 @@ Generate concise, professional, clinically appropriate content for this section.
       // Use Gemini API to generate content
       const { GoogleGenerativeAI } = await import('@google/generative-ai');
       const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-      const result = await model.generateContent(prompt);
-      const response = result.response;
-      const generatedText = response.text();
+      
+      // Try models in order of preference (Gemini 3 first, then fallbacks)
+      const modelsToTry = ['gemini-3-flash-preview', 'gemini-3-pro-preview', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
+      let generatedText = '';
+      let lastError: Error | null = null;
+      
+      for (const modelName of modelsToTry) {
+        try {
+          const model = genAI.getGenerativeModel({ model: modelName });
+          const result = await model.generateContent(prompt);
+          const response = result.response;
+          generatedText = response.text();
+          break; // Success, exit loop
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          const errorStatus = (error as { status?: number })?.status;
+          lastError = error instanceof Error ? error : new Error(errorMessage);
+          
+          // If it's a 404, try the next model
+          if (errorStatus === 404 || errorMessage?.includes('404') || errorMessage?.includes('not found')) {
+            continue;
+          }
+          // For other errors, stop trying
+          break;
+        }
+      }
+      
+      if (!generatedText) {
+        throw lastError || new Error('Failed to generate content with any available model');
+      }
 
       // Only update state if component is still mounted
       if (isMountedRef.current) {
