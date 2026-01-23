@@ -295,7 +295,9 @@ export const SessionFormDialog = ({
       .filter((s): s is Student => s !== undefined)
       .map(s => {
         const grade = s.grade != null && s.grade !== undefined && s.grade.trim() !== '' ? ` (${s.grade})` : '';
-        return `${s.name}${grade}`;
+        // Add gender symbol after the name
+        const genderSymbol = s.gender === 'male' ? ' ♂' : s.gender === 'female' ? ' ♀' : '';
+        return `${s.name}${genderSymbol}${grade}`;
       });
     
     if (selectedStudents.length === 0) {
