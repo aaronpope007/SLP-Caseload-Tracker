@@ -261,6 +261,20 @@ progressReportsRouter.post('/:id/complete', asyncHandler(async (req, res) => {
   res.json({ message: 'Progress report marked as completed' });
 }));
 
+// Bulk delete progress reports
+progressReportsRouter.delete('/bulk', asyncHandler(async (req, res) => {
+  const { ids } = req.body;
+  
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: 'ids must be a non-empty array' });
+  }
+  
+  const placeholders = ids.map(() => '?').join(',');
+  const result = db.prepare(`DELETE FROM progress_reports WHERE id IN (${placeholders})`).run(...ids);
+  
+  res.json({ message: `Deleted ${result.changes} progress report(s)`, deletedCount: result.changes });
+}));
+
 // Delete progress report
 progressReportsRouter.delete('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;

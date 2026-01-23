@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -20,9 +21,10 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Checkbox,
 } from '@mui/material';
 import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid';
-import type { GridColDef, GridRowParams } from '@mui/x-data-grid';
+import type { GridColDef, GridRowParams, GridRowSelectionModel } from '@mui/x-data-grid';
 import {
   Schedule as ScheduleIcon,
   CheckCircle as CheckCircleIcon,
@@ -40,6 +42,7 @@ import {
   addProgressReport,
   completeProgressReport,
   deleteProgressReport,
+  deleteProgressReportsBulk,
   getStudents,
 } from '../utils/storage-api';
 import { formatDate, generateId } from '../utils/helpers';
@@ -73,6 +76,7 @@ export const ProgressReports = () => {
   const reportDialog = useDialog();
   const [loading, setLoading] = useState(false);
   const [scheduling, setScheduling] = useState(false);
+  const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
   
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>('');
@@ -120,6 +124,11 @@ export const ProgressReports = () => {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Clear selection when reports change
+  useEffect(() => {
+    setSelectedRows([]);
+  }, [reports.length]);
 
   const handleScheduleAll = async () => {
     setScheduling(true);
@@ -238,7 +247,98 @@ export const ProgressReports = () => {
     });
   };
 
+  const handleBulkDelete = () => {
+    if (selectedRows.length === 0) {
+      return;
+    }
+
+    const selectedReports = reports.filter(r => selectedRows.includes(r.id));
+    const reportCount = selectedReports.length;
+    const studentNames = selectedReports
+      .map(r => students.find(s => s.id === r.studentId)?.name || 'Unknown')
+      .filter((name, index, arr) => arr.indexOf(name) === index)
+      .slice(0, 3)
+      .join(', ');
+    const moreText = reportCount > 3 ? ` and ${reportCount - 3} more` : '';
+
+    confirm({
+      title: 'Delete Progress Reports',
+      message: `Are you sure you want to delete ${reportCount} progress report${reportCount > 1 ? 's' : ''}${studentNames ? ` (${studentNames}${moreText})` : ''}?`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          const deletedCount = await deleteProgressReportsBulk(selectedRows as string[]);
+          setSelectedRows([]);
+          await loadData();
+          showSnackbar(`Successfully deleted ${deletedCount} progress report${deletedCount > 1 ? 's' : ''}`, 'success');
+        } catch (error) {
+          logError('Failed to delete progress reports', error);
+          alert('Failed to delete progress reports. Please try again.');
+        }
+      },
+    });
+  };
+
+  const rows = useMemo(() => {
+    return (reports || []).map(report => ({
+      id: report.id,
+      studentId: report.studentId,
+      reportType: report.reportType,
+      periodStart: report.periodStart,
+      periodEnd: report.periodEnd,
+      dueDate: report.dueDate,
+      status: report.status,
+    }));
+  }, [reports]);
+
+  const handleSelectAll = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.checked) {
+      const allIds = rows.map(row => row.id);
+      setSelectedRows(allIds);
+    } else {
+      setSelectedRows([]);
+    }
+  };
+
+  const handleSelectRow = (id: string) => {
+    setSelectedRows(prev => {
+      if (prev.includes(id)) {
+        return prev.filter(rowId => rowId !== id);
+      } else {
+        return [...prev, id];
+      }
+    });
+  };
+
+  const isAllSelected = rows.length > 0 && selectedRows.length === rows.length;
+  const isSomeSelected = selectedRows.length > 0 && selectedRows.length < rows.length;
+
   const columns: GridColDef[] = [
+    {
+      field: '__select__',
+      headerName: '',
+      width: 50,
+      sortable: false,
+      filterable: false,
+      disableColumnMenu: true,
+      renderHeader: () => (
+        <Checkbox
+          checked={isAllSelected}
+          indeterminate={isSomeSelected}
+          onChange={handleSelectAll}
+          size="small"
+        />
+      ),
+      renderCell: (params) => (
+        <Checkbox
+          checked={selectedRows.includes(params.id as string)}
+          onChange={() => handleSelectRow(params.id as string)}
+          size="small"
+          onClick={(e) => e.stopPropagation()}
+        />
+      ),
+    },
     {
       field: 'studentName',
       headerName: 'Student',
@@ -332,16 +432,6 @@ export const ProgressReports = () => {
     },
   ];
 
-  const rows = reports.map(report => ({
-    id: report.id,
-    studentId: report.studentId,
-    reportType: report.reportType,
-    periodStart: report.periodStart,
-    periodEnd: report.periodEnd,
-    dueDate: report.dueDate,
-    status: report.status,
-  }));
-
   const overdueCount = reports.filter(r => r.status === 'overdue').length;
   const upcomingCount = reports.filter(r => r.status === 'scheduled' || r.status === 'in-progress').length;
   const completedCount = reports.filter(r => r.status === 'completed').length;
@@ -353,6 +443,16 @@ export const ProgressReports = () => {
           Progress Reports
         </Typography>
         <Box sx={{ display: 'flex', gap: 2 }}>
+          {selectedRows.length > 0 && (
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<DeleteIcon />}
+              onClick={handleBulkDelete}
+            >
+              Delete Selected ({selectedRows.length})
+            </Button>
+          )}
           <Button
             variant="outlined"
             startIcon={<AddIcon />}
@@ -465,9 +565,12 @@ export const ProgressReports = () => {
           rows={rows}
           columns={columns}
           pageSizeOptions={[10, 25, 50, 100]}
+          disableColumnFilter
+          disableColumnMenu
+          disableDensitySelector
           initialState={{
             pagination: {
-              paginationModel: { pageSize: 25 },
+              paginationModel: { page: 0, pageSize: 25 },
             },
           }}
           loading={loading}

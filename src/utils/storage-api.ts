@@ -571,6 +571,11 @@ export const deleteProgressReport = async (id: string): Promise<void> => {
   await api.progressReports.delete(id);
 };
 
+export const deleteProgressReportsBulk = async (ids: string[]): Promise<number> => {
+  const response = await api.progressReports.deleteBulk(ids);
+  return response.deletedCount;
+};
+
 export const scheduleProgressReports = async (studentId?: string, school?: string): Promise<ProgressReport[]> => {
   try {
     const result = await api.progressReports.scheduleAuto(studentId, school);

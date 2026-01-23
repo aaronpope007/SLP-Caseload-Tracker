@@ -516,6 +516,11 @@ export const api = {
       request<{ message: string }>(`/progress-reports/${id}`, {
         method: 'DELETE',
       }),
+    deleteBulk: (ids: string[]) => 
+      request<{ message: string; deletedCount: number }>('/progress-reports/bulk', {
+        method: 'DELETE',
+        body: JSON.stringify({ ids }),
+      }),
   },
 
   // Progress Report Templates
