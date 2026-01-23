@@ -186,20 +186,29 @@ export const SessionFormDialog = ({
     }
   }, [formData.indirectServicesNotes]);
 
+  // Use refs to track current local state values for debounce
+  // This prevents the debounce effect from re-running on every keystroke
+  const localNotesRef = useRef(localNotes);
+  const localPlanRef = useRef(localPlan);
+  const localActivitiesUsedRef = useRef(localActivitiesUsed);
+  const localCustomSubjectiveRef = useRef(localCustomSubjective);
+  const localIndirectServicesNotesRef = useRef(localIndirectServicesNotes);
+  
+  // Keep refs in sync with state (this doesn't trigger re-renders)
+  localNotesRef.current = localNotes;
+  localPlanRef.current = localPlan;
+  localActivitiesUsedRef.current = localActivitiesUsed;
+  localCustomSubjectiveRef.current = localCustomSubjective;
+  localIndirectServicesNotesRef.current = localIndirectServicesNotes;
+
   // Single consolidated debounce effect for all text fields
-  // Uses ref for onFormDataChange to prevent effect re-runs when parent provides new callback reference
-  // Only runs when dialog is open to prevent unnecessary timers
+  // Uses refs to read current values without re-running on every keystroke
   const debounceSyncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  useEffect(() => {
-    // Don't create debounce timers when dialog is closed
-    if (!open) {
-      // Clear any pending timeout when dialog closes
-      if (debounceSyncTimeoutRef.current) {
-        clearTimeout(debounceSyncTimeoutRef.current);
-        debounceSyncTimeoutRef.current = null;
-      }
-      return;
-    }
+  
+  // Stable debounce function that reads from refs
+  // This function doesn't change, so it won't cause effect re-runs
+  const scheduleDebouncedSync = useCallback(() => {
+    if (!open) return;
     
     if (debounceSyncTimeoutRef.current) {
       clearTimeout(debounceSyncTimeoutRef.current);
@@ -208,18 +217,25 @@ export const SessionFormDialog = ({
     debounceSyncTimeoutRef.current = setTimeout(() => {
       const updates: Partial<SessionFormData> = {};
       
+      // Read current values from refs (always up-to-date)
+      const currentNotes = localNotesRef.current;
+      const currentPlan = localPlanRef.current;
+      const currentActivitiesUsed = localActivitiesUsedRef.current;
+      const currentCustomSubjective = localCustomSubjectiveRef.current;
+      const currentIndirectServicesNotes = localIndirectServicesNotesRef.current;
+      
       // Check and collect all changed fields
-      if (localNotes !== lastSyncedRef.current.notes) {
-        updates.notes = localNotes;
-        lastSyncedRef.current.notes = localNotes;
+      if (currentNotes !== lastSyncedRef.current.notes) {
+        updates.notes = currentNotes;
+        lastSyncedRef.current.notes = currentNotes;
       }
       
-      if (localPlan !== lastSyncedRef.current.plan) {
-        updates.plan = localPlan;
-        lastSyncedRef.current.plan = localPlan;
+      if (currentPlan !== lastSyncedRef.current.plan) {
+        updates.plan = currentPlan;
+        lastSyncedRef.current.plan = currentPlan;
       }
       
-      const activities = localActivitiesUsed
+      const activities = currentActivitiesUsed
         .split(',')
         .map((a) => a.trim())
         .filter((a) => a.length > 0);
@@ -229,29 +245,44 @@ export const SessionFormDialog = ({
         lastSyncedRef.current.activitiesUsed = activitiesStr;
       }
       
-      if (localCustomSubjective !== lastSyncedRef.current.customSubjective) {
-        updates.customSubjective = localCustomSubjective;
-        lastSyncedRef.current.customSubjective = localCustomSubjective;
+      if (currentCustomSubjective !== lastSyncedRef.current.customSubjective) {
+        updates.customSubjective = currentCustomSubjective;
+        lastSyncedRef.current.customSubjective = currentCustomSubjective;
       }
       
-      if (localIndirectServicesNotes !== lastSyncedRef.current.indirectServicesNotes) {
-        updates.indirectServicesNotes = localIndirectServicesNotes;
-        lastSyncedRef.current.indirectServicesNotes = localIndirectServicesNotes;
+      if (currentIndirectServicesNotes !== lastSyncedRef.current.indirectServicesNotes) {
+        updates.indirectServicesNotes = currentIndirectServicesNotes;
+        lastSyncedRef.current.indirectServicesNotes = currentIndirectServicesNotes;
       }
       
       // Only call onFormDataChange if there are actual updates
       if (Object.keys(updates).length > 0) {
         onFormDataChangeRef.current(updates);
       }
+      
+      debounceSyncTimeoutRef.current = null;
     }, 500);
+  }, [open]);
+
+  // Effect to handle dialog open/close and cleanup
+  useEffect(() => {
+    if (!open) {
+      // Clear any pending timeout when dialog closes
+      if (debounceSyncTimeoutRef.current) {
+        clearTimeout(debounceSyncTimeoutRef.current);
+        debounceSyncTimeoutRef.current = null;
+      }
+      return;
+    }
     
     return () => {
+      // Cleanup on unmount or when dialog closes
       if (debounceSyncTimeoutRef.current) {
         clearTimeout(debounceSyncTimeoutRef.current);
         debounceSyncTimeoutRef.current = null;
       }
     };
-  }, [open, localNotes, localPlan, localActivitiesUsed, localCustomSubjective, localIndirectServicesNotes]); // Added 'open' to deps
+  }, [open]);
 
   // Helper function to format student names for the dialog title
   const formatStudentNamesForTitle = (): string => {
@@ -1260,7 +1291,12 @@ export const SessionFormDialog = ({
                         label="Custom Subjective Statement"
                         fullWidth
                         value={localCustomSubjective}
-                        onChange={(e) => setLocalCustomSubjective(e.target.value)}
+                        onChange={(e) => {
+                          const newValue = e.target.value;
+                          setLocalCustomSubjective(newValue);
+                          localCustomSubjectiveRef.current = newValue;
+                          scheduleDebouncedSync();
+                        }}
                         onBlur={() => handleFormDataChange({ customSubjective: localCustomSubjective })}
                         placeholder="Enter your own subjective statement..."
                         error={formData.selectedSubjectiveStatements.length === 0 && localCustomSubjective.trim().length === 0}
@@ -1275,7 +1311,12 @@ export const SessionFormDialog = ({
                 label="Activities Used (comma-separated)"
                 fullWidth
                 value={localActivitiesUsed}
-                onChange={(e) => setLocalActivitiesUsed(e.target.value)}
+                onChange={(e) => {
+                  const newValue = e.target.value;
+                  setLocalActivitiesUsed(newValue);
+                  localActivitiesUsedRef.current = newValue;
+                  scheduleDebouncedSync();
+                }}
                 onBlur={() =>
                   handleFormDataChange({
                     activitiesUsed: localActivitiesUsed
@@ -1292,7 +1333,12 @@ export const SessionFormDialog = ({
                 multiline
                 rows={4}
                 value={localNotes}
-                onChange={(e) => setLocalNotes(e.target.value)}
+                onChange={(e) => {
+                  const newValue = e.target.value;
+                  setLocalNotes(newValue);
+                  localNotesRef.current = newValue;
+                  scheduleDebouncedSync();
+                }}
                 onBlur={() => handleFormDataChange({ notes: localNotes })}
               />
 
@@ -1302,7 +1348,12 @@ export const SessionFormDialog = ({
                 multiline
                 rows={4}
                 value={localPlan}
-                onChange={(e) => setLocalPlan(e.target.value)}
+                onChange={(e) => {
+                  const newValue = e.target.value;
+                  setLocalPlan(newValue);
+                  localPlanRef.current = newValue;
+                  scheduleDebouncedSync();
+                }}
                 onBlur={() => handleFormDataChange({ plan: localPlan })}
                 placeholder="Enter the plan for the next session..."
                 required
@@ -1317,7 +1368,12 @@ export const SessionFormDialog = ({
               multiline
               rows={6}
               value={localIndirectServicesNotes}
-              onChange={(e) => setLocalIndirectServicesNotes(e.target.value)}
+              onChange={(e) => {
+                const newValue = e.target.value;
+                setLocalIndirectServicesNotes(newValue);
+                localIndirectServicesNotesRef.current = newValue;
+                scheduleDebouncedSync();
+              }}
               onBlur={() => handleFormDataChange({ indirectServicesNotes: localIndirectServicesNotes })}
               placeholder="Enter notes about indirect services provided..."
             />
