@@ -17,6 +17,7 @@ import {
   DialogContent,
   DialogActions,
   Stack,
+  Alert,
 } from '@mui/material';
 import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid';
 import type { GridColDef, GridRowParams } from '@mui/x-data-grid';
@@ -24,6 +25,7 @@ import {
   Add as AddIcon,
   CheckCircle as CheckCircleIcon,
   Delete as DeleteIcon,
+  Edit as EditIcon,
   Person as PersonIcon,
   CalendarToday as CalendarIcon,
 } from '@mui/icons-material';
@@ -280,10 +282,27 @@ export const DueDateItems = () => {
       headerName: 'Actions',
       width: 150,
       getActions: (params: GridRowParams) => {
+        const item = items.find(i => i.id === params.id);
         const actions = [];
+        
+        // Edit button - always available
+        actions.push(
+          <GridActionsCellItem
+            key="edit"
+            icon={<EditIcon />}
+            label="Edit"
+            onClick={() => {
+              if (item) {
+                handleOpenDialog(item);
+              }
+            }}
+          />
+        );
+        
         if (params.row.status !== 'completed') {
           actions.push(
             <GridActionsCellItem
+              key="complete"
               icon={<CheckCircleIcon />}
               label="Mark Complete"
               onClick={() => handleComplete(params.id as string)}
@@ -292,6 +311,7 @@ export const DueDateItems = () => {
         }
         actions.push(
           <GridActionsCellItem
+            key="delete"
             icon={<DeleteIcon />}
             label="Delete"
             onClick={() => handleDelete(params.id as string)}
