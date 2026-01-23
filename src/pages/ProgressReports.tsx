@@ -15,7 +15,6 @@ import {
   Card,
   CardContent,
   Alert,
-  CircularProgress,
   Stack,
   Dialog,
   DialogTitle,
@@ -75,7 +74,6 @@ export const ProgressReports = () => {
   const { showSnackbar, SnackbarComponent } = useSnackbar();
   const reportDialog = useDialog();
   const [loading, setLoading] = useState(false);
-  const [scheduling, setScheduling] = useState(false);
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
   
   // Filters
@@ -129,19 +127,6 @@ export const ProgressReports = () => {
   useEffect(() => {
     setSelectedRows([]);
   }, [reports.length]);
-
-  const handleScheduleAll = async () => {
-    setScheduling(true);
-    try {
-      await scheduleProgressReports(undefined, selectedSchool);
-      await loadData();
-    } catch (error) {
-      logError('Failed to schedule reports', error);
-      alert('Failed to schedule reports. Please try again.');
-    } finally {
-      setScheduling(false);
-    }
-  };
 
   const handleScheduleForStudent = async (studentId: string) => {
     try {
@@ -459,14 +444,6 @@ export const ProgressReports = () => {
             onClick={handleOpenDialog}
           >
             Add Report
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<ScheduleIcon />}
-            onClick={handleScheduleAll}
-            disabled={scheduling}
-          >
-            {scheduling ? <CircularProgress size={20} /> : 'Schedule All Reports'}
           </Button>
         </Box>
       </Box>

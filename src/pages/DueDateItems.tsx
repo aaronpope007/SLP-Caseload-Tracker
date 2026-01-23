@@ -218,11 +218,13 @@ export const DueDateItems = () => {
       field: 'studentName',
       headerName: 'Student',
       width: 180,
+      align: 'center',
+      headerAlign: 'center',
       renderCell: (params) => {
         if (!params.row.studentId) return <Typography variant="body2" color="text.secondary">—</Typography>;
         const student = students.find(s => s.id === params.row.studentId);
         return (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '100%' }}>
             <PersonIcon fontSize="small" />
             <Typography variant="body2">{student?.name || 'Unknown'}</Typography>
           </Box>
@@ -251,8 +253,10 @@ export const DueDateItems = () => {
       field: 'dueDate',
       headerName: 'Due Date',
       width: 150,
+      align: 'center',
+      headerAlign: 'center',
       renderCell: (params) => (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, height: '100%' }}>
           <CalendarIcon fontSize="small" />
           <Typography variant="body2">{formatDate(params.value)}</Typography>
         </Box>
@@ -498,6 +502,8 @@ export const DueDateItems = () => {
                 <MenuItem value="">None</MenuItem>
                 <MenuItem value="IEP">IEP</MenuItem>
                 <MenuItem value="Evaluation">Evaluation</MenuItem>
+                <MenuItem value="3 year eval">3 year eval</MenuItem>
+                <MenuItem value="Reassessment">Reassessment</MenuItem>
                 <MenuItem value="Meeting">Meeting</MenuItem>
                 <MenuItem value="Report">Report</MenuItem>
                 <MenuItem value="Other">Other</MenuItem>
