@@ -74,12 +74,14 @@ import {
   getSchoolByName,
   getMeetings,
   deleteMeeting,
+  updateMeeting,
 } from '../utils/storage-api';
 import { generateId, toLocalDateTimeString, fromLocalDateTimeString } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
 import { SessionFormDialog } from '../components/session/SessionFormDialog';
 import { StudentSelector } from '../components/student/StudentSelector';
 import { CancellationEmailDialog } from '../components/CancellationEmailDialog';
+import { MeetingFormDialog } from '../components/meeting/MeetingFormDialog';
 import { useConfirm } from '../hooks/useConfirm';
 
 type ViewMode = 'month' | 'week' | 'day';
@@ -131,6 +133,10 @@ export const SessionCalendar = () => {
     events?: CalendarEvent[];
     dateStr: string;
   } | null>(null);
+
+  // Meeting dialog state
+  const [meetingDialogOpen, setMeetingDialogOpen] = useState(false);
+  const [editingMeeting, setEditingMeeting] = useState<Meeting | null>(null);
   
   const [sessionFormData, setSessionFormData] = useState({
     studentIds: [] as string[],
@@ -1809,6 +1815,39 @@ export const SessionCalendar = () => {
     });
   };
 
+  const handleOpenMeetingDialog = (event: CalendarEvent) => {
+    if (!event.isMeeting || !event.meetingId) return;
+    
+    const meeting = meetings.find(m => m.id === event.meetingId);
+    if (meeting) {
+      setEditingMeeting(meeting);
+      setMeetingDialogOpen(true);
+    }
+  };
+
+  const handleSaveMeeting = async (meeting: Omit<Meeting, 'id' | 'dateCreated' | 'dateUpdated'>) => {
+    if (!isMountedRef.current) return;
+    try {
+      if (editingMeeting) {
+        await updateMeeting(editingMeeting.id, meeting);
+      }
+      if (!isMountedRef.current) return;
+      await loadData();
+      if (!isMountedRef.current) return;
+      setMeetingDialogOpen(false);
+      setEditingMeeting(null);
+    } catch (error) {
+      if (!isMountedRef.current) return;
+      logError('Failed to save meeting', error);
+      alert('Failed to save meeting. Please try again.');
+    }
+  };
+
+  const handleCloseMeetingDialog = () => {
+    setMeetingDialogOpen(false);
+    setEditingMeeting(null);
+  };
+
   const handleCancellationEmailSent = async () => {
     if (!isMountedRef.current) return;
     if (pendingCancellation?.event) {
@@ -2126,7 +2165,7 @@ export const SessionCalendar = () => {
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     if (event.isMeeting) {
-                                      // TODO: Open meeting edit dialog
+                                      handleOpenMeetingDialog(event);
                                       return;
                                     }
                                     handleOpenSessionDialog(event);
@@ -2403,7 +2442,7 @@ export const SessionCalendar = () => {
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     if (event.isMeeting) {
-                                      // TODO: Open meeting edit dialog
+                                      handleOpenMeetingDialog(event);
                                       return;
                                     }
                                     handleOpenSessionDialog(event);
@@ -2619,7 +2658,7 @@ export const SessionCalendar = () => {
                               onClick={(e) => {
                                 e.stopPropagation();
                                 if (event.isMeeting) {
-                                  // TODO: Open meeting edit dialog
+                                  handleOpenMeetingDialog(event);
                                   return;
                                 }
                                 handleOpenSessionDialog(event);
@@ -3004,6 +3043,15 @@ export const SessionCalendar = () => {
           }
         />
       )}
+
+      {/* Meeting Edit Dialog */}
+      <MeetingFormDialog
+        open={meetingDialogOpen}
+        editingMeeting={editingMeeting}
+        onClose={handleCloseMeetingDialog}
+        onSave={handleSaveMeeting}
+        students={students}
+      />
     </Box>
   );
 };

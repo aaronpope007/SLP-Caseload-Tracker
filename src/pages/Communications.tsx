@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, useDeferredValue } from 'react';
 import {
   Box,
   Button,
@@ -82,6 +82,14 @@ export const Communications = () => {
   const contactInputRef = useRef<string>('');
   const studentInputRef = useRef<string>('');
 
+  // Local state for autocomplete inputs to enable debouncing
+  const [contactInputValue, setContactInputValue] = useState<string>('');
+  const [studentInputValue, setStudentInputValue] = useState<string>('');
+  
+  // Defer filtering to keep typing responsive
+  const deferredContactInput = useDeferredValue(contactInputValue);
+  const deferredStudentInput = useDeferredValue(studentInputValue);
+
   const [formData, setFormData] = useState({
     studentId: '',
     contactType: 'teacher' as Communication['contactType'],
@@ -142,6 +150,26 @@ export const Communications = () => {
     loadData();
   }, [loadData]);
 
+  // Sync autocomplete input values when editing a communication
+  useEffect(() => {
+    if (communicationDialog.open && editingCommunication) {
+      setContactInputValue(editingCommunication.contactName);
+      const student = students.find(s => s.id === editingCommunication.studentId);
+      setStudentInputValue(student?.name || '');
+    }
+  }, [communicationDialog.open, editingCommunication, students]);
+
+  // Cleanup effect when dialog closes to prevent memory leaks
+  useEffect(() => {
+    if (!communicationDialog.open) {
+      // Clear any pending operations when dialog closes
+      setContactInputValue('');
+      setStudentInputValue('');
+      contactInputRef.current = '';
+      studentInputRef.current = '';
+    }
+  }, [communicationDialog.open]);
+
   const handleOpenDialog = (comm?: Communication) => {
     if (comm) {
       setEditingCommunication(comm);
@@ -158,6 +186,9 @@ export const Communications = () => {
         sessionId: comm.sessionId || '',
         relatedTo: comm.relatedTo || '',
       });
+      // Set initial autocomplete values when editing
+      setContactInputValue(comm.contactName);
+      setStudentInputValue(comm.studentId ? students.find(s => s.id === comm.studentId)?.name || '' : '');
     } else {
       setEditingCommunication(null);
       setFormData({
@@ -173,6 +204,9 @@ export const Communications = () => {
         sessionId: '',
         relatedTo: '',
       });
+      // Reset autocomplete values for new communication
+      setContactInputValue('');
+      setStudentInputValue('');
     }
     communicationDialog.openDialog();
   };
@@ -180,6 +214,11 @@ export const Communications = () => {
   const handleCloseDialog = () => {
     communicationDialog.closeDialog();
     setEditingCommunication(null);
+    // Reset autocomplete input values when dialog closes
+    setContactInputValue('');
+    setStudentInputValue('');
+    contactInputRef.current = '';
+    studentInputRef.current = '';
   };
 
   const handleSave = async () => {
@@ -241,6 +280,9 @@ export const Communications = () => {
 
   const handleContactTypeChange = (contactType: Communication['contactType']) => {
     setFormData({ ...formData, contactType, contactId: '', contactName: '', contactEmail: '' });
+    // Reset contact input when type changes
+    setContactInputValue('');
+    contactInputRef.current = '';
   };
 
   const handleContactSelect = (contact: Teacher | CaseManager | null) => {
@@ -278,7 +320,9 @@ export const Communications = () => {
     }
   }, []);
 
+
   // Memoize filter functions to prevent recreation on every render
+  // Use deferred values for better performance
   const filterContactOptions = useCallback((options: (Teacher | CaseManager)[], inputValue: string) => {
     if (!inputValue) return options;
     const searchTerm = inputValue.toLowerCase().trim();
@@ -309,6 +353,19 @@ export const Communications = () => {
       return nameMatch || gradeMatch;
     });
   }, []);
+
+  // Memoize filtered options using deferred values for better performance
+  const filteredContactOptions = useMemo(() => {
+    return filterContactOptions([...teachers, ...caseManagers], deferredContactInput);
+  }, [teachers, caseManagers, deferredContactInput, filterContactOptions]);
+
+  const filteredCaseManagerOptions = useMemo(() => {
+    return filterCaseManagerOptions(caseManagers, deferredContactInput);
+  }, [caseManagers, deferredContactInput, filterCaseManagerOptions]);
+
+  const filteredStudentOptions = useMemo(() => {
+    return filterStudentOptions(students, deferredStudentInput);
+  }, [students, deferredStudentInput, filterStudentOptions]);
 
   // Memoize columns to prevent recreation on every render
   const columns: GridColDef[] = useMemo(() => [
@@ -510,6 +567,26 @@ export const Communications = () => {
                 value={formData.contactType}
                 label="Contact Type"
                 onChange={(e) => handleContactTypeChange(e.target.value as Communication['contactType'])}
+                MenuProps={{
+                  onKeyDown: (e: React.KeyboardEvent) => {
+                    if (e.key === 'Tab' && !e.shiftKey) {
+                      const menuElement = e.currentTarget as HTMLElement;
+                      const highlightedItem = menuElement.querySelector('[data-highlighted="true"], .Mui-focusVisible, [aria-selected="true"]') as HTMLElement;
+                      if (highlightedItem) {
+                        const value = highlightedItem.getAttribute('data-value');
+                        if (value && ['teacher', 'parent', 'case-manager'].includes(value)) {
+                          e.preventDefault();
+                          handleContactTypeChange(value as Communication['contactType']);
+                          // Close menu and move to next field
+                          setTimeout(() => {
+                            const selectElement = document.activeElement as HTMLElement;
+                            if (selectElement) selectElement.blur();
+                          }, 0);
+                        }
+                      }
+                    }
+                  },
+                }}
               >
                 <MenuItem value="teacher">Teacher</MenuItem>
                 <MenuItem value="parent">Parent</MenuItem>
@@ -519,13 +596,21 @@ export const Communications = () => {
 
             {formData.contactType === 'teacher' && (
               <Autocomplete
-                options={[...teachers, ...caseManagers]}
+                options={filteredContactOptions}
                 getOptionLabel={(option) => option.name}
-                filterOptions={(options, { inputValue }) => filterContactOptions(options, inputValue)}
                 value={[...teachers, ...caseManagers].find(c => c.id === formData.contactId) || null}
-                onChange={(_, newValue) => handleContactSelect(newValue)}
-                onInputChange={(_, value) => {
+                inputValue={contactInputValue}
+                onInputChange={(_, value, reason) => {
+                  setContactInputValue(value);
                   contactInputRef.current = value;
+                }}
+                onChange={(_, newValue) => {
+                  handleContactSelect(newValue);
+                  if (newValue) {
+                    setContactInputValue(newValue.name);
+                  } else {
+                    setContactInputValue('');
+                  }
                 }}
                 renderInput={(params) => (
                   <TextField
@@ -537,7 +622,7 @@ export const Communications = () => {
                     onKeyDown={(e) => {
                       handleAutocompleteKeyDown(
                         e,
-                        [...teachers, ...caseManagers],
+                        filteredContactOptions,
                         contactInputRef,
                         filterContactOptions as (options: (Teacher | CaseManager | Student)[], inputValue: string) => (Teacher | CaseManager | Student)[],
                         (option) => handleContactSelect(option as Teacher | CaseManager)
@@ -551,13 +636,21 @@ export const Communications = () => {
 
             {formData.contactType === 'case-manager' && (
               <Autocomplete
-                options={caseManagers}
+                options={filteredCaseManagerOptions}
                 getOptionLabel={(option) => option.name}
-                filterOptions={(options, { inputValue }) => filterCaseManagerOptions(options, inputValue)}
                 value={caseManagers.find(c => c.id === formData.contactId) || null}
-                onChange={(_, newValue) => handleContactSelect(newValue)}
-                onInputChange={(_, value) => {
+                inputValue={contactInputValue}
+                onInputChange={(_, value, reason) => {
+                  setContactInputValue(value);
                   contactInputRef.current = value;
+                }}
+                onChange={(_, newValue) => {
+                  handleContactSelect(newValue);
+                  if (newValue) {
+                    setContactInputValue(newValue.name);
+                  } else {
+                    setContactInputValue('');
+                  }
                 }}
                 renderInput={(params) => (
                   <TextField
@@ -569,7 +662,7 @@ export const Communications = () => {
                     onKeyDown={(e) => {
                       handleAutocompleteKeyDown(
                         e,
-                        caseManagers,
+                        filteredCaseManagerOptions,
                         contactInputRef,
                         filterCaseManagerOptions as (options: (Teacher | CaseManager | Student)[], inputValue: string) => (Teacher | CaseManager | Student)[],
                         (option) => handleContactSelect(option as CaseManager)
@@ -601,13 +694,21 @@ export const Communications = () => {
             )}
 
             <Autocomplete
-              options={students}
+              options={filteredStudentOptions}
               getOptionLabel={(option) => option.name}
-              filterOptions={(options, { inputValue }) => filterStudentOptions(options, inputValue)}
               value={students.find(s => s.id === formData.studentId) || null}
-              onChange={(_, newValue) => setFormData({ ...formData, studentId: newValue?.id || '' })}
-              onInputChange={(_, value) => {
+              inputValue={studentInputValue}
+              onInputChange={(_, value, reason) => {
+                setStudentInputValue(value);
                 studentInputRef.current = value;
+              }}
+              onChange={(_, newValue) => {
+                setFormData({ ...formData, studentId: newValue?.id || '' });
+                if (newValue) {
+                  setStudentInputValue(newValue.name);
+                } else {
+                  setStudentInputValue('');
+                }
               }}
               renderInput={(params) => (
                 <TextField
@@ -619,7 +720,7 @@ export const Communications = () => {
                   onKeyDown={(e) => {
                     handleAutocompleteKeyDown(
                       e,
-                      students,
+                      filteredStudentOptions,
                       studentInputRef,
                       filterStudentOptions as (options: (Teacher | CaseManager | Student)[], inputValue: string) => (Teacher | CaseManager | Student)[],
                       (option) => setFormData({ ...formData, studentId: (option as Student).id })
@@ -636,6 +737,26 @@ export const Communications = () => {
                 value={formData.method}
                 label="Method"
                 onChange={(e) => setFormData({ ...formData, method: e.target.value as Communication['method'] })}
+                MenuProps={{
+                  onKeyDown: (e: React.KeyboardEvent) => {
+                    if (e.key === 'Tab' && !e.shiftKey) {
+                      const menuElement = e.currentTarget as HTMLElement;
+                      const highlightedItem = menuElement.querySelector('[data-highlighted="true"], .Mui-focusVisible, [aria-selected="true"]') as HTMLElement;
+                      if (highlightedItem) {
+                        const value = highlightedItem.getAttribute('data-value');
+                        if (value && ['email', 'phone', 'in-person', 'other'].includes(value)) {
+                          e.preventDefault();
+                          setFormData({ ...formData, method: value as Communication['method'] });
+                          // Close menu and move to next field
+                          setTimeout(() => {
+                            const selectElement = document.activeElement as HTMLElement;
+                            if (selectElement) selectElement.blur();
+                          }, 0);
+                        }
+                      }
+                    }
+                  },
+                }}
               >
                 <MenuItem value="email">Email</MenuItem>
                 <MenuItem value="phone">Phone</MenuItem>

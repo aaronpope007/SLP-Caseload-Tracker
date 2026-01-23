@@ -18,6 +18,7 @@ import {
   DialogActions,
   Stack,
   Alert,
+  Autocomplete,
 } from '@mui/material';
 import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid';
 import type { GridColDef, GridRowParams } from '@mui/x-data-grid';
@@ -94,7 +95,11 @@ export const DueDateItems = () => {
   const loadData = useCallback(async () => {
     try {
       const schoolStudents = await getStudents(selectedSchool);
-      setStudents(schoolStudents);
+      // Remove duplicates by ID to prevent duplicate entries
+      const uniqueStudents = Array.from(
+        new Map(schoolStudents.map(student => [student.id, student])).values()
+      );
+      setStudents(uniqueStudents);
       
       const allItems = await getDueDateItems(
         studentFilter || undefined,
@@ -126,17 +131,17 @@ export const DueDateItems = () => {
         category: item.category || '',
         priority: item.priority || 'medium',
       });
-    } else {
-      setEditingItem(null);
-      setFormData({
-        title: '',
-        description: '',
-        dueDate: '',
-        studentId: '',
-        category: '',
-        priority: 'medium',
-      });
-    }
+      } else {
+        setEditingItem(null);
+        setFormData({
+          title: '',
+          description: '',
+          dueDate: '',
+          studentId: '',
+          category: '',
+          priority: 'medium',
+        });
+      }
     itemDialog.openDialog();
   };
 
@@ -497,27 +502,58 @@ export const DueDateItems = () => {
               onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
               InputLabelProps={{ shrink: true }}
             />
-            <FormControl fullWidth>
-              <InputLabel>Student (Optional)</InputLabel>
-              <Select
-                value={formData.studentId}
-                label="Student (Optional)"
-                onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
-              >
-                <MenuItem value="">None</MenuItem>
-                {students.map((student) => (
-                  <MenuItem key={student.id} value={student.id}>
-                    {student.name} ({student.grade})
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Autocomplete
+              options={students}
+              getOptionLabel={(option) => `${option.name} (${option.grade})`}
+              filterOptions={(options, { inputValue }) => {
+                if (!inputValue) return options;
+                const searchTerm = inputValue.toLowerCase().trim();
+                return options.filter((student) => {
+                  const nameMatch = (student.name || '').toLowerCase().includes(searchTerm);
+                  const gradeMatch = (student.grade || '').toLowerCase().includes(searchTerm);
+                  return nameMatch || gradeMatch;
+                });
+              }}
+              value={students.find(s => s.id === formData.studentId) || null}
+              onChange={(_, newValue) => {
+                setFormData({ ...formData, studentId: newValue?.id || '' });
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Student (Optional)"
+                  InputLabelProps={{
+                    shrink: true,
+                  }}
+                />
+              )}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+            />
             <FormControl fullWidth>
               <InputLabel>Category (Optional)</InputLabel>
               <Select
                 value={formData.category}
                 label="Category (Optional)"
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                MenuProps={{
+                  onKeyDown: (e: React.KeyboardEvent) => {
+                    if (e.key === 'Tab' && !e.shiftKey) {
+                      const menuElement = e.currentTarget as HTMLElement;
+                      const highlightedItem = menuElement.querySelector('[data-highlighted="true"], .Mui-focusVisible, [aria-selected="true"]') as HTMLElement;
+                      if (highlightedItem) {
+                        const value = highlightedItem.getAttribute('data-value');
+                        if (value !== null) {
+                          e.preventDefault();
+                          setFormData({ ...formData, category: value });
+                          setTimeout(() => {
+                            const selectElement = document.activeElement as HTMLElement;
+                            if (selectElement) selectElement.blur();
+                          }, 0);
+                        }
+                      }
+                    }
+                  },
+                }}
               >
                 <MenuItem value="">None</MenuItem>
                 <MenuItem value="IEP">IEP</MenuItem>
@@ -535,6 +571,25 @@ export const DueDateItems = () => {
                 value={formData.priority}
                 label="Priority"
                 onChange={(e) => setFormData({ ...formData, priority: e.target.value as DueDateItem['priority'] })}
+                MenuProps={{
+                  onKeyDown: (e: React.KeyboardEvent) => {
+                    if (e.key === 'Tab' && !e.shiftKey) {
+                      const menuElement = e.currentTarget as HTMLElement;
+                      const highlightedItem = menuElement.querySelector('[data-highlighted="true"], .Mui-focusVisible, [aria-selected="true"]') as HTMLElement;
+                      if (highlightedItem) {
+                        const value = highlightedItem.getAttribute('data-value');
+                        if (value && ['low', 'medium', 'high'].includes(value)) {
+                          e.preventDefault();
+                          setFormData({ ...formData, priority: value as DueDateItem['priority'] });
+                          setTimeout(() => {
+                            const selectElement = document.activeElement as HTMLElement;
+                            if (selectElement) selectElement.blur();
+                          }, 0);
+                        }
+                      }
+                    }
+                  },
+                }}
               >
                 <MenuItem value="low">Low</MenuItem>
                 <MenuItem value="medium">Medium</MenuItem>
