@@ -3,7 +3,7 @@
  * This replaces localStorage with API calls to the Express + SQLite backend
  */
 
-import type { Student, Goal, Session, Activity, Evaluation, ArticulationScreener, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Meeting, Reminder, ScheduledSession, Todo } from '../types';
+import type { Student, Goal, Session, Activity, Evaluation, ArticulationScreener, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Meeting, Reminder, ScheduledSession, Todo, CombinedProgressNote } from '../types';
 import { api } from './api';
 import { logError, logDebug } from './logger';
 
@@ -786,5 +786,36 @@ export const toggleTodo = async (id: string): Promise<void> => {
 
 export const deleteTodo = async (id: string): Promise<void> => {
   await api.todos.delete(id);
+};
+
+// Combined Progress Notes
+export const getCombinedProgressNotes = async (studentId?: string): Promise<CombinedProgressNote[]> => {
+  try {
+    return await api.combinedProgressNotes.getAll(studentId);
+  } catch (error) {
+    logError('Failed to fetch combined progress notes', error);
+    return [];
+  }
+};
+
+export const getCombinedProgressNote = async (id: string): Promise<CombinedProgressNote | null> => {
+  try {
+    return await api.combinedProgressNotes.getById(id);
+  } catch (error) {
+    logError('Failed to fetch combined progress note', error);
+    return null;
+  }
+};
+
+export const addCombinedProgressNote = async (note: CombinedProgressNote): Promise<void> => {
+  await api.combinedProgressNotes.create(note);
+};
+
+export const updateCombinedProgressNote = async (id: string, updates: Partial<CombinedProgressNote>): Promise<void> => {
+  await api.combinedProgressNotes.update(id, updates);
+};
+
+export const deleteCombinedProgressNote = async (id: string): Promise<void> => {
+  await api.combinedProgressNotes.delete(id);
 };
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -33,6 +33,8 @@ import {
   Add as AddIcon,
   Edit as EditIcon,
   Visibility as VisibilityIcon,
+  Print as PrintIcon,
+  PictureAsPdf as PdfIcon,
 } from '@mui/icons-material';
 import type { ProgressReport, Student } from '../types';
 import {
@@ -43,8 +45,9 @@ import {
   deleteProgressReport,
   deleteProgressReportsBulk,
   getStudents,
+  updateProgressReport,
 } from '../utils/storage-api';
-import { formatDate, generateId } from '../utils/helpers';
+import { formatDate, generateId, convertMarkupToHtml } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
 import { useConfirm, useSnackbar, useDialog } from '../hooks';
 import { logError } from '../utils/logger';
@@ -84,6 +87,14 @@ export const ProgressReports = () => {
   // Editor dialog state
   const [editingReport, setEditingReport] = useState<ProgressReport | null>(null);
   const editorDialog = useDialog();
+
+  // View/edit report dialog state
+  const [viewingReport, setViewingReport] = useState<ProgressReport | null>(null);
+  const [editedReportText, setEditedReportText] = useState<string>('');
+  const [editingReportText, setEditingReportText] = useState(false);
+  const [savingReport, setSavingReport] = useState(false);
+  const reportViewDialog = useDialog();
+  const isMountedRef = useRef(true);
 
   // Form data for new report
   const [formData, setFormData] = useState({
@@ -127,6 +138,14 @@ export const ProgressReports = () => {
   useEffect(() => {
     setSelectedRows([]);
   }, [reports.length]);
+
+  // Memory leak prevention
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const handleScheduleForStudent = async (studentId: string) => {
     try {
@@ -215,6 +234,125 @@ export const ProgressReports = () => {
 
   const handleEditorSave = async () => {
     await loadData();
+  };
+
+  // View/edit saved report handlers
+  const handleViewSavedReport = (report: ProgressReport) => {
+    setViewingReport(report);
+    setEditedReportText(report.finalReportText || '');
+    setEditingReportText(false);
+    reportViewDialog.openDialog();
+  };
+
+  const handleCloseReportView = () => {
+    reportViewDialog.closeDialog();
+    setViewingReport(null);
+    setEditingReportText(false);
+    setEditedReportText('');
+  };
+
+  const handleEditReportText = () => {
+    if (viewingReport) {
+      setEditedReportText(viewingReport.finalReportText || '');
+      setEditingReportText(true);
+    }
+  };
+
+  const handleCancelEditReportText = () => {
+    if (viewingReport) {
+      setEditedReportText(viewingReport.finalReportText || '');
+      setEditingReportText(false);
+    }
+  };
+
+  const handleSaveReportText = async () => {
+    if (!viewingReport || !isMountedRef.current) return;
+    
+    setSavingReport(true);
+    try {
+      await updateProgressReport(viewingReport.id, {
+        finalReportText: editedReportText || undefined,
+      });
+      
+      if (!isMountedRef.current) return;
+      
+      // Update the local report state
+      const updatedReport = { ...viewingReport, finalReportText: editedReportText || undefined };
+      setViewingReport(updatedReport);
+      
+      // Update the reports list
+      setReports(prev => prev.map(r => r.id === viewingReport.id ? updatedReport : r));
+      
+      setEditingReportText(false);
+      showSnackbar('Progress report updated successfully', 'success');
+    } catch (error: unknown) {
+      if (!isMountedRef.current) return;
+      logError('Failed to save progress report', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save progress report';
+      showSnackbar(errorMessage, 'error');
+    } finally {
+      if (isMountedRef.current) {
+        setSavingReport(false);
+      }
+    }
+  };
+
+  const handlePrintReport = () => {
+    if (!viewingReport || !viewingReport.finalReportText) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const student = students.find(s => s.id === viewingReport.studentId);
+    const formattedReport = convertMarkupToHtml(viewingReport.finalReportText);
+    const reportContent = `
+      <html>
+        <head>
+          <title>Progress Report - ${student?.name || 'Student'}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; line-height: 1.6; }
+            h1 { color: #333; font-size: 1.5rem; font-weight: bold; margin-top: 1rem; margin-bottom: 0.5rem; }
+            h2 { color: #333; font-size: 1.25rem; font-weight: bold; margin-top: 1rem; margin-bottom: 0.5rem; }
+            h3 { color: #333; font-size: 1.1rem; font-weight: bold; margin-top: 0.75rem; margin-bottom: 0.5rem; }
+            .student-info { margin-bottom: 20px; }
+            .report-content { line-height: 1.6; }
+            .report-content p { margin-bottom: 1rem; }
+            .report-content ul, .report-content ol { margin-bottom: 1rem; padding-left: 2rem; }
+            .report-content li { margin-bottom: 0.25rem; }
+            .report-content li ul, .report-content li ol { margin-top: 0.25rem; margin-bottom: 0.25rem; }
+            .report-content strong { font-weight: bold; }
+            .report-content em { font-style: italic; }
+            .report-content code { font-family: monospace; background-color: #f5f5f5; padding: 2px 4px; border-radius: 4px; }
+            .report-content pre { background-color: #f5f5f5; padding: 12px; border-radius: 4px; overflow: auto; margin-bottom: 1rem; }
+            .report-content pre code { background-color: transparent; padding: 0; }
+            .report-content blockquote { border-left: 3px solid #1976d2; padding-left: 1rem; margin-left: 1rem; font-style: italic; margin-bottom: 1rem; }
+            .report-content hr { border: none; border-top: 1px solid #ddd; margin: 1rem 0; }
+            @media print {
+              body { padding: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>Progress Report</h1>
+          <div class="student-info">
+            <p><strong>Student:</strong> ${student?.name || 'Unknown'}</p>
+            <p><strong>Age:</strong> ${student?.age || 'N/A'}</p>
+            <p><strong>Grade:</strong> ${student?.grade || 'N/A'}</p>
+            <p><strong>Report Type:</strong> ${viewingReport.reportType === 'quarterly' ? 'Quarterly' : 'Annual'}</p>
+            <p><strong>Period:</strong> ${formatDate(viewingReport.periodStart)} - ${formatDate(viewingReport.periodEnd)}</p>
+            <p><strong>Due Date:</strong> ${formatDate(viewingReport.dueDate)}</p>
+          </div>
+          <div class="report-content">${formattedReport}</div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(reportContent);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
+  const handleExportPDF = () => {
+    handlePrintReport(); // Use browser's print-to-PDF
   };
 
   const handleDelete = (id: string) => {
@@ -391,10 +529,19 @@ export const ProgressReports = () => {
           actions.push(
             <GridActionsCellItem
               icon={<EditIcon />}
-              label="View/Edit"
+              label="Edit Report"
               onClick={() => handleViewEdit(report)}
             />
           );
+          if (report.finalReportText) {
+            actions.push(
+              <GridActionsCellItem
+                icon={<VisibilityIcon />}
+                label="View Saved Report"
+                onClick={() => handleViewSavedReport(report)}
+              />
+            );
+          }
         }
         if (params.row.status !== 'completed') {
           actions.push(
@@ -662,6 +809,150 @@ export const ProgressReports = () => {
           />
         ) : null;
       })()}
+
+      {/* View/Edit Saved Report Dialog */}
+      <Dialog open={reportViewDialog.open} onClose={handleCloseReportView} maxWidth="md" fullWidth>
+        <DialogTitle>
+          <Box>
+            <Box component="span">Progress Report</Box>
+            {viewingReport && (
+              <Box component="div" sx={{ fontSize: '0.75rem', color: 'text.secondary', mt: 0.5 }}>
+                {students.find(s => s.id === viewingReport.studentId)?.name || 'Unknown Student'}
+                {' - '}
+                {viewingReport.reportType === 'quarterly' ? 'Quarterly' : 'Annual'}
+                {' - '}
+                {formatDate(viewingReport.periodStart)} to {formatDate(viewingReport.periodEnd)}
+              </Box>
+            )}
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2 }}>
+            {editingReportText ? (
+              <TextField
+                fullWidth
+                multiline
+                rows={20}
+                value={editedReportText}
+                onChange={(e) => setEditedReportText(e.target.value)}
+                placeholder="Enter report text (markdown supported)..."
+                sx={{ fontFamily: 'monospace' }}
+              />
+            ) : viewingReport?.finalReportText ? (
+              <Box
+                sx={{
+                  '& h1': { fontSize: '1.5rem', fontWeight: 'bold', mt: 2, mb: 1, color: 'text.primary' },
+                  '& h2': { fontSize: '1.25rem', fontWeight: 'bold', mt: 1.5, mb: 0.75, color: 'text.primary' },
+                  '& h3': { fontSize: '1.1rem', fontWeight: 'bold', mt: 1, mb: 0.5, color: 'text.primary' },
+                  '& p': { mb: 1.5, lineHeight: 1.6, color: 'text.primary' },
+                  '& ul, & ol': { mb: 1.5, pl: 3, color: 'text.primary' },
+                  '& li': { mb: 0.5, lineHeight: 1.6 },
+                  '& strong': { fontWeight: 'bold' },
+                  '& em': { fontStyle: 'italic' },
+                  '& code': { 
+                    fontFamily: 'monospace', 
+                    backgroundColor: 'action.hover', 
+                    padding: '2px 4px', 
+                    borderRadius: '4px',
+                    fontSize: '0.9em'
+                  },
+                  '& pre': { 
+                    backgroundColor: 'action.hover', 
+                    padding: '12px', 
+                    borderRadius: '4px',
+                    overflow: 'auto',
+                    mb: 1.5
+                  },
+                  '& pre code': { 
+                    backgroundColor: 'transparent', 
+                    padding: 0 
+                  },
+                  '& blockquote': { 
+                    borderLeft: '3px solid',
+                    borderColor: 'primary.main',
+                    pl: 2,
+                    ml: 2,
+                    fontStyle: 'italic',
+                    mb: 1.5
+                  },
+                  '& hr': { 
+                    border: 'none',
+                    borderTop: '1px solid',
+                    borderColor: 'divider',
+                    my: 2
+                  },
+                  '& a': { 
+                    color: 'primary.main',
+                    textDecoration: 'underline'
+                  },
+                  lineHeight: 1.6,
+                }}
+                dangerouslySetInnerHTML={{ __html: convertMarkupToHtml(viewingReport.finalReportText) }}
+              />
+            ) : (
+              <Box>
+                <Typography color="text.secondary" sx={{ mb: 2 }}>
+                  No saved report content available. Use "Edit Report" to generate and save a report.
+                </Typography>
+                <Button
+                  variant="outlined"
+                  startIcon={<EditIcon />}
+                  onClick={() => {
+                    handleCloseReportView();
+                    if (viewingReport) {
+                      handleViewEdit(viewingReport);
+                    }
+                  }}
+                >
+                  Generate Report
+                </Button>
+              </Box>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          {editingReportText ? (
+            <>
+              <Button onClick={handleCancelEditReportText} disabled={savingReport}>
+                Cancel
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleSaveReportText}
+                disabled={savingReport}
+              >
+                {savingReport ? 'Saving...' : 'Save'}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Box sx={{ display: 'flex', gap: 1, mr: 1 }}>
+                <Button
+                  startIcon={<EditIcon />}
+                  onClick={handleEditReportText}
+                >
+                  {viewingReport?.finalReportText ? 'Edit' : 'Add Content'}
+                </Button>
+                <Button
+                  startIcon={<PrintIcon />}
+                  onClick={handlePrintReport}
+                  disabled={!viewingReport?.finalReportText}
+                >
+                  Print
+                </Button>
+                <Button
+                  startIcon={<PdfIcon />}
+                  onClick={handleExportPDF}
+                  disabled={!viewingReport?.finalReportText}
+                >
+                  Export PDF
+                </Button>
+              </Box>
+              <Button onClick={handleCloseReportView}>Close</Button>
+            </>
+          )}
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

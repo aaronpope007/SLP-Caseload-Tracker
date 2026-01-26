@@ -319,11 +319,37 @@ Generate concise, professional, clinically appropriate content for this section.
     }
   };
 
+  const generateFinalReportText = (): string => {
+    if (!template) return '';
+    
+    let reportText = `Progress Report - ${student.name}\n`;
+    reportText += `Report Type: ${report.reportType === 'quarterly' ? 'Quarterly' : 'Annual'}\n`;
+    reportText += `Period: ${formatDate(report.periodStart)} - ${formatDate(report.periodEnd)}\n`;
+    reportText += `Due Date: ${formatDate(report.dueDate)}\n`;
+    reportText += `Status: ${report.status}\n`;
+    reportText += '\n' + '='.repeat(50) + '\n\n';
+
+    template.sections
+      .sort((a, b) => a.order - b.order)
+      .forEach(section => {
+        const content = sectionContents[section.id] || '';
+        if (content.trim()) {
+          reportText += `${section.title}\n`;
+          reportText += '-'.repeat(30) + '\n';
+          reportText += content + '\n\n';
+        }
+      });
+
+    return reportText.trim();
+  };
+
   const handleSave = async () => {
     try {
       const content = JSON.stringify(sectionContents);
+      const finalReportText = generateFinalReportText();
       await updateProgressReport(report.id, {
         content,
+        finalReportText,
         templateId: template?.id,
         status: report.status === 'scheduled' ? 'in-progress' : report.status,
         dateUpdated: new Date().toISOString(),
@@ -340,8 +366,10 @@ Generate concise, professional, clinically appropriate content for this section.
   const handleMarkComplete = async () => {
     try {
       const content = JSON.stringify(sectionContents);
+      const finalReportText = generateFinalReportText();
       await updateProgressReport(report.id, {
         content,
+        finalReportText,
         templateId: template?.id,
         status: 'completed',
         completedDate: new Date().toISOString(),
@@ -360,23 +388,7 @@ Generate concise, professional, clinically appropriate content for this section.
     // Generate plain text report
     if (!template) return;
 
-    let reportText = `Progress Report - ${student.name}\n`;
-    reportText += `Report Type: ${report.reportType === 'quarterly' ? 'Quarterly' : 'Annual'}\n`;
-    reportText += `Period: ${formatDate(report.periodStart)} - ${formatDate(report.periodEnd)}\n`;
-    reportText += `Due Date: ${formatDate(report.dueDate)}\n`;
-    reportText += `Status: ${report.status}\n`;
-    reportText += '\n' + '='.repeat(50) + '\n\n';
-
-    template.sections
-      .sort((a, b) => a.order - b.order)
-      .forEach(section => {
-        const content = sectionContents[section.id] || '';
-        if (content.trim()) {
-          reportText += `${section.title}\n`;
-          reportText += '-'.repeat(30) + '\n';
-          reportText += content + '\n\n';
-        }
-      });
+    const reportText = generateFinalReportText();
 
     // Create download - ensure URL is always revoked
     const blob = new Blob([reportText], { type: 'text/plain' });

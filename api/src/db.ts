@@ -308,6 +308,18 @@ export function initDatabase() {
     )
   `);
 
+  // Add finalReportText column if it doesn't exist (for existing databases)
+  try {
+    const progressReportsTableInfo = db.prepare('PRAGMA table_info(progress_reports)').all() as Array<{ name: string }>;
+    const progressReportsColumnNames = progressReportsTableInfo.map(col => col.name);
+    
+    if (!progressReportsColumnNames.includes('finalReportText')) {
+      db.exec(`ALTER TABLE progress_reports ADD COLUMN finalReportText TEXT`);
+    }
+  } catch (e: any) {
+    console.warn('Could not add finalReportText column to progress_reports table:', e.message);
+  }
+
   // Progress Report Templates table
   db.exec(`
     CREATE TABLE IF NOT EXISTS progress_report_templates (
@@ -543,6 +555,19 @@ export function initDatabase() {
       dateCreated TEXT NOT NULL,
       dateUpdated TEXT NOT NULL,
       FOREIGN KEY (studentId) REFERENCES students(id) ON DELETE SET NULL
+    )
+  `);
+
+  // Combined Progress Notes table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS combined_progress_notes (
+      id TEXT PRIMARY KEY,
+      studentId TEXT NOT NULL,
+      content TEXT NOT NULL,
+      selectedGoalIds TEXT,
+      dateCreated TEXT NOT NULL,
+      dateUpdated TEXT NOT NULL,
+      FOREIGN KEY (studentId) REFERENCES students(id) ON DELETE CASCADE
     )
   `);
 

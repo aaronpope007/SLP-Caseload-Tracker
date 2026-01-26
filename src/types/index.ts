@@ -222,7 +222,8 @@ export interface ProgressReport {
   status: 'scheduled' | 'in-progress' | 'completed' | 'overdue';
   completedDate?: string; // ISO string - when completed
   templateId?: string; // Which template was used
-  content?: string; // Report content/generated text
+  content?: string; // JSON stringified section contents (for editor)
+  finalReportText?: string; // Final formatted report text (for viewing/editing)
   dateCreated: string;
   dateUpdated: string;
   // Optional fields for customization
@@ -301,6 +302,15 @@ export interface Meeting {
   school: string; // School name the meeting is for
   studentId?: string; // Optional - link to student if meeting is student-specific
   category?: string; // e.g., "IEP", "Staff Meeting", "Team Meeting", "Other"
+  dateCreated: string;
+  dateUpdated: string;
+}
+
+export interface CombinedProgressNote {
+  id: string;
+  studentId: string;
+  content: string; // The generated combined progress note text
+  selectedGoalIds?: string; // JSON stringified array of goal IDs that were included
   dateCreated: string;
   dateUpdated: string;
 }

@@ -16,6 +16,7 @@ interface ProgressReportRow {
   completedDate: string | null;
   templateId: string | null;
   content: string | null;
+  finalReportText: string | null;
   dateCreated: string;
   dateUpdated: string;
   customDueDate: string | null;
@@ -142,9 +143,9 @@ progressReportsRouter.post('/', asyncHandler(async (req, res) => {
   db.prepare(`
     INSERT INTO progress_reports (
       id, studentId, reportType, dueDate, scheduledDate, periodStart, periodEnd,
-      status, completedDate, templateId, content, dateCreated, dateUpdated,
+      status, completedDate, templateId, content, finalReportText, dateCreated, dateUpdated,
       customDueDate, reminderSent, reminderSentDate
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     report.id,
     report.studentId,
@@ -157,6 +158,7 @@ progressReportsRouter.post('/', asyncHandler(async (req, res) => {
     report.completedDate || null,
     report.templateId || null,
     report.content || null,
+    report.finalReportText || null,
     report.dateCreated,
     report.dateUpdated,
     report.customDueDate || null,
@@ -220,7 +222,7 @@ progressReportsRouter.put('/:id', asyncHandler(async (req, res) => {
     UPDATE progress_reports 
     SET studentId = ?, reportType = ?, dueDate = ?, scheduledDate = ?, periodStart = ?,
         periodEnd = ?, status = ?, completedDate = ?, templateId = ?, content = ?,
-        dateUpdated = ?, customDueDate = ?, reminderSent = ?, reminderSentDate = ?
+        finalReportText = ?, dateUpdated = ?, customDueDate = ?, reminderSent = ?, reminderSentDate = ?
     WHERE id = ?
   `).run(
     report.studentId,
@@ -233,6 +235,7 @@ progressReportsRouter.put('/:id', asyncHandler(async (req, res) => {
     report.completedDate || null,
     report.templateId || null,
     report.content || null,
+    report.finalReportText || null,
     report.dateUpdated,
     report.customDueDate || null,
     report.reminderSent ? 1 : 0,

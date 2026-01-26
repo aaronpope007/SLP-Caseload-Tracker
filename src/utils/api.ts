@@ -5,7 +5,7 @@
  * Set VITE_API_URL in your .env file or it defaults to http://localhost:3001
  */
 
-import type { Student, Goal, Session, Activity, Evaluation, ArticulationScreener, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Meeting, Reminder, Communication, ScheduledSession, TimesheetNote, Todo } from '../types';
+import type { Student, Goal, Session, Activity, Evaluation, ArticulationScreener, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Meeting, Reminder, Communication, ScheduledSession, TimesheetNote, Todo, CombinedProgressNote } from '../types';
 import { buildQueryString } from './queryHelpers';
 import { logError } from './logger';
 
@@ -798,6 +798,28 @@ export const api = {
       }),
     delete: (id: string) =>
       request<{ message: string }>(`/todos/${id}`, {
+        method: 'DELETE',
+      }),
+  },
+
+  // Combined Progress Notes
+  combinedProgressNotes: {
+    getAll: (studentId?: string) => 
+      request<CombinedProgressNote[]>(`/combined-progress-notes${buildQueryString({ studentId })}`),
+    getById: (id: string) => 
+      request<CombinedProgressNote>(`/combined-progress-notes/${id}`),
+    create: (note: CombinedProgressNote) => 
+      request<{ id: string; message: string }>('/combined-progress-notes', {
+        method: 'POST',
+        body: JSON.stringify(note),
+      }),
+    update: (id: string, updates: Partial<CombinedProgressNote>) => 
+      request<{ message: string }>(`/combined-progress-notes/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      }),
+    delete: (id: string) => 
+      request<{ message: string }>(`/combined-progress-notes/${id}`, {
         method: 'DELETE',
       }),
   },

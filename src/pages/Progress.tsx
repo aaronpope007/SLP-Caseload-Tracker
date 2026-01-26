@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { logError } from '../utils/logger';
 import {
   Box,
@@ -17,6 +17,11 @@ import {
   FormControlLabel,
   CircularProgress,
   Divider,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
 } from '@mui/material';
 import {
   LineChart,
@@ -30,13 +35,19 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { getStudents, getGoals, getSessions } from '../utils/storage-api';
-import { formatDate } from '../utils/helpers';
+import {
+  Save as SaveIcon,
+  FolderOpen as FolderOpenIcon,
+  Delete as DeleteIcon,
+  Edit as EditIcon,
+} from '@mui/icons-material';
+import { getStudents, getGoals, getSessions, getCombinedProgressNotes, addCombinedProgressNote, updateCombinedProgressNote, deleteCombinedProgressNote } from '../utils/storage-api';
+import { formatDate, generateId } from '../utils/helpers';
 import { generateProgressNote, type GoalProgressData } from '../utils/gemini';
 import { useSchool } from '../context/SchoolContext';
 import { useAsyncOperation, useSnackbar, useAIGeneration } from '../hooks';
 import { getErrorMessage } from '../utils/validators';
-import type { Student } from '../types';
+import type { Student, CombinedProgressNote } from '../types';
 
 interface TimelineDataItem {
   date: string;
@@ -78,6 +89,11 @@ export const Progress = () => {
   const [selectedGoals, setSelectedGoals] = useState<Set<string>>(new Set());
   const [loadingNotes, setLoadingNotes] = useState<Record<string, boolean>>({});
   const [loadingCombined, setLoadingCombined] = useState<boolean>(false);
+  const [savedNotes, setSavedNotes] = useState<CombinedProgressNote[]>([]);
+  const [savingNote, setSavingNote] = useState<boolean>(false);
+  const [loadingSavedNotes, setLoadingSavedNotes] = useState<boolean>(false);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
     const loadStudents = async () => {
@@ -99,9 +115,18 @@ export const Progress = () => {
   useEffect(() => {
     if (selectedStudentId) {
       loadProgressData();
+      loadSavedNotes();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStudentId]);
+
+  // Memory leak prevention
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const loadProgressData = async () => {
     try {
@@ -364,13 +389,126 @@ export const Progress = () => {
       }));
 
       const note = await generateProgressNote(selectedStudent.name, goalsData, apiKey);
+      if (!isMountedRef.current) return;
       setCombinedNote(note);
     } catch (err: unknown) {
+      if (!isMountedRef.current) return;
       const errorMessage = getErrorMessage(err);
       showSnackbar(errorMessage, 'error');
       logError('Failed to generate combined progress note', err);
     } finally {
-      setLoadingCombined(false);
+      if (isMountedRef.current) {
+        setLoadingCombined(false);
+      }
+    }
+  };
+
+  const loadSavedNotes = async () => {
+    if (!selectedStudentId || !isMountedRef.current) return;
+    setLoadingSavedNotes(true);
+    try {
+      const notes = await getCombinedProgressNotes(selectedStudentId);
+      if (!isMountedRef.current) return;
+      setSavedNotes(notes);
+    } catch (error) {
+      if (!isMountedRef.current) return;
+      logError('Failed to load saved notes', error);
+    } finally {
+      if (isMountedRef.current) {
+        setLoadingSavedNotes(false);
+      }
+    }
+  };
+
+  const handleSaveNote = async () => {
+    if (!selectedStudentId || !combinedNote.trim()) {
+      showSnackbar('Please generate a note before saving', 'error');
+      return;
+    }
+
+    if (!isMountedRef.current) return;
+    setSavingNote(true);
+    try {
+      const note: CombinedProgressNote = {
+        id: generateId(),
+        studentId: selectedStudentId,
+        content: combinedNote,
+        selectedGoalIds: JSON.stringify(Array.from(selectedGoals)),
+        dateCreated: new Date().toISOString(),
+        dateUpdated: new Date().toISOString(),
+      };
+      await addCombinedProgressNote(note);
+      if (!isMountedRef.current) return;
+      await loadSavedNotes();
+      showSnackbar('Note saved successfully', 'success');
+    } catch (error) {
+      if (!isMountedRef.current) return;
+      logError('Failed to save note', error);
+      showSnackbar('Failed to save note. Please try again.', 'error');
+    } finally {
+      if (isMountedRef.current) {
+        setSavingNote(false);
+      }
+    }
+  };
+
+  const handleLoadNote = (note: CombinedProgressNote) => {
+    setCombinedNote(note.content);
+    if (note.selectedGoalIds) {
+      try {
+        const goalIds = JSON.parse(note.selectedGoalIds) as string[];
+        setSelectedGoals(new Set(goalIds));
+      } catch {
+        // If parsing fails, just load the content
+      }
+    }
+    setEditingNoteId(note.id);
+  };
+
+  const handleUpdateNote = async () => {
+    if (!editingNoteId || !combinedNote.trim()) {
+      showSnackbar('Please generate a note before updating', 'error');
+      return;
+    }
+
+    if (!isMountedRef.current) return;
+    setSavingNote(true);
+    try {
+      await updateCombinedProgressNote(editingNoteId, {
+        content: combinedNote,
+        selectedGoalIds: JSON.stringify(Array.from(selectedGoals)),
+        dateUpdated: new Date().toISOString(),
+      });
+      if (!isMountedRef.current) return;
+      await loadSavedNotes();
+      showSnackbar('Note updated successfully', 'success');
+    } catch (error) {
+      if (!isMountedRef.current) return;
+      logError('Failed to update note', error);
+      showSnackbar('Failed to update note. Please try again.', 'error');
+    } finally {
+      if (isMountedRef.current) {
+        setSavingNote(false);
+      }
+    }
+  };
+
+  const handleDeleteNote = async (id: string) => {
+    if (!isMountedRef.current) return;
+    try {
+      await deleteCombinedProgressNote(id);
+      if (!isMountedRef.current) return;
+      await loadSavedNotes();
+      if (editingNoteId === id) {
+        setEditingNoteId(null);
+        setCombinedNote('');
+        setSelectedGoals(new Set());
+      }
+      showSnackbar('Note deleted successfully', 'success');
+    } catch (error) {
+      if (!isMountedRef.current) return;
+      logError('Failed to delete note', error);
+      showSnackbar('Failed to delete note. Please try again.', 'error');
     }
   };
 
@@ -686,14 +824,92 @@ export const Progress = () => {
                   placeholder="Generated combined progress note will appear here..."
                   sx={{ mb: 2 }}
                 />
-                <Button
-                  variant="contained"
-                  onClick={handleGenerateCombinedNote}
-                  disabled={loadingCombined}
-                  startIcon={loadingCombined ? <CircularProgress size={16} /> : null}
-                >
-                  {loadingCombined ? 'Generating...' : 'Generate Combined Note'}
-                </Button>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
+                  <Button
+                    variant="contained"
+                    onClick={handleGenerateCombinedNote}
+                    disabled={loadingCombined}
+                    startIcon={loadingCombined ? <CircularProgress size={16} /> : null}
+                  >
+                    {loadingCombined ? 'Generating...' : 'Generate Combined Note'}
+                  </Button>
+                  {combinedNote.trim() && (
+                    <Button
+                      variant="outlined"
+                      onClick={editingNoteId ? handleUpdateNote : handleSaveNote}
+                      disabled={savingNote}
+                      startIcon={savingNote ? <CircularProgress size={16} /> : <SaveIcon />}
+                    >
+                      {savingNote ? 'Saving...' : editingNoteId ? 'Update Saved Note' : 'Save Note'}
+                    </Button>
+                  )}
+                  {savedNotes.length > 0 && (
+                    <FormControl sx={{ minWidth: 200 }}>
+                      <InputLabel>Load Saved Note</InputLabel>
+                      <Select
+                        value=""
+                        label="Load Saved Note"
+                        onChange={(e) => {
+                          const noteId = e.target.value;
+                          const note = savedNotes.find(n => n.id === noteId);
+                          if (note) {
+                            handleLoadNote(note);
+                          }
+                        }}
+                      >
+                        {savedNotes.map((note) => (
+                          <MenuItem key={note.id} value={note.id}>
+                            {formatDate(note.dateUpdated)}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  )}
+                </Box>
+                {savedNotes.length > 0 && (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="subtitle2" gutterBottom>
+                      Saved Notes:
+                    </Typography>
+                    {savedNotes.map((note) => (
+                      <Box
+                        key={note.id}
+                        sx={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          p: 1,
+                          mb: 1,
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          borderRadius: 1,
+                          bgcolor: editingNoteId === note.id ? 'action.selected' : 'background.paper',
+                        }}
+                      >
+                        <Typography variant="body2">
+                          Saved: {formatDate(note.dateUpdated)}
+                        </Typography>
+                        <Box>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleLoadNote(note)}
+                            title="Load this note"
+                          >
+                            <FolderOpenIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleDeleteNote(note.id)}
+                            title="Delete this note"
+                            color="error"
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      </Box>
+                    ))}
+                  </Box>
+                )}
               </CardContent>
             </Card>
           )}
