@@ -204,6 +204,13 @@ export const SessionFormDialog = ({
   // Single consolidated debounce effect for all text fields
   // Uses refs to read current values without re-running on every keystroke
   const debounceSyncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Use ref to track open state to prevent memory leaks in timeout callbacks
+  const isOpenRef = useRef(open);
+  
+  // Keep ref in sync with open prop
+  useEffect(() => {
+    isOpenRef.current = open;
+  }, [open]);
   
   // Stable debounce function that reads from refs
   // This function doesn't change, so it won't cause effect re-runs
@@ -215,6 +222,12 @@ export const SessionFormDialog = ({
     }
     
     debounceSyncTimeoutRef.current = setTimeout(() => {
+      // Check if dialog is still open before executing (prevents memory leak)
+      if (!isOpenRef.current) {
+        debounceSyncTimeoutRef.current = null;
+        return;
+      }
+      
       const updates: Partial<SessionFormData> = {};
       
       // Read current values from refs (always up-to-date)
@@ -255,8 +268,8 @@ export const SessionFormDialog = ({
         lastSyncedRef.current.indirectServicesNotes = currentIndirectServicesNotes;
       }
       
-      // Only call onFormDataChange if there are actual updates
-      if (Object.keys(updates).length > 0) {
+      // Only call onFormDataChange if there are actual updates and dialog is still open
+      if (Object.keys(updates).length > 0 && isOpenRef.current) {
         onFormDataChangeRef.current(updates);
       }
       
