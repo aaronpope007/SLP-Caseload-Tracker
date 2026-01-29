@@ -41,15 +41,22 @@ communicationsRouter.get('/', asyncHandler(async (req, res) => {
   }
   
   if (school && typeof school === 'string') {
-    // Join with students table to filter by school
-    // Show communications for students in the specified school OR communications without a studentId (general communications)
-    // Use LEFT JOIN so communications without a studentId are still included
+    // Filter by school: show communications where:
+    // 1. The student belongs to the school (if studentId exists), OR
+    // 2. The contact (teacher/case manager) belongs to the school (if contactId exists)
+    // Exclude communications that can't be associated with the school (e.g., parent communications without studentId)
     query = `
-      SELECT c.* FROM communications c
+      SELECT DISTINCT c.* FROM communications c
       LEFT JOIN students s ON c.studentId = s.id
-      WHERE (c.studentId IS NULL OR s.school = ?)
+      LEFT JOIN teachers t ON c.contactType = 'teacher' AND c.contactId = t.id
+      LEFT JOIN case_managers cm ON c.contactType = 'case-manager' AND c.contactId = cm.id
+      WHERE (
+        (c.studentId IS NOT NULL AND s.school = ?) OR
+        (c.contactId IS NOT NULL AND c.contactType = 'teacher' AND t.school = ?) OR
+        (c.contactId IS NOT NULL AND c.contactType = 'case-manager' AND cm.school = ?)
+      )
     `;
-    params.unshift(school);
+    params.unshift(school, school, school);
     
     // Re-apply other filters
     if (studentId && typeof studentId === 'string') {

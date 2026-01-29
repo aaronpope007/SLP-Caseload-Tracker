@@ -111,6 +111,14 @@ export const Communications = () => {
       const allStudents = await api.students.getAll();
       setStudents(allStudents);
       
+      if (!selectedSchool) {
+        // If no school is selected, clear communications and return
+        setCommunications([]);
+        setTeachers([]);
+        setCaseManagers([]);
+        return;
+      }
+      
       const schoolTeachers = await api.teachers.getAll(selectedSchool);
       setTeachers(schoolTeachers);
       
@@ -350,22 +358,13 @@ export const Communications = () => {
     return options.filter((student) => {
       const nameMatch = (student.name || '').toLowerCase().includes(searchTerm);
       const gradeMatch = (student.grade || '').toLowerCase().includes(searchTerm);
-      return nameMatch || gradeMatch;
+      const concernsMatch = student.concerns?.some((c) => c.toLowerCase().includes(searchTerm)) || false;
+      return nameMatch || gradeMatch || concernsMatch;
     });
   }, []);
 
-  // Memoize filtered options using deferred values for better performance
-  const filteredContactOptions = useMemo(() => {
-    return filterContactOptions([...teachers, ...caseManagers], deferredContactInput);
-  }, [teachers, caseManagers, deferredContactInput, filterContactOptions]);
-
-  const filteredCaseManagerOptions = useMemo(() => {
-    return filterCaseManagerOptions(caseManagers, deferredContactInput);
-  }, [caseManagers, deferredContactInput, filterCaseManagerOptions]);
-
-  const filteredStudentOptions = useMemo(() => {
-    return filterStudentOptions(students, deferredStudentInput);
-  }, [students, deferredStudentInput, filterStudentOptions]);
+  // Note: We pass full options to Autocomplete and use filterOptions prop for filtering
+  // This ensures Material-UI's Autocomplete filtering works correctly
 
   // Memoize columns to prevent recreation on every render
   const columns: GridColDef[] = useMemo(() => [
@@ -596,8 +595,9 @@ export const Communications = () => {
 
             {formData.contactType === 'teacher' && (
               <Autocomplete
-                options={filteredContactOptions}
+                options={[...teachers, ...caseManagers]}
                 getOptionLabel={(option) => option.name}
+                filterOptions={(options, state) => filterContactOptions(options, state.inputValue)}
                 value={[...teachers, ...caseManagers].find(c => c.id === formData.contactId) || null}
                 inputValue={contactInputValue}
                 onInputChange={(_, value, reason) => {
@@ -620,9 +620,10 @@ export const Communications = () => {
                       shrink: true,
                     }}
                     onKeyDown={(e) => {
+                      const filtered = filterContactOptions([...teachers, ...caseManagers], contactInputRef.current);
                       handleAutocompleteKeyDown(
                         e,
-                        filteredContactOptions,
+                        filtered,
                         contactInputRef,
                         filterContactOptions as (options: (Teacher | CaseManager | Student)[], inputValue: string) => (Teacher | CaseManager | Student)[],
                         (option) => handleContactSelect(option as Teacher | CaseManager)
@@ -636,8 +637,9 @@ export const Communications = () => {
 
             {formData.contactType === 'case-manager' && (
               <Autocomplete
-                options={filteredCaseManagerOptions}
+                options={caseManagers}
                 getOptionLabel={(option) => option.name}
+                filterOptions={(options, state) => filterCaseManagerOptions(options, state.inputValue)}
                 value={caseManagers.find(c => c.id === formData.contactId) || null}
                 inputValue={contactInputValue}
                 onInputChange={(_, value, reason) => {
@@ -660,9 +662,10 @@ export const Communications = () => {
                       shrink: true,
                     }}
                     onKeyDown={(e) => {
+                      const filtered = filterCaseManagerOptions(caseManagers, contactInputRef.current);
                       handleAutocompleteKeyDown(
                         e,
-                        filteredCaseManagerOptions,
+                        filtered,
                         contactInputRef,
                         filterCaseManagerOptions as (options: (Teacher | CaseManager | Student)[], inputValue: string) => (Teacher | CaseManager | Student)[],
                         (option) => handleContactSelect(option as CaseManager)
@@ -694,8 +697,9 @@ export const Communications = () => {
             )}
 
             <Autocomplete
-              options={filteredStudentOptions}
+              options={students}
               getOptionLabel={(option) => option.name}
+              filterOptions={(options, state) => filterStudentOptions(options, state.inputValue)}
               value={students.find(s => s.id === formData.studentId) || null}
               inputValue={studentInputValue}
               onInputChange={(_, value, reason) => {
@@ -718,9 +722,10 @@ export const Communications = () => {
                     shrink: true,
                   }}
                   onKeyDown={(e) => {
+                    const filtered = filterStudentOptions(students, studentInputRef.current);
                     handleAutocompleteKeyDown(
                       e,
-                      filteredStudentOptions,
+                      filtered,
                       studentInputRef,
                       filterStudentOptions as (options: (Teacher | CaseManager | Student)[], inputValue: string) => (Teacher | CaseManager | Student)[],
                       (option) => setFormData({ ...formData, studentId: (option as Student).id })
