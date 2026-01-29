@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Button,
@@ -19,6 +19,7 @@ import {
   FormLabel,
   InputAdornment,
   IconButton,
+  CircularProgress,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -27,14 +28,19 @@ import {
   Clear as ClearIcon,
 } from '@mui/icons-material';
 import type { CaseManager } from '../types';
-import {
-  getCaseManagers,
-  addCaseManager,
-  updateCaseManager,
-  deleteCaseManager,
-} from '../utils/storage-api';
+import { getCaseManagers } from '../utils/storage-api';
 import { generateId } from '../utils/helpers';
-import { useConfirm, useDialog, useSnackbar, useFormValidation, useDebouncedValue } from '../hooks';
+import {
+  useConfirm,
+  useDialog,
+  useSnackbar,
+  useFormValidation,
+  useDebouncedValue,
+  useCaseManagers,
+  useCreateCaseManager,
+  useUpdateCaseManager,
+  useDeleteCaseManager,
+} from '../hooks';
 import { useDirty } from '../hooks/useDirty';
 import { useSchool } from '../context/SchoolContext';
 import { SearchBar } from '../components/common/SearchBar';
@@ -45,8 +51,10 @@ import { formatPhoneNumber, formatPhoneForDisplay, stripPhoneFormatting } from '
 
 export const CaseManagers = () => {
   const { selectedSchool, availableSchools } = useSchool();
-  const [caseManagers, setCaseManagers] = useState<CaseManager[]>([]);
-  const [filteredCaseManagers, setFilteredCaseManagers] = useState<CaseManager[]>([]);
+  const { data: caseManagers = [], isLoading } = useCaseManagers(selectedSchool);
+  const createCaseManagerMutation = useCreateCaseManager();
+  const updateCaseManagerMutation = useUpdateCaseManager();
+  const deleteCaseManagerMutation = useDeleteCaseManager();
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebouncedValue(searchTerm, 300);
   const [expandedCaseManagers, setExpandedCaseManagers] = useState<Set<string>>(new Set());
@@ -87,10 +95,8 @@ export const CaseManagers = () => {
     message: 'You have unsaved changes to this case manager. Are you sure you want to leave?',
   });
 
-  const filterCaseManagers = () => {
+  const filteredCaseManagers = useMemo(() => {
     let filtered = caseManagers;
-    
-    // Filter by search term if provided (using debounced value)
     if (debouncedSearchTerm.trim()) {
       const term = debouncedSearchTerm.toLowerCase();
       const searchDigits = stripPhoneFormatting(term);
@@ -105,45 +111,12 @@ export const CaseManagers = () => {
           (cm.emailAddress && cm.emailAddress.toLowerCase().includes(term))
       );
     }
-    
-    // Maintain alphabetical order by name
-    filtered.sort((a, b) => {
+    filtered = [...filtered].sort((a, b) => {
       const nameA = a.name.toLowerCase();
       const nameB = b.name.toLowerCase();
       return nameA.localeCompare(nameB);
     });
-    
-    setFilteredCaseManagers(filtered);
-  };
-
-  const loadCaseManagers = async () => {
-    if (!selectedSchool) {
-      setCaseManagers([]);
-      return;
-    }
-    try {
-      const allCaseManagers = await getCaseManagers(selectedSchool);
-      
-      // Sort alphabetically by name
-      const sortedCaseManagers = [...allCaseManagers].sort((a, b) => {
-        const nameA = a.name.toLowerCase();
-        const nameB = b.name.toLowerCase();
-        return nameA.localeCompare(nameB);
-      });
-      setCaseManagers(sortedCaseManagers);
-    } catch (error) {
-      logError('[CaseManagers] Failed to load case managers', error);
-    }
-  };
-
-  useEffect(() => {
-    loadCaseManagers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSchool]);
-
-  useEffect(() => {
-    filterCaseManagers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return filtered;
   }, [debouncedSearchTerm, caseManagers]);
 
   useEffect(() => {
@@ -239,30 +212,29 @@ export const CaseManagers = () => {
       };
 
       if (editingCaseManager) {
-        await updateCaseManager(editingCaseManager.id, caseManagerData);
+        await updateCaseManagerMutation.mutateAsync({
+          id: editingCaseManager.id,
+          updates: caseManagerData,
+        });
         showSnackbar('Case manager updated successfully', 'success');
       } else {
-        const newCaseManager = {
+        await createCaseManagerMutation.mutateAsync({
           id: generateId(),
           ...caseManagerData,
           dateCreated: new Date().toISOString(),
-        };
-        await addCaseManager(newCaseManager);
+        });
         showSnackbar('Case manager created successfully', 'success');
       }
-      
-      await loadCaseManagers();
       resetDirty();
       caseManagerDialog.closeDialog();
       setEditingCaseManager(null);
     } catch (error: unknown) {
       if (handleApiError(error)) {
-        // Validation errors are now displayed inline
         return;
       }
       logError('[CaseManagers] Failed to save case manager', error);
       const errorMessage = getErrorMessage(error);
-      alert(`Failed to save case manager: ${errorMessage}\n\nMake sure the API server is running on http://localhost:3001`);
+      showSnackbar(`Failed to save case manager: ${errorMessage}`, 'error');
     }
   };
 
@@ -321,16 +293,23 @@ export const CaseManagers = () => {
       confirmColor: hasRelatedStudents ? 'warning' : 'error',
       onConfirm: async () => {
         try {
-          await deleteCaseManager(id);
-          await loadCaseManagers();
+          await deleteCaseManagerMutation.mutateAsync(id);
           showSnackbar('Case manager deleted successfully', 'success');
         } catch (error) {
           logError('Failed to delete case manager', error);
-          alert('Failed to delete case manager. Please try again.');
+          showSnackbar('Failed to delete case manager. Please try again.', 'error');
         }
       },
     });
   };
+
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box>

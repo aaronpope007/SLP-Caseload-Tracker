@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -19,6 +19,7 @@ import {
   Checkbox,
   FormGroup,
   FormLabel,
+  CircularProgress,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -27,38 +28,52 @@ import {
   UnfoldLess as UnfoldLessIcon,
 } from '@mui/icons-material';
 import type { Student, Teacher, CaseManager } from '../types';
-import {
-  getStudents,
-  addStudent,
-  updateStudent,
-  deleteStudent,
-  getTeachers,
-  getCaseManagers,
-  getGoalsByStudent,
-} from '../utils/storage-api';
 import { generateId } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
-import { useConfirm, useDialog, useSnackbar, useFormValidation, useDebouncedValue } from '../hooks';
+import {
+  useConfirm,
+  useDialog,
+  useSnackbar,
+  useFormValidation,
+  useDebouncedValue,
+  useStudents,
+  useTeachers,
+  useCaseManagers,
+  useStudentsWithNoGoals,
+  useCreateStudent,
+  useUpdateStudent,
+  useDeleteStudent,
+} from '../hooks';
 import { useDirty } from '../hooks/useDirty';
 import { ApiError } from '../utils/api';
 import { SearchBar } from '../components/common/SearchBar';
 import { StudentAccordionCard } from '../components/student/StudentAccordionCard';
-import { logError, logWarn } from '../utils/logger';
+import { logError } from '../utils/logger';
 import { getErrorMessage } from '../utils/validators';
 
 export const Students = () => {
   const navigate = useNavigate();
   const { selectedSchool, availableSchools } = useSchool();
-  const [students, setStudents] = useState<Student[]>([]);
-  const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
-  const [caseManagers, setCaseManagers] = useState<CaseManager[]>([]);
+  
+  // React Query hooks for data fetching - automatic caching, deduplication, and refetching
+  const { data: students = [], isLoading: isLoadingStudents } = useStudents(selectedSchool);
+  const { data: teachers = [], isLoading: isLoadingTeachers } = useTeachers(selectedSchool);
+  const { data: caseManagers = [], isLoading: isLoadingCaseManagers } = useCaseManagers(selectedSchool);
+  const { data: studentsWithNoGoals = new Set<string>() } = useStudentsWithNoGoals(selectedSchool);
+  
+  // Mutations for create, update, delete
+  const createStudentMutation = useCreateStudent();
+  const updateStudentMutation = useUpdateStudent();
+  const deleteStudentMutation = useDeleteStudent();
+  
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebouncedValue(searchTerm, 300);
   const [showArchived, setShowArchived] = useState(false);
-  const [studentsWithNoGoals, setStudentsWithNoGoals] = useState<Set<string>>(new Set());
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [expandedStudents, setExpandedStudents] = useState<Set<string>>(new Set());
+  
+  // Loading state - true if any query is loading
+  const isLoading = isLoadingStudents || isLoadingTeachers || isLoadingCaseManagers;
   
   // Dialog and snackbar hooks
   const studentDialog = useDialog();
@@ -113,7 +128,9 @@ export const Students = () => {
     message: 'You have unsaved changes to this student. Are you sure you want to leave?',
   });
 
-  const filterStudents = () => {
+  // Filter students based on search term and archived status
+  // Using useMemo for performance - only recalculates when dependencies change
+  const filteredStudents = useMemo(() => {
     // First filter by archived status (archived is optional for backward compatibility)
     let filtered = students.filter(s => showArchived ? s.archived === true : !s.archived);
     
@@ -135,102 +152,8 @@ export const Students = () => {
       return firstNameA.localeCompare(firstNameB);
     });
     
-    setFilteredStudents(filtered);
-  };
-
-  const loadTeachers = async () => {
-    if (!selectedSchool) {
-      setTeachers([]);
-      return;
-    }
-    try {
-      const allTeachers = await getTeachers(selectedSchool);
-      // Deduplicate teachers by ID to prevent duplicate key warnings
-      const uniqueTeachers = Array.from(
-        new Map(allTeachers.map(teacher => [teacher.id, teacher])).values()
-      );
-      setTeachers(uniqueTeachers);
-    } catch (error) {
-      logError('Failed to load teachers', error);
-    }
-  };
-
-  const loadCaseManagers = async () => {
-    if (!selectedSchool) {
-      setCaseManagers([]);
-      return;
-    }
-    try {
-      const allCaseManagers = await getCaseManagers(selectedSchool);
-      // Deduplicate case managers by ID to prevent duplicate key warnings
-      const uniqueCaseManagers = Array.from(
-        new Map(allCaseManagers.map(caseManager => [caseManager.id, caseManager])).values()
-      );
-      setCaseManagers(uniqueCaseManagers);
-    } catch (error) {
-      logError('Failed to load case managers', error);
-    }
-  };
-
-  const loadStudents = async () => {
-    if (!selectedSchool) {
-      logWarn('No school selected, cannot load students');
-      setStudents([]);
-      return;
-    }
-    try {
-      // First, check if ANY students exist (without school filter)
-      const allStudentsUnfiltered = await getStudents();
-      
-      // Then filter by school
-      const allStudents = await getStudents(selectedSchool);
-      
-      // If no students found for this school but students exist, show a warning
-      if (process.env.NODE_ENV === 'development' && allStudents.length === 0 && allStudentsUnfiltered.length > 0) {
-        logWarn('⚠️ Students exist but none match the selected school!', {
-          selectedSchool,
-          availableSchools: [...new Set(allStudentsUnfiltered.map(s => s.school || 'NO SCHOOL'))]
-        });
-      }
-      
-      // Deduplicate students by ID to prevent duplicate key warnings
-      const uniqueStudents = Array.from(
-        new Map(allStudents.map(student => [student.id, student])).values()
-      );
-      
-      // Sort alphabetically by first name
-      const sortedStudents = [...uniqueStudents].sort((a, b) => {
-        const firstNameA = a.name.split(' ')[0].toLowerCase();
-        const firstNameB = b.name.split(' ')[0].toLowerCase();
-        return firstNameA.localeCompare(firstNameB);
-      });
-      setStudents(sortedStudents);
-      
-      // Check which students have no goals
-      const noGoalsSet = new Set<string>();
-      for (const student of sortedStudents) {
-        const goals = await getGoalsByStudent(student.id, selectedSchool);
-        if (goals.length === 0) {
-          noGoalsSet.add(student.id);
-        }
-      }
-      setStudentsWithNoGoals(noGoalsSet);
-    } catch (error) {
-      logError('Failed to load students', error);
-    }
-  };
-
-  useEffect(() => {
-    loadStudents();
-    loadTeachers();
-    loadCaseManagers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSchool]);
-
-  useEffect(() => {
-    filterStudents();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearchTerm, students, showArchived]);
+    return filtered;
+  }, [students, debouncedSearchTerm, showArchived]);
 
   useEffect(() => {
     // Clean up expanded state for students that are no longer visible
@@ -240,14 +163,9 @@ export const Students = () => {
     });
   }, [filteredStudents]);
 
-  const handleOpenDialog = async (student?: Student, prefillName?: string) => {
-    // Ensure teachers and case managers are loaded before opening dialog
-    if (teachers.length === 0) {
-      await loadTeachers();
-    }
-    if (caseManagers.length === 0) {
-      await loadCaseManagers();
-    }
+  const handleOpenDialog = (student?: Student, prefillName?: string) => {
+    // Teachers and case managers are automatically loaded via React Query
+    // No need to manually load them - they're already cached!
     
     let newFormData: typeof formData;
     if (student) {
@@ -368,17 +286,21 @@ export const Students = () => {
       };
 
       if (editingStudent) {
-        await updateStudent(editingStudent.id, studentData);
+        await updateStudentMutation.mutateAsync({
+          id: editingStudent.id,
+          updates: studentData,
+        });
         showSnackbar('Student updated successfully', 'success');
       } else {
-        await addStudent({
+        await createStudentMutation.mutateAsync({
           id: generateId(),
           ...studentData,
           dateAdded: new Date().toISOString(),
         });
         showSnackbar('Student created successfully', 'success');
       }
-      await loadStudents(); // This will also update the studentsWithNoGoals set
+      // React Query automatically invalidates and refetches queries after mutations
+      // No need to manually call loadStudents()!
       resetDirty();
       studentDialog.closeDialog();
       setEditingStudent(null);
@@ -407,12 +329,13 @@ export const Students = () => {
       cancelText: 'Cancel',
       onConfirm: async () => {
         try {
-          await deleteStudent(id);
-          await loadStudents();
+          await deleteStudentMutation.mutateAsync(id);
+          // React Query automatically invalidates and refetches queries after mutations
           showSnackbar('Student deleted successfully', 'success');
         } catch (error) {
           logError('Failed to delete student', error);
-          alert('Failed to delete student. Please try again.');
+          const errorMessage = getErrorMessage(error);
+          showSnackbar(`Failed to delete student: ${errorMessage}`, 'error');
         }
       },
     });
@@ -429,14 +352,22 @@ export const Students = () => {
       cancelText: 'Cancel',
       onConfirm: async () => {
         try {
-          await updateStudent(id, {
-            archived: archive,
-            dateArchived: archive ? new Date().toISOString() : undefined,
+          await updateStudentMutation.mutateAsync({
+            id,
+            updates: {
+              archived: archive,
+              dateArchived: archive ? new Date().toISOString() : undefined,
+            },
           });
-          await loadStudents();
+          // React Query automatically invalidates and refetches queries after mutations
+          showSnackbar(
+            archive ? 'Student archived successfully' : 'Student unarchived successfully',
+            'success'
+          );
         } catch (error) {
           logError('Failed to archive student', error);
-          alert('Failed to archive student. Please try again.');
+          const errorMessage = getErrorMessage(error);
+          showSnackbar(`Failed to archive student: ${errorMessage}`, 'error');
         }
       },
     });
@@ -469,6 +400,15 @@ export const Students = () => {
     }
   };
 
+
+  // Show loading indicator while data is being fetched
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box>

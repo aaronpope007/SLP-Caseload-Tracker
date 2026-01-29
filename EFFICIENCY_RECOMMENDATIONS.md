@@ -39,46 +39,53 @@ This document outlines efficiency improvements and optimizations recommended for
 
 ---
 
-### 2. **Data Fetching & Caching** ⚠️ HIGH VALUE
-**Current Issue:** No centralized data fetching library. Components fetch independently, causing:
-- Duplicate requests
-- No caching
-- Stale data
-- Manual refetching
+### 2. **Data Fetching & Caching** ⚠️ HIGH VALUE ✅ COMPLETED
+**Status:** ✅ **IMPLEMENTED** - January 28, 2026
 
-**Impact:**
-- Redundant network requests
-- Slower perceived performance
-- More complex state management
+**What was done:**
+1. ✅ Installed `@tanstack/react-query` package
+2. ✅ Set up QueryClient provider in `App.tsx` with sensible defaults:
+   - 5-minute stale time
+   - Automatic retry with exponential backoff
+   - Background refetching on window focus/reconnect
+3. ✅ Created custom query hooks in `src/hooks/useQueries.ts`:
+   - `useStudents()` - Fetch students by school
+   - `useTeachers()` - Fetch teachers by school
+   - `useCaseManagers()` - Fetch case managers by school
+   - `useStudentsWithNoGoals()` - Derived query for students without goals
+   - Mutation hooks: `useCreateStudent()`, `useUpdateStudent()`, `useDeleteStudent()`
+4. ✅ Migrated `Students.tsx` as example implementation
 
-**Recommendation:** Add **React Query** (TanStack Query)
-```bash
-pnpm add @tanstack/react-query
-```
+**Benefits Achieved:**
+- ✅ Automatic request deduplication - Multiple components requesting same data = 1 API call
+- ✅ Built-in caching - Data cached for 5 minutes, instant display on revisit
+- ✅ Background refetching - Automatically refetches when window regains focus
+- ✅ Automatic request cancellation - No more memory leaks from unmounted components
+- ✅ Error retry logic - Failed requests automatically retry 3 times with exponential backoff
+- ✅ Simplified code - Removed ~80 lines of manual state management from Students.tsx
 
-**Benefits:**
-- Automatic request deduplication
-- Built-in caching (configurable TTL)
-- Background refetching
-- Optimistic updates
-- Request cancellation
-- Error retry logic
-
-**Example Migration:**
+**Example Migration (Students.tsx):**
 ```typescript
-// Before
+// Before: ~80 lines of manual state management
 const [students, setStudents] = useState<Student[]>([]);
+const [teachers, setTeachers] = useState<Teacher[]>([]);
+const loadStudents = async () => { /* ... */ };
+const loadTeachers = async () => { /* ... */ };
 useEffect(() => {
-  getStudents(school).then(setStudents);
-}, [school]);
+  loadStudents();
+  loadTeachers();
+}, [selectedSchool]);
 
-// After
-const { data: students, isLoading } = useQuery({
-  queryKey: ['students', school],
-  queryFn: () => getStudents(school),
-  staleTime: 5 * 60 * 1000, // 5 minutes
-});
+// After: ~5 lines with React Query
+const { data: students = [] } = useStudents(selectedSchool);
+const { data: teachers = [] } = useTeachers(selectedSchool);
+// Automatic caching, deduplication, refetching, error handling!
 ```
+
+**Next Steps:**
+- Migrate other pages (Progress.tsx, SOAPNotes.tsx, Sessions.tsx, etc.)
+- Add optimistic updates for better UX
+- Consider adding React Query DevTools for debugging
 
 **Estimated Effort:** 4-6 hours (setup + migrate key components)
 **Priority:** 🟡 MEDIUM-HIGH
@@ -309,8 +316,8 @@ export async function getStudents(): Promise<Student[]> {
 3. ✅ Add optimistic updates for common operations (#5)
 
 ### Phase 2: High Impact (1 week)
-1. ✅ Implement React Query (#2)
-2. ✅ Migrate key components to React Query
+1. ✅ Implement React Query (#2) - **COMPLETED January 28, 2026**
+2. ✅ Migrate key components to React Query - **Students.tsx migrated as example**
 3. ✅ Add bulk API endpoints (#10)
 
 ### Phase 3: Polish (Ongoing)

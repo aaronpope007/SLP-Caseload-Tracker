@@ -37,4 +37,20 @@ export { useSOAPNoteManagement } from './useSOAPNoteManagement';
 export { useSessionPlanning } from './useSessionPlanning';
 export { useFormValidation } from './useFormValidation';
 export { useDebouncedValue } from './useDebouncedValue';
+export {
+  useStudents,
+  useTeachers,
+  useCaseManagers,
+  useStudentsWithNoGoals,
+  useCreateStudent,
+  useUpdateStudent,
+  useDeleteStudent,
+  useCreateTeacher,
+  useUpdateTeacher,
+  useDeleteTeacher,
+  useCreateCaseManager,
+  useUpdateCaseManager,
+  useDeleteCaseManager,
+  queryKeys,
+} from './useQueries';
 

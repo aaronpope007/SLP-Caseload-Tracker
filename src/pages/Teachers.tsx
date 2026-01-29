@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { logError } from '../utils/logger';
 import { getErrorMessage } from '../utils/validators';
 import {
@@ -21,6 +22,7 @@ import {
   FormLabel,
   InputAdornment,
   IconButton,
+  CircularProgress,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -30,16 +32,21 @@ import {
   Clear as ClearIcon,
 } from '@mui/icons-material';
 import type { Teacher, CaseManager } from '../types';
-import {
-  getTeachers,
-  addTeacher,
-  updateTeacher,
-  deleteTeacher,
-  addCaseManager,
-} from '../utils/storage-api';
+import { addTeacher, addCaseManager } from '../utils/storage-api';
 import { ImportTeachersDialog } from '../components/ImportTeachersDialog';
 import { generateId } from '../utils/helpers';
-import { useConfirm, useDialog, useSnackbar, useFormValidation, useDebouncedValue } from '../hooks';
+import {
+  useConfirm,
+  useDialog,
+  useSnackbar,
+  useFormValidation,
+  useDebouncedValue,
+  useTeachers,
+  useCreateTeacher,
+  useUpdateTeacher,
+  useDeleteTeacher,
+  queryKeys,
+} from '../hooks';
 import { useDirty } from '../hooks/useDirty';
 import { useSchool } from '../context/SchoolContext';
 import { SearchBar } from '../components/common/SearchBar';
@@ -47,9 +54,12 @@ import { TeacherAccordionCard } from '../components/TeacherAccordionCard';
 import { formatPhoneNumber, formatPhoneForDisplay, stripPhoneFormatting } from '../utils/formatters';
 
 export const Teachers = () => {
+  const queryClient = useQueryClient();
   const { selectedSchool, availableSchools } = useSchool();
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
-  const [filteredTeachers, setFilteredTeachers] = useState<Teacher[]>([]);
+  const { data: teachers = [], isLoading } = useTeachers(selectedSchool);
+  const createTeacherMutation = useCreateTeacher();
+  const updateTeacherMutation = useUpdateTeacher();
+  const deleteTeacherMutation = useDeleteTeacher();
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebouncedValue(searchTerm, 300);
   const [expandedTeachers, setExpandedTeachers] = useState<Set<string>>(new Set());
@@ -91,71 +101,34 @@ export const Teachers = () => {
     message: 'You have unsaved changes to this teacher. Are you sure you want to leave?',
   });
 
-  const loadTeachers = async () => {
-    if (!selectedSchool) {
-      setTeachers([]);
-      return;
-    }
-    try {
-      const allTeachers = await getTeachers(selectedSchool);
-      // Sort alphabetically by name
-      const sortedTeachers = [...allTeachers].sort((a, b) => {
-        const nameA = a.name.toLowerCase();
-        const nameB = b.name.toLowerCase();
-        return nameA.localeCompare(nameB);
-      });
-      setTeachers(sortedTeachers);
-    } catch (error) {
-      logError('Failed to load teachers', error);
-    }
-  };
-
-  useEffect(() => {
-    loadTeachers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSchool]);
-
-  useEffect(() => {
-    // Filter by search term if provided (using debounced value)
+  const filteredTeachers = useMemo(() => {
     const trimmedSearch = debouncedSearchTerm?.trim() || '';
-    
     if (trimmedSearch) {
       const term = trimmedSearch.toLowerCase();
       const searchDigits = stripPhoneFormatting(term);
-      const beforeFilter = teachers.length;
-      
       const filtered = teachers.filter((t) => {
         const name = (t.name || '').toLowerCase();
         const grade = (t.grade || '').toLowerCase();
         const phone = t.phoneNumber ? t.phoneNumber.toLowerCase() : '';
         const email = (t.emailAddress || '').toLowerCase();
-        
         const nameMatch = name.includes(term);
         const gradeMatch = grade.includes(term);
-        // Only check phone digits if search term contains digits (empty string .includes() always returns true)
         const phoneMatch = phone.includes(term) || (t.phoneNumber && searchDigits && stripPhoneFormatting(t.phoneNumber).includes(searchDigits));
         const emailMatch = email.includes(term);
-        
         return nameMatch || gradeMatch || phoneMatch || emailMatch;
       });
-      
-      // Maintain alphabetical order by name
       filtered.sort((a, b) => {
         const nameA = (a.name || '').toLowerCase();
         const nameB = (b.name || '').toLowerCase();
         return nameA.localeCompare(nameB);
       });
-      
-      setFilteredTeachers(filtered);
-    } else {
-      // No search term - show all teachers, sorted alphabetically
-      const sorted = [...teachers].sort((a, b) => {
-        const nameA = (a.name || '').toLowerCase();
-        const nameB = (b.name || '').toLowerCase();
-        return nameA.localeCompare(nameB);
-      });
-      setFilteredTeachers(sorted);
+      return filtered;
     }
+    return [...teachers].sort((a, b) => {
+      const nameA = (a.name || '').toLowerCase();
+      const nameB = (b.name || '').toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
   }, [debouncedSearchTerm, teachers]);
 
   useEffect(() => {
@@ -246,28 +219,29 @@ export const Teachers = () => {
       };
 
       if (editingTeacher) {
-        await updateTeacher(editingTeacher.id, teacherData);
+        await updateTeacherMutation.mutateAsync({
+          id: editingTeacher.id,
+          updates: teacherData,
+        });
         showSnackbar('Teacher updated successfully', 'success');
       } else {
-        await addTeacher({
+        await createTeacherMutation.mutateAsync({
           id: generateId(),
           ...teacherData,
           dateCreated: new Date().toISOString(),
         });
         showSnackbar('Teacher created successfully', 'success');
       }
-      await loadTeachers();
       resetDirty();
       teacherDialog.closeDialog();
       setEditingTeacher(null);
     } catch (error: unknown) {
       if (handleApiError(error)) {
-        // Validation errors are now displayed inline
         return;
       }
       logError('Failed to save teacher', error);
       const errorMessage = getErrorMessage(error);
-      alert(`Failed to save teacher: ${errorMessage}\n\nMake sure the API server is running on http://localhost:3001`);
+      showSnackbar(`Failed to save teacher: ${errorMessage}`, 'error');
     }
   };
 
@@ -326,12 +300,11 @@ export const Teachers = () => {
       confirmColor: hasRelatedStudents ? 'warning' : 'error',
       onConfirm: async () => {
         try {
-          await deleteTeacher(id);
-          await loadTeachers();
+          await deleteTeacherMutation.mutateAsync(id);
           showSnackbar('Teacher deleted successfully', 'success');
         } catch (error) {
           logError('Failed to delete teacher', error);
-          alert('Failed to delete teacher. Please try again.');
+          showSnackbar('Failed to delete teacher. Please try again.', 'error');
         }
       },
     });
@@ -339,17 +312,14 @@ export const Teachers = () => {
 
   const handleImport = async (importedTeachers: Teacher[], importedCaseManagers: CaseManager[]) => {
     try {
-      // Add all teachers
       for (const teacher of importedTeachers) {
         await addTeacher(teacher);
       }
-      
-      // Add all case managers
       for (const caseManager of importedCaseManagers) {
         await addCaseManager(caseManager);
       }
-      
-      await loadTeachers();
+      queryClient.invalidateQueries({ queryKey: queryKeys.teachers.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.caseManagers.all });
       const totalImported = importedTeachers.length + importedCaseManagers.length;
       showSnackbar(
         `Successfully imported ${totalImported} ${totalImported === 1 ? 'person' : 'people'}`,
@@ -360,6 +330,14 @@ export const Teachers = () => {
       throw error;
     }
   };
+
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box>

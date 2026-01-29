@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Box, CircularProgress } from '@mui/material';
@@ -260,19 +261,35 @@ const router = createBrowserRouter([
   },
 ]);
 
+// Create a QueryClient instance with sensible defaults
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes - data is fresh for 5 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes - cache garbage collection (formerly cacheTime)
+      retry: 3, // Retry failed requests 3 times
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
+      refetchOnWindowFocus: true, // Refetch when window regains focus
+      refetchOnReconnect: true, // Refetch when network reconnects
+    },
+  },
+});
+
 function AppContent() {
   const { theme } = useTheme();
   
   return (
       <MuiThemeProvider theme={theme}>
         <CssBaseline />
-        <AuthProvider>
-          <SchoolProvider>
-            <SessionDialogProvider>
-              <RouterProvider router={router} />
-            </SessionDialogProvider>
-          </SchoolProvider>
-        </AuthProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <SchoolProvider>
+              <SessionDialogProvider>
+                <RouterProvider router={router} />
+              </SessionDialogProvider>
+            </SchoolProvider>
+          </AuthProvider>
+        </QueryClientProvider>
       </MuiThemeProvider>
   );
 }
