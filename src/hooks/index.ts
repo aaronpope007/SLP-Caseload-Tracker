@@ -36,4 +36,5 @@ export { useSessionDialogHandlers } from './useSessionDialogHandlers';
 export { useSOAPNoteManagement } from './useSOAPNoteManagement';
 export { useSessionPlanning } from './useSessionPlanning';
 export { useFormValidation } from './useFormValidation';
+export { useDebouncedValue } from './useDebouncedValue';
 

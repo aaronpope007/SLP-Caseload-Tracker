@@ -24,23 +24,34 @@ export interface ValidationErrorDetail {
  * Provides status code, endpoint, validation errors, and user-friendly error messages
  */
 export class ApiError extends Error {
+  /** HTTP status code */
+  public status?: number;
+  /** API endpoint that failed */
+  public endpoint?: string;
+  /** Original error that occurred */
+  public originalError?: unknown;
   /** Validation error details from the API (for 400 errors) */
   public validationErrors?: ValidationErrorDetail[];
 
   constructor(
     message: string,
-    public status?: number,
-    public endpoint?: string,
-    public originalError?: unknown,
+    status?: number,
+    endpoint?: string,
+    originalError?: unknown,
     validationErrors?: ValidationErrorDetail[]
   ) {
     super(message);
     this.name = 'ApiError';
+    this.status = status;
+    this.endpoint = endpoint;
+    this.originalError = originalError;
     this.validationErrors = validationErrors;
     
-    // Maintains proper stack trace for where our error was thrown (only available on V8)
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, ApiError);
+    // Maintains proper stack trace for where our error was thrown (only available on V8/Node.js)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (typeof (Error as any).captureStackTrace === 'function') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (Error as any).captureStackTrace(this, ApiError);
     }
   }
 
@@ -277,6 +288,11 @@ export const api = {
       request<{ message: string }>(`/students/${id}`, {
         method: 'DELETE',
       }),
+    bulkUpdate: (students: Student[]) => 
+      request<{ created: number; updated: number; errors: Array<{ id?: string; error: string }> }>('/students/bulk', {
+        method: 'POST',
+        body: JSON.stringify({ students }),
+      }),
   },
 
   // Goals
@@ -299,6 +315,11 @@ export const api = {
       request<{ message: string }>(`/goals/${id}`, {
         method: 'DELETE',
       }),
+    bulkUpdate: (goals: Goal[]) => 
+      request<{ created: number; updated: number; errors: Array<{ id?: string; error: string }> }>('/goals/bulk', {
+        method: 'POST',
+        body: JSON.stringify({ goals }),
+      }),
   },
 
   // Sessions
@@ -320,6 +341,11 @@ export const api = {
     delete: (id: string) => 
       request<{ message: string }>(`/sessions/${id}`, {
         method: 'DELETE',
+      }),
+    bulkUpdate: (sessions: Session[]) => 
+      request<{ created: number; updated: number; errors: Array<{ id?: string; error: string }> }>('/sessions/bulk', {
+        method: 'POST',
+        body: JSON.stringify({ sessions }),
       }),
   },
 
@@ -482,7 +508,17 @@ export const api = {
   // Export
   export: {
     getAll: () => 
-      request<any>('/export/all'),
+      request<{
+        schools: unknown[];
+        students: unknown[];
+        teachers: unknown[];
+        goals: unknown[];
+        sessions: unknown[];
+        activities: unknown[];
+        evaluations: unknown[];
+        lunches: unknown[];
+        exportDate: string;
+      }>('/export/all'),
   },
 
   // Progress Reports

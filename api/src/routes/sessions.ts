@@ -196,6 +196,133 @@ sessionsRouter.post('/', validateBody(createSessionSchema), asyncHandler(async (
 
 /**
  * @openapi
+ * /api/sessions/bulk:
+ *   post:
+ *     tags: [Sessions]
+ *     summary: Create or update multiple sessions in a single transaction
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               sessions:
+ *                 type: array
+ *                 items:
+ *                   $ref: '#/components/schemas/Session'
+ *     responses:
+ *       200:
+ *         description: Bulk operation completed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 created:
+ *                   type: number
+ *                 updated:
+ *                   type: number
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ */
+sessionsRouter.post('/bulk', asyncHandler(async (req, res) => {
+  const { sessions } = req.body;
+  
+  if (!Array.isArray(sessions)) {
+    return res.status(400).json({ error: 'sessions must be an array' });
+  }
+  
+  let created = 0;
+  let updated = 0;
+  const errors: Array<{ id?: string; error: string }> = [];
+  
+  // Use a transaction for atomicity
+  const transaction = db.transaction(() => {
+    for (const session of sessions) {
+      try {
+        // Verify student exists
+        const student = db.prepare('SELECT id FROM students WHERE id = ?').get(session.studentId);
+        if (!student) {
+          errors.push({ id: session.id, error: `Student ${session.studentId} not found` });
+          continue;
+        }
+        
+        const existing = db.prepare('SELECT id FROM sessions WHERE id = ?').get(session.id) as { id: string } | undefined;
+        
+        if (existing) {
+          // Update existing session
+          db.prepare(`
+            UPDATE sessions 
+            SET studentId = ?, date = ?, endTime = ?, goalsTargeted = ?, activitiesUsed = ?, 
+                performanceData = ?, notes = ?, isDirectServices = ?, indirectServicesNotes = ?, 
+                groupSessionId = ?, missedSession = ?, selectedSubjectiveStatements = ?, 
+                customSubjective = ?, plan = ?
+            WHERE id = ?
+          `).run(
+            session.studentId,
+            session.date,
+            session.endTime || null,
+            stringifyJsonField(session.goalsTargeted || []),
+            stringifyJsonField(session.activitiesUsed || []),
+            stringifyJsonField(session.performanceData || []),
+            session.notes || '',
+            session.isDirectServices !== false ? 1 : 0,
+            session.indirectServicesNotes || null,
+            session.groupSessionId || null,
+            session.missedSession ? 1 : 0,
+            stringifyJsonField(session.selectedSubjectiveStatements),
+            session.customSubjective || null,
+            session.plan || null,
+            session.id
+          );
+          updated++;
+        } else {
+          // Create new session
+          const sessionId = session.id || `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          
+          db.prepare(`
+            INSERT INTO sessions (id, studentId, date, endTime, goalsTargeted, activitiesUsed, 
+                                 performanceData, notes, isDirectServices, indirectServicesNotes, 
+                                 groupSessionId, missedSession, selectedSubjectiveStatements, customSubjective, plan)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            sessionId,
+            session.studentId,
+            session.date,
+            session.endTime || null,
+            stringifyJsonField(session.goalsTargeted || []),
+            stringifyJsonField(session.activitiesUsed || []),
+            stringifyJsonField(session.performanceData || []),
+            session.notes || '',
+            session.isDirectServices !== false ? 1 : 0,
+            session.indirectServicesNotes || null,
+            session.groupSessionId || null,
+            session.missedSession ? 1 : 0,
+            stringifyJsonField(session.selectedSubjectiveStatements),
+            session.customSubjective || null,
+            session.plan || null
+          );
+          created++;
+        }
+      } catch (error) {
+        errors.push({ 
+          id: session.id, 
+          error: error instanceof Error ? error.message : 'Unknown error' 
+        });
+      }
+    }
+  });
+  
+  transaction();
+  
+  res.json({ created, updated, errors });
+}));
+
+/**
+ * @openapi
  * /api/sessions/{id}:
  *   put:
  *     tags: [Sessions]

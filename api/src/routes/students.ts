@@ -25,6 +25,7 @@ interface StudentRow {
   progressReportFrequency: string | null;
   frequencyPerWeek: number | null;
   frequencyType: string | null;
+  gender: string | null;
 }
 
 interface SchoolRow {
@@ -253,6 +254,150 @@ studentsRouter.post('/', validateBody(createStudentSchema), asyncHandler(async (
   );
   
   res.status(201).json({ id: studentId, message: 'Student created' });
+}));
+
+/**
+ * @openapi
+ * /api/students/bulk:
+ *   post:
+ *     tags: [Students]
+ *     summary: Create or update multiple students in a single transaction
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               students:
+ *                 type: array
+ *                 items:
+ *                   $ref: '#/components/schemas/Student'
+ *     responses:
+ *       200:
+ *         description: Bulk operation completed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 created:
+ *                   type: number
+ *                 updated:
+ *                   type: number
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ */
+studentsRouter.post('/bulk', asyncHandler(async (req, res) => {
+  const { students } = req.body;
+  
+  if (!Array.isArray(students)) {
+    return res.status(400).json({ error: 'students must be an array' });
+  }
+  
+  let created = 0;
+  let updated = 0;
+  const errors: Array<{ id?: string; error: string }> = [];
+  
+  // Use a transaction for atomicity
+  const transaction = db.transaction(() => {
+    for (const student of students) {
+      try {
+        const existing = db.prepare('SELECT id FROM students WHERE id = ?').get(student.id) as { id: string } | undefined;
+        
+        if (existing) {
+          // Update existing student
+          const schoolName = student.school ? ensureSchoolExists(student.school) : undefined;
+          const existingFull = db.prepare('SELECT * FROM students WHERE id = ?').get(student.id) as StudentRow | undefined;
+          
+          if (!existingFull) {
+            errors.push({ id: student.id, error: 'Student not found for update' });
+            continue;
+          }
+          
+          const merged = {
+            ...existingFull,
+            concerns: parseJsonField<string[]>(existingFull.concerns, []),
+            exceptionality: parseJsonField<string[]>(existingFull.exceptionality, undefined),
+            ...student,
+          };
+          
+          const finalSchoolName = schoolName || existingFull.school;
+          
+          db.prepare(`
+            UPDATE students 
+            SET name = ?, age = ?, grade = ?, concerns = ?, exceptionality = ?, status = ?, 
+                archived = ?, dateArchived = ?, school = ?, teacherId = ?, caseManagerId = ?, 
+                iepDate = ?, annualReviewDate = ?, progressReportFrequency = ?, 
+                frequencyPerWeek = ?, frequencyType = ?, gender = ?
+            WHERE id = ?
+          `).run(
+            merged.name,
+            merged.age,
+            merged.grade || '',
+            stringifyJsonField(merged.concerns || []),
+            stringifyJsonField(merged.exceptionality),
+            merged.status,
+            merged.archived ? 1 : 0,
+            merged.dateArchived || null,
+            finalSchoolName,
+            merged.teacherId || null,
+            merged.caseManagerId || null,
+            merged.iepDate || null,
+            merged.annualReviewDate || null,
+            merged.progressReportFrequency || null,
+            merged.frequencyPerWeek ?? null,
+            merged.frequencyType || null,
+            merged.gender || null,
+            student.id
+          );
+          updated++;
+        } else {
+          // Create new student
+          const schoolName = ensureSchoolExists(student.school);
+          const studentId = student.id || `student-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          const dateAdded = new Date().toISOString();
+          
+          db.prepare(`
+            INSERT INTO students (id, name, age, grade, concerns, exceptionality, status, dateAdded, archived, dateArchived, school, teacherId, caseManagerId, iepDate, annualReviewDate, progressReportFrequency, frequencyPerWeek, frequencyType, gender)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            studentId,
+            student.name,
+            student.age,
+            student.grade || '',
+            stringifyJsonField(student.concerns || []),
+            stringifyJsonField(student.exceptionality),
+            student.status || 'active',
+            dateAdded,
+            student.archived ? 1 : 0,
+            student.dateArchived || null,
+            schoolName,
+            student.teacherId || null,
+            student.caseManagerId || null,
+            student.iepDate || null,
+            student.annualReviewDate || null,
+            student.progressReportFrequency || null,
+            student.frequencyPerWeek ?? null,
+            student.frequencyType || null,
+            student.gender || null
+          );
+          created++;
+        }
+      } catch (error) {
+        errors.push({ 
+          id: student.id, 
+          error: error instanceof Error ? error.message : 'Unknown error' 
+        });
+      }
+    }
+  });
+  
+  transaction();
+  
+  res.json({ created, updated, errors });
 }));
 
 /**

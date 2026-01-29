@@ -38,7 +38,7 @@ import {
 } from '../utils/storage-api';
 import { generateId } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
-import { useConfirm, useDialog, useSnackbar, useFormValidation } from '../hooks';
+import { useConfirm, useDialog, useSnackbar, useFormValidation, useDebouncedValue } from '../hooks';
 import { useDirty } from '../hooks/useDirty';
 import { ApiError } from '../utils/api';
 import { SearchBar } from '../components/common/SearchBar';
@@ -54,6 +54,7 @@ export const Students = () => {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [caseManagers, setCaseManagers] = useState<CaseManager[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearchTerm = useDebouncedValue(searchTerm, 300);
   const [showArchived, setShowArchived] = useState(false);
   const [studentsWithNoGoals, setStudentsWithNoGoals] = useState<Set<string>>(new Set());
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
@@ -116,9 +117,9 @@ export const Students = () => {
     // First filter by archived status (archived is optional for backward compatibility)
     let filtered = students.filter(s => showArchived ? s.archived === true : !s.archived);
     
-    // Then filter by search term if provided
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
+    // Then filter by search term if provided (using debounced value)
+    if (debouncedSearchTerm.trim()) {
+      const term = debouncedSearchTerm.toLowerCase();
       filtered = filtered.filter(
         (s) =>
           s.name.toLowerCase().includes(term) ||
@@ -229,7 +230,7 @@ export const Students = () => {
   useEffect(() => {
     filterStudents();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, students, showArchived]);
+  }, [debouncedSearchTerm, students, showArchived]);
 
   useEffect(() => {
     // Clean up expanded state for students that are no longer visible

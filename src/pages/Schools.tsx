@@ -39,7 +39,7 @@ import {
 } from '../utils/storage-api';
 import { generateId } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
-import { useConfirm, useDialog, useSnackbar, useFormValidation } from '../hooks';
+import { useConfirm, useDialog, useSnackbar, useFormValidation, useDebouncedValue } from '../hooks';
 import { ApiError } from '../utils/api';
 import { getStudents } from '../utils/storage-api';
 import { SchoolCard } from '../components/SchoolCard';
@@ -106,6 +106,7 @@ export const Schools = () => {
   const [schools, setSchools] = useState<School[]>([]);
   const [filteredSchools, setFilteredSchools] = useState<School[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearchTerm = useDebouncedValue(searchTerm, 300);
   const [editingSchool, setEditingSchool] = useState<School | null>(null);
   
   // Dialog and snackbar hooks
@@ -176,6 +177,15 @@ export const Schools = () => {
         );
         if (studentWithSchool && studentWithSchool.school) {
           const schoolName = studentWithSchool.school.trim();
+          
+          // Skip creating schools with UUID-like names (likely data errors)
+          // UUIDs typically match: 8-4-4-4-12 hex characters
+          const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          if (uuidPattern.test(schoolName)) {
+            logWarn(`Skipping auto-creation of school with UUID-like name: ${schoolName}. This is likely a data error - please update the student's school field.`);
+            continue;
+          }
+          
           const newSchool: School = {
             id: generateId(),
             name: schoolName,
@@ -213,13 +223,13 @@ export const Schools = () => {
   useEffect(() => {
     filterSchools();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, schools]);
+  }, [debouncedSearchTerm, schools]);
 
   const filterSchools = () => {
     let filtered = schools;
     
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
+    if (debouncedSearchTerm.trim()) {
+      const term = debouncedSearchTerm.toLowerCase();
       filtered = filtered.filter(
         (s) =>
           s.name.toLowerCase().includes(term) ||

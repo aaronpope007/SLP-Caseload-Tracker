@@ -39,7 +39,7 @@ import {
 } from '../utils/storage-api';
 import { ImportTeachersDialog } from '../components/ImportTeachersDialog';
 import { generateId } from '../utils/helpers';
-import { useConfirm, useDialog, useSnackbar, useFormValidation } from '../hooks';
+import { useConfirm, useDialog, useSnackbar, useFormValidation, useDebouncedValue } from '../hooks';
 import { useDirty } from '../hooks/useDirty';
 import { useSchool } from '../context/SchoolContext';
 import { SearchBar } from '../components/common/SearchBar';
@@ -51,6 +51,7 @@ export const Teachers = () => {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [filteredTeachers, setFilteredTeachers] = useState<Teacher[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearchTerm = useDebouncedValue(searchTerm, 300);
   const [expandedTeachers, setExpandedTeachers] = useState<Set<string>>(new Set());
   const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
 
@@ -115,8 +116,8 @@ export const Teachers = () => {
   }, [selectedSchool]);
 
   useEffect(() => {
-    // Filter by search term if provided
-    const trimmedSearch = searchTerm?.trim() || '';
+    // Filter by search term if provided (using debounced value)
+    const trimmedSearch = debouncedSearchTerm?.trim() || '';
     
     if (trimmedSearch) {
       const term = trimmedSearch.toLowerCase();
@@ -155,7 +156,7 @@ export const Teachers = () => {
       });
       setFilteredTeachers(sorted);
     }
-  }, [searchTerm, teachers]);
+  }, [debouncedSearchTerm, teachers]);
 
   useEffect(() => {
     // Clean up expanded state for teachers that are no longer visible

@@ -7,8 +7,6 @@ import type { Student, Goal, Session, Activity, Evaluation, ArticulationScreener
 import { api } from './api';
 import { logError, logDebug } from './logger';
 
-const DEFAULT_SCHOOL = 'Noble Academy';
-
 // Students
 export const getStudents = async (school?: string): Promise<Student[]> => {
   try {
@@ -41,19 +39,17 @@ export const getStudentsByCaseManager = async (caseManagerId: string): Promise<S
 };
 
 export const saveStudents = async (students: Student[]): Promise<void> => {
-  // Note: This is a bulk operation - you may want to implement a bulk endpoint
-  // For now, we'll update/create each student individually
-  for (const student of students) {
-    try {
-      await api.students.update(student.id, student);
-    } catch {
-      // If update fails, try creating
-      try {
-        await api.students.create(student);
-      } catch (error) {
-        logError(`Failed to save student ${student.id}`, error);
-      }
+  if (students.length === 0) return;
+  
+  try {
+    const result = await api.students.bulkUpdate(students);
+    if (result.errors.length > 0) {
+      logError('Some students failed to save', { errors: result.errors });
     }
+    logDebug('Bulk save students completed', { created: result.created, updated: result.updated, errors: result.errors.length });
+  } catch (error) {
+    logError('Failed to bulk save students', error);
+    throw error;
   }
 };
 
@@ -98,16 +94,17 @@ export const getGoalsBySchool = async (school: string): Promise<Goal[]> => {
 };
 
 export const saveGoals = async (goals: Goal[]): Promise<void> => {
-  for (const goal of goals) {
-    try {
-      await api.goals.update(goal.id, goal);
-    } catch {
-      try {
-        await api.goals.create(goal);
-      } catch (error) {
-        logError(`Failed to save goal ${goal.id}`, error);
-      }
+  if (goals.length === 0) return;
+  
+  try {
+    const result = await api.goals.bulkUpdate(goals);
+    if (result.errors.length > 0) {
+      logError('Some goals failed to save', { errors: result.errors });
     }
+    logDebug('Bulk save goals completed', { created: result.created, updated: result.updated, errors: result.errors.length });
+  } catch (error) {
+    logError('Failed to bulk save goals', error);
+    throw error;
   }
 };
 
@@ -153,16 +150,17 @@ export const getSessionsBySchool = async (school: string): Promise<Session[]> =>
 };
 
 export const saveSessions = async (sessions: Session[]): Promise<void> => {
-  for (const session of sessions) {
-    try {
-      await api.sessions.update(session.id, session);
-    } catch {
-      try {
-        await api.sessions.create(session);
-      } catch (error) {
-        logError(`Failed to save session ${session.id}`, error);
-      }
+  if (sessions.length === 0) return;
+  
+  try {
+    const result = await api.sessions.bulkUpdate(sessions);
+    if (result.errors.length > 0) {
+      logError('Some sessions failed to save', { errors: result.errors });
     }
+    logDebug('Bulk save sessions completed', { created: result.created, updated: result.updated, errors: result.errors.length });
+  } catch (error) {
+    logError('Failed to bulk save sessions', error);
+    throw error;
   }
 };
 
@@ -557,6 +555,7 @@ export const importData = async (jsonString: string): Promise<void> => {
     if (data.goals) {
       for (const goal of data.goals) {
         // Strip id and dateCreated to let API generate new ones
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { id, dateCreated, ...goalWithoutId } = goal;
         await addGoal(goalWithoutId);
       }
@@ -576,7 +575,7 @@ export const importData = async (jsonString: string): Promise<void> => {
         await addEvaluation(evaluation);
       }
     }
-  } catch (error) {
+  } catch {
     throw new Error('Invalid JSON data');
   }
 };

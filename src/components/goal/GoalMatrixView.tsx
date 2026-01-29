@@ -19,6 +19,7 @@ import { organizeGoalsHierarchy } from '../../utils/goalHierarchy';
 import { getGoalPath } from '../../utils/goalPaths';
 import { GoalProgressChip } from './GoalProgressChip';
 import { PerformanceDataForm } from '../session/PerformanceDataForm';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 
 interface PerformanceDataItem {
   goalId: string;
@@ -70,6 +71,7 @@ export const GoalMatrixView = memo(({
   onPinToggle,
 }: GoalMatrixViewProps) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearchTerm = useDebouncedValue(searchTerm, 300);
   const [expandedGoals, setExpandedGoals] = useState<Set<string>>(new Set());
 
   // Only works for exactly 2 students
@@ -140,9 +142,9 @@ export const GoalMatrixView = memo(({
       }
     });
 
-    // Filter by search term
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
+    // Filter by search term (using debounced value)
+    if (debouncedSearchTerm.trim()) {
+      const term = debouncedSearchTerm.toLowerCase();
       return pairs.filter(pair => {
         const s1Match = pair.student1Goal?.description.toLowerCase().includes(term);
         const s2Match = pair.student2Goal?.description.toLowerCase().includes(term);
@@ -151,7 +153,7 @@ export const GoalMatrixView = memo(({
     }
 
     return pairs;
-  }, [goals, student1, student2, isGoalAchieved, searchTerm]);
+  }, [goals, student1, student2, isGoalAchieved, debouncedSearchTerm]);
 
   const toggleExpanded = (key: string) => {
     setExpandedGoals(prev => {

@@ -17,6 +17,7 @@ import {
 } from '@mui/icons-material';
 import type { Goal, Student } from '../../types';
 import { flattenGoalHierarchy } from '../../utils/goalPaths';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 
 interface GoalSearchBarProps {
   goals: Goal[];
@@ -38,6 +39,7 @@ export const GoalSearchBar = ({
   inputRef,
 }: GoalSearchBarProps) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearchTerm = useDebouncedValue(searchTerm, 300);
   const [isFocused, setIsFocused] = useState(false);
   const internalRef = useRef<HTMLInputElement>(null);
   const searchInputRef = inputRef || internalRef;
@@ -56,13 +58,13 @@ export const GoalSearchBar = ({
     return allFlattened;
   }, [goals, students, selectedStudentIds]);
 
-  // Filter goals based on search term
+  // Filter goals based on debounced search term
   const filteredGoals = useMemo(() => {
-    if (!searchTerm.trim()) {
+    if (!debouncedSearchTerm.trim()) {
       return [];
     }
     
-    const term = searchTerm.toLowerCase();
+    const term = debouncedSearchTerm.toLowerCase();
     return searchableGoals.filter(({ goal, path, studentName }) => {
       return (
         goal.description.toLowerCase().includes(term) ||
@@ -71,7 +73,7 @@ export const GoalSearchBar = ({
         goal.domain?.toLowerCase().includes(term)
       );
     }).slice(0, 20); // Limit to 20 results for performance
-  }, [searchTerm, searchableGoals]);
+  }, [debouncedSearchTerm, searchableGoals]);
 
   const handleGoalSelect = (goalId: string, studentId: string) => {
     onGoalSelect(goalId, studentId);

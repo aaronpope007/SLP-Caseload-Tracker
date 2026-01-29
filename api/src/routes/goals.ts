@@ -166,6 +166,139 @@ goalsRouter.post('/', validateBody(createGoalSchema), asyncHandler(async (req, r
   res.status(201).json({ id: goalId, message: 'Goal created' });
 }));
 
+/**
+ * @openapi
+ * /api/goals/bulk:
+ *   post:
+ *     tags: [Goals]
+ *     summary: Create or update multiple goals in a single transaction
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               goals:
+ *                 type: array
+ *                 items:
+ *                   $ref: '#/components/schemas/Goal'
+ *     responses:
+ *       200:
+ *         description: Bulk operation completed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 created:
+ *                   type: number
+ *                 updated:
+ *                   type: number
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ */
+goalsRouter.post('/bulk', asyncHandler(async (req, res) => {
+  const { goals } = req.body;
+  
+  if (!Array.isArray(goals)) {
+    return res.status(400).json({ error: 'goals must be an array' });
+  }
+  
+  let created = 0;
+  let updated = 0;
+  const errors: Array<{ id?: string; error: string }> = [];
+  
+  // Use a transaction for atomicity
+  const transaction = db.transaction(() => {
+    for (const goal of goals) {
+      try {
+        // Verify student exists
+        const student = db.prepare('SELECT id FROM students WHERE id = ?').get(goal.studentId);
+        if (!student) {
+          errors.push({ id: goal.id, error: `Student ${goal.studentId} not found` });
+          continue;
+        }
+        
+        const existing = db.prepare('SELECT id FROM goals WHERE id = ?').get(goal.id) as { id: string } | undefined;
+        
+        if (existing) {
+          // Update existing goal
+          const existingFull = db.prepare('SELECT * FROM goals WHERE id = ?').get(goal.id) as GoalRow | undefined;
+          
+          if (!existingFull) {
+            errors.push({ id: goal.id, error: 'Goal not found for update' });
+            continue;
+          }
+          
+          const merged = { 
+            ...existingFull, 
+            subGoalIds: parseJsonField<string[]>(existingFull.subGoalIds, undefined),
+            ...goal 
+          };
+          
+          db.prepare(`
+            UPDATE goals 
+            SET studentId = ?, description = ?, baseline = ?, target = ?, status = ?, 
+                dateAchieved = ?, parentGoalId = ?, subGoalIds = ?, domain = ?, priority = ?, templateId = ?
+            WHERE id = ?
+          `).run(
+            merged.studentId,
+            merged.description,
+            merged.baseline || '',
+            merged.target || '',
+            merged.status,
+            merged.dateAchieved || null,
+            merged.parentGoalId || null,
+            stringifyJsonField(merged.subGoalIds),
+            merged.domain || null,
+            merged.priority || null,
+            merged.templateId || null,
+            goal.id
+          );
+          updated++;
+        } else {
+          // Create new goal
+          const goalId = goal.id || `goal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          const dateCreated = new Date().toISOString();
+          
+          db.prepare(`
+            INSERT INTO goals (id, studentId, description, baseline, target, status, dateCreated, 
+                               dateAchieved, parentGoalId, subGoalIds, domain, priority, templateId)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            goalId,
+            goal.studentId,
+            goal.description,
+            goal.baseline || '',
+            goal.target || '',
+            goal.status || 'in-progress',
+            dateCreated,
+            goal.dateAchieved || null,
+            goal.parentGoalId || null,
+            stringifyJsonField(goal.subGoalIds),
+            goal.domain || null,
+            goal.priority || null,
+            goal.templateId || null
+          );
+          created++;
+        }
+      } catch (error) {
+        errors.push({ 
+          id: goal.id, 
+          error: error instanceof Error ? error.message : 'Unknown error' 
+        });
+      }
+    }
+  });
+  
+  transaction();
+  
+  res.json({ created, updated, errors });
+}));
+
 // Update goal - with validation
 goalsRouter.put('/:id', validateBody(updateGoalSchema), asyncHandler(async (req, res) => {
   const { id } = req.params;

@@ -34,7 +34,7 @@ import {
   deleteCaseManager,
 } from '../utils/storage-api';
 import { generateId } from '../utils/helpers';
-import { useConfirm, useDialog, useSnackbar, useFormValidation } from '../hooks';
+import { useConfirm, useDialog, useSnackbar, useFormValidation, useDebouncedValue } from '../hooks';
 import { useDirty } from '../hooks/useDirty';
 import { useSchool } from '../context/SchoolContext';
 import { SearchBar } from '../components/common/SearchBar';
@@ -48,6 +48,7 @@ export const CaseManagers = () => {
   const [caseManagers, setCaseManagers] = useState<CaseManager[]>([]);
   const [filteredCaseManagers, setFilteredCaseManagers] = useState<CaseManager[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearchTerm = useDebouncedValue(searchTerm, 300);
   const [expandedCaseManagers, setExpandedCaseManagers] = useState<Set<string>>(new Set());
   const [editingCaseManager, setEditingCaseManager] = useState<CaseManager | null>(null);
 
@@ -89,9 +90,9 @@ export const CaseManagers = () => {
   const filterCaseManagers = () => {
     let filtered = caseManagers;
     
-    // Filter by search term if provided
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
+    // Filter by search term if provided (using debounced value)
+    if (debouncedSearchTerm.trim()) {
+      const term = debouncedSearchTerm.toLowerCase();
       const searchDigits = stripPhoneFormatting(term);
       filtered = filtered.filter(
         (cm) =>
@@ -143,7 +144,7 @@ export const CaseManagers = () => {
   useEffect(() => {
     filterCaseManagers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, caseManagers]);
+  }, [debouncedSearchTerm, caseManagers]);
 
   useEffect(() => {
     // Clean up expanded state for case managers that are no longer visible
