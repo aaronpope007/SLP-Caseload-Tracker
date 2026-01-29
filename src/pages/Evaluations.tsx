@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { logError } from '../utils/logger';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -33,7 +33,7 @@ import {
   Print as PrintIcon,
   PictureAsPdf as PdfIcon,
 } from '@mui/icons-material';
-import type { Evaluation, Student, ArticulationScreener, ProgressReport } from '../types';
+import type { Evaluation, Student, ArticulationScreener, ProgressReport, ReassessmentPlan, ReassessmentPlanItem } from '../types';
 import {
   getEvaluations,
   addEvaluation,
@@ -48,14 +48,19 @@ import {
   addProgressReport,
   updateProgressReport,
   deleteProgressReport,
+  getReassessmentPlans,
+  deleteReassessmentPlan,
+  getReassessmentPlanById,
 } from '../utils/storage-api';
 import { generateId, formatDate, convertMarkupToHtml } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
 import { useConfirm, useSnackbar, useDialog } from '../hooks';
 import { ArticulationScreenerDialog } from '../components/ArticulationScreenerDialog';
+import { ReassessmentPlanDialog } from '../components/ReassessmentPlanDialog';
 
 export const Evaluations = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { selectedSchool } = useSchool();
   const { confirm, ConfirmDialog } = useConfirm();
   const { showSnackbar, SnackbarComponent } = useSnackbar();
@@ -63,10 +68,13 @@ export const Evaluations = () => {
   const screenerDialog = useDialog();
   const reportDialog = useDialog();
   const progressReportDialog = useDialog();
+  const reassessmentPlanDialog = useDialog();
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [screeners, setScreeners] = useState<ArticulationScreener[]>([]);
   const [progressReports, setProgressReports] = useState<ProgressReport[]>([]);
+  const [reassessmentPlans, setReassessmentPlans] = useState<ReassessmentPlan[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
+  const [editingReassessmentPlan, setEditingReassessmentPlan] = useState<(ReassessmentPlan & { items?: ReassessmentPlanItem[] }) | null>(null);
   const [editingEvaluation, setEditingEvaluation] = useState<Evaluation | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [screenerStudentId, setScreenerStudentId] = useState<string>('');
@@ -79,7 +87,10 @@ export const Evaluations = () => {
   const [editingProgressReport, setEditingProgressReport] = useState(false);
   const [editedProgressReportText, setEditedProgressReportText] = useState('');
   const [savingProgressReport, setSavingProgressReport] = useState(false);
-  const [activeTab, setActiveTab] = useState(0);
+  // Check URL parameter for tab, default to 0 (Evaluations tab)
+  const tabParam = searchParams.get('tab');
+  const initialTab = tabParam === 'reassessment-plans' ? 3 : tabParam === 'screeners' ? 1 : tabParam === 'progress-reports' ? 2 : 0;
+  const [activeTab, setActiveTab] = useState(initialTab);
   
   // Track if component is mounted to prevent memory leaks
   const isMountedRef = useRef(true);
@@ -90,6 +101,20 @@ export const Evaluations = () => {
       isMountedRef.current = false;
     };
   }, []);
+
+  // Update tab when URL parameter changes
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'reassessment-plans') {
+      setActiveTab(3);
+    } else if (tabParam === 'screeners') {
+      setActiveTab(1);
+    } else if (tabParam === 'progress-reports') {
+      setActiveTab(2);
+    } else if (!tabParam) {
+      setActiveTab(0);
+    }
+  }, [searchParams]);
   const [formData, setFormData] = useState({
     studentId: '',
     grade: '',
@@ -123,6 +148,10 @@ export const Evaluations = () => {
     const schoolProgressReports = await getProgressReports(undefined, selectedSchool);
     if (!isMountedRef.current) return;
     setProgressReports(schoolProgressReports);
+    
+    const schoolReassessmentPlans = await getReassessmentPlans(selectedSchool);
+    if (!isMountedRef.current) return;
+    setReassessmentPlans(schoolReassessmentPlans);
   }, [selectedSchool]);
 
   useEffect(() => {
@@ -527,6 +556,43 @@ export const Evaluations = () => {
     });
   };
 
+  // Reassessment Plan handlers
+  const handleOpenReassessmentPlanDialog = async (plan?: ReassessmentPlan) => {
+    if (plan) {
+      // Load full plan with items
+      const fullPlan = await getReassessmentPlanById(plan.id);
+      if (fullPlan) {
+        setEditingReassessmentPlan(fullPlan);
+      } else {
+        setEditingReassessmentPlan(plan);
+      }
+    } else {
+      setEditingReassessmentPlan(null);
+    }
+    reassessmentPlanDialog.openDialog();
+  };
+
+  const handleCloseReassessmentPlanDialog = () => {
+    reassessmentPlanDialog.closeDialog();
+    setEditingReassessmentPlan(null);
+  };
+
+  const handleDeleteReassessmentPlan = (id: string) => {
+    const plan = reassessmentPlans.find(p => p.id === id);
+    confirm({
+      title: 'Delete Reassessment Plan',
+      message: `Are you sure you want to delete this reassessment plan${plan ? ` for ${students.find(s => s.id === plan.studentId)?.name || 'student'}` : ''}?`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        if (!isMountedRef.current) return;
+        await deleteReassessmentPlan(id);
+        if (!isMountedRef.current) return;
+        loadData();
+        showSnackbar('Reassessment plan deleted successfully', 'success');
+      },
+    });
+  };
 
   const columns: GridColDef[] = [
     {
@@ -970,6 +1036,103 @@ export const Evaluations = () => {
     hasContent: report.content ? 'Yes' : 'No',
   }));
 
+  const reassessmentPlanColumns: GridColDef[] = [
+    {
+      field: 'studentName',
+      headerName: 'Student',
+      width: 150,
+      editable: false,
+      valueGetter: (value, row) => {
+        const student = students.find(s => s.id === row.studentId);
+        return student?.name || 'Unknown';
+      },
+      renderCell: (params) => (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '100%' }}>
+          <PersonIcon fontSize="small" />
+          <Typography variant="body2">{params.value}</Typography>
+        </Box>
+      ),
+    },
+    {
+      field: 'title',
+      headerName: 'Title',
+      width: 250,
+      editable: false,
+    },
+    {
+      field: 'dueDate',
+      headerName: 'Due Date',
+      width: 120,
+      editable: false,
+      valueGetter: (value) => {
+        return value ? formatDate(value) : '';
+      },
+    },
+    {
+      field: 'status',
+      headerName: 'Status',
+      width: 120,
+      editable: false,
+      renderCell: (params) => {
+        const status = params.value as string;
+        const colorMap: Record<string, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
+          'pending': 'warning',
+          'in-progress': 'info',
+          'completed': 'success',
+        };
+        return (
+          <Chip
+            label={status.charAt(0).toUpperCase() + status.slice(1).replace('-', ' ')}
+            size="small"
+            color={colorMap[status] || 'default'}
+          />
+        );
+      },
+    },
+    {
+      field: 'actions',
+      type: 'actions',
+      headerName: 'Actions',
+      width: 150,
+      getActions: (params: GridRowParams) => {
+        const plan = reassessmentPlans.find(p => p.id === params.id);
+        const actions = [];
+        
+        actions.push(
+          <GridActionsCellItem
+            key="edit"
+            icon={<EditIcon />}
+            label="Edit"
+            onClick={() => {
+              if (plan) {
+                handleOpenReassessmentPlanDialog(plan);
+              }
+            }}
+          />
+        );
+        
+        actions.push(
+          <GridActionsCellItem
+            key="delete"
+            icon={<DeleteIcon />}
+            label="Delete"
+            onClick={() => handleDeleteReassessmentPlan(params.id as string)}
+          />
+        );
+        
+        return actions;
+      },
+    },
+  ];
+
+  const reassessmentPlanRows = reassessmentPlans.map(plan => ({
+    id: plan.id,
+    studentId: plan.studentId,
+    title: plan.title,
+    dueDate: plan.dueDate,
+    status: plan.status,
+  }));
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
@@ -1012,14 +1175,36 @@ export const Evaluations = () => {
               Add Evaluation
             </Button>
           )}
+          {activeTab === 3 && (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => handleOpenReassessmentPlanDialog()}
+            >
+              Add Reassessment Plan
+            </Button>
+          )}
         </Box>
       </Box>
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
-        <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
+        <Tabs 
+          value={activeTab} 
+          onChange={(_, newValue) => {
+            setActiveTab(newValue);
+            // Update URL parameter to reflect current tab
+            const tabNames = ['', 'screeners', 'progress-reports', 'reassessment-plans'];
+            if (newValue === 0) {
+              setSearchParams({}, { replace: true });
+            } else {
+              setSearchParams({ tab: tabNames[newValue] }, { replace: true });
+            }
+          }}
+        >
           <Tab label="Evaluations" />
           <Tab label="Articulation Screeners" />
           <Tab label="Progress Reports" />
+          <Tab label="Reassessment Plans" />
         </Tabs>
       </Box>
 
@@ -1108,6 +1293,30 @@ export const Evaluations = () => {
           <DataGrid
             rows={progressReportRows}
             columns={progressReportColumns}
+            pageSizeOptions={[10, 25, 50, 100]}
+            initialState={{
+              pagination: {
+                paginationModel: { pageSize: 25 },
+              },
+            }}
+            disableRowSelectionOnClick
+            sx={{
+              '& .MuiDataGrid-cell:focus': {
+                outline: 'none',
+              },
+              '& .MuiDataGrid-cell:focus-within': {
+                outline: 'none',
+              },
+            }}
+          />
+        </Box>
+      )}
+
+      {activeTab === 3 && (
+        <Box sx={{ height: 'calc(100vh - 200px)', width: '100%' }}>
+          <DataGrid
+            rows={reassessmentPlanRows}
+            columns={reassessmentPlanColumns}
             pageSizeOptions={[10, 25, 50, 100]}
             initialState={{
               pagination: {
@@ -1515,6 +1724,15 @@ export const Evaluations = () => {
           )}
         </DialogActions>
       </Dialog>
+
+      <ReassessmentPlanDialog
+        open={reassessmentPlanDialog.open}
+        onClose={handleCloseReassessmentPlanDialog}
+        student={editingReassessmentPlan ? students.find(s => s.id === editingReassessmentPlan.studentId) : undefined}
+        evaluation={editingReassessmentPlan?.evaluationId ? evaluations.find(e => e.id === editingReassessmentPlan.evaluationId) : undefined}
+        existingPlan={editingReassessmentPlan || undefined}
+        onPlanSaved={loadData}
+      />
 
       <ConfirmDialog />
 

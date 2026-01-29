@@ -3,7 +3,7 @@
  * This replaces localStorage with API calls to the Express + SQLite backend
  */
 
-import type { Student, Goal, Session, Activity, Evaluation, ArticulationScreener, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Meeting, Reminder, ScheduledSession, Todo, CombinedProgressNote } from '../types';
+import type { Student, Goal, Session, Activity, Evaluation, ArticulationScreener, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Meeting, Reminder, ScheduledSession, Todo, CombinedProgressNote, ReassessmentPlan, ReassessmentPlanItem, ReassessmentPlanTemplate } from '../types';
 import { api } from './api';
 import { logError, logDebug } from './logger';
 
@@ -297,6 +297,105 @@ export const updateArticulationScreener = async (id: string, updates: Partial<Ar
 
 export const deleteArticulationScreener = async (id: string): Promise<void> => {
   await api.articulationScreeners.delete(id);
+};
+
+// Reassessment Plans
+export const getReassessmentPlans = async (school?: string, studentId?: string, evaluationId?: string, status?: string): Promise<ReassessmentPlan[]> => {
+  try {
+    return await api.reassessmentPlans.getAll(studentId, evaluationId, school, status);
+  } catch (error) {
+    logError('Failed to fetch reassessment plans', error);
+    return [];
+  }
+};
+
+export const getReassessmentPlanById = async (id: string): Promise<(ReassessmentPlan & { items: ReassessmentPlanItem[] }) | null> => {
+  try {
+    return await api.reassessmentPlans.getById(id);
+  } catch (error) {
+    logError('Failed to fetch reassessment plan', error);
+    return null;
+  }
+};
+
+export const addReassessmentPlan = async (plan: ReassessmentPlan): Promise<string> => {
+  const result = await api.reassessmentPlans.create(plan);
+  // Return the ID from the API response (which may differ from the client-generated ID)
+  return result.id;
+};
+
+export const updateReassessmentPlan = async (id: string, updates: Partial<ReassessmentPlan>): Promise<void> => {
+  await api.reassessmentPlans.update(id, updates);
+};
+
+export const deleteReassessmentPlan = async (id: string): Promise<void> => {
+  await api.reassessmentPlans.delete(id);
+};
+
+export const getReassessmentPlanItems = async (planId: string): Promise<ReassessmentPlanItem[]> => {
+  try {
+    return await api.reassessmentPlans.getItems(planId);
+  } catch (error) {
+    logError('Failed to fetch reassessment plan items', error);
+    return [];
+  }
+};
+
+export const getIncompleteReassessmentItems = async (studentId: string): Promise<(ReassessmentPlanItem & { planTitle: string; planDueDate: string })[]> => {
+  try {
+    return await api.reassessmentPlans.getIncompleteItems(studentId);
+  } catch (error) {
+    logError('Failed to fetch incomplete reassessment items', error);
+    return [];
+  }
+};
+
+export const addReassessmentPlanItem = async (planId: string, item: Omit<ReassessmentPlanItem, 'id' | 'planId' | 'dateCreated' | 'dateUpdated'>): Promise<void> => {
+  try {
+    await api.reassessmentPlans.createItem(planId, item);
+  } catch (error) {
+    logError('Failed to create reassessment plan item', error);
+    throw error; // Re-throw so caller can handle it
+  }
+};
+
+export const updateReassessmentPlanItem = async (id: string, updates: Partial<ReassessmentPlanItem>): Promise<void> => {
+  await api.reassessmentPlans.updateItem(id, updates);
+};
+
+export const deleteReassessmentPlanItem = async (id: string): Promise<void> => {
+  await api.reassessmentPlans.deleteItem(id);
+};
+
+// Reassessment Plan Templates
+export const getReassessmentPlanTemplates = async (): Promise<ReassessmentPlanTemplate[]> => {
+  try {
+    return await api.reassessmentPlans.templates.getAll();
+  } catch (error) {
+    logError('Failed to fetch reassessment plan templates', error);
+    return [];
+  }
+};
+
+export const getReassessmentPlanTemplateById = async (id: string): Promise<ReassessmentPlanTemplate | null> => {
+  try {
+    return await api.reassessmentPlans.templates.getById(id);
+  } catch (error) {
+    logError('Failed to fetch reassessment plan template', error);
+    return null;
+  }
+};
+
+export const addReassessmentPlanTemplate = async (template: ReassessmentPlanTemplate): Promise<void> => {
+  await api.reassessmentPlans.templates.create(template);
+};
+
+export const updateReassessmentPlanTemplate = async (id: string, updates: Partial<ReassessmentPlanTemplate>): Promise<void> => {
+  await api.reassessmentPlans.templates.update(id, updates);
+};
+
+export const deleteReassessmentPlanTemplate = async (id: string): Promise<void> => {
+  await api.reassessmentPlans.templates.delete(id);
 };
 
 // Schools

@@ -500,3 +500,53 @@ export type TimesheetNoteInput = z.infer<typeof createTimesheetNoteSchema>;
 export type TodoInput = z.infer<typeof createTodoSchema>;
 export type ArticulationScreenerInput = z.infer<typeof createArticulationScreenerSchema>;
 
+// ============================================================================
+// Reassessment Plan Schema
+// ============================================================================
+
+export const reassessmentPlanItemSchema = z.object({
+  id: idString.optional(),
+  planId: idString,
+  description: nonEmptyString.pipe(z.string().max(1000)),
+  dueDate: isoDateString,
+  completed: z.boolean().default(false),
+  completedDate: optionalIsoDate,
+  order: z.number().int().min(0).default(0),
+});
+
+export const reassessmentPlanSchema = z.object({
+  id: idString.optional(),
+  studentId: idString,
+  evaluationId: optionalString,
+  title: nonEmptyString.pipe(z.string().max(200)),
+  description: optionalString.pipe(z.string().max(1000)),
+  dueDate: isoDateString,
+  status: z.enum(['pending', 'in-progress', 'completed']).default('pending'),
+  templateId: optionalString,
+});
+
+export const createReassessmentPlanSchema = reassessmentPlanSchema.omit({ id: true });
+export const updateReassessmentPlanSchema = reassessmentPlanSchema.partial();
+
+export const createReassessmentPlanItemSchema = reassessmentPlanItemSchema.omit({ id: true });
+export const updateReassessmentPlanItemSchema = reassessmentPlanItemSchema.partial();
+
+// ============================================================================
+// Reassessment Plan Template Schema
+// ============================================================================
+
+export const reassessmentPlanTemplateItemSchema = z.object({
+  description: nonEmptyString.pipe(z.string().max(1000)),
+  dueDate: isoDateString,
+  order: z.number().int().min(0).default(0),
+});
+
+export const reassessmentPlanTemplateSchema = z.object({
+  id: idString.optional(),
+  name: nonEmptyString.pipe(z.string().max(200)),
+  description: optionalString.pipe(z.string().max(1000)),
+  items: z.array(reassessmentPlanTemplateItemSchema).min(1, 'At least one item is required'),
+});
+
+export const createReassessmentPlanTemplateSchema = reassessmentPlanTemplateSchema.omit({ id: true });
+export const updateReassessmentPlanTemplateSchema = reassessmentPlanTemplateSchema.partial();

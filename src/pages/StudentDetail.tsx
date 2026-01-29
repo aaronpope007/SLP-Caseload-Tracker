@@ -9,11 +9,20 @@ import {
   DialogActions,
   Grid,
   Typography,
+  Card,
+  CardContent,
+  List,
+  ListItem,
+  ListItemText,
+  Checkbox,
+  Chip,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
+  CheckCircle as CheckCircleIcon,
+  Assignment as AssignmentIcon,
 } from '@mui/icons-material';
-import type { Student, Goal, Session } from '../types';
+import type { Student, Goal, Session, ReassessmentPlanItem } from '../types';
 import { useSchool } from '../context/SchoolContext';
 import { useConfirm, useSnackbar, useGoalManagement, useGoalForm, useGoalTemplate, useGoalSubtree, useQuickGoals, useGoalSave, useGoalDialogHandlers, useGoalDelete, useTreatmentRecommendations, useAIFeatures, useDialog, useStudentData, useSessionData, usePerformanceHelpers, useGoalTemplateHandler, useGoalSubtreeHandler, useFormValidation } from '../hooks';
 import { useDirty } from '../hooks/useDirty';
@@ -23,6 +32,8 @@ import { TreatmentRecommendationsDialog } from '../components/TreatmentRecommend
 import { IEPGoalsDialog } from '../components/goal/IEPGoalsDialog';
 import { GoalTemplateDialog } from '../components/goal/GoalTemplateDialog';
 import { StudentInfoCard } from '../components/student/StudentInfoCard';
+import { getIncompleteReassessmentItems, updateReassessmentPlanItem } from '../utils/storage-api';
+import { formatDate } from '../utils/helpers';
 import { GoalActionsBar } from '../components/goal/GoalActionsBar';
 import { GoalsList } from '../components/goal/GoalsList';
 import { CopySubtreeDialog } from '../components/goal/CopySubtreeDialog';
@@ -35,6 +46,7 @@ export const StudentDetail = () => {
   const { selectedSchool } = useSchool();
   const [student, setStudent] = useState<Student | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [incompleteReassessmentItems, setIncompleteReassessmentItems] = useState<(ReassessmentPlanItem & { planTitle: string; planDueDate: string })[]>([]);
   const { confirm, ConfirmDialog } = useConfirm();
   const { showSnackbar, SnackbarComponent } = useSnackbar();
   const { fieldErrors, clearError, handleApiError } = useFormValidation();
@@ -205,12 +217,31 @@ export const StudentDetail = () => {
     generateTreatmentRecs: aiFeatures.generateTreatmentRecs,
   });
 
+  const loadIncompleteReassessmentItems = useCallback(async (signal?: AbortSignal) => {
+    if (!id) return;
+    try {
+      const items = await getIncompleteReassessmentItems(id);
+      if (!signal?.aborted) {
+        setIncompleteReassessmentItems(items);
+      }
+    } catch (error) {
+      // Silently fail - reassessment items are optional
+    }
+  }, [id]);
+
   useEffect(() => {
+    const abortController = new AbortController();
+    
     if (id) {
       loadStudent();
       loadGoals();
       loadSessions();
+      loadIncompleteReassessmentItems(abortController.signal);
     }
+    
+    return () => {
+      abortController.abort();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, selectedSchool]);
 
@@ -326,6 +357,60 @@ export const StudentDetail = () => {
           onCopySubtree={handleCopySubtree}
         />
       </Grid>
+
+      {incompleteReassessmentItems.length > 0 && (
+        <Card sx={{ mt: 3 }}>
+          <CardContent>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <AssignmentIcon />
+              <Typography variant="h6">Reassessment Plan Items</Typography>
+            </Box>
+            <List>
+              {incompleteReassessmentItems.map((item) => (
+                <ListItem
+                  key={item.id}
+                  sx={{
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                    mb: 1,
+                  }}
+                  secondaryAction={
+                    <Checkbox
+                      checked={false}
+                      onChange={async () => {
+                        try {
+                          await updateReassessmentPlanItem(item.id, {
+                            completed: true,
+                            completedDate: new Date().toISOString(),
+                          });
+                          await loadIncompleteReassessmentItems(); // No signal needed for manual refresh
+                          showSnackbar('Item marked as completed', 'success');
+                        } catch (error) {
+                          showSnackbar('Failed to update item', 'error');
+                        }
+                      }}
+                      icon={<CheckCircleIcon />}
+                    />
+                  }
+                >
+                  <ListItemText
+                    primary={item.description}
+                    secondary={
+                      <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
+                        <Chip label={item.planTitle} size="small" variant="outlined" />
+                        <Typography variant="caption" color="text.secondary">
+                          Due: {formatDate(item.dueDate)}
+                        </Typography>
+                      </Box>
+                    }
+                  />
+                </ListItem>
+              ))}
+            </List>
+          </CardContent>
+        </Card>
+      )}
 
       <GoalFormDialog
         open={goalFormDialog.open}

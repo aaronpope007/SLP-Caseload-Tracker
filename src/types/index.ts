@@ -162,6 +162,40 @@ export interface Evaluation {
   dateUpdated: string;
 }
 
+export interface ReassessmentPlanItem {
+  id: string;
+  planId: string;
+  description: string;
+  dueDate: string; // ISO string
+  completed: boolean;
+  completedDate?: string; // ISO string - when completed
+  order: number; // Display order within the plan
+  dateCreated: string;
+  dateUpdated: string;
+}
+
+export interface ReassessmentPlan {
+  id: string;
+  studentId: string;
+  evaluationId?: string; // Optional link to an evaluation
+  title: string;
+  description?: string;
+  dueDate: string; // ISO string - overall plan due date
+  status: 'pending' | 'in-progress' | 'completed';
+  templateId?: string; // Reference to template used (if created from template)
+  dateCreated: string;
+  dateUpdated: string;
+}
+
+export interface ReassessmentPlanTemplate {
+  id: string;
+  name: string; // e.g., "Standard 3-Year Reassessment", "Initial Evaluation Plan"
+  description?: string;
+  items: Omit<ReassessmentPlanItem, 'id' | 'planId' | 'completed' | 'completedDate' | 'dateCreated' | 'dateUpdated'>[]; // Template items without IDs
+  dateCreated: string;
+  dateUpdated: string;
+}
+
 export interface DisorderedPhoneme {
   phoneme: string; // IPA symbol (e.g., 'p', 'θ', 'ʃ')
   note?: string; // Optional note about the disordered phoneme

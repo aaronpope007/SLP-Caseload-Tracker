@@ -27,6 +27,7 @@ import {
   getUpcomingDueDateItems,
   getMeetings,
   createMeeting,
+  getReassessmentPlans,
 } from '../utils/storage-api';
 import { RemindersCard } from '../components/RemindersCard';
 import { TodoTracker } from '../components/TodoTracker';
@@ -36,7 +37,7 @@ import { DashboardStatsSkeleton, ListSkeleton } from '../components/common/Loadi
 import { formatDate, generateId, toLocalDateTimeString } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
 import { useAsyncOperation } from '../hooks';
-import type { Student, ProgressReport, DueDateItem, Meeting } from '../types';
+import type { Student, ProgressReport, DueDateItem, Meeting, ReassessmentPlan } from '../types';
 
 interface DashboardData {
   stats: {
@@ -46,6 +47,7 @@ interface DashboardData {
   students: Student[];
   upcomingReports: ProgressReport[];
   upcomingItems: DueDateItem[];
+  upcomingPlans: ReassessmentPlan[];
 }
 
 export const Dashboard = () => {
@@ -72,6 +74,7 @@ export const Dashboard = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [upcomingReports, setUpcomingReports] = useState<ProgressReport[]>([]);
   const [upcomingItems, setUpcomingItems] = useState<DueDateItem[]>([]);
+  const [upcomingPlans, setUpcomingPlans] = useState<ReassessmentPlan[]>([]);
   const [upcomingMeetings, setUpcomingMeetings] = useState<Meeting[]>([]);
   const [meetingDialogOpen, setMeetingDialogOpen] = useState(false);
 
@@ -105,10 +108,20 @@ export const Dashboard = () => {
         // Load upcoming due date items (next 30 days)
         const items = await getUpcomingDueDateItems(30, selectedSchool);
 
-        // Load upcoming meetings (next 30 days)
+        // Load upcoming reassessment plans (next 30 days)
         const today = new Date();
         const thirtyDaysFromNow = new Date();
         thirtyDaysFromNow.setDate(today.getDate() + 30);
+        const allPlans = await getReassessmentPlans(selectedSchool);
+        const upcomingPlansData = allPlans
+          .filter(plan => {
+            const planDueDate = new Date(plan.dueDate);
+            return planDueDate >= today && planDueDate <= thirtyDaysFromNow && plan.status !== 'completed';
+          })
+          .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+          .slice(0, 5);
+
+        // Load upcoming meetings (next 30 days) - reuse today and thirtyDaysFromNow from above
         const meetings = await getMeetings(
           undefined,
           selectedSchool,
@@ -124,6 +137,7 @@ export const Dashboard = () => {
           students: schoolStudents,
           upcomingReports: reports.slice(0, 5),
           upcomingItems: items.slice(0, 5),
+          upcomingPlans: upcomingPlansData,
         };
 
         // Update state with the loaded data
@@ -131,6 +145,7 @@ export const Dashboard = () => {
         setStudents(dashboardData.students);
         setUpcomingReports(dashboardData.upcomingReports);
         setUpcomingItems(dashboardData.upcomingItems);
+        setUpcomingPlans(dashboardData.upcomingPlans);
         setUpcomingMeetings(meetings.slice(0, 5));
 
         return dashboardData;
@@ -305,7 +320,7 @@ export const Dashboard = () => {
                   View All
                 </Button>
               </Box>
-              {upcomingItems.length === 0 && upcomingMeetings.length === 0 ? (
+              {upcomingItems.length === 0 && upcomingMeetings.length === 0 && upcomingPlans.length === 0 ? (
                 <Typography color="text.secondary">
                   No upcoming items
                 </Typography>
@@ -329,6 +344,42 @@ export const Dashboard = () => {
                                 Date: {formatDate(meeting.date)}
                                 {meeting.category && ` • ${meeting.category}`}
                               </Box>
+                            </>
+                          }
+                        />
+                      </ListItem>
+                    );
+                  })}
+                  {upcomingPlans.map((plan) => {
+                    const planDueDate = new Date(plan.dueDate);
+                    const isOverdue = planDueDate < new Date() && plan.status !== 'completed';
+                    const student = students.find(s => s.id === plan.studentId);
+                    return (
+                      <ListItem 
+                        key={plan.id}
+                        sx={{
+                          borderLeft: isOverdue ? '4px solid red' : '4px solid #2196f3',
+                          pl: 1.5,
+                          cursor: 'pointer',
+                        }}
+                        onClick={() => navigate('/evaluations?tab=reassessment-plans')}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            navigate('/evaluations?tab=reassessment-plans');
+                          }
+                        }}
+                      >
+                        <ListItemText
+                          primary={`Reassessment Plan: ${plan.title}`}
+                          secondary={
+                            <>
+                              <Box component="span" sx={{ fontSize: '0.75rem', display: 'block', mb: 0.5 }}>
+                                {student && `Student: ${student.name} • `}Due: {formatDate(plan.dueDate)}
+                                {plan.status && ` • Status: ${plan.status.charAt(0).toUpperCase() + plan.status.slice(1)}`}
+                              </Box>
+                              {isOverdue && (
+                                <Chip label="Overdue" size="small" color="error" sx={{ mt: 0.5 }} />
+                              )}
                             </>
                           }
                         />

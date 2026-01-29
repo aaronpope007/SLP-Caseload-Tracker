@@ -403,6 +403,52 @@ export function initDatabase() {
     )
   `);
 
+  // Reassessment Plans table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS reassessment_plans (
+      id TEXT PRIMARY KEY,
+      studentId TEXT NOT NULL,
+      evaluationId TEXT,
+      title TEXT NOT NULL,
+      description TEXT,
+      dueDate TEXT NOT NULL,
+      status TEXT NOT NULL CHECK(status IN ('pending', 'in-progress', 'completed')),
+      templateId TEXT,
+      dateCreated TEXT NOT NULL,
+      dateUpdated TEXT NOT NULL,
+      FOREIGN KEY (studentId) REFERENCES students(id) ON DELETE CASCADE,
+      FOREIGN KEY (evaluationId) REFERENCES evaluations(id) ON DELETE SET NULL
+    )
+  `);
+
+  // Reassessment Plan Items table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS reassessment_plan_items (
+      id TEXT PRIMARY KEY,
+      planId TEXT NOT NULL,
+      description TEXT NOT NULL,
+      dueDate TEXT NOT NULL,
+      completed INTEGER NOT NULL DEFAULT 0,
+      completedDate TEXT,
+      order_index INTEGER NOT NULL DEFAULT 0,
+      dateCreated TEXT NOT NULL,
+      dateUpdated TEXT NOT NULL,
+      FOREIGN KEY (planId) REFERENCES reassessment_plans(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Reassessment Plan Templates table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS reassessment_plan_templates (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      items TEXT NOT NULL,
+      dateCreated TEXT NOT NULL,
+      dateUpdated TEXT NOT NULL
+    )
+  `);
+
   // SOAP Notes table
   db.exec(`
     CREATE TABLE IF NOT EXISTS soap_notes (
@@ -497,6 +543,10 @@ export function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_progress_reports_status ON progress_reports(status);
     CREATE INDEX IF NOT EXISTS idx_due_date_items_studentId ON due_date_items(studentId);
     CREATE INDEX IF NOT EXISTS idx_due_date_items_dueDate ON due_date_items(dueDate);
+    CREATE INDEX IF NOT EXISTS idx_reassessment_plans_studentId ON reassessment_plans(studentId);
+    CREATE INDEX IF NOT EXISTS idx_reassessment_plans_evaluationId ON reassessment_plans(evaluationId);
+    CREATE INDEX IF NOT EXISTS idx_reassessment_plans_dueDate ON reassessment_plans(dueDate);
+    CREATE INDEX IF NOT EXISTS idx_reassessment_plan_items_planId ON reassessment_plan_items(planId);
     CREATE INDEX IF NOT EXISTS idx_due_date_items_status ON due_date_items(status);
     CREATE INDEX IF NOT EXISTS idx_communications_studentId ON communications(studentId);
     CREATE INDEX IF NOT EXISTS idx_communications_contactType ON communications(contactType);
@@ -599,7 +649,172 @@ export function initDatabase() {
     db.pragma('foreign_keys = ON');
   }
 
+  // Seed default reassessment plan templates
+  seedDefaultReassessmentTemplates();
+
   console.log('Database initialized successfully');
+}
+
+function seedDefaultReassessmentTemplates() {
+  const now = new Date().toISOString();
+  
+  // Check if templates already exist
+  const existingTemplates = db.prepare('SELECT COUNT(*) as count FROM reassessment_plan_templates').get() as { count: number };
+  if (existingTemplates.count > 0) {
+    return; // Templates already exist, skip seeding
+  }
+
+  const templates = [
+    {
+      id: 'template-standard-3year',
+      name: 'Standard 3-Year Reassessment',
+      description: 'Comprehensive reassessment plan for 3-year evaluations',
+      items: [
+        {
+          description: 'Review of Prior History and Current Performance: Analysis of the student\'s speech-language progress, tracking retention of skills and recent performance data.',
+          dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
+          order: 0,
+        },
+        {
+          description: 'Standardized Language Assessment: Use of assessment tools to measure expressive and receptive language skills, focusing on ability to produce complete sentences using correct grammar structures.',
+          dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14 days from now
+          order: 1,
+        },
+        {
+          description: 'Articulation and Intelligibility Evaluation: Assessment of specific phonemes and evaluation of speech clarity and accuracy.',
+          dueDate: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(), // 21 days from now
+          order: 2,
+        },
+        {
+          description: 'Pragmatic (Social) Language Assessment: Evaluation of conversational skills, ability to ask follow-up questions, make comments, and respond to social scenarios.',
+          dueDate: new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString(), // 28 days from now
+          order: 3,
+        },
+        {
+          description: 'Student Observation: Observation of communication during sessions and consultation with site-based staff to see how the student communicates in the school environment.',
+          dueDate: new Date(Date.now() + 35 * 24 * 60 * 60 * 1000).toISOString(), // 35 days from now
+          order: 4,
+        },
+        {
+          description: 'Teacher Interview: Meeting or questionnaire for the classroom teacher to discuss how speech clarity and expressive grammar affect academic participation and peer interactions.',
+          dueDate: new Date(Date.now() + 42 * 24 * 60 * 60 * 1000).toISOString(), // 42 days from now
+          order: 5,
+        },
+        {
+          description: 'Parent Interview: Teleconference with parents to discuss communication at home and determine if improved skills are generalizing outside of the therapy room.',
+          dueDate: new Date(Date.now() + 49 * 24 * 60 * 60 * 1000).toISOString(), // 49 days from now
+          order: 6,
+        },
+      ],
+    },
+    {
+      id: 'template-initial-evaluation',
+      name: 'Initial Evaluation Plan',
+      description: 'Comprehensive plan for initial speech-language evaluations',
+      items: [
+        {
+          description: 'Case History Review: Review of referral information, medical history, and previous assessments.',
+          dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+          order: 0,
+        },
+        {
+          description: 'Standardized Language Assessment: Comprehensive evaluation of expressive and receptive language skills.',
+          dueDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
+          order: 1,
+        },
+        {
+          description: 'Articulation Assessment: Evaluation of speech sound production and intelligibility.',
+          dueDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
+          order: 2,
+        },
+        {
+          description: 'Language Sample Analysis: Collection and analysis of spontaneous language sample.',
+          dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+          order: 3,
+        },
+        {
+          description: 'Pragmatic Language Assessment: Evaluation of social communication skills.',
+          dueDate: new Date(Date.now() + 17 * 24 * 60 * 60 * 1000).toISOString(),
+          order: 4,
+        },
+        {
+          description: 'Teacher Interview: Discussion with classroom teacher regarding academic and social communication needs.',
+          dueDate: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
+          order: 5,
+        },
+        {
+          description: 'Parent Interview: Comprehensive interview with parents regarding communication at home and concerns.',
+          dueDate: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
+          order: 6,
+        },
+        {
+          description: 'Classroom Observation: Observation of student in natural classroom environment.',
+          dueDate: new Date(Date.now() + 24 * 24 * 60 * 60 * 1000).toISOString(),
+          order: 7,
+        },
+      ],
+    },
+    {
+      id: 'template-teletherapy-reassessment',
+      name: 'Teletherapy Reassessment Plan',
+      description: 'Reassessment plan adapted for virtual/teletherapy platforms',
+      items: [
+        {
+          description: 'Review of Prior History and Current Performance: Analysis of speech-language progress across virtual platforms, tracking how service gaps impacted skill retention.',
+          dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          order: 0,
+        },
+        {
+          description: 'Standardized Language Assessment (Virtual Administration): Use of digital assessment tools to measure expressive and receptive language skills via screen-sharing interface.',
+          dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+          order: 1,
+        },
+        {
+          description: 'Articulation and Intelligibility Evaluation: Remote assessment of specific phonemes, measuring progress and evaluating how speech clarity translates over digital audio/video.',
+          dueDate: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
+          order: 2,
+        },
+        {
+          description: 'Pragmatic (Social) Language Assessment: Evaluation of conversational skills during teletherapy sessions, assessing ability to ask follow-up questions and respond to hypothetical social scenarios presented on-screen.',
+          dueDate: new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString(),
+          order: 3,
+        },
+        {
+          description: 'Student Observation: Observation of communication during teletherapy sessions and consultation with site-based staff regarding communication in the school environment.',
+          dueDate: new Date(Date.now() + 35 * 24 * 60 * 60 * 1000).toISOString(),
+          order: 4,
+        },
+        {
+          description: 'Teacher Interview: Virtual meeting or digital questionnaire for classroom teacher to discuss how speech clarity and expressive grammar affect academic participation and peer interactions.',
+          dueDate: new Date(Date.now() + 42 * 24 * 60 * 60 * 1000).toISOString(),
+          order: 5,
+        },
+        {
+          description: 'Parent Interview: Teleconference with parents to discuss communication at home and determine if improved skills are generalizing outside of the virtual therapy room.',
+          dueDate: new Date(Date.now() + 49 * 24 * 60 * 60 * 1000).toISOString(),
+          order: 6,
+        },
+      ],
+    },
+  ];
+
+  const insertTemplate = db.prepare(`
+    INSERT INTO reassessment_plan_templates (id, name, description, items, dateCreated, dateUpdated)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `);
+
+  for (const template of templates) {
+    insertTemplate.run(
+      template.id,
+      template.name,
+      template.description,
+      JSON.stringify(template.items),
+      now,
+      now
+    );
+  }
+
+  console.log(`✅ Seeded ${templates.length} default reassessment plan templates`);
 }
 
 // Close database connection gracefully

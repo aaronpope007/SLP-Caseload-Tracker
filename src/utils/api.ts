@@ -5,7 +5,7 @@
  * Set VITE_API_URL in your .env file or it defaults to http://localhost:3001
  */
 
-import type { Student, Goal, Session, Activity, Evaluation, ArticulationScreener, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Meeting, Reminder, Communication, ScheduledSession, TimesheetNote, Todo, CombinedProgressNote } from '../types';
+import type { Student, Goal, Session, Activity, Evaluation, ArticulationScreener, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Meeting, Reminder, Communication, ScheduledSession, TimesheetNote, Todo, CombinedProgressNote, ReassessmentPlan, ReassessmentPlanItem, ReassessmentPlanTemplate } from '../types';
 import { buildQueryString } from './queryHelpers';
 import { logError } from './logger';
 
@@ -822,6 +822,66 @@ export const api = {
       request<{ message: string }>(`/combined-progress-notes/${id}`, {
         method: 'DELETE',
       }),
+  },
+
+  // Reassessment Plans
+  reassessmentPlans: {
+    getAll: (studentId?: string, evaluationId?: string, school?: string, status?: string) => 
+      request<ReassessmentPlan[]>(`/reassessment-plans${buildQueryString({ studentId, evaluationId, school, status })}`),
+    getById: (id: string) => 
+      request<ReassessmentPlan & { items: ReassessmentPlanItem[] }>(`/reassessment-plans/${id}`),
+    create: (plan: Omit<ReassessmentPlan, 'id' | 'dateCreated' | 'dateUpdated'>) => 
+      request<{ id: string; message: string }>('/reassessment-plans', {
+        method: 'POST',
+        body: JSON.stringify(plan),
+      }),
+    update: (id: string, updates: Partial<ReassessmentPlan>) => 
+      request<{ message: string }>(`/reassessment-plans/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      }),
+    delete: (id: string) => 
+      request<{ message: string }>(`/reassessment-plans/${id}`, {
+        method: 'DELETE',
+      }),
+    getIncompleteItems: (studentId: string) => 
+      request<(ReassessmentPlanItem & { planTitle: string; planDueDate: string })[]>(`/reassessment-plans/student/${studentId}/incomplete-items`),
+    getItems: (planId: string) => 
+      request<ReassessmentPlanItem[]>(`/reassessment-plans/${planId}/items`),
+    createItem: (planId: string, item: Omit<ReassessmentPlanItem, 'id' | 'planId' | 'dateCreated' | 'dateUpdated'>) => 
+      request<{ id: string; message: string }>(`/reassessment-plans/${planId}/items`, {
+        method: 'POST',
+        body: JSON.stringify(item),
+      }),
+    updateItem: (id: string, updates: Partial<ReassessmentPlanItem>) => 
+      request<{ message: string }>(`/reassessment-plans/items/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      }),
+    deleteItem: (id: string) => 
+      request<{ message: string }>(`/reassessment-plans/items/${id}`, {
+        method: 'DELETE',
+      }),
+    templates: {
+      getAll: () => 
+        request<ReassessmentPlanTemplate[]>(`/reassessment-plans/templates/all`),
+      getById: (id: string) => 
+        request<ReassessmentPlanTemplate>(`/reassessment-plans/templates/${id}`),
+      create: (template: Omit<ReassessmentPlanTemplate, 'id' | 'dateCreated' | 'dateUpdated'>) => 
+        request<{ id: string; message: string }>('/reassessment-plans/templates', {
+          method: 'POST',
+          body: JSON.stringify(template),
+        }),
+      update: (id: string, updates: Partial<ReassessmentPlanTemplate>) => 
+        request<{ message: string }>(`/reassessment-plans/templates/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify(updates),
+        }),
+      delete: (id: string) => 
+        request<{ message: string }>(`/reassessment-plans/templates/${id}`, {
+          method: 'DELETE',
+        }),
+    },
   },
 };
 
