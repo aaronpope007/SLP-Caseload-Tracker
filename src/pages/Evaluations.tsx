@@ -20,6 +20,7 @@ import {
   Tabs,
   Tab,
   Tooltip,
+  Autocomplete,
 } from '@mui/material';
 import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid';
 import type { GridColDef, GridRowParams } from '@mui/x-data-grid';
@@ -78,6 +79,8 @@ export const Evaluations = () => {
   const [editingEvaluation, setEditingEvaluation] = useState<Evaluation | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [screenerStudentId, setScreenerStudentId] = useState<string>('');
+  const [screenerStudentInputValue, setScreenerStudentInputValue] = useState<string>('');
+  const screenerStudentInputRef = useRef<string>('');
   const [editingScreener, setEditingScreener] = useState<ArticulationScreener | null>(null);
   const [viewingScreener, setViewingScreener] = useState<ArticulationScreener | null>(null);
   const [editingReport, setEditingReport] = useState(false);
@@ -284,6 +287,30 @@ export const Evaluations = () => {
     setEditingScreener(null);
     loadData(); // Refresh screeners list when dialog closes
   };
+
+  const filterScreenerStudentOptions = useCallback((options: Student[], inputValue: string) => {
+    if (!inputValue) return options;
+    const searchTerm = inputValue.toLowerCase().trim();
+    return options.filter((student) => {
+      const nameMatch = (student.name || '').toLowerCase().includes(searchTerm);
+      const gradeMatch = (student.grade || '').toLowerCase().includes(searchTerm);
+      const concernsMatch = student.concerns?.some((c) => c.toLowerCase().includes(searchTerm)) || false;
+      return nameMatch || gradeMatch || concernsMatch;
+    });
+  }, []);
+
+  const handleScreenerAutocompleteKeyDown = useCallback((
+    e: React.KeyboardEvent,
+    onSelect: (option: Student) => void
+  ) => {
+    if (e.key === 'Tab' || e.key === 'Enter') {
+      const filtered = filterScreenerStudentOptions(students, screenerStudentInputRef.current);
+      if (filtered.length === 1 && !e.shiftKey) {
+        e.preventDefault();
+        onSelect(filtered[0]);
+      }
+    }
+  }, [filterScreenerStudentOptions, students]);
 
   const handleEditScreener = (screener: ArticulationScreener) => {
     const student = students.find(s => s.id === screener.studentId);
@@ -743,24 +770,28 @@ export const Evaluations = () => {
       editable: false,
       valueGetter: (value) => {
         if (Array.isArray(value) && value.length > 0) {
-          return value.map((dp: { phoneme: string }) => dp.phoneme).join(', ');
+          return value.map((dp: { phoneme?: string } | string) =>
+            typeof dp === 'string' ? dp : (dp?.phoneme ?? '')
+          ).filter(Boolean).join(', ');
         }
         return 'None';
       },
       renderCell: (params) => {
         const phonemes = params.row.disorderedPhonemes || [];
         const phonemeArray = Array.isArray(phonemes) ? phonemes : [];
+        // Normalize: support both {phoneme: string} objects and plain strings (legacy data)
+        const getPhonemeLabel = (dp: { phoneme?: string } | string) =>
+          typeof dp === 'string' ? dp : (dp?.phoneme ?? '');
         const displayCount = 5;
         const displayPhonemes = phonemeArray.slice(0, displayCount);
         const remainingCount = phonemeArray.length - displayCount;
-        const allPhonemesText = phonemeArray.map((dp: { phoneme: string }) => dp.phoneme).join(', ');
         
         const content = (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap', py: 1, height: '100%' }}>
             {phonemeArray.length > 0 ? (
               <>
-                {displayPhonemes.map((dp: { phoneme: string }, index: number) => (
-                  <Chip key={index} label={dp.phoneme} size="small" color="warning" sx={{ m: 0.25 }} />
+                {displayPhonemes.map((dp, index) => (
+                  <Chip key={index} label={getPhonemeLabel(dp)} size="small" color="warning" sx={{ m: 0.25 }} />
                 ))}
                 {remainingCount > 0 && (
                   <Chip 
@@ -786,8 +817,8 @@ export const Evaluations = () => {
                     All Disordered Phonemes ({phonemeArray.length}):
                   </Typography>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                    {phonemeArray.map((dp: { phoneme: string }, index: number) => (
-                      <Chip key={index} label={dp.phoneme} size="small" color="warning" />
+                    {phonemeArray.map((dp, index) => (
+                      <Chip key={index} label={getPhonemeLabel(dp)} size="small" color="warning" />
                     ))}
                   </Box>
                 </Box>
@@ -1141,20 +1172,40 @@ export const Evaluations = () => {
         </Typography>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
           {activeTab === 1 && (
-            <FormControl size="small" sx={{ minWidth: 200 }}>
-              <InputLabel>Select Student for Screener</InputLabel>
-              <Select
-                value={screenerStudentId}
-                onChange={(e) => setScreenerStudentId(e.target.value)}
-                label="Select Student for Screener"
-              >
-                {students.map((student) => (
-                  <MenuItem key={student.id} value={student.id}>
-                    {student.name} ({student.grade})
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Autocomplete
+              sx={{ minWidth: 250 }}
+              options={students}
+              getOptionLabel={(option) => `${option.name} (${option.grade})`}
+              filterOptions={(options, state) => filterScreenerStudentOptions(options, state.inputValue)}
+              value={students.find(s => s.id === screenerStudentId) || null}
+              inputValue={screenerStudentInputValue}
+              onInputChange={(_, value) => {
+                setScreenerStudentInputValue(value);
+                screenerStudentInputRef.current = value;
+              }}
+              onChange={(_, newValue) => {
+                setScreenerStudentId(newValue?.id || '');
+                if (newValue) {
+                  setScreenerStudentInputValue(`${newValue.name} (${newValue.grade})`);
+                } else {
+                  setScreenerStudentInputValue('');
+                }
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Select Student for Screener"
+                  InputLabelProps={{ shrink: true }}
+                  onKeyDown={(e) => {
+                    handleScreenerAutocompleteKeyDown(e, (option) => {
+                      setScreenerStudentId(option.id);
+                      setScreenerStudentInputValue(`${option.name} (${option.grade})`);
+                    });
+                  }}
+                />
+              )}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+            />
           )}
           {activeTab === 1 && (
             <Button

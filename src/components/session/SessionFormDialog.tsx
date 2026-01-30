@@ -341,13 +341,18 @@ export const SessionFormDialog = ({
     }
   }, []); // Only run once on mount
   
-  // Memoize formatted start time to avoid unnecessary effect re-runs
-  const formattedStartTime = useMemo(() => {
+  // Memoize formatted start/end time for tab title
+  const formattedTimeRange = useMemo(() => {
     if (!formData.date) {
       return '';
     }
-    return formatTime(formData.date);
-  }, [formData.date]);
+    const startTime = formatTime(formData.date);
+    if (formData.endTime) {
+      const endTime = formatTime(formData.endTime);
+      return `${startTime} - ${endTime}`;
+    }
+    return startTime;
+  }, [formData.date, formData.endTime]);
   
   // Memoize selected student names to avoid unnecessary effect re-runs
   const selectedStudentNames = useMemo(() => {
@@ -383,8 +388,8 @@ export const SessionFormDialog = ({
     }
     
     if (open && selectedStudentNames) {
-      // Format: "Start Time - Student Names - SLP Caseload Tracker"
-      const timePart = formattedStartTime ? `${formattedStartTime} - ` : '';
+      // Format: "Start Time - End Time, Student Names - SLP Caseload Tracker"
+      const timePart = formattedTimeRange ? `${formattedTimeRange} - ` : '';
       const newTitle = `${timePart}${selectedStudentNames} - SLP Caseload Tracker`;
       if (document.title !== newTitle) {
         document.title = newTitle;
@@ -397,7 +402,7 @@ export const SessionFormDialog = ({
         hasTitleChangedRef.current = false;
       }
     }
-  }, [open, formattedStartTime, selectedStudentNames]);
+  }, [open, formattedTimeRange, selectedStudentNames]);
   
   // Separate effect for cleanup on unmount only
   useEffect(() => {
