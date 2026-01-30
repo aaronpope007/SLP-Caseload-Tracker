@@ -74,6 +74,7 @@ import {
   deleteSession,
   getSchoolByName,
   getMeetings,
+  createMeeting,
   deleteMeeting,
   updateMeeting,
 } from '../utils/storage-api';
@@ -1845,6 +1846,8 @@ export const SessionCalendar = () => {
     try {
       if (editingMeeting) {
         await updateMeeting(editingMeeting.id, meeting);
+      } else {
+        await createMeeting(meeting);
       }
       if (!isMountedRef.current) return;
       await loadData();
@@ -1944,6 +1947,16 @@ export const SessionCalendar = () => {
             onClick={() => handleOpenDialog()}
           >
             Schedule Session
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<EventIcon />}
+            onClick={() => {
+              setEditingMeeting(null);
+              setMeetingDialogOpen(true);
+            }}
+          >
+            Schedule meeting
           </Button>
         </Box>
       </Box>

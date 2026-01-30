@@ -1,4 +1,4 @@
-import type { Session, Student, Evaluation, Communication, ScheduledSession, ArticulationScreener } from '../types';
+import type { Session, Student, Evaluation, Communication, ScheduledSession, ArticulationScreener, Meeting } from '../types';
 import { parse, format, isSameDay, isBefore, isAfter, setHours, setMinutes } from 'date-fns';
 
 interface TimeTrackingItem {
@@ -12,6 +12,7 @@ interface GenerateTimesheetNoteParams {
   filteredItems: TimeTrackingItem[];
   sessions: Session[];
   communications: Communication[];
+  meetings?: Meeting[];
   getStudent: (studentId: string) => Student | undefined;
   getStudentInitials: (studentId: string) => string;
   getGroupSessions: (groupSessionId: string) => Session[];
@@ -25,6 +26,7 @@ export const generateTimesheetNote = ({
   filteredItems,
   sessions,
   communications,
+  meetings = [],
   getStudent,
   getStudentInitials,
   getGroupSessions,
@@ -239,6 +241,19 @@ export const generateTimesheetNote = ({
   const emailCorrespondenceEntries = buildStudentEntries(emailCorrespondenceStudentIds);
   const lessonPlanningEntries = buildStudentEntries(lessonPlanningStudentIds);
 
+  // Speech screening: meetings with category "Speech screening" (indirect services)
+  const speechScreeningMeetings = meetings.filter(
+    m => m.category === 'Speech screening' && m.studentId
+  );
+  const speechScreeningStudentEntries = speechScreeningMeetings
+    .map(meeting => {
+      const initials = getStudentInitials(meeting.studentId!);
+      const student = getStudent(meeting.studentId!);
+      const grade = student?.grade || '';
+      return `${initials} (${grade})`;
+    })
+    .sort();
+
   // Build indirect services section with sub-sections
   const indirectServiceLabel = isTeletherapy ? 'Offsite Indirect services including:' : 'Indirect services including:';
   noteParts.push(indirectServiceLabel);
@@ -259,6 +274,18 @@ export const generateTimesheetNote = ({
   if (lessonPlanningEntries.length > 0) {
     noteParts.push('Lesson Planning:');
     noteParts.push(lessonPlanningEntries.join(', '));
+  }
+
+  // Speech screening sub-section (from meeting category) - label on first line, entries on next
+  if (speechScreeningStudentEntries.length > 0) {
+    noteParts.push('Speech screening:');
+    noteParts.push(speechScreeningStudentEntries.join(', '));
+  }
+
+  // Speech Screening Documentation and Collaboration - same students as speech screening
+  if (speechScreeningStudentEntries.length > 0) {
+    noteParts.push('Speech Screening Documentation and Staff Collaboration:');
+    noteParts.push(speechScreeningStudentEntries.join(', '));
   }
   
   noteParts.push(''); // Empty line after service
@@ -282,6 +309,7 @@ interface ProspectiveSessionData {
 interface GenerateProspectiveTimesheetNoteParams {
   scheduledSessions: ScheduledSession[];
   targetDate: string; // YYYY-MM-DD format
+  meetings?: Meeting[];
   getStudent: (studentId: string) => Student | undefined;
   getStudentInitials: (studentId: string) => string;
   isTeletherapy: boolean;
@@ -292,6 +320,7 @@ interface GenerateProspectiveTimesheetNoteParams {
 export const generateProspectiveTimesheetNote = ({
   scheduledSessions,
   targetDate,
+  meetings = [],
   getStudent,
   getStudentInitials,
   isTeletherapy,
@@ -502,6 +531,19 @@ export const generateProspectiveTimesheetNote = ({
   const documentationEntries = buildStudentEntries(documentationStudentIds);
   const lessonPlanningEntries = buildStudentEntries(lessonPlanningStudentIds);
 
+  // Speech screening: meetings with category "Speech screening" on target date
+  const speechScreeningMeetings = meetings.filter(
+    m => m.category === 'Speech screening' && m.studentId
+  );
+  const speechScreeningStudentEntries = speechScreeningMeetings
+    .map(meeting => {
+      const initials = getStudentInitials(meeting.studentId!);
+      const student = getStudent(meeting.studentId!);
+      const grade = student?.grade || '';
+      return `${initials} (${grade})`;
+    })
+    .sort();
+
   // Build indirect services section
   const indirectServiceLabel = isTeletherapy ? 'Offsite Indirect services including:' : 'Indirect services including:';
   noteParts.push(indirectServiceLabel);
@@ -518,6 +560,18 @@ export const generateProspectiveTimesheetNote = ({
   if (lessonPlanningEntries.length > 0) {
     noteParts.push('Lesson Planning:');
     noteParts.push(lessonPlanningEntries.join(', '));
+  }
+
+  // Speech screening sub-section - label on first line, entries on next
+  if (speechScreeningStudentEntries.length > 0) {
+    noteParts.push('Speech screening:');
+    noteParts.push(speechScreeningStudentEntries.join(', '));
+  }
+
+  // Speech Screening Documentation and Collaboration
+  if (speechScreeningStudentEntries.length > 0) {
+    noteParts.push('Speech Screening Documentation and Staff Collaboration:');
+    noteParts.push(speechScreeningStudentEntries.join(', '));
   }
   
   noteParts.push(''); // Empty line after service

@@ -103,6 +103,7 @@ export const MeetingFormDialog = ({
     'Team Meeting',
     'Parent Meeting',
     'Professional Development',
+    'Speech screening',
     'Other',
   ];
 

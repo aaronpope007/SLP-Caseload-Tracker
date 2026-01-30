@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -24,36 +24,6 @@ export const LogActivityMenu = ({
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
   const menuOpen = Boolean(menuAnchorEl);
 
-  useEffect(() => {
-    if (!menuOpen) return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      // Only handle if no input/textarea is focused
-      const target = event.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
-        return;
-      }
-
-      switch (event.key.toLowerCase()) {
-        case 's':
-          event.preventDefault();
-          setMenuAnchorEl(null);
-          onAddSession();
-          break;
-        case 'e':
-          event.preventDefault();
-          setMenuAnchorEl(null);
-          navigate('/evaluations');
-          break;
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [menuOpen, onAddSession, navigate]);
-
   return (
     <Box>
       <Button
@@ -75,7 +45,7 @@ export const LogActivityMenu = ({
             onAddSession();
           }}
         >
-          <AddIcon sx={{ mr: 1 }} /> Add <span style={{ textDecoration: 'underline' }}>S</span>ession
+          <AddIcon sx={{ mr: 1 }} /> Add Session
         </MenuItem>
         <MenuItem
           onClick={() => {
@@ -83,7 +53,7 @@ export const LogActivityMenu = ({
             navigate('/evaluations');
           }}
         >
-          <AddIcon sx={{ mr: 1 }} /> Add <span style={{ textDecoration: 'underline' }}>E</span>valuation
+          <AddIcon sx={{ mr: 1 }} /> Add Evaluation
         </MenuItem>
         {onAddMeeting && (
           <MenuItem
@@ -92,7 +62,7 @@ export const LogActivityMenu = ({
               onAddMeeting();
             }}
           >
-            <AddIcon sx={{ mr: 1 }} /> Add <span style={{ textDecoration: 'underline' }}>M</span>eeting
+            <AddIcon sx={{ mr: 1 }} /> Add Meeting
           </MenuItem>
         )}
       </Menu>

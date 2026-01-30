@@ -6,13 +6,14 @@ import {
   CardContent,
   Typography,
 } from '@mui/material';
-import type { Session, Evaluation, Student, Communication, ScheduledSession, ArticulationScreener } from '../types';
+import type { Session, Evaluation, Student, Communication, ScheduledSession, ArticulationScreener, Meeting } from '../types';
 import {
   getSessions,
   getEvaluations,
   getStudents,
   getScheduledSessions,
   getArticulationScreeners,
+  getMeetings,
 } from '../utils/storage-api';
 import { api } from '../utils/api';
 import { formatDate, generateId } from '../utils/helpers';
@@ -65,6 +66,7 @@ export const TimeTracking = () => {
   const [screeners, setScreeners] = useState<ArticulationScreener[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [communications, setCommunications] = useState<Communication[]>([]);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [scheduledSessions, setScheduledSessions] = useState<ScheduledSession[]>([]);
   // Get current date in YYYY-MM-DD format for date input
   const getCurrentDateString = () => {
@@ -113,6 +115,15 @@ export const TimeTracking = () => {
     } catch (error) {
       logError('Failed to fetch communications', error);
       setCommunications([]);
+    }
+
+    // Load meetings for the selected school
+    try {
+      const schoolMeetings = await getMeetings(undefined, selectedSchool);
+      setMeetings(schoolMeetings);
+    } catch (error) {
+      logError('Failed to fetch meetings', error);
+      setMeetings([]);
     }
     
     // Load scheduled sessions for the selected school
@@ -289,6 +300,24 @@ export const TimeTracking = () => {
     });
   }, [communications, selectedDate]);
 
+  // Filter meetings by selected date (for timesheet note - speech screening in indirect services)
+  const filteredMeetings = useMemo(() => {
+    if (!selectedDate) return meetings;
+    const [year, month, day] = selectedDate.split('-').map(Number);
+    const selectedDateLocal = new Date(year, month - 1, day);
+    const selectedYear = selectedDateLocal.getFullYear();
+    const selectedMonth = selectedDateLocal.getMonth();
+    const selectedDay = selectedDateLocal.getDate();
+    return meetings.filter(meeting => {
+      const meetingDate = new Date(meeting.date);
+      return (
+        meetingDate.getFullYear() === selectedYear &&
+        meetingDate.getMonth() === selectedMonth &&
+        meetingDate.getDate() === selectedDay
+      );
+    });
+  }, [meetings, selectedDate]);
+
   const getStudentName = (studentId: string) => {
     return students.find(s => s.id === studentId)?.name || 'Unknown';
   };
@@ -345,6 +374,7 @@ export const TimeTracking = () => {
       filteredItems,
       sessions,
       communications: filteredCommunications,
+      meetings: filteredMeetings,
       getStudent,
       getStudentInitials,
       getGroupSessions,
@@ -370,6 +400,7 @@ export const TimeTracking = () => {
     const note = generateProspectiveTimesheetNote({
       scheduledSessions,
       targetDate: selectedDate,
+      meetings: filteredMeetings,
       getStudent,
       getStudentInitials,
       isTeletherapy,
