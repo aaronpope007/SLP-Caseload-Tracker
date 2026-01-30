@@ -363,6 +363,12 @@ export const Communications = () => {
     });
   }, []);
 
+  // Students for the selected school only (for Log Communication dropdown and filters)
+  const studentsForSchool = useMemo(
+    () => students.filter((s) => !selectedSchool || s.school === selectedSchool),
+    [students, selectedSchool]
+  );
+
   // Note: We pass full options to Autocomplete and use filterOptions prop for filtering
   // This ensures Material-UI's Autocomplete filtering works correctly
 
@@ -697,7 +703,7 @@ export const Communications = () => {
             )}
 
             <Autocomplete
-              options={students}
+              options={studentsForSchool}
               getOptionLabel={(option) => option.name}
               filterOptions={(options, state) => filterStudentOptions(options, state.inputValue)}
               value={students.find(s => s.id === formData.studentId) || null}
@@ -722,7 +728,7 @@ export const Communications = () => {
                     shrink: true,
                   }}
                   onKeyDown={(e) => {
-                    const filtered = filterStudentOptions(students, studentInputRef.current);
+                    const filtered = filterStudentOptions(studentsForSchool, studentInputRef.current);
                     handleAutocompleteKeyDown(
                       e,
                       filtered,
