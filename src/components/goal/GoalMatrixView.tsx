@@ -13,6 +13,7 @@ import {
 import {
   Pin as PinIcon,
   PinOutlined as PinOutlinedIcon,
+  CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
 import type { Goal, Student } from '../../types';
 import { organizeGoalsHierarchy } from '../../utils/goalHierarchy';
@@ -48,6 +49,7 @@ interface GoalMatrixViewProps {
   onCuingLevelToggle: (goalId: string, studentId: string, cuingLevel: 'independent' | 'verbal' | 'visual' | 'tactile' | 'physical') => void;
   onFormDataChange: (updater: (prev: SessionFormData) => SessionFormData) => void;
   isGoalAchieved: (goal: Goal) => boolean;
+  onMarkGoalMet?: (goal: Goal) => void | Promise<void>;
   pinnedGoalIds?: Set<string>;
   onPinToggle?: (goalId: string) => void;
 }
@@ -67,6 +69,7 @@ export const GoalMatrixView = memo(({
   onCuingLevelToggle,
   onFormDataChange,
   isGoalAchieved,
+  onMarkGoalMet,
   pinnedGoalIds,
   onPinToggle,
 }: GoalMatrixViewProps) => {
@@ -208,6 +211,18 @@ export const GoalMatrixView = memo(({
             }
             sx={{ flex: 1, m: 0 }}
           />
+          {onMarkGoalMet && (
+            <Tooltip title="Mark as goal met (no data required)">
+              <IconButton
+                size="small"
+                color="success"
+                onClick={() => onMarkGoalMet(goal)}
+                sx={{ mt: 0.5 }}
+              >
+                <CheckCircleIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
           {onPinToggle && (
             <Tooltip title={pinnedGoalIds?.has(goal.id) ? 'Unpin goal' : 'Pin goal to quick access'}>
               <IconButton

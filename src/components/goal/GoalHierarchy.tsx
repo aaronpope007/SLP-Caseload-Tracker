@@ -15,6 +15,7 @@ import {
   ExpandMore as ExpandMoreIcon,
   Pin as PinIcon,
   PinOutlined as PinOutlinedIcon,
+  CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
 import type { Goal } from '../../types';
 import { GoalProgressChip } from './GoalProgressChip';
@@ -54,6 +55,7 @@ interface GoalHierarchyProps {
   onFormDataChange: (updater: (prev: SessionFormData) => SessionFormData) => void;
   pinnedGoalIds?: Set<string>;
   onPinToggle?: (goalId: string) => void;
+  onMarkGoalMet?: (goal: Goal) => void | Promise<void>;
 }
 
 export const GoalHierarchy = memo(({
@@ -70,6 +72,7 @@ export const GoalHierarchy = memo(({
   onFormDataChange,
   pinnedGoalIds,
   onPinToggle,
+  onMarkGoalMet,
 }: GoalHierarchyProps) => {
   const { parentGoals, subGoalsByParent, orphanGoals } = hierarchy;
 
@@ -120,6 +123,21 @@ export const GoalHierarchy = memo(({
                   }
                   onClick={(e) => e.stopPropagation()}
                 />
+                {onMarkGoalMet && (
+                  <Tooltip title="Mark as goal met (no data required)">
+                    <IconButton
+                      size="small"
+                      color="success"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onMarkGoalMet(goal);
+                      }}
+                      sx={{ ml: 'auto' }}
+                    >
+                      <CheckCircleIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
                 {onPinToggle && (
                   <Tooltip title={pinnedGoalIds?.has(goal.id) ? 'Unpin goal' : 'Pin goal to quick access'}>
                     <IconButton
@@ -128,7 +146,7 @@ export const GoalHierarchy = memo(({
                         e.stopPropagation();
                         onPinToggle(goal.id);
                       }}
-                      sx={{ ml: 'auto' }}
+                      sx={{ ml: onMarkGoalMet ? undefined : 'auto' }}
                     >
                       {pinnedGoalIds?.has(goal.id) ? (
                         <PinIcon fontSize="small" color="primary" />
@@ -171,6 +189,17 @@ export const GoalHierarchy = memo(({
               }
               sx={{ flex: 1 }}
             />
+            {onMarkGoalMet && (
+              <Tooltip title="Mark as goal met (no data required)">
+                <IconButton
+                  size="small"
+                  color="success"
+                  onClick={() => onMarkGoalMet(goal)}
+                >
+                  <CheckCircleIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
             {onPinToggle && (
               <Tooltip title={pinnedGoalIds?.has(goal.id) ? 'Unpin goal' : 'Pin goal to quick access'}>
                 <IconButton
@@ -250,6 +279,21 @@ export const GoalHierarchy = memo(({
                     }
                     onClick={(e) => e.stopPropagation()}
                   />
+                  {onMarkGoalMet && (
+                    <Tooltip title="Mark as goal met (no data required)">
+                      <IconButton
+                        size="small"
+                        color="success"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onMarkGoalMet(goal);
+                        }}
+                        sx={{ ml: 'auto' }}
+                      >
+                        <CheckCircleIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                   {onPinToggle && (
                     <Tooltip title={pinnedGoalIds?.has(goal.id) ? 'Unpin goal' : 'Pin goal to quick access'}>
                       <IconButton
@@ -258,7 +302,7 @@ export const GoalHierarchy = memo(({
                           e.stopPropagation();
                           onPinToggle(goal.id);
                         }}
-                        sx={{ ml: 'auto' }}
+                        sx={{ ml: onMarkGoalMet ? undefined : 'auto' }}
                       >
                         {pinnedGoalIds?.has(goal.id) ? (
                           <PinIcon fontSize="small" color="primary" />

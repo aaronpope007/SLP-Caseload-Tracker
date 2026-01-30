@@ -68,6 +68,7 @@ import {
   getStudents,
   getSessions,
   getGoals,
+  updateGoal,
   addSession,
   updateSession,
   deleteSession,
@@ -1092,6 +1093,20 @@ export const SessionCalendar = () => {
 
     return average;
   }, [sessionsByStudentAndGoal]);
+
+  const handleMarkGoalMet = useCallback(async (goal: Goal) => {
+    try {
+      await updateGoal(goal.id, {
+        status: 'achieved',
+        dateAchieved: new Date().toISOString().slice(0, 10),
+      });
+      await loadData();
+    } catch (error) {
+      if (isMountedRef.current) {
+        logError('Calendar: Error marking goal as met', error);
+      }
+    }
+  }, []);
 
   const handleOpenSessionDialog = (event: CalendarEvent) => {
     if (!Array.isArray(scheduledSessions)) return;
@@ -2991,6 +3006,7 @@ export const SessionCalendar = () => {
         onTrialUpdate={handleTrialUpdate}
         getRecentPerformance={getRecentPerformance}
         isGoalAchieved={isGoalAchieved}
+        onMarkGoalMet={handleMarkGoalMet}
       />
       <ConfirmDialog />
       

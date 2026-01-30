@@ -16,6 +16,7 @@ import {
 import type { Session, Student, Goal } from '../types';
 import {
   getSessions, // Needed for group session logic
+  updateGoal,
 } from '../utils/storage-api';
 import { useSchool } from '../context/SchoolContext';
 import { useConfirm, useSnackbar, useDialog, useSessionManagement, useSessionForm, useSessionFormHandlers, useSessionSave, useSessionDialogHandlers, useSessionDelete, useSOAPNoteGeneration, useSOAPNoteSave, useSOAPNoteManagement, useSessionPlanning, useSessionDataLoader, usePerformanceHelpers, useLookupHelpers, useSessionPlanGeneration } from '../hooks';
@@ -226,9 +227,19 @@ export const Sessions = () => {
     });
   }, [updateFormField]);
 
-
-
-
+  const handleMarkGoalMet = useCallback(async (goal: Goal) => {
+    try {
+      await updateGoal(goal.id, {
+        status: 'achieved',
+        dateAchieved: new Date().toISOString().slice(0, 10),
+      });
+      await loadData();
+      showSnackbar('Goal marked as met');
+    } catch (error) {
+      logError('Sessions: Error marking goal as met', error);
+      showSnackbar('Failed to mark goal as met', 'error');
+    }
+  }, [loadData, showSnackbar]);
 
   // SOAP note save hook
   const { handleSaveSOAPNote } = useSOAPNoteSave({
@@ -318,6 +329,7 @@ export const Sessions = () => {
         onTrialUpdate={formHandlers.handleTrialUpdate}
         getRecentPerformance={getRecentPerformance}
         isGoalAchieved={isGoalAchieved}
+        onMarkGoalMet={handleMarkGoalMet}
       />
 
       <SessionPlanDialog

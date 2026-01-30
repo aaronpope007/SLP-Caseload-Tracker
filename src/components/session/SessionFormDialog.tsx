@@ -89,6 +89,7 @@ interface SessionFormDialogProps {
   onTrialUpdate: (goalId: string, studentId: string, isCorrect: boolean) => void;
   getRecentPerformance: (goalId: string, studentId: string) => number | null;
   isGoalAchieved: (goal: Goal) => boolean;
+  onMarkGoalMet?: (goal: Goal) => void | Promise<void>;
 }
 
 export const SessionFormDialog = ({
@@ -113,6 +114,7 @@ export const SessionFormDialog = ({
   onTrialUpdate,
   getRecentPerformance,
   isGoalAchieved,
+  onMarkGoalMet,
 }: SessionFormDialogProps) => {
   const [emailTeacherDialogOpen, setEmailTeacherDialogOpen] = useState(false);
   const [selectedStudentForEmail, setSelectedStudentForEmail] = useState<Student | null>(null);
@@ -439,6 +441,16 @@ export const SessionFormDialog = ({
       onFormDataChangeRef.current(updatesOrUpdater);
     }
   }, []); // No dependencies - uses refs for all external values
+
+  // Mark goal as met from log activity (no data required); remove from goalsTargeted
+  const handleMarkGoalMet = useCallback(async (goal: Goal) => {
+    if (!onMarkGoalMet) return;
+    await onMarkGoalMet(goal);
+    handleFormDataChange((prev) => ({
+      ...prev,
+      goalsTargeted: prev.goalsTargeted.filter((id) => id !== goal.id),
+    }));
+  }, [onMarkGoalMet, handleFormDataChange]);
 
   // Sync all local state to parent state immediately (e.g., before save)
   const syncAllLocalState = useCallback(() => {
@@ -1080,6 +1092,7 @@ export const SessionFormDialog = ({
                         onCuingLevelToggle={onCuingLevelToggle}
                         onFormDataChange={handleFormDataChange}
                         isGoalAchieved={isGoalAchieved}
+                        onMarkGoalMet={handleMarkGoalMet}
                         pinnedGoalIds={pinnedGoalIds}
                         onPinToggle={togglePin}
                       />
@@ -1121,6 +1134,7 @@ export const SessionFormDialog = ({
                                 onFormDataChange={handleFormDataChange}
                                 pinnedGoalIds={pinnedGoalIds}
                                 onPinToggle={togglePin}
+                                onMarkGoalMet={handleMarkGoalMet}
                               />
                             )}
                           </Box>
@@ -1211,6 +1225,7 @@ export const SessionFormDialog = ({
                                 onFormDataChange={handleFormDataChange}
                                 pinnedGoalIds={pinnedGoalIds}
                                 onPinToggle={togglePin}
+                                onMarkGoalMet={handleMarkGoalMet}
                               />
                             )}
                             {completedGoals.length > 0 && (
