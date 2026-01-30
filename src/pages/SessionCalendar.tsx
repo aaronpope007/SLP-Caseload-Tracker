@@ -792,7 +792,7 @@ export const SessionCalendar = () => {
           date: startOfDay(meetingDate),
           startTime: startTime,
           endTime: endTime,
-          title: `Meeting: ${meeting.title}`,
+          title: `${startTime}-${endTime} Meeting: ${meeting.title}`,
           hasConflict: false,
           isLogged: false,
           isMissed: false,
