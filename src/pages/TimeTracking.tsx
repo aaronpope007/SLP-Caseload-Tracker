@@ -257,65 +257,39 @@ export const TimeTracking = () => {
     return sorted;
   }, [sessions, evaluations, screeners, students, selectedSchool]);
 
+  // Get calendar date (YYYY-MM-DD) for filtering. Use LOCAL date so that an event at 6pm Jan 29
+  // (stored as 2026-01-30T02:00:00.000Z) shows on 1/29 only, and the 9:15 am Jan 30 event shows on 1/30 only.
+  // Date-only strings (no "T") use the string as-is to avoid UTC-midnight shifting to previous day.
+  const getItemCalendarDate = (dateStr: string): string => {
+    if (!dateStr) return '';
+    if (dateStr.includes('T')) {
+      const d = new Date(dateStr);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+    return dateStr.slice(0, 10);
+  };
+
   // Filter items by selected date
   const filteredItems = useMemo(() => {
     if (!selectedDate) return allItems;
-    
-    // Parse selected date in local time (YYYY-MM-DD format from date input)
-    const [year, month, day] = selectedDate.split('-').map(Number);
-    const selectedDateLocal = new Date(year, month - 1, day);
-    const selectedYear = selectedDateLocal.getFullYear();
-    const selectedMonth = selectedDateLocal.getMonth();
-    const selectedDay = selectedDateLocal.getDate();
-    
-    return allItems.filter(item => {
-      const itemDate = new Date(item.date);
-      return (
-        itemDate.getFullYear() === selectedYear &&
-        itemDate.getMonth() === selectedMonth &&
-        itemDate.getDate() === selectedDay
-      );
-    });
+    return allItems.filter(item => getItemCalendarDate(item.date) === selectedDate);
   }, [allItems, selectedDate]);
 
   // Filter communications by selected date (already filtered by school in loadData)
   const filteredCommunications = useMemo(() => {
     if (!selectedDate) return communications;
-    
-    // Parse selected date in local time (YYYY-MM-DD format from date input)
-    const [year, month, day] = selectedDate.split('-').map(Number);
-    const selectedDateLocal = new Date(year, month - 1, day);
-    const selectedYear = selectedDateLocal.getFullYear();
-    const selectedMonth = selectedDateLocal.getMonth();
-    const selectedDay = selectedDateLocal.getDate();
-    
-    return communications.filter(comm => {
-      if (!comm.date) return false;
-      const commDate = new Date(comm.date);
-      return (
-        commDate.getFullYear() === selectedYear &&
-        commDate.getMonth() === selectedMonth &&
-        commDate.getDate() === selectedDay
-      );
-    });
+    return communications.filter(comm =>
+      comm.date ? getItemCalendarDate(comm.date) === selectedDate : false
+    );
   }, [communications, selectedDate]);
 
   // Filter meetings by selected date (for timesheet note - speech screening in indirect services)
   const filteredMeetings = useMemo(() => {
     if (!selectedDate) return meetings;
-    const [year, month, day] = selectedDate.split('-').map(Number);
-    const selectedDateLocal = new Date(year, month - 1, day);
-    const selectedYear = selectedDateLocal.getFullYear();
-    const selectedMonth = selectedDateLocal.getMonth();
-    const selectedDay = selectedDateLocal.getDate();
-    return meetings.filter(meeting => {
-      const meetingDate = new Date(meeting.date);
-      return (
-        meetingDate.getFullYear() === selectedYear &&
-        meetingDate.getMonth() === selectedMonth &&
-        meetingDate.getDate() === selectedDay
-      );
-    });
+    return meetings.filter(meeting => getItemCalendarDate(meeting.date) === selectedDate);
   }, [meetings, selectedDate]);
 
   const getStudentName = (studentId: string) => {

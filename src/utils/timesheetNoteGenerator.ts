@@ -37,8 +37,9 @@ export const generateTimesheetNote = ({
 }: GenerateTimesheetNoteParams): string => {
   const noteParts: string[] = [];
 
-  // Filter to only sessions (not evaluations)
+  // Filter to sessions and screeners (evaluations are separate)
   const sessionItems = filteredItems.filter(item => item.type === 'session');
+  const screenerItems = filteredItems.filter(item => item.type === 'screener');
 
   // Separate direct services, missed direct services, and indirect services
   // Note: Per SSG SLP-SLPA billing rules, missed sessions are NOT billed or added as notes.
@@ -118,66 +119,104 @@ export const generateTimesheetNote = ({
     }
   });
 
-  // Build direct services entry
-  // Per SSG SLP-SLPA billing rules: For tele services, exact time in/out is REQUIRED for each direct session
-  if (directServices.length > 0) {
-    let directStudentEntries: string[];
-    
-    // For tele services, always require specific times
-    const shouldUseSpecificTimes = useSpecificTimes || isTeletherapy;
-    
-    if (shouldUseSpecificTimes) {
-      // Group sessions by time range and create entries with times
-      const timeRangeMap = new Map<string, Array<{ session: Session; timeRange: string }>>();
-      
-      directServices.forEach(session => {
-        const timeRange = formatTimeRange(session.date, session.endTime);
-        const key = timeRange;
-        
-        if (!timeRangeMap.has(key)) {
-          timeRangeMap.set(key, []);
-        }
-        timeRangeMap.get(key)!.push({ session, timeRange });
-      });
-      
-      // Build entries: "FG (5) 8:10am-8:30am, AS (2) 8:30am-8:50am"
-      const entries: string[] = [];
-      const sortedTimeRanges = Array.from(timeRangeMap.entries()).sort((a, b) => {
-        // Sort by start time
-        const timeA = new Date(a[1][0].session.date).getTime();
-        const timeB = new Date(b[1][0].session.date).getTime();
-        return timeA - timeB;
-      });
-      
-      sortedTimeRanges.forEach(([timeRange, sessionData]) => {
-        const studentEntries = sessionData.map(({ session }) => {
+  // Speech screening: meetings + screeners (for direct "Speech screening:" and indirect "Speech Screening Write-Up and Staff Collaboration")
+  const speechScreeningMeetings = meetings.filter(
+    m => m.category === 'Speech screening' && m.studentId
+  );
+  const speechScreeningDocStudentIds = new Set<string>();
+  screenerItems.forEach(item => {
+    speechScreeningDocStudentIds.add((item.data as ArticulationScreener).studentId);
+  });
+  speechScreeningMeetings.forEach(m => m.studentId && speechScreeningDocStudentIds.add(m.studentId));
+  const speechScreeningDocEntries = Array.from(speechScreeningDocStudentIds)
+    .map(studentId => {
+      const initials = getStudentInitials(studentId);
+      const student = getStudent(studentId);
+      const grade = student?.grade || '';
+      return `${initials} (${grade})`;
+    })
+    .sort();
+
+  // Build direct services: "Direct Therapy:" (sessions with times, one per line) and "Speech screening:" (comma-separated)
+  const shouldUseSpecificTimes = useSpecificTimes || isTeletherapy;
+  const hasDirectSessions = directServices.length > 0;
+  const hasScreeners = screenerItems.length > 0;
+  const hasSpeechScreeningMeetings = speechScreeningMeetings.length > 0;
+
+  if (hasDirectSessions || hasScreeners || hasSpeechScreeningMeetings) {
+    const serviceLabel = isTeletherapy ? 'Offsite Direct Services:' : 'Direct services:';
+    noteParts.push(serviceLabel);
+    noteParts.push('');
+
+    // Direct Therapy: treatment sessions only, with times, comma-separated on one line
+    if (hasDirectSessions) {
+      noteParts.push('Direct Therapy:');
+      if (shouldUseSpecificTimes) {
+        const timeRangeMap = new Map<string, Array<{ session: Session; timeRange: string }>>();
+        directServices.forEach(session => {
+          const timeRange = formatTimeRange(session.date, session.endTime);
+          if (!timeRangeMap.has(timeRange)) timeRangeMap.set(timeRange, []);
+          timeRangeMap.get(timeRange)!.push({ session, timeRange });
+        });
+        const sortedTimeRanges = Array.from(timeRangeMap.entries()).sort((a, b) => {
+          const timeA = new Date(a[1][0].session.date).getTime();
+          const timeB = new Date(b[1][0].session.date).getTime();
+          return timeA - timeB;
+        });
+        const therapyEntries: string[] = [];
+        sortedTimeRanges.forEach(([, sessionData]) => {
+          sessionData.forEach(({ session, timeRange }) => {
+            const student = getStudent(session.studentId);
+            const initials = getStudentInitials(session.studentId);
+            const grade = student?.grade || '';
+            therapyEntries.push(`${initials} (${grade}) ${timeRange}`);
+          });
+        });
+        noteParts.push(therapyEntries.join(', '));
+      } else {
+        const therapyEntries = directServices.map(session => {
           const student = getStudent(session.studentId);
           const initials = getStudentInitials(session.studentId);
           const grade = student?.grade || '';
-          return { entry: `${initials} (${grade}) ${timeRange}`, initials };
+          return `${initials} (${grade})`;
         });
-        // Sort by initials within each time range group
-        studentEntries.sort((a, b) => a.initials.localeCompare(b.initials));
-        entries.push(...studentEntries.map(e => e.entry));
-      });
-      
-      directStudentEntries = entries;
-    } else {
-      // Original format without times
-      directStudentEntries = directServices.map(session => {
-        const student = getStudent(session.studentId);
-        const initials = getStudentInitials(session.studentId);
-        const grade = student?.grade || '';
-        return `${initials} (${grade})`;
-      });
-      // Sort by initials for consistency
-      directStudentEntries.sort();
+        therapyEntries.sort();
+        noteParts.push(therapyEntries.join(', '));
+      }
     }
 
-    const serviceLabel = isTeletherapy ? 'Offsite Direct services:' : 'Direct services:';
-    noteParts.push(serviceLabel);
-    noteParts.push(directStudentEntries.join(', '));
-    noteParts.push(''); // Empty line after service
+    // Speech screening: screeners + speech screening meetings, comma-separated on one line with times
+    if (hasScreeners || hasSpeechScreeningMeetings) {
+      noteParts.push('Speech screening:');
+      type SpeechScreeningEntry = { sortTime: number; initials: string; grade: string; timeRange: string };
+      const screeningEntries: SpeechScreeningEntry[] = [];
+      screenerItems.forEach(item => {
+        const screener = item.data as ArticulationScreener;
+        const timeRange = formatTimeRange(screener.date, undefined);
+        screeningEntries.push({
+          sortTime: new Date(screener.date).getTime(),
+          initials: getStudentInitials(screener.studentId),
+          grade: getStudent(screener.studentId)?.grade || '',
+          timeRange,
+        });
+      });
+      speechScreeningMeetings.forEach(meeting => {
+        const timeRange = formatTimeRange(meeting.date, meeting.endTime);
+        screeningEntries.push({
+          sortTime: new Date(meeting.date).getTime(),
+          initials: getStudentInitials(meeting.studentId!),
+          grade: getStudent(meeting.studentId!)?.grade || '',
+          timeRange,
+        });
+      });
+      screeningEntries.sort((a, b) => a.sortTime - b.sortTime);
+      const screeningLine = shouldUseSpecificTimes
+        ? screeningEntries.map(e => `${e.initials} (${e.grade}) ${e.timeRange}`).join(', ')
+        : screeningEntries.map(e => `${e.initials} (${e.grade})`).join(', ');
+      noteParts.push(screeningLine);
+    }
+
+    noteParts.push(''); // Empty line after direct services
   }
 
   // Per SSG SLP-SLPA billing rules: Missed sessions are NOT billed or added as notes.
@@ -186,7 +225,7 @@ export const generateTimesheetNote = ({
   // Build indirect services entry with sub-sections
   // Collect students for each sub-section
   
-  // Documentation: Students who completed a session today (including preparation for missed sessions)
+  // Documentation: Students who completed a session or screener today (including preparation for missed sessions)
   // Per SSG rules: Missed sessions are replaced with indirect work (documentation/lesson planning)
   const documentationStudentIds = new Set<string>();
   directServices.forEach(session => {
@@ -195,6 +234,11 @@ export const generateTimesheetNote = ({
   // Include missed session students in documentation (replacing missed work with indirect work)
   missedDirectServices.forEach(session => {
     documentationStudentIds.add(session.studentId);
+  });
+  // Include screener students in documentation (screener documentation notes)
+  screenerItems.forEach(item => {
+    const screener = item.data as ArticulationScreener;
+    documentationStudentIds.add(screener.studentId);
   });
   
   // Email Correspondence: Students from communications
@@ -241,29 +285,17 @@ export const generateTimesheetNote = ({
   const emailCorrespondenceEntries = buildStudentEntries(emailCorrespondenceStudentIds);
   const lessonPlanningEntries = buildStudentEntries(lessonPlanningStudentIds);
 
-  // Speech screening: meetings with category "Speech screening" (indirect services)
-  const speechScreeningMeetings = meetings.filter(
-    m => m.category === 'Speech screening' && m.studentId
-  );
-  const speechScreeningStudentEntries = speechScreeningMeetings
-    .map(meeting => {
-      const initials = getStudentInitials(meeting.studentId!);
-      const student = getStudent(meeting.studentId!);
-      const grade = student?.grade || '';
-      return `${initials} (${grade})`;
-    })
-    .sort();
-
   // Build indirect services section with sub-sections
-  const indirectServiceLabel = isTeletherapy ? 'Offsite Indirect services including:' : 'Indirect services including:';
+  const indirectServiceLabel = isTeletherapy ? 'Offsite Indirect Services Including:' : 'Indirect services including:';
   noteParts.push(indirectServiceLabel);
-  
+  noteParts.push('');
+
   // Documentation sub-section
   if (documentationEntries.length > 0) {
     noteParts.push('Session Documentation:');
     noteParts.push(documentationEntries.join(', '));
   }
-  
+
   // Email Correspondence sub-section
   if (emailCorrespondenceEntries.length > 0) {
     noteParts.push('Email Correspondence:');
@@ -276,18 +308,12 @@ export const generateTimesheetNote = ({
     noteParts.push(lessonPlanningEntries.join(', '));
   }
 
-  // Speech screening sub-section (from meeting category) - label on first line, entries on next
-  if (speechScreeningStudentEntries.length > 0) {
-    noteParts.push('Speech screening:');
-    noteParts.push(speechScreeningStudentEntries.join(', '));
+  // Speech Screening Write-Up and Staff Collaboration (indirect) - screeners + speech screening meetings
+  if (speechScreeningDocEntries.length > 0) {
+    noteParts.push('Speech Screening Write-Up and Staff Collaboration:');
+    noteParts.push(speechScreeningDocEntries.join(', '));
   }
 
-  // Speech Screening Documentation and Collaboration - same students as speech screening
-  if (speechScreeningStudentEntries.length > 0) {
-    noteParts.push('Speech Screening Documentation and Staff Collaboration:');
-    noteParts.push(speechScreeningStudentEntries.join(', '));
-  }
-  
   noteParts.push(''); // Empty line after service
 
   // Remove trailing empty line if present
@@ -448,60 +474,73 @@ export const generateProspectiveTimesheetNote = ({
     }
   });
 
-  // Build direct services entry
-  if (uniqueDirectServices.length > 0) {
-    let directStudentEntries: string[];
-    
-    const shouldUseSpecificTimes = useSpecificTimes || isTeletherapy;
-    
-    if (shouldUseSpecificTimes) {
-      // Group by time range and create entries with times
-      const timeRangeMap = new Map<string, Array<{ session: ProspectiveSessionData; timeRange: string }>>();
-      
-      uniqueDirectServices.forEach(session => {
-        const timeRange = formatTimeRange(session.date.toISOString(), session.endDate?.toISOString());
-        const key = timeRange;
-        
-        if (!timeRangeMap.has(key)) {
-          timeRangeMap.set(key, []);
-        }
-        timeRangeMap.get(key)!.push({ session, timeRange });
-      });
-      
-      // Build entries sorted by time
-      const entries: string[] = [];
-      const sortedTimeRanges = Array.from(timeRangeMap.entries()).sort((a, b) => {
-        const timeA = a[1][0].session.date.getTime();
-        const timeB = b[1][0].session.date.getTime();
-        return timeA - timeB;
-      });
-      
-      sortedTimeRanges.forEach(([timeRange, sessionData]) => {
-        const studentEntries = sessionData.map(({ session }) => {
+  // Build direct services: Direct Therapy (one per line with times) and Speech screening (comma-separated)
+  const speechScreeningMeetingsProspective = meetings.filter(
+    m => m.category === 'Speech screening' && m.studentId
+  );
+  const hasDirectSessionsProspective = uniqueDirectServices.length > 0;
+  const hasSpeechScreeningProspective = speechScreeningMeetingsProspective.length > 0;
+
+  if (hasDirectSessionsProspective || hasSpeechScreeningProspective) {
+    const serviceLabel = isTeletherapy ? 'Offsite Direct Services:' : 'Direct services:';
+    noteParts.push(serviceLabel);
+    noteParts.push('');
+
+    if (hasDirectSessionsProspective) {
+      noteParts.push('Direct Therapy:');
+      const shouldUseSpecificTimesProspective = useSpecificTimes || isTeletherapy;
+      if (shouldUseSpecificTimesProspective) {
+        const timeRangeMap = new Map<string, Array<{ session: ProspectiveSessionData; timeRange: string }>>();
+        uniqueDirectServices.forEach(session => {
+          const timeRange = formatTimeRange(session.date.toISOString(), session.endDate?.toISOString());
+          if (!timeRangeMap.has(timeRange)) timeRangeMap.set(timeRange, []);
+          timeRangeMap.get(timeRange)!.push({ session, timeRange });
+        });
+        const sortedTimeRanges = Array.from(timeRangeMap.entries()).sort((a, b) => {
+          const timeA = a[1][0].session.date.getTime();
+          const timeB = b[1][0].session.date.getTime();
+          return timeA - timeB;
+        });
+        const therapyEntries: string[] = [];
+        sortedTimeRanges.forEach(([, sessionData]) => {
+          sessionData.forEach(({ session, timeRange }) => {
+            const initials = getStudentInitials(session.studentId);
+            const student = getStudent(session.studentId);
+            const grade = student?.grade || '';
+            therapyEntries.push(`${initials} (${grade}) ${timeRange}`);
+          });
+        });
+        noteParts.push(therapyEntries.join(', '));
+      } else {
+        const therapyEntries = uniqueDirectServices.map(session => {
           const initials = getStudentInitials(session.studentId);
           const student = getStudent(session.studentId);
           const grade = student?.grade || '';
-          return { entry: `${initials} (${grade}) ${timeRange}`, initials };
+          return `${initials} (${grade})`;
         });
-        studentEntries.sort((a, b) => a.initials.localeCompare(b.initials));
-        entries.push(...studentEntries.map(e => e.entry));
-      });
-      
-      directStudentEntries = entries;
-    } else {
-      directStudentEntries = uniqueDirectServices.map(session => {
-        const initials = getStudentInitials(session.studentId);
-        const student = getStudent(session.studentId);
-        const grade = student?.grade || '';
-        return `${initials} (${grade})`;
-      });
-      directStudentEntries.sort();
+        therapyEntries.sort();
+        noteParts.push(therapyEntries.join(', '));
+      }
     }
 
-    const serviceLabel = isTeletherapy ? 'Offsite Direct services:' : 'Direct services:';
-    noteParts.push(serviceLabel);
-    noteParts.push(directStudentEntries.join(', '));
-    noteParts.push(''); // Empty line after service
+    if (hasSpeechScreeningProspective) {
+      noteParts.push('Speech screening:');
+      const screeningWithTimes = speechScreeningMeetingsProspective
+        .map(meeting => ({
+          sortTime: new Date(meeting.date).getTime(),
+          initials: getStudentInitials(meeting.studentId!),
+          grade: getStudent(meeting.studentId!)?.grade || '',
+          timeRange: formatTimeRange(meeting.date, meeting.endTime),
+        }))
+        .sort((a, b) => a.sortTime - b.sortTime);
+      const useTimesProspective = useSpecificTimes || isTeletherapy;
+      const screeningLine = useTimesProspective
+        ? screeningWithTimes.map(e => `${e.initials} (${e.grade}) ${e.timeRange}`).join(', ')
+        : screeningWithTimes.map(e => `${e.initials} (${e.grade})`).join(', ');
+      noteParts.push(screeningLine);
+    }
+
+    noteParts.push(''); // Empty line after direct services
   }
 
   // Build indirect services entry
@@ -545,15 +584,16 @@ export const generateProspectiveTimesheetNote = ({
     .sort();
 
   // Build indirect services section
-  const indirectServiceLabel = isTeletherapy ? 'Offsite Indirect services including:' : 'Indirect services including:';
+  const indirectServiceLabel = isTeletherapy ? 'Offsite Indirect Services Including:' : 'Indirect services including:';
   noteParts.push(indirectServiceLabel);
-  
+  noteParts.push('');
+
   // Documentation sub-section
   if (documentationEntries.length > 0) {
     noteParts.push('Session Documentation:');
     noteParts.push(documentationEntries.join(', '));
   }
-  
+
   // Email Correspondence sub-section - skip for prospective notes (can't predict emails)
   
   // Lesson Planning sub-section
@@ -562,18 +602,12 @@ export const generateProspectiveTimesheetNote = ({
     noteParts.push(lessonPlanningEntries.join(', '));
   }
 
-  // Speech screening sub-section - label on first line, entries on next
+  // Speech Screening Write-Up and Staff Collaboration (indirect only)
   if (speechScreeningStudentEntries.length > 0) {
-    noteParts.push('Speech screening:');
+    noteParts.push('Speech Screening Write-Up and Staff Collaboration:');
     noteParts.push(speechScreeningStudentEntries.join(', '));
   }
 
-  // Speech Screening Documentation and Collaboration
-  if (speechScreeningStudentEntries.length > 0) {
-    noteParts.push('Speech Screening Documentation and Staff Collaboration:');
-    noteParts.push(speechScreeningStudentEntries.join(', '));
-  }
-  
   noteParts.push(''); // Empty line after service
 
   // Remove trailing empty line if present
