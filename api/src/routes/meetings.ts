@@ -43,13 +43,14 @@ meetingsRouter.get('/', asyncHandler(async (req, res) => {
     params.push(category);
   }
 
+  // Filter by date part so yyyy-MM-dd includes all meetings on that day (date column is ISO datetime)
   if (startDate && typeof startDate === 'string') {
-    conditions.push('date >= ?');
+    conditions.push("date(date) >= date(?)");
     params.push(startDate);
   }
 
   if (endDate && typeof endDate === 'string') {
-    conditions.push('date <= ?');
+    conditions.push("date(date) <= date(?)");
     params.push(endDate);
   }
 
