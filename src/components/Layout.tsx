@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useDialog } from '../hooks';
 import { useAuth } from '../context/AuthContext';
 import {
   AppBar,
   Box,
+  Collapse,
   Drawer,
   IconButton,
   List,
@@ -33,46 +34,84 @@ import {
   Menu as MenuIcon,
   Dashboard as DashboardIcon,
   People as PeopleIcon,
-  Assignment as AssignmentIcon,
-  EventNote as EventNoteIcon,
   TrendingUp as TrendingUpIcon,
-  Lightbulb as LightbulbIcon,
   Settings as SettingsIcon,
   Description as DescriptionIcon,
   School as SchoolIcon,
   Add as AddIcon,
   Assessment as AssessmentIcon,
   AccessTime as AccessTimeIcon,
-  Note as NoteIcon,
-  DescriptionOutlined as DescriptionOutlinedIcon,
-  Event as EventIcon,
   CalendarToday as CalendarTodayIcon,
   Person as PersonIcon,
   Email as EmailIcon,
   Logout as LogoutIcon,
+  ExpandLess as ExpandLessIcon,
+  ExpandMore as ExpandMoreIcon,
+  AdminPanelSettings as AdminPanelSettingsIcon,
 } from '@mui/icons-material';
 import { SettingsDialog } from './settings/SettingsDialog';
 import { useSchool } from '../context/SchoolContext';
 
 const drawerWidth = 240;
 
-const menuItems = [
+// Menu item: either a link (path) or a section with sub-items
+type MenuLink = { text: string; icon?: React.ReactNode; path: string };
+type MenuSection = {
+  text: string;
+  icon: React.ReactNode;
+  items: { text: string; path: string }[];
+};
+type MenuItem = MenuLink | MenuSection;
+
+const isSection = (item: MenuItem): item is MenuSection => 'items' in item;
+
+const menuStructure: MenuItem[] = [
   { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
-  { text: 'Calendar', icon: <CalendarTodayIcon />, path: '/session-calendar' },
-  { text: 'Students', icon: <PeopleIcon />, path: '/students' },
-  { text: 'Teachers', icon: <PersonIcon />, path: '/teachers' },
-  { text: 'Case Managers', icon: <PersonIcon />, path: '/case-managers' },
-  { text: 'Schools', icon: <SchoolIcon />, path: '/schools' },
-  { text: 'Sessions', icon: <EventNoteIcon />, path: '/sessions' },
-  { text: 'SOAP Notes', icon: <NoteIcon />, path: '/soap-notes' },
-  { text: 'Progress', icon: <TrendingUpIcon />, path: '/progress' },
-  { text: 'Progress Reports', icon: <DescriptionOutlinedIcon />, path: '/progress-reports' },
-  { text: 'Due Date Items', icon: <EventIcon />, path: '/due-date-items' },
-  { text: 'Evaluations', icon: <AssessmentIcon />, path: '/evaluations' },
-  { text: 'Treatment Ideas', icon: <LightbulbIcon />, path: '/ideas' },
-  { text: 'Documentation', icon: <DescriptionIcon />, path: '/documentation' },
-  { text: 'Communications', icon: <EmailIcon />, path: '/communications' },
-  { text: 'Time Tracking', icon: <AccessTimeIcon />, path: '/time-tracking' },
+  {
+    text: 'Planning',
+    icon: <CalendarTodayIcon />,
+    items: [
+      { text: 'Calendar', path: '/session-calendar' },
+      { text: 'Session History', path: '/sessions' },
+    ],
+  },
+  {
+    text: 'People',
+    icon: <PeopleIcon />,
+    items: [
+      { text: 'Students', path: '/students' },
+      { text: 'Teachers', path: '/teachers' },
+      { text: 'Case Managers', path: '/case-managers' },
+      { text: 'Schools', path: '/schools' },
+    ],
+  },
+  {
+    text: 'Clinical',
+    icon: <AssessmentIcon />,
+    items: [
+      { text: 'Evaluations', path: '/evaluations' },
+      { text: 'SOAP Notes', path: '/soap-notes' },
+      { text: 'Treatment Ideas', path: '/ideas' },
+    ],
+  },
+  {
+    text: 'Progress & Reporting',
+    icon: <TrendingUpIcon />,
+    items: [
+      { text: 'Progress Tracking', path: '/progress' },
+      { text: 'Progress Reports', path: '/progress-reports' },
+      { text: 'Due Date Items', path: '/due-date-items' },
+    ],
+  },
+  {
+    text: 'Administrative',
+    icon: <AdminPanelSettingsIcon />,
+    items: [
+      { text: 'Documentation', path: '/documentation' },
+      { text: 'Communications', path: '/communications' },
+      { text: 'Time Tracking', path: '/time-tracking' },
+    ],
+  },
 ];
 
 interface LayoutProps {
@@ -136,6 +175,16 @@ const US_STATES = [
 
 export const Layout = ({ children }: LayoutProps) => {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(() => {
+    // Initialize all sections expanded
+    const initial: Record<string, boolean> = {};
+    menuStructure.forEach((item, idx) => {
+      if (isSection(item)) {
+        initial[item.text] = true;
+      }
+    });
+    return initial;
+  });
   const settingsDialog = useDialog();
   const addSchoolDialog = useDialog();
   const [newSchoolName, setNewSchoolName] = useState('');
@@ -183,6 +232,20 @@ export const Layout = ({ children }: LayoutProps) => {
     }
   };
 
+  // Auto-expand section containing current path
+  useEffect(() => {
+    const path = location.pathname;
+    menuStructure.forEach((item) => {
+      if (isSection(item) && item.items.some((sub) => path === sub.path || path.startsWith(sub.path + '/'))) {
+        setExpandedSections((prev) => ({ ...prev, [item.text]: true }));
+      }
+    });
+  }, [location.pathname]);
+
+  const toggleSection = (sectionText: string) => {
+    setExpandedSections((prev) => ({ ...prev, [sectionText]: !prev[sectionText] }));
+  };
+
   const drawer = (
     <Box>
       <Toolbar>
@@ -214,20 +277,65 @@ export const Layout = ({ children }: LayoutProps) => {
       </Box>
       <Divider />
       <List>
-        {menuItems.map((item) => (
-          <ListItem key={item.text} disablePadding>
-            <ListItemButton
-              selected={location.pathname === item.path}
-              onClick={() => {
-                navigate(item.path);
-                if (isMobile) setMobileOpen(false);
-              }}
-            >
-              <ListItemIcon>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.text} />
-            </ListItemButton>
-          </ListItem>
-        ))}
+        {menuStructure.map((item) => {
+          if (isSection(item)) {
+            const isExpanded = expandedSections[item.text] !== false;
+            const hasActiveChild = item.items.some(
+              (sub) => location.pathname === sub.path || location.pathname.startsWith(sub.path + '/')
+            );
+            return (
+              <Box key={item.text}>
+                <ListItem disablePadding>
+                  <ListItemButton
+                    onClick={() => toggleSection(item.text)}
+                    sx={{ py: 0.5 }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+                    <ListItemText
+                      primary={item.text}
+                      primaryTypographyProps={{ variant: 'body2', fontWeight: hasActiveChild ? 600 : 400 }}
+                    />
+                    {isExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                  </ListItemButton>
+                </ListItem>
+                <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                  <List component="div" disablePadding>
+                    {item.items.map((sub) => (
+                      <ListItem key={sub.path} disablePadding>
+                        <ListItemButton
+                          selected={location.pathname === sub.path}
+                          onClick={() => {
+                            navigate(sub.path);
+                            if (isMobile) setMobileOpen(false);
+                          }}
+                          sx={{ pl: 4, py: 0.5 }}
+                        >
+                          <ListItemText primary={sub.text} primaryTypographyProps={{ variant: 'body2' }} />
+                        </ListItemButton>
+                      </ListItem>
+                    ))}
+                  </List>
+                </Collapse>
+              </Box>
+            );
+          }
+          const linkItem = item as MenuLink;
+          return (
+            <ListItem key={linkItem.text} disablePadding>
+              <ListItemButton
+                selected={location.pathname === linkItem.path}
+                onClick={() => {
+                  navigate(linkItem.path);
+                  if (isMobile) setMobileOpen(false);
+                }}
+                sx={{ py: 0.5 }}
+              >
+                <ListItemIcon sx={{ minWidth: 40 }}>{linkItem.icon}</ListItemIcon>
+                <ListItemText primary={linkItem.text} primaryTypographyProps={{ variant: 'body2' }} />
+              </ListItemButton>
+            </ListItem>
+          );
+        })}
       </List>
     </Box>
   );
