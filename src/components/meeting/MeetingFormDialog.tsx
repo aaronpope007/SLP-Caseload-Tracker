@@ -104,6 +104,7 @@ export const MeetingFormDialog = ({
     'Parent Meeting',
     'Professional Development',
     'Speech screening',
+    '3 year assessment',
     'Other',
   ];
 

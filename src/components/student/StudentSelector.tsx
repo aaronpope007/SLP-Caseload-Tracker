@@ -41,9 +41,14 @@ export const StudentSelector = ({
     }
   }, [autoFocus]);
 
-  const filteredStudents = students.filter((student) =>
-    student.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredStudents = students.filter((student) => {
+    if (!searchTerm.trim()) return true;
+    const term = searchTerm.toLowerCase().trim();
+    const nameMatch = (student.name || '').toLowerCase().includes(term);
+    const gradeMatch = (student.grade || '').toLowerCase().includes(term);
+    const concernsMatch = student.concerns?.some((c) => c.toLowerCase().includes(term)) || false;
+    return nameMatch || gradeMatch || concernsMatch;
+  });
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
