@@ -139,7 +139,8 @@ export interface GoalProgressData {
 export const generateProgressNote = async (
   studentName: string,
   goals: GoalProgressData[],
-  apiKey: string
+  apiKey: string,
+  additionalContext?: string
 ): Promise<string> => {
   if (!apiKey) {
     throw new Error('API key is required');
@@ -181,13 +182,21 @@ export const generateProgressNote = async (
     return goalInfo;
   }).join('\n');
 
+  const contextSection = additionalContext?.trim()
+    ? `
+
+Additional context from the clinician (use this to tailor the note when data is limited or circumstances are unusual):
+${additionalContext.trim()}
+`
+    : '';
+
   // Use placeholder instead of actual student name to protect PHI
   const prompt = `You are a professional speech-language pathologist writing a progress note. Write a comprehensive, professional progress note for the following student and their goals.
 
 Student: student
 
 Goal Information:
-${goalsText}
+${goalsText}${contextSection}
 
 Please write a professional progress note that:
 1. Summarizes the student's overall progress
@@ -196,6 +205,7 @@ Please write a professional progress note that:
 4. Uses professional SLP terminology
 5. Is suitable for inclusion in clinical documentation or progress reports
 6. Maintains a professional, objective tone
+7. When additional context is provided (e.g. limited sessions, partial data), acknowledge it and write a nuanced note that fits the situation rather than overstating certainty
 
 Format the note in clear paragraphs. If multiple goals are provided, organize the note to address each goal systematically.`;
 

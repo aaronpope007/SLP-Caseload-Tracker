@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Box,
@@ -9,6 +9,9 @@ import {
   Typography,
   Snackbar,
   Alert,
+  Autocomplete,
+  TextField,
+  Stack,
 } from '@mui/material';
 import {
   Psychology as PsychologyIcon,
@@ -76,8 +79,41 @@ export const Sessions = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [studentSearch, setStudentSearch] = useState('');
+  const [studentFilterId, setStudentFilterId] = useState<string>('');
   const [selectedSessionForSOAP, setSelectedSessionForSOAP] = useState<Session | null>(null);
   const [existingSOAPNote, setExistingSOAPNote] = useState<SOAPNote | undefined>(undefined);
+
+  // Same search as Log Communication modal: name, grade, concerns
+  const filterStudentOptions = useCallback((options: Student[], inputValue: string) => {
+    if (!inputValue) return options;
+    const searchTerm = inputValue.toLowerCase().trim();
+    return options.filter((student) => {
+      const nameMatch = (student.name || '').toLowerCase().includes(searchTerm);
+      const gradeMatch = (student.grade || '').toLowerCase().includes(searchTerm);
+      const concernsMatch = student.concerns?.some((c) => c.toLowerCase().includes(searchTerm)) || false;
+      return nameMatch || gradeMatch || concernsMatch;
+    });
+  }, []);
+
+  const studentsForSchool = useMemo(
+    () => students.filter((s) => !selectedSchool || s.school === selectedSchool),
+    [students, selectedSchool]
+  );
+
+  // Filter sessions by selected student; include full group sessions when any member matches
+  const filteredSessions = useMemo(() => {
+    if (!studentFilterId) return sessions;
+    const groupIdsWithStudent = new Set(
+      sessions
+        .filter((s) => s.studentId === studentFilterId && s.groupSessionId)
+        .map((s) => s.groupSessionId!)
+    );
+    return sessions.filter(
+      (s) =>
+        s.studentId === studentFilterId ||
+        (s.groupSessionId != null && groupIdsWithStudent.has(s.groupSessionId))
+    );
+  }, [sessions, studentFilterId]);
 
   useEffect(() => {
     loadData();
@@ -95,6 +131,14 @@ export const Sessions = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, students.length, sessionFormDialog.open]);
+
+  // Pre-select student when navigating from student detail (?studentId=...)
+  useEffect(() => {
+    const studentIdParam = searchParams.get('studentId');
+    if (studentIdParam && studentsForSchool.some((s) => s.id === studentIdParam)) {
+      setStudentFilterId(studentIdParam);
+    }
+  }, [searchParams, studentsForSchool]);
 
   // Session data loader hook
   const { loadData } = useSessionDataLoader({
@@ -285,20 +329,41 @@ export const Sessions = () => {
         </Box>
       </Box>
 
+      <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
+        <Autocomplete
+          size="small"
+          sx={{ minWidth: 240 }}
+          options={studentsForSchool}
+          getOptionLabel={(option) => option.name}
+          filterOptions={(options, state) => filterStudentOptions(options, state.inputValue)}
+          value={studentFilterId ? studentsForSchool.find((s) => s.id === studentFilterId) ?? null : null}
+          onChange={(_, newValue) => setStudentFilterId(newValue?.id ?? '')}
+          renderInput={(params) => (
+            <TextField {...params} label="Filter by student" placeholder="Search by name, grade, or concerns" />
+          )}
+          isOptionEqualToValue={(option, value) => option.id === value.id}
+          clearText="Clear"
+        />
+      </Stack>
+
       <Grid container spacing={2}>
-        {sessions.length === 0 ? (
+        {filteredSessions.length === 0 ? (
           <Grid item xs={12}>
             <Card>
               <CardContent>
                 <Typography color="text.secondary" align="center">
-                  No sessions logged yet. Click "Log Activity" to get started.
+                  {sessions.length === 0
+                    ? 'No sessions logged yet. Click "Log Activity" to get started.'
+                    : studentFilterId
+                      ? 'No sessions found for this student.'
+                      : 'No sessions logged yet. Click "Log Activity" to get started.'}
                 </Typography>
               </CardContent>
             </Card>
           </Grid>
         ) : (
           <SessionsList
-            sessions={sessions}
+            sessions={filteredSessions}
             getStudentName={getStudentName}
             getGoalDescription={getGoalDescription}
             onEdit={dialogHandlers.handleOpenDialog}

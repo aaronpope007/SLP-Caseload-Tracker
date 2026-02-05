@@ -22,6 +22,7 @@ import {
   Link,
 } from '@mui/material';
 import { ContentCopy as CopyIcon, AutoFixHigh as GenerateIcon, Save as SaveIcon, Delete as DeleteIcon, EditNote as LoadIcon } from '@mui/icons-material';
+import { useSearchParams } from 'react-router-dom';
 import { getStudents, getGoals, getSessions, getIEPNotesByStudent, addIEPNote, deleteIEPNote } from '../utils/storage-api';
 import { formatDate, generateId, convertMarkupToHtml } from '../utils/helpers';
 import { generateIEPCommentUpdate, type GoalProgressData } from '../utils/gemini';
@@ -52,6 +53,8 @@ export const IEPNotes = () => {
   const isMountedRef = useRef(true);
   const studentInputRef = useRef<string>('');
 
+  const [searchParams] = useSearchParams();
+
   useEffect(() => {
     const loadStudents = async () => {
       try {
@@ -60,8 +63,13 @@ export const IEPNotes = () => {
         );
         setStudents(allStudents);
         if (allStudents.length > 0) {
+          const studentIdFromUrl = searchParams.get('studentId');
+          const urlStudent = studentIdFromUrl ? allStudents.find((s) => s.id === studentIdFromUrl) : null;
           const currentInList = allStudents.find((s) => s.id === selectedStudentId);
-          if (!currentInList) {
+          if (urlStudent) {
+            setSelectedStudentId(urlStudent.id);
+            setStudentInputValue(urlStudent.name);
+          } else if (!currentInList) {
             const first = allStudents[0];
             setSelectedStudentId(first.id);
             setStudentInputValue(first.name);
@@ -72,7 +80,7 @@ export const IEPNotes = () => {
       }
     };
     loadStudents();
-  }, [selectedSchool]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedSchool, searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     isMountedRef.current = true;

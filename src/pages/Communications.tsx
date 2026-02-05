@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo, useDeferredValue } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -75,6 +76,7 @@ export const Communications = () => {
   const [viewingCommunication, setViewingCommunication] = useState<Communication | null>(null);
   
   // Filters
+  const [searchParams] = useSearchParams();
   const [contactTypeFilter, setContactTypeFilter] = useState<string>('');
   const [studentFilter, setStudentFilter] = useState<string>('');
   
@@ -157,6 +159,14 @@ export const Communications = () => {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Pre-select student when navigating from student detail (?studentId=...)
+  useEffect(() => {
+    const studentIdParam = searchParams.get('studentId');
+    if (studentIdParam && students.length > 0 && students.some((s) => s.id === studentIdParam)) {
+      setStudentFilter(studentIdParam);
+    }
+  }, [searchParams, students]);
 
   // Sync autocomplete input values when editing a communication
   useEffect(() => {

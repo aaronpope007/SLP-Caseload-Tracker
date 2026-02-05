@@ -181,8 +181,10 @@ export const Evaluations = () => {
       });
     } else {
       setEditingEvaluation(null);
+      const studentIdFromUrl = searchParams.get('studentId');
+      const prefillStudentId = studentIdFromUrl && students.some((s) => s.id === studentIdFromUrl) ? studentIdFromUrl : '';
       setFormData({
-        studentId: '',
+        studentId: prefillStudentId,
         grade: '',
         evaluationType: '',
         areasOfConcern: '',

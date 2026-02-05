@@ -21,6 +21,12 @@ import {
   ArrowBack as ArrowBackIcon,
   CheckCircle as CheckCircleIcon,
   Assignment as AssignmentIcon,
+  EventNote as EventNoteIcon,
+  Description as DescriptionIcon,
+  TrendingUp as TrendingUpIcon,
+  Assessment as AssessmentIcon,
+  Email as EmailIcon,
+  OpenInNew as OpenInNewIcon,
 } from '@mui/icons-material';
 import type { Student, Goal, Session, ReassessmentPlanItem } from '../types';
 import { useSchool } from '../context/SchoolContext';
@@ -320,6 +326,98 @@ export const StudentDetail = () => {
         frequencyPerWeek={student.frequencyPerWeek}
         frequencyType={student.frequencyType}
       />
+
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <AssignmentIcon />
+            Notes & Documentation
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            View and manage this student&apos;s sessions, notes, evaluations, and communications.
+          </Typography>
+          <Grid container spacing={1}>
+            <Grid item xs={12} sm={6} md={4}>
+              <Button
+                fullWidth
+                variant="outlined"
+                size="small"
+                startIcon={<EventNoteIcon />}
+                endIcon={<OpenInNewIcon fontSize="small" />}
+                onClick={() => navigate(`/sessions?studentId=${id}`)}
+                sx={{ justifyContent: 'flex-start' }}
+              >
+                Session History
+              </Button>
+            </Grid>
+            <Grid item xs={12} sm={6} md={4}>
+              <Button
+                fullWidth
+                variant="outlined"
+                size="small"
+                startIcon={<DescriptionIcon />}
+                endIcon={<OpenInNewIcon fontSize="small" />}
+                onClick={() => navigate(`/soap-notes?studentId=${id}`)}
+                sx={{ justifyContent: 'flex-start' }}
+              >
+                SOAP Notes
+              </Button>
+            </Grid>
+            <Grid item xs={12} sm={6} md={4}>
+              <Button
+                fullWidth
+                variant="outlined"
+                size="small"
+                startIcon={<DescriptionIcon />}
+                endIcon={<OpenInNewIcon fontSize="small" />}
+                onClick={() => navigate(`/iep-notes?studentId=${id}`)}
+                sx={{ justifyContent: 'flex-start' }}
+              >
+                IEP Notes
+              </Button>
+            </Grid>
+            <Grid item xs={12} sm={6} md={4}>
+              <Button
+                fullWidth
+                variant="outlined"
+                size="small"
+                startIcon={<TrendingUpIcon />}
+                endIcon={<OpenInNewIcon fontSize="small" />}
+                onClick={() => navigate(`/progress?studentId=${id}`)}
+                sx={{ justifyContent: 'flex-start' }}
+              >
+                Progress Tracking
+              </Button>
+            </Grid>
+            <Grid item xs={12} sm={6} md={4}>
+              <Button
+                fullWidth
+                variant="outlined"
+                size="small"
+                startIcon={<AssessmentIcon />}
+                endIcon={<OpenInNewIcon fontSize="small" />}
+                onClick={() => navigate(`/evaluations?studentId=${id}`)}
+                sx={{ justifyContent: 'flex-start' }}
+              >
+                Evaluations
+              </Button>
+            </Grid>
+            <Grid item xs={12} sm={6} md={4}>
+              <Button
+                fullWidth
+                variant="outlined"
+                size="small"
+                startIcon={<EmailIcon />}
+                endIcon={<OpenInNewIcon fontSize="small" />}
+                onClick={() => navigate(`/communications?studentId=${id}`)}
+                sx={{ justifyContent: 'flex-start' }}
+              >
+                Communications
+              </Button>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
 
       <GoalActionsBar
         onAddGoal={() => goalDialogHandlers.handleOpenDialog()}

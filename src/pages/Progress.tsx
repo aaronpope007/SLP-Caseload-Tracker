@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { logError } from '../utils/logger';
 import {
   Box,
@@ -22,6 +23,7 @@ import {
   DialogContent,
   DialogActions,
   IconButton,
+  Autocomplete,
 } from '@mui/material';
 import {
   LineChart,
@@ -93,7 +95,9 @@ export const Progress = () => {
   const [savingNote, setSavingNote] = useState<boolean>(false);
   const [loadingSavedNotes, setLoadingSavedNotes] = useState<boolean>(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [additionalContextForGeneration, setAdditionalContextForGeneration] = useState<string>('');
   const isMountedRef = useRef(true);
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     const loadStudents = async () => {
@@ -101,8 +105,14 @@ export const Progress = () => {
         // Filter out archived students (archived is optional for backward compatibility)
         const allStudents = (await getStudents(selectedSchool)).filter((s) => s.status === 'active' && s.archived !== true);
         setStudents(allStudents);
-        if (allStudents.length > 0 && !selectedStudentId) {
-          setSelectedStudentId(allStudents[0].id);
+        if (allStudents.length > 0) {
+          const studentIdFromUrl = searchParams.get('studentId');
+          const urlStudent = studentIdFromUrl ? allStudents.find((s) => s.id === studentIdFromUrl) : null;
+          if (urlStudent) {
+            setSelectedStudentId(urlStudent.id);
+          } else if (!selectedStudentId) {
+            setSelectedStudentId(allStudents[0].id);
+          }
         }
       } catch (error) {
         logError('Failed to load students', error);
@@ -110,7 +120,7 @@ export const Progress = () => {
     };
     loadStudents();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSchool]);
+  }, [selectedSchool, searchParams]);
 
   useEffect(() => {
     if (selectedStudentId) {
@@ -216,6 +226,18 @@ export const Progress = () => {
 
   const selectedStudent = students.find((s) => s.id === selectedStudentId);
 
+  // Same search as Log Communication modal / Sessions: name, grade, concerns
+  const filterStudentOptions = useCallback((options: Student[], inputValue: string) => {
+    if (!inputValue) return options;
+    const searchTerm = inputValue.toLowerCase().trim();
+    return options.filter((student) => {
+      const nameMatch = (student.name || '').toLowerCase().includes(searchTerm);
+      const gradeMatch = (student.grade || '').toLowerCase().includes(searchTerm);
+      const concernsMatch = student.concerns?.some((c) => c.toLowerCase().includes(searchTerm)) || false;
+      return nameMatch || gradeMatch || concernsMatch;
+    });
+  }, []);
+
   const handleGenerateGoalNote = async (goalIdx: number) => {
     const goal = goalProgress[goalIdx];
     if (!goal || !selectedStudent) return;
@@ -280,7 +302,7 @@ export const Progress = () => {
         performanceHistory,
       };
 
-      const note = await generateProgressNote(selectedStudent.name, [goalData], apiKey);
+      const note = await generateProgressNote(selectedStudent.name, [goalData], apiKey, additionalContextForGeneration || undefined);
       setGoalNotes({ ...goalNotes, [goal.goalId]: note });
     } catch (err: unknown) {
       const errorMessage = getErrorMessage(err);
@@ -388,7 +410,7 @@ export const Progress = () => {
         performanceHistory: goal.performanceHistory,
       }));
 
-      const note = await generateProgressNote(selectedStudent.name, goalsData, apiKey);
+      const note = await generateProgressNote(selectedStudent.name, goalsData, apiKey, additionalContextForGeneration || undefined);
       if (!isMountedRef.current) return;
       setCombinedNote(note);
     } catch (err: unknown) {
@@ -518,20 +540,20 @@ export const Progress = () => {
         <Typography variant="h4" component="h1">
           Progress Tracking
         </Typography>
-        <FormControl sx={{ minWidth: 200 }}>
-          <InputLabel>Select Student</InputLabel>
-          <Select
-            value={selectedStudentId}
-            onChange={(e) => setSelectedStudentId(e.target.value)}
-            label="Select Student"
-          >
-            {students.map((student) => (
-              <MenuItem key={student.id} value={student.id}>
-                {student.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <Autocomplete
+          size="small"
+          sx={{ minWidth: 240 }}
+          options={students}
+          getOptionLabel={(option) => option.name}
+          filterOptions={(options, state) => filterStudentOptions(options, state.inputValue)}
+          value={selectedStudentId ? students.find((s) => s.id === selectedStudentId) ?? null : null}
+          onChange={(_, newValue) => setSelectedStudentId(newValue?.id ?? '')}
+          renderInput={(params) => (
+            <TextField {...params} label="Select Student" placeholder="Search by name, grade, or concerns" />
+          )}
+          isOptionEqualToValue={(option, value) => option.id === value.id}
+          clearText="Clear"
+        />
       </Box>
 
       {selectedStudentId && (
@@ -818,10 +840,23 @@ export const Progress = () => {
                 <TextField
                   fullWidth
                   multiline
+                  minRows={2}
+                  maxRows={4}
+                  value={additionalContextForGeneration}
+                  onChange={(e) => setAdditionalContextForGeneration(e.target.value)}
+                  label="Additional context for the AI (optional)"
+                  placeholder="e.g. I only saw this student for four sessions, so the data is limited."
+                  helperText="Give Gemini extra context (e.g. limited sessions, partial data) so it can write a more nuanced note."
+                  sx={{ mb: 2 }}
+                />
+
+                <TextField
+                  fullWidth
+                  multiline
                   rows={6}
                   value={combinedNote}
                   onChange={(e) => setCombinedNote(e.target.value)}
-                  placeholder="Generated combined progress note will appear here..."
+                  placeholder="Generated progress note will appear here..."
                   sx={{ mb: 2 }}
                 />
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>

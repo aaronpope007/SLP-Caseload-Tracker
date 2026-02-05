@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -51,10 +52,18 @@ export const SOAPNotes = () => {
   const { showSnackbar, SnackbarComponent } = useSnackbar();
   const soapNoteDialog = useDialog();
   const [selectedNote, setSelectedNote] = useState<SOAPNote | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [filterStudentId, setFilterStudentId] = useState<string>('');
 
   useEffect(() => {
     loadData();
   }, [selectedSchool]);
+
+  // Pre-select student when navigating from student detail (?studentId=...)
+  useEffect(() => {
+    const studentIdParam = searchParams.get('studentId');
+    setFilterStudentId(studentIdParam || '');
+  }, [searchParams]);
 
   const loadData = async () => {
     try {
@@ -94,6 +103,10 @@ export const SOAPNotes = () => {
     const session = getSession(note.sessionId);
     return session ? !!session.groupSessionId : false;
   };
+
+  const displayedNotes = filterStudentId
+    ? soapNotes.filter((note) => note.studentId === filterStudentId)
+    : soapNotes;
 
   const getGroupSOAPNoteInfo = (note: SOAPNote): { isGroup: boolean; studentCount: number; studentNames: string[] } => {
     const session = getSession(note.sessionId);
@@ -181,17 +194,29 @@ export const SOAPNotes = () => {
         </Typography>
       </Box>
 
+      {filterStudentId && (
+        <Box sx={{ mb: 2 }}>
+          <Button size="small" onClick={() => { setFilterStudentId(''); setSearchParams({}); }}>
+            Clear student filter
+          </Button>
+          <Typography variant="body2" color="text.secondary" component="span" sx={{ ml: 1 }}>
+            Showing notes for selected student
+          </Typography>
+        </Box>
+      )}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {soapNotes.length === 0 ? (
+        {displayedNotes.length === 0 ? (
           <Card>
             <CardContent>
               <Typography color="text.secondary" align="center">
-                No SOAP notes found. Generate SOAP notes from sessions to get started.
+                {soapNotes.length === 0
+                  ? 'No SOAP notes found. Generate SOAP notes from sessions to get started.'
+                  : 'No SOAP notes found for this student.'}
               </Typography>
             </CardContent>
           </Card>
         ) : (
-          soapNotes.map((note) => {
+          displayedNotes.map((note) => {
             const student = getStudent(note.studentId);
             const session = getSession(note.sessionId);
             const groupInfo = getGroupSOAPNoteInfo(note);
