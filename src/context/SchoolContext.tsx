@@ -6,6 +6,12 @@ import { logError } from '../utils/logger';
 const SCHOOL_STORAGE_KEY = 'slp_selected_school';
 const DEFAULT_SCHOOL_NAME = 'Noble Academy';
 
+// UUID pattern (e.g. 3fa85f64-5717-4562-b3fc-2c963f66afa6) - exclude from school list
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const isValidSchoolName = (name: string): boolean =>
+  name.length > 0 && !UUID_REGEX.test(name.trim());
+
 interface SchoolContextType {
   selectedSchool: string;
   setSelectedSchool: (school: string) => void;
@@ -22,6 +28,8 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
   const [availableSchools, setAvailableSchools] = useState<string[]>([DEFAULT_SCHOOL_NAME]);
   const [schools, setSchools] = useState<School[]>([]);
   const isRefreshingRef = useRef(false);
+  const selectedSchoolRef = useRef(selectedSchool);
+  selectedSchoolRef.current = selectedSchool;
 
   // Get available schools from School objects and students
   const refreshAvailableSchools = useCallback(async () => {
@@ -37,8 +45,9 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
       // Add schools from School objects
       const schoolObjects = await getSchools();
       schoolObjects.forEach((school) => {
-        if (school.name && school.name.trim()) {
-          schoolNames.add(school.name.trim());
+        const name = school.name?.trim();
+        if (name && isValidSchoolName(name)) {
+          schoolNames.add(name);
         }
       });
       
@@ -64,8 +73,9 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
       // Add schools from students (for backward compatibility)
       const students = await getStudents();
       students.forEach((student) => {
-        if (student.school && student.school.trim()) {
-          schoolNames.add(student.school.trim());
+        const name = student.school?.trim();
+        if (name && isValidSchoolName(name)) {
+          schoolNames.add(name);
         }
       });
       
@@ -84,15 +94,23 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
         // After adding, fetch updated schools list
         const updatedSchools = await getSchools();
         updatedSchools.forEach((school) => {
-          if (school.name && school.name.trim()) {
-            schoolNames.add(school.name.trim());
+          const name = school.name?.trim();
+          if (name && isValidSchoolName(name)) {
+            schoolNames.add(name);
           }
         });
         // Update schools state with the new list
         setSchools(updatedSchools);
       }
       
-      const sorted = Array.from(schoolNames).sort();
+      const sorted = Array.from(schoolNames).filter(isValidSchoolName).sort();
+      // Reset selection if current school is a filtered-out UUID
+      const currentSelection = selectedSchoolRef.current;
+      if (!isValidSchoolName(currentSelection) || !sorted.includes(currentSelection)) {
+        const fallback = sorted[0] ?? DEFAULT_SCHOOL_NAME;
+        setSelectedSchoolState(fallback);
+        localStorage.setItem(SCHOOL_STORAGE_KEY, fallback);
+      }
       // Only update availableSchools if it actually changed
       setAvailableSchools(prev => {
         if (prev.length !== sorted.length || 

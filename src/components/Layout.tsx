@@ -91,6 +91,7 @@ const menuStructure: MenuItem[] = [
     items: [
       { text: 'Evaluations', path: '/evaluations' },
       { text: 'SOAP Notes', path: '/soap-notes' },
+      { text: 'IEP Notes', path: '/iep-notes' },
       { text: 'Treatment Ideas', path: '/ideas' },
     ],
   },

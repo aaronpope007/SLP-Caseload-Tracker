@@ -27,6 +27,7 @@ const Evaluations = lazy(() => import('./pages/Evaluations').then(m => ({ defaul
 const Schools = lazy(() => import('./pages/Schools').then(m => ({ default: m.Schools })));
 const TimeTracking = lazy(() => import('./pages/TimeTracking').then(m => ({ default: m.TimeTracking })));
 const SOAPNotes = lazy(() => import('./pages/SOAPNotes').then(m => ({ default: m.SOAPNotes })));
+const IEPNotes = lazy(() => import('./pages/IEPNotes').then(m => ({ default: m.IEPNotes })));
 const ProgressReports = lazy(() => import('./pages/ProgressReports').then(m => ({ default: m.ProgressReports })));
 const DueDateItems = lazy(() => import('./pages/DueDateItems').then(m => ({ default: m.DueDateItems })));
 const SessionCalendar = lazy(() => import('./pages/SessionCalendar').then(m => ({ default: m.SessionCalendar })));
@@ -189,6 +190,17 @@ const router = createBrowserRouter([
       <ProtectedLayout>
         <Suspense fallback={<PageLoader />}>
           <SOAPNotes />
+        </Suspense>
+      </ProtectedLayout>
+    ),
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
+    path: '/iep-notes',
+    element: (
+      <ProtectedLayout>
+        <Suspense fallback={<PageLoader />}>
+          <IEPNotes />
         </Suspense>
       </ProtectedLayout>
     ),

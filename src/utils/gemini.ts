@@ -132,6 +132,7 @@ export interface GoalProgressData {
     correctTrials?: number;
     incorrectTrials?: number;
     notes?: string;
+    cuingLevels?: ('independent' | 'verbal' | 'visual' | 'tactile' | 'physical')[];
   }[];
 }
 
@@ -586,6 +587,130 @@ Format each goal clearly. Use professional IEP language and terminology.`;
     throw new Error(`Failed to generate IEP goals: ${errorMessage}`);
   }
 };
+
+/**
+ * Generate an updated IEP Communication section for a speech student.
+ * Strips student-identifying info from the old note before sending to the API.
+ * Returns text with the student name re-inserted for the output.
+ */
+export const generateIEPCommentUpdate = async (
+  apiKey: string,
+  studentName: string,
+  oldIEPNote: string,
+  goalsData: GoalProgressData[],
+  recentSessionsSummary?: string
+): Promise<string> => {
+  if (!apiKey) {
+    throw new Error('API key is required');
+  }
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+
+  let availableModels = await getAvailableModels(apiKey);
+  availableModels = availableModels.filter(
+    (m) => !m.includes('gemini-pro-latest') && !m.includes('gemini-flash-latest')
+  );
+  if (availableModels.length === 0) {
+    availableModels = ['gemini-3-flash-preview', 'gemini-3-pro-preview', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
+  }
+
+  // Strip student name from old note before sending to API (protect PII)
+  const sanitizedOldNote = studentName
+    ? oldIEPNote.replace(new RegExp(escapeRegex(studentName), 'gi'), 'Student')
+    : oldIEPNote;
+
+  const goalsText = goalsData.length > 0
+    ? goalsData.map((goal, idx) => {
+        let info = `Goal ${idx + 1}: ${goal.goalDescription}\n`;
+        info += `  Baseline: ${goal.baseline}%\n`;
+        info += `  Current: ${goal.current.toFixed(1)}%\n`;
+        info += `  Target: ${goal.target}%\n`;
+        info += `  Status: ${goal.status}\n`;
+        info += `  Sessions: ${goal.sessions}`;
+        if (goal.performanceHistory && goal.performanceHistory.length > 0) {
+          info += `\n  Recent Performance:`;
+          goal.performanceHistory.slice(0, 5).forEach((p) => {
+            info += `\n    - ${p.date}: ${p.accuracy.toFixed(1)}%`;
+            if (p.cuingLevels && p.cuingLevels.length > 0) {
+              info += ` | Cuing: ${p.cuingLevels.join(', ')}`;
+            }
+            if (p.notes) info += ` - ${p.notes}`;
+          });
+        }
+        return info;
+      }).join('\n\n')
+    : 'No active goals on file.';
+
+  const recentSessionsSection = recentSessionsSummary
+    ? `\n\nRecent Session Summary:\n${recentSessionsSummary}`
+    : '';
+
+  const prompt = `You are an expert speech-language pathologist. Your task is to update an IEP Communication section (sometimes called "Comments" or "Special Education/Speech" section) for a speech student.
+
+You will be given:
+1. The current/old IEP Communication note (with "Student" used as a placeholder for the child's name)
+2. The student's goal progress data and recent session performance
+3. Optional recent session summary
+
+Generate an UPDATED IEP Communication section that:
+1. Reflects the student's current status based on recent sessions and goal progress
+2. Updates any outdated information (e.g., therapy frequency, dates, service delivery changes)
+3. Maintains the same professional tone and structure typical of IEP sections
+4. Accurately describes progress, continuing needs, and rationale for ongoing services
+5. Incorporates level of cuing when provided (independent, verbal, visual, tactile, physical)—e.g., whether the student requires maximal cuing, minimal support, or works independently; this is important for describing current performance and service needs
+6. References present levels and goals as appropriate (e.g., "See present levels under speech and language goals for more details")
+7. Uses "Student" as the placeholder for the child's name throughout
+
+The output should be ready to paste into an IEP form. It should be a single cohesive paragraph or short set of paragraphs (similar in length and style to the original), not bullet points. Match the level of detail in the original note.
+
+Current IEP Communication Note:
+---
+${sanitizedOldNote}
+---
+
+Goal Progress and Recent Performance:
+${goalsText}${recentSessionsSection}
+
+Generate the updated IEP Communication section:`;
+
+  let lastError: Error | null = null;
+
+  for (const modelName of availableModels) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const generatedText = response.text();
+      // Replace placeholder with actual student name
+      const replacedText = generatedText.replace(/\bStudent\b/g, studentName);
+      return replacedText;
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStatus = (error as { status?: number })?.status;
+      lastError = error instanceof Error ? error : new Error(errorMessage);
+      if (errorStatus === 404 || errorMessage?.includes('404') || errorMessage?.includes('not found')) {
+        continue;
+      }
+      break;
+    }
+  }
+
+  const errorMessage = lastError?.message || 'Unknown error';
+  const errorStatus = (lastError as { status?: number })?.status;
+  if (errorStatus === 404 || errorMessage?.includes('404') || errorMessage?.includes('not found')) {
+    throw new Error('No available Gemini models found. Please check your API key permissions in Google AI Studio or try regenerating your API key.');
+  } else if (errorStatus === 401 || errorMessage?.includes('401')) {
+    throw new Error('Invalid API key. Please check your API key in Settings.');
+  } else if (errorStatus === 403 || errorMessage?.includes('403')) {
+    throw new Error('API key does not have permission. Please enable Gemini API in Google Cloud Console.');
+  } else {
+    throw new Error(`Failed to generate IEP comment update: ${errorMessage}`);
+  }
+};
+
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 // Documentation Templates
 export const generateDocumentationTemplate = async (
