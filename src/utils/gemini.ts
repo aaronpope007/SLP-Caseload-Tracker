@@ -589,27 +589,27 @@ Format each goal clearly. Use professional IEP language and terminology.`;
 };
 
 /**
- * Options for IEP content generation. At least one of communication note, summary, or goals
- * should be requested so the AI has something to generate.
+ * Options for IEP content generation. The AI receives current IEP notes, current goals (pasted),
+ * additional notes, and session data (from the app), and returns a current summary and suggested goals.
  */
 export interface GenerateIEPCommentUpdateOptions {
   apiKey: string;
   studentName: string;
-  /** Current IEP Communication note (Comments section). If provided, AI returns an updated Communication section. */
+  /** Current IEP Communication note (the old ones). */
   oldIEPNote?: string;
-  /** Present levels / summary statement. If provided, AI returns a suggested summary statement. */
-  summaryStatement?: string;
+  /** Current IEP goals as pasted by the user (the old ones). */
+  currentIEPGoals?: string;
+  /** Additional notes / summary context. */
+  additionalNotes?: string;
   goalsData: GoalProgressData[];
   recentSessionsSummary?: string;
 }
 
 /**
- * Generate IEP content: updated Communication section, suggested summary statement, and/or
- * suggested goal changes based on what the user provides.
- * - If oldIEPNote is provided: returns updated IEP Communication section.
- * - If summaryStatement is provided: returns suggested summary statement (only then).
- * - If goalsData is provided (and non-empty): compares goals to recent session data and returns suggested goal changes/ideas.
- * - If both summaryStatement and goals are provided: returns a new summary statement and goal ideas.
+ * Generate IEP content. The AI takes: (1) current IEP notes, (2) current goals (pasted),
+ * (3) additional notes, plus session performance data from the app. It returns:
+ * - A current summary that includes performance and level of cuing from sessions.
+ * - Suggested goals based on current performance (comparing pasted goals to session data).
  * Strips student-identifying info before sending to the API; re-inserts student name in the output.
  */
 export const generateIEPCommentUpdate = async (
@@ -619,7 +619,8 @@ export const generateIEPCommentUpdate = async (
     apiKey,
     studentName,
     oldIEPNote = '',
-    summaryStatement = '',
+    currentIEPGoals = '',
+    additionalNotes = '',
     goalsData,
     recentSessionsSummary,
   } = options;
@@ -628,12 +629,15 @@ export const generateIEPCommentUpdate = async (
     throw new Error('API key is required');
   }
 
-  const wantCommunication = oldIEPNote.trim().length > 0;
-  const wantSummary = summaryStatement.trim().length > 0;
-  const wantGoals = goalsData.length > 0;
+  const hasOldNote = oldIEPNote.trim().length > 0;
+  const hasPastedGoals = currentIEPGoals.trim().length > 0;
+  const hasAdditionalNotes = additionalNotes.trim().length > 0;
+  const hasAppGoals = goalsData.length > 0;
 
-  if (!wantCommunication && !wantSummary && !wantGoals) {
-    throw new Error('Provide at least one of: Communication note, Summary statement, or ensure the student has goals.');
+  if (!hasOldNote && !hasPastedGoals && !hasAdditionalNotes && !hasAppGoals) {
+    throw new Error(
+      'Provide at least one of: Current IEP notes, Current IEP goals, Additional notes, or ensure the student has goals in the app.'
+    );
   }
 
   const genAI = new GoogleGenerativeAI(apiKey);
@@ -646,14 +650,16 @@ export const generateIEPCommentUpdate = async (
     availableModels = ['gemini-3-flash-preview', 'gemini-3-pro-preview', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
   }
 
-  const sanitizedOldNote = studentName && oldIEPNote
-    ? oldIEPNote.trim().replace(new RegExp(escapeRegex(studentName), 'gi'), 'Student')
-    : oldIEPNote.trim();
-  const sanitizedSummary = studentName && summaryStatement
-    ? summaryStatement.trim().replace(new RegExp(escapeRegex(studentName), 'gi'), 'Student')
-    : summaryStatement.trim();
+  const sanitize = (text: string) =>
+    studentName && text.trim()
+      ? text.trim().replace(new RegExp(escapeRegex(studentName), 'gi'), 'Student')
+      : text.trim();
 
-  const goalsText = wantGoals
+  const sanitizedOldNote = sanitize(oldIEPNote);
+  const sanitizedGoals = sanitize(currentIEPGoals);
+  const sanitizedAdditional = sanitize(additionalNotes);
+
+  const goalsText = hasAppGoals
     ? goalsData.map((goal, idx) => {
         let info = `Goal ${idx + 1}: ${goal.goalDescription}\n`;
         info += `  Baseline: ${goal.baseline}%\n`;
@@ -676,44 +682,43 @@ export const generateIEPCommentUpdate = async (
     : '';
 
   const recentSessionsSection = recentSessionsSummary
-    ? `\n\nRecent Session Summary:\n${recentSessionsSummary}`
+    ? `\n\nRecent Session Summary (use this for performance and cuing in the summary):\n${recentSessionsSummary}`
     : '';
 
-  const outputParts: string[] = [];
-  if (wantCommunication) {
-    outputParts.push('1. UPDATED IEP COMMUNICATION SECTION: A single cohesive paragraph or short set of paragraphs (similar in length and style to the original), ready to paste into the IEP. Use "Student" as the placeholder for the child\'s name. Do not use bullet points.');
-  }
-  if (wantSummary && wantGoals) {
-    outputParts.push('2. NEW SUMMARY STATEMENT: An updated present levels / summary statement reflecting current performance.');
-    outputParts.push('3. SUGGESTED GOAL CHANGES: Compare the current goals to recent session data and suggest specific changes—e.g., revised targets, new baselines, modifications, or new goal ideas. Be concrete and reference the progress data.');
-  } else if (wantSummary) {
-    outputParts.push('2. SUGGESTED SUMMARY STATEMENT: An updated present levels / summary statement reflecting current performance.');
-  } else if (wantGoals) {
-    outputParts.push('2. SUGGESTED GOAL CHANGES: Compare the current goals to recent session data and suggest specific changes—e.g., revised targets, new baselines, modifications, or new goal ideas. Be concrete and reference the progress data.');
-  }
+  const outputInstruction = `Generate the following, in order, with clear section headers (e.g. "## Current Summary", "## Suggested Goals") so the user can copy each part:
 
-  const outputInstruction = `Generate the following, in order, with clear section headers (e.g. "## IEP Communication Section", "## Summary Statement", "## Suggested Goal Changes") so the user can copy each part:\n${outputParts.map((p, i) => `- ${p}`).join('\n')}`;
+1. CURRENT SUMMARY: A present-levels / summary statement that reflects current performance based on the recent session data. Include specific performance (accuracy, trials, progress) and level of cuing (independent, verbal, visual, tactile, physical) when that information appears in the session data. Use "Student" as the placeholder for the child's name.
+
+2. SUGGESTED GOALS: Based on the current goals (pasted by the user) and the recent session performance data, suggest updated or new goals—e.g., revised targets, new baselines, or modified goal language. Be concrete and reference the progress and cuing data.`;
 
   let contextBlocks = '';
-  if (wantCommunication) {
+  if (hasOldNote) {
     contextBlocks += `
-Current IEP Communication Note:
+Current IEP Notes (Communication section):
 ---
 ${sanitizedOldNote}
 ---
 `;
   }
-  if (wantSummary) {
+  if (hasPastedGoals) {
     contextBlocks += `
-Current Summary / Present Levels (if any):
+Current IEP Goals (as pasted):
 ---
-${sanitizedSummary}
+${sanitizedGoals}
 ---
 `;
   }
-  if (wantGoals) {
+  if (hasAdditionalNotes) {
     contextBlocks += `
-Goal Progress and Recent Session Data:
+Additional notes / summary context:
+---
+${sanitizedAdditional}
+---
+`;
+  }
+  if (hasAppGoals || recentSessionsSummary) {
+    contextBlocks += `
+Session data (performance and cuing from the app):
 ${goalsText}${recentSessionsSection}
 `;
   }
@@ -721,14 +726,13 @@ ${goalsText}${recentSessionsSection}
   const prompt = `You are an expert speech-language pathologist supporting IEP updates for a speech student.
 
 You will be given:
-${wantCommunication ? '- The current/old IEP Communication note (with "Student" as placeholder for the child\'s name)\n' : ''}${wantSummary ? '- The current summary or present levels statement (with "Student" as placeholder)\n' : ''}${wantGoals ? '- The student\'s current goals with baseline, target, current performance, and recent session data\n' : ''}- Recent session summary (when available)
+${hasOldNote ? '- Current IEP notes (Communication section), with "Student" as placeholder for the child\'s name\n' : ''}${hasPastedGoals ? '- Current IEP goals as pasted by the user (the old ones)\n' : ''}${hasAdditionalNotes ? '- Additional notes or summary context\n' : ''}- Session data: goal progress, recent session summary (including performance and cuing levels when present)
 
 Instructions:
-- Reflect current status based on recent sessions and goal progress.
-- Use professional IEP language and structure.
-- Incorporate cuing levels when provided (independent, verbal, visual, tactile, physical).
 - Use "Student" as the placeholder for the child's name throughout.
-${wantCommunication ? '- For the Communication section: update outdated info (e.g., therapy frequency, dates), describe progress and rationale for ongoing services, and match the level of detail in the original.\n' : ''}${wantGoals ? '- For goal suggestions: compare each goal to recent session data and suggest measurable changes (revised targets, baselines, or new goal ideas) with clear rationale.\n' : ''}
+- Use whole-number percentages only (e.g., 69% or 57%, never 69.0% or 57.0%).
+- For the CURRENT SUMMARY: Write a present-levels / summary statement that includes performance (e.g., accuracy, trials) and level of cuing (independent, verbal, visual, tactile, physical) when that information is in the session data.
+- For SUGGESTED GOALS: Compare the user's current goals to the recent session performance and suggest specific, measurable changes (revised targets, baselines, or new goal ideas) with clear rationale.
 
 ${outputInstruction}
 ${contextBlocks}`;
@@ -741,7 +745,11 @@ ${contextBlocks}`;
       const result = await model.generateContent(prompt);
       const response = await result.response;
       const generatedText = response.text();
-      const replacedText = generatedText.replace(/\bStudent\b/g, studentName);
+      const firstName = studentName.trim().split(/\s+/)[0] || studentName;
+      let replacedText = generatedText.replace(/\bStudent\b/g, firstName);
+      replacedText = replacedText.replace(/\b(\d+)\.(\d+)%\b/g, (_, intPart, decPart) =>
+        String(Math.round(Number(`${intPart}.${decPart}`))) + '%'
+      );
       return replacedText;
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);

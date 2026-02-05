@@ -15,15 +15,23 @@ import {
   ListItem,
   ListItemText,
   ListItemSecondaryAction,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Link,
 } from '@mui/material';
 import { ContentCopy as CopyIcon, AutoFixHigh as GenerateIcon, Save as SaveIcon, Delete as DeleteIcon, EditNote as LoadIcon } from '@mui/icons-material';
 import { getStudents, getGoals, getSessions, getIEPNotesByStudent, addIEPNote, deleteIEPNote } from '../utils/storage-api';
-import { formatDate, generateId } from '../utils/helpers';
+import { formatDate, generateId, convertMarkupToHtml } from '../utils/helpers';
 import { generateIEPCommentUpdate, type GoalProgressData } from '../utils/gemini';
 import { useSchool } from '../context/SchoolContext';
 import { useSnackbar, useAIGeneration } from '../hooks';
 import { getErrorMessage } from '../utils/validators';
 import type { Student, IEPNote } from '../types';
+
+/** Number of most recent sessions sent to the AI for IEP summary and goal suggestions. */
+export const SESSIONS_FOR_IEP_NOTES = 8;
 
 export const IEPNotes = () => {
   const { selectedSchool } = useSchool();
@@ -33,11 +41,14 @@ export const IEPNotes = () => {
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [studentInputValue, setStudentInputValue] = useState<string>('');
   const [oldIEPNote, setOldIEPNote] = useState('');
-  const [summaryStatement, setSummaryStatement] = useState('');
+  const [currentIEPGoals, setCurrentIEPGoals] = useState('');
+  const [additionalNotes, setAdditionalNotes] = useState('');
   const [generatedNote, setGeneratedNote] = useState('');
   const [generating, setGenerating] = useState(false);
   const [savedNotes, setSavedNotes] = useState<IEPNote[]>([]);
   const [saving, setSaving] = useState(false);
+  const [formattedDialogOpen, setFormattedDialogOpen] = useState(false);
+  const formattedContentRef = useRef<HTMLDivElement>(null);
   const isMountedRef = useRef(true);
   const studentInputRef = useRef<string>('');
 
@@ -178,14 +189,23 @@ export const IEPNotes = () => {
         };
       });
 
-      const hasInput = oldIEPNote.trim().length > 0 || summaryStatement.trim().length > 0 || goalsData.length > 0;
+      const hasInput =
+        oldIEPNote.trim().length > 0 ||
+        currentIEPGoals.trim().length > 0 ||
+        additionalNotes.trim().length > 0 ||
+        goalsData.length > 0;
       if (!hasInput) {
-        showSnackbar('Provide at least one: Communication note, Summary statement, or ensure the student has goals.', 'error');
+        showSnackbar(
+          'Provide at least one: Current IEP notes, Current IEP goals, Additional notes, or ensure the student has goals in the app.',
+          'error'
+        );
         setGenerating(false);
         return;
       }
 
-      const recentSessionsSummary = sessions.slice(0, 8).map((s) => {
+      const recentSessionsSummary = sessions
+        .slice(0, SESSIONS_FOR_IEP_NOTES)
+        .map((s) => {
         const goalsTargeted = s.goalsTargeted?.length ?? 0;
         const perfSummary = s.performanceData
           ?.map((p) => {
@@ -203,7 +223,8 @@ export const IEPNotes = () => {
         apiKey,
         studentName: selectedStudent.name,
         oldIEPNote: oldIEPNote.trim() || undefined,
-        summaryStatement: summaryStatement.trim() || undefined,
+        currentIEPGoals: currentIEPGoals.trim() || undefined,
+        additionalNotes: additionalNotes.trim() || undefined,
         goalsData,
         recentSessionsSummary,
       });
@@ -263,7 +284,8 @@ export const IEPNotes = () => {
   const handleLoadNote = (note: IEPNote) => {
     setOldIEPNote(note.previousNote);
     setGeneratedNote(note.generatedNote);
-    setSummaryStatement('');
+    setCurrentIEPGoals('');
+    setAdditionalNotes('');
     showSnackbar('Loaded saved note.', 'success');
   };
 
@@ -277,14 +299,24 @@ export const IEPNotes = () => {
     }
   };
 
+  const handleCopyFormatted = async () => {
+    if (!formattedContentRef.current) return;
+    const plain = formattedContentRef.current.innerText || '';
+    try {
+      await navigator.clipboard.writeText(plain);
+      showSnackbar('Formatted version copied to clipboard.', 'success');
+    } catch {
+      showSnackbar('Failed to copy to clipboard.', 'error');
+    }
+  };
+
   return (
     <Box>
       <Typography variant="h4" component="h1" gutterBottom>
         IEP Communication Notes
       </Typography>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-        Generate updated IEP Communication section, summary statement, and/or suggested goal changes based on recent sessions and goal progress.
-        Provide a Communication note and/or Summary statement (optional). If the student has goals, the AI will compare progress to session data and suggest goal changes.
+        Paste current IEP notes, current goals, and any additional notes below. The AI uses the last {SESSIONS_FOR_IEP_NOTES} sessions for this student to generate a current summary (including performance and cuing levels) and suggested goals.
       </Typography>
 
       <Card sx={{ mb: 3 }}>
@@ -326,26 +358,39 @@ export const IEPNotes = () => {
             />
 
             <TextField
-              label="Current IEP Communication Note (optional)"
+              label="1. Current IEP Notes"
               fullWidth
               multiline
               rows={4}
               value={oldIEPNote}
               onChange={(e) => setOldIEPNote(e.target.value)}
-              placeholder="Paste the current IEP Communication/Comments section here. If provided, the AI will return an updated Communication section."
+              placeholder="Paste the current IEP Communication/Comments section (the old ones) here."
               helperText="Student-identifying information is stripped before sending to the AI."
             />
 
             <TextField
-              label="Summary statement / Present levels (optional)"
+              label="2. Current IEP Goals"
               fullWidth
               multiline
               rows={4}
-              value={summaryStatement}
-              onChange={(e) => setSummaryStatement(e.target.value)}
-              placeholder="Paste the current summary or present levels statement. If provided, the AI will return a suggested summary. If both this and goals exist, the AI will return a new summary and goal ideas."
-              helperText="If you provide this and the student has goals, the AI will return a new summary statement and suggested goal changes."
+              value={currentIEPGoals}
+              onChange={(e) => setCurrentIEPGoals(e.target.value)}
+              placeholder="Paste the current IEP goals (the old ones) here. The AI will compare these to recent session performance and suggest updated goals."
             />
+
+            <TextField
+              label="3. Additional notes / Summary"
+              fullWidth
+              multiline
+              rows={4}
+              value={additionalNotes}
+              onChange={(e) => setAdditionalNotes(e.target.value)}
+              placeholder="Any additional context, notes, or summary to include (optional)."
+            />
+
+            <Typography variant="body2" color="text.secondary">
+              Using the last {SESSIONS_FOR_IEP_NOTES} sessions for this student to build performance and cuing context for the AI.
+            </Typography>
 
             <Button
               variant="contained"
@@ -380,31 +425,87 @@ export const IEPNotes = () => {
               </Box>
             </Box>
             <Alert severity="info" sx={{ mb: 2 }}>
-              This is an AI-generated suggestion. Review and edit as needed before pasting into the IEP.
+              This is an AI-generated suggestion. You can edit the text below, then Save or Copy. Saved notes appear in the &quot;Saved notes&quot; list at the bottom of this page for the selected student.{' '}
+              <Link
+                component="button"
+                variant="body2"
+                onClick={() => setFormattedDialogOpen(true)}
+                sx={{ cursor: 'pointer', fontWeight: 500 }}
+              >
+                View formatted version (copy/paste)
+              </Link>
             </Alert>
-            <Box
+            <TextField
+              fullWidth
+              multiline
+              minRows={12}
+              maxRows={24}
+              value={generatedNote}
+              onChange={(e) => setGeneratedNote(e.target.value)}
+              variant="outlined"
               sx={{
-                p: 2,
-                bgcolor: 'action.hover',
-                borderRadius: 1,
-                whiteSpace: 'pre-wrap',
-                fontFamily: 'inherit',
+                '& .MuiOutlinedInput-root': {
+                  bgcolor: 'action.hover',
+                  whiteSpace: 'pre-wrap',
+                  fontFamily: 'inherit',
+                },
               }}
-            >
-              {generatedNote}
-            </Box>
+            />
           </CardContent>
         </Card>
       )}
 
-      {selectedStudent && savedNotes.length > 0 && (
+      <Dialog open={formattedDialogOpen} onClose={() => setFormattedDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+          <span>Formatted version (copy/paste)</span>
+          <Button variant="contained" size="small" startIcon={<CopyIcon />} onClick={handleCopyFormatted}>
+            Copy formatted
+          </Button>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            This view converts markdown (##, **bold**, -, etc.) into headings, bullet points, and bold text. Use &quot;Copy formatted&quot; above or below to paste into an IEP or document.
+          </Typography>
+          <Box
+            ref={formattedContentRef}
+            sx={{
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 1,
+              p: 2,
+              bgcolor: 'action.hover',
+              minHeight: 200,
+              '& h1': { fontSize: '1.25rem', mt: 1, mb: 0.5 },
+              '& h2': { fontSize: '1.1rem', mt: 1.5, mb: 0.5 },
+              '& h3': { fontSize: '1rem', mt: 1, mb: 0.5 },
+              '& ul': { pl: 2, my: 0.5 },
+              '& ol': { pl: 2, my: 0.5 },
+              '& li': { my: 0.25 },
+              '& strong': { fontWeight: 600 },
+              '& p': { my: 0.5 },
+              lineHeight: 1.6,
+            }}
+            dangerouslySetInnerHTML={{ __html: convertMarkupToHtml(generatedNote || '') }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button variant="contained" startIcon={<CopyIcon />} onClick={handleCopyFormatted}>
+            Copy formatted
+          </Button>
+          <Button onClick={() => setFormattedDialogOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {selectedStudent && (
         <Card sx={{ mt: 3 }}>
           <CardContent>
             <Typography variant="h6" gutterBottom>
               Saved notes
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Load a saved note to edit or paste again. Saved notes are stored per student.
+              {savedNotes.length > 0
+                ? 'Saved notes for this student. Click Load to put a note back into the Suggested Update area; you can edit it and save again.'
+                : 'No saved notes yet for this student. After you Generate and optionally edit, click Save above to store a note here.'}
             </Typography>
             <List dense disablePadding>
               {savedNotes.map((note) => (
