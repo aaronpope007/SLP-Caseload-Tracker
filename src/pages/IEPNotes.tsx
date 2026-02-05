@@ -11,15 +11,19 @@ import {
   Alert,
   IconButton,
   Autocomplete,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
 } from '@mui/material';
-import { ContentCopy as CopyIcon, AutoFixHigh as GenerateIcon } from '@mui/icons-material';
-import { getStudents, getGoals, getSessions } from '../utils/storage-api';
-import { formatDate } from '../utils/helpers';
+import { ContentCopy as CopyIcon, AutoFixHigh as GenerateIcon, Save as SaveIcon, Delete as DeleteIcon, EditNote as LoadIcon } from '@mui/icons-material';
+import { getStudents, getGoals, getSessions, getIEPNotesByStudent, addIEPNote, deleteIEPNote } from '../utils/storage-api';
+import { formatDate, generateId } from '../utils/helpers';
 import { generateIEPCommentUpdate, type GoalProgressData } from '../utils/gemini';
 import { useSchool } from '../context/SchoolContext';
 import { useSnackbar, useAIGeneration } from '../hooks';
 import { getErrorMessage } from '../utils/validators';
-import type { Student } from '../types';
+import type { Student, IEPNote } from '../types';
 
 export const IEPNotes = () => {
   const { selectedSchool } = useSchool();
@@ -29,8 +33,11 @@ export const IEPNotes = () => {
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [studentInputValue, setStudentInputValue] = useState<string>('');
   const [oldIEPNote, setOldIEPNote] = useState('');
+  const [summaryStatement, setSummaryStatement] = useState('');
   const [generatedNote, setGeneratedNote] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [savedNotes, setSavedNotes] = useState<IEPNote[]>([]);
+  const [saving, setSaving] = useState(false);
   const isMountedRef = useRef(true);
   const studentInputRef = useRef<string>('');
 
@@ -62,6 +69,23 @@ export const IEPNotes = () => {
       isMountedRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    const loadSavedNotes = async () => {
+      if (!selectedStudentId) {
+        setSavedNotes([]);
+        return;
+      }
+      try {
+        const notes = await getIEPNotesByStudent(selectedStudentId);
+        setSavedNotes(notes);
+      } catch (error) {
+        logError('Failed to load saved IEP notes', error);
+        setSavedNotes([]);
+      }
+    };
+    loadSavedNotes();
+  }, [selectedStudentId]);
 
   const selectedStudent = students.find((s) => s.id === selectedStudentId);
 
@@ -97,10 +121,6 @@ export const IEPNotes = () => {
   const handleGenerate = async () => {
     if (!selectedStudent) {
       showSnackbar('Please select a student', 'error');
-      return;
-    }
-    if (!oldIEPNote.trim()) {
-      showSnackbar('Please paste the current IEP Communication note to update', 'error');
       return;
     }
 
@@ -158,6 +178,13 @@ export const IEPNotes = () => {
         };
       });
 
+      const hasInput = oldIEPNote.trim().length > 0 || summaryStatement.trim().length > 0 || goalsData.length > 0;
+      if (!hasInput) {
+        showSnackbar('Provide at least one: Communication note, Summary statement, or ensure the student has goals.', 'error');
+        setGenerating(false);
+        return;
+      }
+
       const recentSessionsSummary = sessions.slice(0, 8).map((s) => {
         const goalsTargeted = s.goalsTargeted?.length ?? 0;
         const perfSummary = s.performanceData
@@ -172,13 +199,14 @@ export const IEPNotes = () => {
         return `${formatDate(s.date)}: ${goalsTargeted} goal(s) targeted${perfSummary ? ` - ${perfSummary}` : ''}${s.notes ? ` | Notes: ${s.notes.substring(0, 80)}${s.notes.length > 80 ? '...' : ''}` : ''}`;
       }).join('\n');
 
-      const update = await generateIEPCommentUpdate(
+      const update = await generateIEPCommentUpdate({
         apiKey,
-        selectedStudent.name,
-        oldIEPNote.trim(),
+        studentName: selectedStudent.name,
+        oldIEPNote: oldIEPNote.trim() || undefined,
+        summaryStatement: summaryStatement.trim() || undefined,
         goalsData,
-        recentSessionsSummary
-      );
+        recentSessionsSummary,
+      });
 
       if (!isMountedRef.current) return;
       setGeneratedNote(update);
@@ -186,7 +214,7 @@ export const IEPNotes = () => {
       if (!isMountedRef.current) return;
       const errorMessage = getErrorMessage(err);
       showSnackbar(errorMessage, 'error');
-      logError('Failed to generate IEP comment update', err);
+      logError('Failed to generate IEP content', err);
     } finally {
       if (isMountedRef.current) {
         setGenerating(false);
@@ -205,14 +233,58 @@ export const IEPNotes = () => {
     }
   };
 
+  const handleSave = async () => {
+    if (!selectedStudent || !generatedNote.trim()) {
+      showSnackbar('Generate a note first, then save.', 'error');
+      return;
+    }
+    setSaving(true);
+    try {
+      const note: IEPNote = {
+        id: generateId(),
+        studentId: selectedStudent.id,
+        previousNote: oldIEPNote.trim(),
+        generatedNote: generatedNote.trim(),
+        dateCreated: new Date().toISOString(),
+        dateUpdated: new Date().toISOString(),
+      };
+      await addIEPNote(note);
+      setSavedNotes((prev) => [note, ...prev]);
+      showSnackbar('IEP note saved.', 'success');
+    } catch (err: unknown) {
+      const errorMessage = getErrorMessage(err);
+      showSnackbar(errorMessage, 'error');
+      logError('Failed to save IEP note', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleLoadNote = (note: IEPNote) => {
+    setOldIEPNote(note.previousNote);
+    setGeneratedNote(note.generatedNote);
+    setSummaryStatement('');
+    showSnackbar('Loaded saved note.', 'success');
+  };
+
+  const handleDeleteNote = async (id: string) => {
+    try {
+      await deleteIEPNote(id);
+      setSavedNotes((prev) => prev.filter((n) => n.id !== id));
+      showSnackbar('Saved note deleted.', 'success');
+    } catch (err: unknown) {
+      showSnackbar(getErrorMessage(err), 'error');
+    }
+  };
+
   return (
     <Box>
       <Typography variant="h4" component="h1" gutterBottom>
         IEP Communication Notes
       </Typography>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-        Generate updated IEP Communication sections for speech students based on recent sessions and goal progress.
-        Select a student, paste the current IEP note, and get an AI-suggested update.
+        Generate updated IEP Communication section, summary statement, and/or suggested goal changes based on recent sessions and goal progress.
+        Provide a Communication note and/or Summary statement (optional). If the student has goals, the AI will compare progress to session data and suggest goal changes.
       </Typography>
 
       <Card sx={{ mb: 3 }}>
@@ -254,23 +326,34 @@ export const IEPNotes = () => {
             />
 
             <TextField
-              label="Current IEP Communication Note"
+              label="Current IEP Communication Note (optional)"
               fullWidth
               multiline
-              rows={6}
+              rows={4}
               value={oldIEPNote}
               onChange={(e) => setOldIEPNote(e.target.value)}
-              placeholder="Paste the current IEP Communication/Comments section here. For example:&#10;&#10;Communication (updated 2/2025): Due to a nationwide shortage of speech-language pathologists, there has been a break in therapy from the end of October 2024 to the beginning of December 2025. [Student] has since resumed speech therapy services 2 times per week..."
-              helperText="Paste the existing IEP note. Student-identifying information is stripped before sending to the AI."
+              placeholder="Paste the current IEP Communication/Comments section here. If provided, the AI will return an updated Communication section."
+              helperText="Student-identifying information is stripped before sending to the AI."
+            />
+
+            <TextField
+              label="Summary statement / Present levels (optional)"
+              fullWidth
+              multiline
+              rows={4}
+              value={summaryStatement}
+              onChange={(e) => setSummaryStatement(e.target.value)}
+              placeholder="Paste the current summary or present levels statement. If provided, the AI will return a suggested summary. If both this and goals exist, the AI will return a new summary and goal ideas."
+              helperText="If you provide this and the student has goals, the AI will return a new summary statement and suggested goal changes."
             />
 
             <Button
               variant="contained"
               onClick={handleGenerate}
-              disabled={generating || !selectedStudent || !oldIEPNote.trim()}
+              disabled={generating || !selectedStudent}
               startIcon={generating ? <CircularProgress size={20} color="inherit" /> : <GenerateIcon />}
             >
-              {generating ? 'Generating...' : 'Generate Updated Note'}
+              {generating ? 'Generating...' : 'Generate'}
             </Button>
           </Box>
         </CardContent>
@@ -281,9 +364,20 @@ export const IEPNotes = () => {
           <CardContent>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h6">Suggested Update</Typography>
-              <IconButton onClick={handleCopy} color="primary" title="Copy to clipboard">
-                <CopyIcon />
-              </IconButton>
+              <Box sx={{ display: 'flex', gap: 0.5 }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={handleSave}
+                  disabled={saving || !selectedStudent}
+                  startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
+                >
+                  {saving ? 'Saving...' : 'Save'}
+                </Button>
+                <IconButton onClick={handleCopy} color="primary" title="Copy to clipboard">
+                  <CopyIcon />
+                </IconButton>
+              </Box>
             </Box>
             <Alert severity="info" sx={{ mb: 2 }}>
               This is an AI-generated suggestion. Review and edit as needed before pasting into the IEP.
@@ -299,6 +393,62 @@ export const IEPNotes = () => {
             >
               {generatedNote}
             </Box>
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedStudent && savedNotes.length > 0 && (
+        <Card sx={{ mt: 3 }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              Saved notes
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Load a saved note to edit or paste again. Saved notes are stored per student.
+            </Typography>
+            <List dense disablePadding>
+              {savedNotes.map((note) => (
+                <ListItem
+                  key={note.id}
+                  sx={{
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                    mb: 1,
+                    bgcolor: 'background.paper',
+                  }}
+                  secondaryAction={
+                    <ListItemSecondaryAction>
+                      <IconButton
+                        edge="end"
+                        size="small"
+                        onClick={() => handleLoadNote(note)}
+                        title="Load this note"
+                        color="primary"
+                      >
+                        <LoadIcon />
+                      </IconButton>
+                      <IconButton
+                        edge="end"
+                        size="small"
+                        onClick={() => handleDeleteNote(note.id)}
+                        title="Delete"
+                        color="error"
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </ListItemSecondaryAction>
+                  }
+                >
+                  <ListItemText
+                    primary={formatDate(note.dateUpdated)}
+                    secondary={note.generatedNote.length > 120 ? `${note.generatedNote.substring(0, 120)}…` : note.generatedNote}
+                    primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }}
+                    secondaryTypographyProps={{ variant: 'body2', sx: { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }}
+                  />
+                </ListItem>
+              ))}
+            </List>
           </CardContent>
         </Card>
       )}

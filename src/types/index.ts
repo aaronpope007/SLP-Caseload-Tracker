@@ -226,6 +226,15 @@ export interface SOAPNote {
   dateUpdated: string;
 }
 
+export interface IEPNote {
+  id: string;
+  studentId: string;
+  previousNote: string; // The current/old IEP Communication note pasted in
+  generatedNote: string; // The AI-generated updated note
+  dateCreated: string;
+  dateUpdated: string;
+}
+
 export interface ProgressReportSection {
   id: string;
   title: string; // e.g., "Student Information", "Goal Progress", "Recommendations"

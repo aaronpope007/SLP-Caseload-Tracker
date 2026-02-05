@@ -3,7 +3,7 @@
  * This replaces localStorage with API calls to the Express + SQLite backend
  */
 
-import type { Student, Goal, Session, Activity, Evaluation, ArticulationScreener, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Meeting, Reminder, ScheduledSession, Todo, CombinedProgressNote, ReassessmentPlan, ReassessmentPlanItem, ReassessmentPlanTemplate } from '../types';
+import type { Student, Goal, Session, Activity, Evaluation, ArticulationScreener, School, Teacher, CaseManager, SOAPNote, IEPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Meeting, Reminder, ScheduledSession, Todo, CombinedProgressNote, ReassessmentPlan, ReassessmentPlanItem, ReassessmentPlanTemplate } from '../types';
 import { api } from './api';
 import { logError, logDebug } from './logger';
 
@@ -627,6 +627,37 @@ export const updateSOAPNote = async (id: string, updates: Partial<SOAPNote>): Pr
 
 export const deleteSOAPNote = async (id: string): Promise<void> => {
   await api.soapNotes.delete(id);
+};
+
+// IEP Notes
+export const getIEPNotesByStudent = async (studentId: string): Promise<IEPNote[]> => {
+  try {
+    return await api.iepNotes.getAll(studentId);
+  } catch (error) {
+    logError('Failed to fetch IEP notes by student', error);
+    return [];
+  }
+};
+
+export const getIEPNote = async (id: string): Promise<IEPNote | undefined> => {
+  try {
+    return await api.iepNotes.getById(id);
+  } catch (error) {
+    logError('Failed to fetch IEP note', error);
+    return undefined;
+  }
+};
+
+export const addIEPNote = async (note: IEPNote): Promise<void> => {
+  await api.iepNotes.create(note);
+};
+
+export const updateIEPNote = async (id: string, updates: Partial<IEPNote>): Promise<void> => {
+  await api.iepNotes.update(id, updates);
+};
+
+export const deleteIEPNote = async (id: string): Promise<void> => {
+  await api.iepNotes.delete(id);
 };
 
 // Progress Reports

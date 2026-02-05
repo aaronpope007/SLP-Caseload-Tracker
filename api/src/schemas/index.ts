@@ -286,6 +286,20 @@ export const createSOAPNoteSchema = soapNoteSchema;
 export const updateSOAPNoteSchema = soapNoteSchema.partial();
 
 // ============================================================================
+// IEP Note Schema
+// ============================================================================
+
+export const iepNoteSchema = z.object({
+  id: idString.optional(),
+  studentId: idString,
+  previousNote: z.string().max(50000).default(''),
+  generatedNote: z.string().max(50000).default(''),
+});
+
+export const createIEPNoteSchema = iepNoteSchema;
+export const updateIEPNoteSchema = iepNoteSchema.partial();
+
+// ============================================================================
 // Progress Report Schema
 // ============================================================================
 
@@ -490,6 +504,7 @@ export type ScheduledSessionInput = z.infer<typeof createScheduledSessionSchema>
 export type ActivityInput = z.infer<typeof createActivitySchema>;
 export type EvaluationInput = z.infer<typeof createEvaluationSchema>;
 export type SOAPNoteInput = z.infer<typeof createSOAPNoteSchema>;
+export type IEPNoteInput = z.infer<typeof createIEPNoteSchema>;
 export type ProgressReportInput = z.infer<typeof createProgressReportSchema>;
 export type ProgressReportTemplateInput = z.infer<typeof createProgressReportTemplateSchema>;
 export type DueDateItemInput = z.infer<typeof createDueDateItemSchema>;

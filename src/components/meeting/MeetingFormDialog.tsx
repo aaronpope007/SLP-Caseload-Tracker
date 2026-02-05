@@ -8,6 +8,9 @@ import {
   DialogActions,
   TextField,
   MenuItem,
+  FormControl,
+  InputLabel,
+  Select,
 } from '@mui/material';
 import type { Meeting, Student } from '../../types';
 import { toLocalDateTimeString } from '../../utils/helpers';
@@ -28,8 +31,9 @@ export const MeetingFormDialog = ({
   onSave,
   students = [],
 }: MeetingFormDialogProps) => {
-  const { selectedSchool } = useSchool();
+  const { selectedSchool, availableSchools } = useSchool();
   const [formData, setFormData] = useState({
+    school: '',
     title: '',
     description: '',
     date: toLocalDateTimeString(new Date()),
@@ -46,6 +50,7 @@ export const MeetingFormDialog = ({
       const endTimeForInput = editingMeeting.endTime ? toLocalDateTimeString(new Date(editingMeeting.endTime)) : '';
       
       setFormData({
+        school: editingMeeting.school || '',
         title: editingMeeting.title,
         description: editingMeeting.description || '',
         date: dateForInput,
@@ -55,6 +60,7 @@ export const MeetingFormDialog = ({
       });
     } else {
       setFormData({
+        school: selectedSchool || (availableSchools[0] ?? ''),
         title: '',
         description: '',
         date: toLocalDateTimeString(new Date()),
@@ -63,11 +69,15 @@ export const MeetingFormDialog = ({
         category: '',
       });
     }
-  }, [editingMeeting, open]);
+  }, [editingMeeting, open, selectedSchool, availableSchools]);
 
   const handleSave = async () => {
     if (!formData.title || !formData.date) {
       alert('Please fill in Title and Date');
+      return;
+    }
+    if (!formData.school) {
+      alert('Please select a school');
       return;
     }
 
@@ -84,7 +94,7 @@ export const MeetingFormDialog = ({
         description: formData.description || undefined,
         date: dateISO,
         endTime: endTimeISO,
-        school: selectedSchool,
+        school: formData.school,
         studentId: formData.studentId || undefined,
         category: formData.category || undefined,
       });
@@ -96,6 +106,10 @@ export const MeetingFormDialog = ({
       setSaving(false);
     }
   };
+
+  const studentsInSchool = formData.school
+    ? students.filter(s => s.school === formData.school)
+    : [];
 
   const categories = [
     'IEP',
@@ -117,6 +131,20 @@ export const MeetingFormDialog = ({
       </DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+          <FormControl fullWidth required margin="normal">
+            <InputLabel>School</InputLabel>
+            <Select
+              value={formData.school}
+              onChange={(e) => setFormData({ ...formData, school: e.target.value, studentId: '' })}
+              label="School"
+            >
+              {availableSchools.map((schoolName) => (
+                <MenuItem key={schoolName} value={schoolName}>
+                  {schoolName}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
           <TextField
             label="Title"
             fullWidth
@@ -171,9 +199,11 @@ export const MeetingFormDialog = ({
             value={formData.studentId}
             onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
             margin="normal"
+            disabled={!formData.school}
+            helperText={formData.school ? '' : 'Select a school first to choose a student'}
           >
             <MenuItem value="">None</MenuItem>
-            {students.map((student) => (
+            {studentsInSchool.map((student) => (
               <MenuItem key={student.id} value={student.id}>
                 {student.name} {student.grade ? `(${student.grade})` : ''}
               </MenuItem>
@@ -197,7 +227,7 @@ export const MeetingFormDialog = ({
         <Button
           onClick={handleSave}
           variant="contained"
-          disabled={saving || !formData.title || !formData.date}
+          disabled={saving || !formData.school || !formData.title || !formData.date}
         >
           {saving ? 'Saving...' : 'Save'}
         </Button>

@@ -554,6 +554,8 @@ export function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_communications_sessionId ON communications(sessionId);
     CREATE INDEX IF NOT EXISTS idx_scheduled_sessions_active ON scheduled_sessions(active);
     CREATE INDEX IF NOT EXISTS idx_scheduled_sessions_startDate ON scheduled_sessions(startDate);
+    CREATE INDEX IF NOT EXISTS idx_iep_notes_studentId ON iep_notes(studentId);
+    CREATE INDEX IF NOT EXISTS idx_iep_notes_dateUpdated ON iep_notes(dateUpdated);
   `);
 
   // Dismissed Reminders table
@@ -615,6 +617,19 @@ export function initDatabase() {
       studentId TEXT NOT NULL,
       content TEXT NOT NULL,
       selectedGoalIds TEXT,
+      dateCreated TEXT NOT NULL,
+      dateUpdated TEXT NOT NULL,
+      FOREIGN KEY (studentId) REFERENCES students(id) ON DELETE CASCADE
+    )
+  `);
+
+  // IEP Notes table (AI-generated IEP Communication section updates)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS iep_notes (
+      id TEXT PRIMARY KEY,
+      studentId TEXT NOT NULL,
+      previousNote TEXT NOT NULL,
+      generatedNote TEXT NOT NULL,
       dateCreated TEXT NOT NULL,
       dateUpdated TEXT NOT NULL,
       FOREIGN KEY (studentId) REFERENCES students(id) ON DELETE CASCADE

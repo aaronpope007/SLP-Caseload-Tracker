@@ -5,7 +5,7 @@
  * Set VITE_API_URL in your .env file or it defaults to http://localhost:3001
  */
 
-import type { Student, Goal, Session, Activity, Evaluation, ArticulationScreener, School, Teacher, CaseManager, SOAPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Meeting, Reminder, Communication, ScheduledSession, TimesheetNote, Todo, CombinedProgressNote, ReassessmentPlan, ReassessmentPlanItem, ReassessmentPlanTemplate } from '../types';
+import type { Student, Goal, Session, Activity, Evaluation, ArticulationScreener, School, Teacher, CaseManager, SOAPNote, IEPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Meeting, Reminder, Communication, ScheduledSession, TimesheetNote, Todo, CombinedProgressNote, ReassessmentPlan, ReassessmentPlanItem, ReassessmentPlanTemplate } from '../types';
 import { buildQueryString } from './queryHelpers';
 import { logError } from './logger';
 
@@ -501,6 +501,28 @@ export const api = {
       }),
     delete: (id: string) => 
       request<{ message: string }>(`/soap-notes/${id}`, {
+        method: 'DELETE',
+      }),
+  },
+
+  // IEP Notes
+  iepNotes: {
+    getAll: (studentId?: string) => 
+      request<IEPNote[]>(`/iep-notes${buildQueryString({ studentId })}`),
+    getById: (id: string) => 
+      request<IEPNote>(`/iep-notes/${id}`),
+    create: (note: IEPNote) => 
+      request<{ id: string; message: string }>('/iep-notes', {
+        method: 'POST',
+        body: JSON.stringify(note),
+      }),
+    update: (id: string, updates: Partial<IEPNote>) => 
+      request<{ message: string }>(`/iep-notes/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      }),
+    delete: (id: string) => 
+      request<{ message: string }>(`/iep-notes/${id}`, {
         method: 'DELETE',
       }),
   },

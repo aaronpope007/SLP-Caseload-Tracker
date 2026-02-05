@@ -57,7 +57,7 @@ import {
   isBefore,
   addMinutes,
 } from 'date-fns';
-import type { ScheduledSession, Student, Session, Goal, School, Meeting } from '../types';
+import type { ScheduledSession, Student, Session, Goal, Meeting } from '../types';
 import {
   getScheduledSessions,
   addScheduledSession,
@@ -72,7 +72,6 @@ import {
   addSession,
   updateSession,
   deleteSession,
-  getSchoolByName,
   getMeetings,
   createMeeting,
   deleteMeeting,
@@ -105,7 +104,7 @@ interface CalendarEvent {
 }
 
 export const SessionCalendar = () => {
-  const { selectedSchool } = useSchool();
+  const { selectedSchool, availableSchools } = useSchool();
   const { confirm, ConfirmDialog } = useConfirm();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('month');
@@ -114,12 +113,12 @@ export const SessionCalendar = () => {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
-  const [school, setSchool] = useState<School | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingScheduledSession, setEditingScheduledSession] = useState<ScheduledSession | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [draggedSession, setDraggedSession] = useState<string | null>(null);
   const [scheduleStudentSearch, setScheduleStudentSearch] = useState('');
+  const [scheduleFormSchool, setScheduleFormSchool] = useState('');
   
   // Session form dialog state
   const [sessionDialogOpen, setSessionDialogOpen] = useState(false);
@@ -183,35 +182,29 @@ export const SessionCalendar = () => {
   useEffect(() => {
     isMountedRef.current = true;
     loadData();
-  }, [selectedSchool]);
+  }, []);
 
   const loadData = async () => {
     try {
-      const schoolObj = await getSchoolByName(selectedSchool);
+      const allStudents = await getStudents();
       if (isMountedRef.current) {
-        setSchool(schoolObj || null);
-      }
-      const schoolStudents = await getStudents(selectedSchool);
-      if (isMountedRef.current) {
-        setStudents(schoolStudents.filter(s => s.archived !== true));
+        setStudents(allStudents.filter(s => s.archived !== true));
       }
       const allSessions = await getSessions();
       if (isMountedRef.current) {
-        const studentIds = new Set(schoolStudents.map(s => s.id));
-        setSessions(allSessions.filter(s => studentIds.has(s.studentId)));
+        setSessions(allSessions);
       }
       const allGoals = await getGoals();
       if (isMountedRef.current) {
-        const studentIds = new Set(schoolStudents.map(s => s.id));
-        setGoals(allGoals.filter(g => studentIds.has(g.studentId)));
+        setGoals(allGoals);
       }
-      const scheduled = await getScheduledSessions(selectedSchool);
+      const scheduled = await getScheduledSessions();
       if (isMountedRef.current) {
         setScheduledSessions(scheduled);
       }
-      const schoolMeetings = await getMeetings(undefined, selectedSchool);
+      const allMeetings = await getMeetings();
       if (isMountedRef.current) {
-        setMeetings(schoolMeetings);
+        setMeetings(allMeetings);
       }
     } catch (error) {
       if (isMountedRef.current) {
@@ -220,18 +213,22 @@ export const SessionCalendar = () => {
     }
   };
 
-  // Get school hours, defaulting to 8 AM - 5 PM (8-17)
+  // Fixed schedule hours 8 AM - 4 PM for all schools (helps when viewing multiple schools)
   const getSchoolHours = useMemo(() => {
-    const startHour = school?.schoolHours?.startHour ?? 8;
-    const endHour = school?.schoolHours?.endHour ?? 17;
-    return { startHour, endHour };
-  }, [school]);
+    return { startHour: 8, endHour: 16 };
+  }, []);
 
   // Helper function to format student name with grade
   const formatStudentNameWithGrade = (studentId: string): string => {
     const student = students.find(s => s.id === studentId);
     if (!student) return 'Unknown';
     return student.grade ? `${student.name} (${student.grade})` : student.name;
+  };
+
+  // Helper to get school name for event (from first student or meeting)
+  const getSchoolForStudentIds = (studentIds: string[]): string | undefined => {
+    if (!studentIds.length) return undefined;
+    return students.find(s => s.id === studentIds[0])?.school;
   };
 
   // Helper function to parse date string (handles both ISO strings and yyyy-MM-dd format)
@@ -303,7 +300,8 @@ export const SessionCalendar = () => {
         endTimeStr = `${String(finalEndHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}`;
       }
 
-      if (scheduled.recurrencePattern === 'weekly' && scheduled.dayOfWeek) {
+      const dayOfWeekArray = Array.isArray(scheduled.dayOfWeek) ? scheduled.dayOfWeek : [];
+      if (scheduled.recurrencePattern === 'weekly' && dayOfWeekArray.length > 0) {
         // Generate weekly recurring events
         // Start from the scheduled start date, but only generate events within the view range
         let date = start;
@@ -312,7 +310,7 @@ export const SessionCalendar = () => {
         if (isBefore(start, viewStart)) {
           date = viewStart;
           // Find the first day that matches one of the scheduled days of week
-          while (!scheduled.dayOfWeek.includes(date.getDay())) {
+          while (!dayOfWeekArray.includes(date.getDay())) {
             date = addDays(date, 1);
             // Safety check: if we've gone past the end date or too far, break
             if (isAfter(date, end) || isAfter(date, addMonths(viewStart, 2))) break;
@@ -321,10 +319,12 @@ export const SessionCalendar = () => {
         
         // Generate events within the view range
         while ((isBefore(date, end) || isSameDay(date, end)) && (isBefore(date, viewEnd) || isSameDay(date, viewEnd))) {
-          if (scheduled.dayOfWeek.includes(date.getDay())) {
+          if (dayOfWeekArray.includes(date.getDay())) {
             const dateStr = format(date, 'yyyy-MM-dd');
             // Skip cancelled dates
             if (!scheduled.cancelledDates || !scheduled.cancelledDates.includes(dateStr)) {
+              const schoolSuffix = getSchoolForStudentIds(scheduled.studentIds);
+              const titleBase = `${scheduled.startTime}-${scheduled.endTime || endTimeStr} ${scheduled.studentIds.map(id => formatStudentNameWithGrade(id)).join(', ')}`;
               events.push({
                 id: `${scheduled.id}-${dateStr}`,
                 scheduledSessionId: scheduled.id,
@@ -332,7 +332,7 @@ export const SessionCalendar = () => {
                 date: date,
                 startTime: scheduled.startTime,
                 endTime: scheduled.endTime || endTimeStr,
-                title: `${scheduled.startTime}-${scheduled.endTime || endTimeStr} ${scheduled.studentIds.map(id => formatStudentNameWithGrade(id)).join(', ')}`,
+                title: schoolSuffix ? `${titleBase} — ${schoolSuffix}` : titleBase,
                 hasConflict: false,
                 isLogged: false,
                 isMissed: false,
@@ -354,6 +354,8 @@ export const SessionCalendar = () => {
           const dateStr = format(date, 'yyyy-MM-dd');
           // Skip cancelled dates
           if (!scheduled.cancelledDates || !scheduled.cancelledDates.includes(dateStr)) {
+            const schoolSuffix = getSchoolForStudentIds(scheduled.studentIds);
+            const titleBase = `${scheduled.startTime}-${scheduled.endTime || endTimeStr} ${scheduled.studentIds.map(id => formatStudentNameWithGrade(id)).join(', ')}`;
             events.push({
               id: `${scheduled.id}-${dateStr}`,
               scheduledSessionId: scheduled.id,
@@ -361,7 +363,7 @@ export const SessionCalendar = () => {
               date: date,
               startTime: scheduled.startTime,
               endTime: scheduled.endTime || endTimeStr,
-              title: `${scheduled.startTime}-${scheduled.endTime || endTimeStr} ${scheduled.studentIds.map(id => formatStudentNameWithGrade(id)).join(', ')}`,
+              title: schoolSuffix ? `${titleBase} — ${schoolSuffix}` : titleBase,
               hasConflict: false,
               isLogged: false,
               isMissed: false,
@@ -382,6 +384,8 @@ export const SessionCalendar = () => {
               (isBefore(date, end) || isSameDay(date, end)) &&
               (isAfter(date, viewStart) || isSameDay(date, viewStart)) &&
               (isBefore(date, viewEnd) || isSameDay(date, viewEnd))) {
+            const schoolSuffix = getSchoolForStudentIds(scheduled.studentIds);
+            const titleBase = `${scheduled.startTime}-${scheduled.endTime || endTimeStr} ${scheduled.studentIds.map(id => formatStudentNameWithGrade(id)).join(', ')}`;
             events.push({
               id: `${scheduled.id}-${dateStr}`,
               scheduledSessionId: scheduled.id,
@@ -389,7 +393,7 @@ export const SessionCalendar = () => {
               date: date,
               startTime: scheduled.startTime,
               endTime: scheduled.endTime || endTimeStr,
-              title: `${scheduled.startTime}-${scheduled.endTime || endTimeStr} ${scheduled.studentIds.map(id => formatStudentNameWithGrade(id)).join(', ')}`,
+              title: schoolSuffix ? `${titleBase} — ${schoolSuffix}` : titleBase,
               hasConflict: false,
               isLogged: false,
               isMissed: false,
@@ -409,6 +413,8 @@ export const SessionCalendar = () => {
         // Only include if the event date is within the visible range
         if ((isAfter(eventDate, viewStart) || isSameDay(eventDate, viewStart)) && 
             (isBefore(eventDate, viewEnd) || isSameDay(eventDate, viewEnd))) {
+          const schoolSuffix = getSchoolForStudentIds(scheduled.studentIds);
+          const titleBase = `${scheduled.startTime}-${scheduled.endTime || endTimeStr} ${scheduled.studentIds.map(id => formatStudentNameWithGrade(id)).join(', ')}`;
           events.push({
             id: scheduled.id,
             scheduledSessionId: scheduled.id,
@@ -416,7 +422,7 @@ export const SessionCalendar = () => {
             date: eventDate,
             startTime: scheduled.startTime,
             endTime: scheduled.endTime || endTimeStr,
-            title: `${scheduled.startTime}-${scheduled.endTime || endTimeStr} ${scheduled.studentIds.map(id => formatStudentNameWithGrade(id)).join(', ')}`,
+            title: schoolSuffix ? `${titleBase} — ${schoolSuffix}` : titleBase,
             hasConflict: false,
             isLogged: false,
             isMissed: false,
@@ -713,9 +719,11 @@ export const SessionCalendar = () => {
         endTime = format(defaultEnd, 'HH:mm');
       }
       
-      // Get student name
+      // Get student name and school
       const student = students.find(s => s.id === session.studentId);
       const studentName = student ? (student.grade ? `${student.name} (${student.grade})` : student.name) : 'Unknown';
+      const schoolSuffix = student?.school;
+      const titleBase = `${startTime}-${endTime} ${studentName}`;
       
       loggedSessionsWithoutSchedule.push({
         id: `logged-${session.id}`,
@@ -724,7 +732,7 @@ export const SessionCalendar = () => {
         date: sessionDate,
         startTime: startTime,
         endTime: endTime,
-        title: `${startTime}-${endTime} ${studentName}`,
+        title: schoolSuffix ? `${titleBase} — ${schoolSuffix}` : titleBase,
         hasConflict: false,
         isLogged: true,
         isMissed: session.missedSession || false,
@@ -785,6 +793,8 @@ export const SessionCalendar = () => {
           endTime = format(defaultEnd, 'HH:mm');
         }
         
+        const schoolSuffix = meeting.school;
+        const titleBase = `${startTime}-${endTime} Meeting: ${meeting.title}`;
         return {
           id: `meeting-${meeting.id}`,
           scheduledSessionId: '',
@@ -792,7 +802,7 @@ export const SessionCalendar = () => {
           date: startOfDay(meetingDate),
           startTime: startTime,
           endTime: endTime,
-          title: `${startTime}-${endTime} Meeting: ${meeting.title}`,
+          title: schoolSuffix ? `${titleBase} — ${schoolSuffix}` : titleBase,
           hasConflict: false,
           isLogged: false,
           isMissed: false,
@@ -884,6 +894,10 @@ export const SessionCalendar = () => {
   const doOpenDialog = (date?: Date, scheduledSession?: ScheduledSession) => {
     if (scheduledSession) {
       setEditingScheduledSession(scheduledSession);
+      const schoolForEdit = scheduledSession.studentIds.length
+        ? students.find(s => s.id === scheduledSession.studentIds[0])?.school ?? selectedSchool
+        : selectedSchool;
+      setScheduleFormSchool(schoolForEdit);
       const newFormData = {
         studentIds: scheduledSession.studentIds,
         startTime: scheduledSession.startTime,
@@ -904,6 +918,7 @@ export const SessionCalendar = () => {
       initialFormDataRef.current = { ...newFormData };
     } else {
       setEditingScheduledSession(null);
+      setScheduleFormSchool(selectedSchool);
       const dateToUse = date || new Date();
       setSelectedDate(dateToUse);
       const newFormData = {
@@ -2779,19 +2794,20 @@ export const SessionCalendar = () => {
                     .filter(s => s.recurrencePattern !== 'none')
                     .map(scheduled => {
                       const studentNames = scheduled.studentIds.map(id => formatStudentNameWithGrade(id)).join(', ');
+                      const schoolName = getSchoolForStudentIds(scheduled.studentIds);
                       return (
                         <Card key={scheduled.id} variant="outlined">
                           <CardContent sx={{ '&:last-child': { pb: 2 } }}>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                               <Box sx={{ flex: 1 }}>
                                 <Typography variant="subtitle1" fontWeight="bold">
-                                  {studentNames}
+                                  {studentNames}{schoolName ? ` — ${schoolName}` : ''}
                                 </Typography>
                                 <Typography variant="body2" color="text.secondary">
                                   {scheduled.startTime} {scheduled.endTime && `- ${scheduled.endTime}`}
                                   {' • '}
-                                  {scheduled.recurrencePattern === 'weekly' && scheduled.dayOfWeek && (
-                                    <>Weekly on {scheduled.dayOfWeek.map(d => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d]).join(', ')}</>
+                                  {scheduled.recurrencePattern === 'weekly' && Array.isArray(scheduled.dayOfWeek) && scheduled.dayOfWeek.length > 0 && (
+                                    <>Weekly on {(scheduled.dayOfWeek as number[]).map(d => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d]).join(', ')}</>
                                   )}
                                   {scheduled.recurrencePattern === 'daily' && 'Daily'}
                                   {scheduled.recurrencePattern === 'specific-dates' && `${scheduled.specificDates?.length || 0} specific dates`}
@@ -2845,8 +2861,29 @@ export const SessionCalendar = () => {
         </DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            <FormControl fullWidth size="small">
+              <InputLabel>School</InputLabel>
+              <Select
+                value={scheduleFormSchool}
+                onChange={(e) => {
+                  const newSchool = e.target.value;
+                  setScheduleFormSchool(newSchool);
+                  setFormData(prev => ({
+                    ...prev,
+                    studentIds: prev.studentIds.filter(id => students.find(s => s.id === id && s.school === newSchool)),
+                  }));
+                }}
+                label="School"
+              >
+                {availableSchools.map((schoolName) => (
+                  <MenuItem key={schoolName} value={schoolName}>
+                    {schoolName}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
             <StudentSelector
-              students={students}
+              students={students.filter(s => s.school === scheduleFormSchool)}
               selectedStudentIds={formData.studentIds}
               searchTerm={scheduleStudentSearch}
               onSearchChange={setScheduleStudentSearch}

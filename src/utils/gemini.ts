@@ -589,19 +589,51 @@ Format each goal clearly. Use professional IEP language and terminology.`;
 };
 
 /**
- * Generate an updated IEP Communication section for a speech student.
- * Strips student-identifying info from the old note before sending to the API.
- * Returns text with the student name re-inserted for the output.
+ * Options for IEP content generation. At least one of communication note, summary, or goals
+ * should be requested so the AI has something to generate.
+ */
+export interface GenerateIEPCommentUpdateOptions {
+  apiKey: string;
+  studentName: string;
+  /** Current IEP Communication note (Comments section). If provided, AI returns an updated Communication section. */
+  oldIEPNote?: string;
+  /** Present levels / summary statement. If provided, AI returns a suggested summary statement. */
+  summaryStatement?: string;
+  goalsData: GoalProgressData[];
+  recentSessionsSummary?: string;
+}
+
+/**
+ * Generate IEP content: updated Communication section, suggested summary statement, and/or
+ * suggested goal changes based on what the user provides.
+ * - If oldIEPNote is provided: returns updated IEP Communication section.
+ * - If summaryStatement is provided: returns suggested summary statement (only then).
+ * - If goalsData is provided (and non-empty): compares goals to recent session data and returns suggested goal changes/ideas.
+ * - If both summaryStatement and goals are provided: returns a new summary statement and goal ideas.
+ * Strips student-identifying info before sending to the API; re-inserts student name in the output.
  */
 export const generateIEPCommentUpdate = async (
-  apiKey: string,
-  studentName: string,
-  oldIEPNote: string,
-  goalsData: GoalProgressData[],
-  recentSessionsSummary?: string
+  options: GenerateIEPCommentUpdateOptions
 ): Promise<string> => {
+  const {
+    apiKey,
+    studentName,
+    oldIEPNote = '',
+    summaryStatement = '',
+    goalsData,
+    recentSessionsSummary,
+  } = options;
+
   if (!apiKey) {
     throw new Error('API key is required');
+  }
+
+  const wantCommunication = oldIEPNote.trim().length > 0;
+  const wantSummary = summaryStatement.trim().length > 0;
+  const wantGoals = goalsData.length > 0;
+
+  if (!wantCommunication && !wantSummary && !wantGoals) {
+    throw new Error('Provide at least one of: Communication note, Summary statement, or ensure the student has goals.');
   }
 
   const genAI = new GoogleGenerativeAI(apiKey);
@@ -614,12 +646,14 @@ export const generateIEPCommentUpdate = async (
     availableModels = ['gemini-3-flash-preview', 'gemini-3-pro-preview', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
   }
 
-  // Strip student name from old note before sending to API (protect PII)
-  const sanitizedOldNote = studentName
-    ? oldIEPNote.replace(new RegExp(escapeRegex(studentName), 'gi'), 'Student')
-    : oldIEPNote;
+  const sanitizedOldNote = studentName && oldIEPNote
+    ? oldIEPNote.trim().replace(new RegExp(escapeRegex(studentName), 'gi'), 'Student')
+    : oldIEPNote.trim();
+  const sanitizedSummary = studentName && summaryStatement
+    ? summaryStatement.trim().replace(new RegExp(escapeRegex(studentName), 'gi'), 'Student')
+    : summaryStatement.trim();
 
-  const goalsText = goalsData.length > 0
+  const goalsText = wantGoals
     ? goalsData.map((goal, idx) => {
         let info = `Goal ${idx + 1}: ${goal.goalDescription}\n`;
         info += `  Baseline: ${goal.baseline}%\n`;
@@ -639,39 +673,65 @@ export const generateIEPCommentUpdate = async (
         }
         return info;
       }).join('\n\n')
-    : 'No active goals on file.';
+    : '';
 
   const recentSessionsSection = recentSessionsSummary
     ? `\n\nRecent Session Summary:\n${recentSessionsSummary}`
     : '';
 
-  const prompt = `You are an expert speech-language pathologist. Your task is to update an IEP Communication section (sometimes called "Comments" or "Special Education/Speech" section) for a speech student.
+  const outputParts: string[] = [];
+  if (wantCommunication) {
+    outputParts.push('1. UPDATED IEP COMMUNICATION SECTION: A single cohesive paragraph or short set of paragraphs (similar in length and style to the original), ready to paste into the IEP. Use "Student" as the placeholder for the child\'s name. Do not use bullet points.');
+  }
+  if (wantSummary && wantGoals) {
+    outputParts.push('2. NEW SUMMARY STATEMENT: An updated present levels / summary statement reflecting current performance.');
+    outputParts.push('3. SUGGESTED GOAL CHANGES: Compare the current goals to recent session data and suggest specific changes—e.g., revised targets, new baselines, modifications, or new goal ideas. Be concrete and reference the progress data.');
+  } else if (wantSummary) {
+    outputParts.push('2. SUGGESTED SUMMARY STATEMENT: An updated present levels / summary statement reflecting current performance.');
+  } else if (wantGoals) {
+    outputParts.push('2. SUGGESTED GOAL CHANGES: Compare the current goals to recent session data and suggest specific changes—e.g., revised targets, new baselines, modifications, or new goal ideas. Be concrete and reference the progress data.');
+  }
 
-You will be given:
-1. The current/old IEP Communication note (with "Student" used as a placeholder for the child's name)
-2. The student's goal progress data and recent session performance
-3. Optional recent session summary
+  const outputInstruction = `Generate the following, in order, with clear section headers (e.g. "## IEP Communication Section", "## Summary Statement", "## Suggested Goal Changes") so the user can copy each part:\n${outputParts.map((p, i) => `- ${p}`).join('\n')}`;
 
-Generate an UPDATED IEP Communication section that:
-1. Reflects the student's current status based on recent sessions and goal progress
-2. Updates any outdated information (e.g., therapy frequency, dates, service delivery changes)
-3. Maintains the same professional tone and structure typical of IEP sections
-4. Accurately describes progress, continuing needs, and rationale for ongoing services
-5. Incorporates level of cuing when provided (independent, verbal, visual, tactile, physical)—e.g., whether the student requires maximal cuing, minimal support, or works independently; this is important for describing current performance and service needs
-6. References present levels and goals as appropriate (e.g., "See present levels under speech and language goals for more details")
-7. Uses "Student" as the placeholder for the child's name throughout
-
-The output should be ready to paste into an IEP form. It should be a single cohesive paragraph or short set of paragraphs (similar in length and style to the original), not bullet points. Match the level of detail in the original note.
-
+  let contextBlocks = '';
+  if (wantCommunication) {
+    contextBlocks += `
 Current IEP Communication Note:
 ---
 ${sanitizedOldNote}
 ---
-
-Goal Progress and Recent Performance:
+`;
+  }
+  if (wantSummary) {
+    contextBlocks += `
+Current Summary / Present Levels (if any):
+---
+${sanitizedSummary}
+---
+`;
+  }
+  if (wantGoals) {
+    contextBlocks += `
+Goal Progress and Recent Session Data:
 ${goalsText}${recentSessionsSection}
+`;
+  }
 
-Generate the updated IEP Communication section:`;
+  const prompt = `You are an expert speech-language pathologist supporting IEP updates for a speech student.
+
+You will be given:
+${wantCommunication ? '- The current/old IEP Communication note (with "Student" as placeholder for the child\'s name)\n' : ''}${wantSummary ? '- The current summary or present levels statement (with "Student" as placeholder)\n' : ''}${wantGoals ? '- The student\'s current goals with baseline, target, current performance, and recent session data\n' : ''}- Recent session summary (when available)
+
+Instructions:
+- Reflect current status based on recent sessions and goal progress.
+- Use professional IEP language and structure.
+- Incorporate cuing levels when provided (independent, verbal, visual, tactile, physical).
+- Use "Student" as the placeholder for the child's name throughout.
+${wantCommunication ? '- For the Communication section: update outdated info (e.g., therapy frequency, dates), describe progress and rationale for ongoing services, and match the level of detail in the original.\n' : ''}${wantGoals ? '- For goal suggestions: compare each goal to recent session data and suggest measurable changes (revised targets, baselines, or new goal ideas) with clear rationale.\n' : ''}
+
+${outputInstruction}
+${contextBlocks}`;
 
   let lastError: Error | null = null;
 
@@ -681,7 +741,6 @@ Generate the updated IEP Communication section:`;
       const result = await model.generateContent(prompt);
       const response = await result.response;
       const generatedText = response.text();
-      // Replace placeholder with actual student name
       const replacedText = generatedText.replace(/\bStudent\b/g, studentName);
       return replacedText;
     } catch (error: unknown) {
@@ -704,7 +763,7 @@ Generate the updated IEP Communication section:`;
   } else if (errorStatus === 403 || errorMessage?.includes('403')) {
     throw new Error('API key does not have permission. Please enable Gemini API in Google Cloud Console.');
   } else {
-    throw new Error(`Failed to generate IEP comment update: ${errorMessage}`);
+    throw new Error(`Failed to generate IEP content: ${errorMessage}`);
   }
 };
 
