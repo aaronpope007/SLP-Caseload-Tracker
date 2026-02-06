@@ -599,16 +599,16 @@ Format each goal clearly. Use professional IEP language and terminology.`;
 };
 
 /**
- * Options for IEP content generation. The AI receives current IEP notes, current goals (pasted),
- * additional notes, and session data (from the app), and returns a current summary and suggested goals.
+ * Options for IEP content generation. The AI receives previous (old) IEP notes and goals,
+ * additional notes, and session data (from the app), and returns updated present levels and suggested goals.
  */
 export interface GenerateIEPCommentUpdateOptions {
   apiKey: string;
   studentName: string;
-  /** Current IEP Communication note (the old ones). */
-  oldIEPNote?: string;
-  /** Current IEP goals as pasted by the user (the old ones). */
-  currentIEPGoals?: string;
+  /** Previous IEP Communication note (old present levels—used as context only; do not repeat). */
+  previousIEPNote?: string;
+  /** Previous IEP goals as pasted by the user (old—used to suggest updated goals). */
+  previousIEPGoals?: string;
   /** Additional notes / summary context. */
   additionalNotes?: string;
   goalsData: GoalProgressData[];
@@ -616,10 +616,11 @@ export interface GenerateIEPCommentUpdateOptions {
 }
 
 /**
- * Generate IEP content. The AI takes: (1) current IEP notes, (2) current goals (pasted),
+ * Generate IEP content. The AI takes: (1) previous IEP notes, (2) previous IEP goals (pasted),
  * (3) additional notes, plus session performance data from the app. It returns:
- * - A current summary that includes performance and level of cuing from sessions.
- * - Suggested goals based on current performance (comparing pasted goals to session data).
+ * - Updated present levels of academic achievement and functional performance (reflecting current progress and cuing from sessions).
+ * - Suggested goals based on recent performance (comparing previous goals to session data).
+ * The output must be NEW/updated language—not a copy or paraphrase of the previous notes.
  * Strips student-identifying info before sending to the API; re-inserts student name in the output.
  */
 export const generateIEPCommentUpdate = async (
@@ -628,8 +629,8 @@ export const generateIEPCommentUpdate = async (
   const {
     apiKey,
     studentName,
-    oldIEPNote = '',
-    currentIEPGoals = '',
+    previousIEPNote = '',
+    previousIEPGoals = '',
     additionalNotes = '',
     goalsData,
     recentSessionsSummary,
@@ -639,14 +640,14 @@ export const generateIEPCommentUpdate = async (
     throw new Error('API key is required');
   }
 
-  const hasOldNote = oldIEPNote.trim().length > 0;
-  const hasPastedGoals = currentIEPGoals.trim().length > 0;
+  const hasPreviousNote = previousIEPNote.trim().length > 0;
+  const hasPastedGoals = previousIEPGoals.trim().length > 0;
   const hasAdditionalNotes = additionalNotes.trim().length > 0;
   const hasAppGoals = goalsData.length > 0;
 
-  if (!hasOldNote && !hasPastedGoals && !hasAdditionalNotes && !hasAppGoals) {
+  if (!hasPreviousNote && !hasPastedGoals && !hasAdditionalNotes && !hasAppGoals) {
     throw new Error(
-      'Provide at least one of: Current IEP notes, Current IEP goals, Additional notes, or ensure the student has goals in the app.'
+      'Provide at least one of: Previous IEP notes, Previous IEP goals, Additional notes, or ensure the student has goals in the app.'
     );
   }
 
@@ -665,8 +666,8 @@ export const generateIEPCommentUpdate = async (
       ? text.trim().replace(new RegExp(escapeRegex(studentName), 'gi'), 'Student')
       : text.trim();
 
-  const sanitizedOldNote = sanitize(oldIEPNote);
-  const sanitizedGoals = sanitize(currentIEPGoals);
+  const sanitizedPreviousNote = sanitize(previousIEPNote);
+  const sanitizedGoals = sanitize(previousIEPGoals);
   const sanitizedAdditional = sanitize(additionalNotes);
 
   const goalsText = hasAppGoals
@@ -697,22 +698,22 @@ export const generateIEPCommentUpdate = async (
 
   const outputInstruction = `Generate the following, in order, with clear section headers (e.g. "## Current Summary", "## Suggested Goals") so the user can copy each part:
 
-1. CURRENT SUMMARY: A present-levels / summary statement that reflects current performance based on the recent session data. Include specific performance (accuracy, trials, progress) and level of cuing (independent, verbal, visual, tactile, physical) when that information appears in the session data. Use "Student" as the placeholder for the child's name.
+1. CURRENT SUMMARY (Updated Present Levels): Write NEW, updated present levels of academic achievement and functional performance. Base this on the recent speech session data (performance, accuracy, cuing levels). Do NOT copy or paraphrase the previous IEP notes—that text is OLD. Your output must reflect current progress and current cuing (independent, verbal, visual, tactile, physical) from the session data. Use "Student" as the placeholder for the child's name.
 
-2. SUGGESTED GOALS: Based on the current goals (pasted by the user) and the recent session performance data, suggest updated or new goals—e.g., revised targets, new baselines, or modified goal language. Be concrete and reference the progress and cuing data.`;
+2. SUGGESTED GOALS: Based on the previous IEP goals (pasted by the user) and the recent session performance data, suggest updated or new goals—e.g., revised targets, new baselines, or modified goal language. Be concrete and reference the progress and cuing data.`;
 
   let contextBlocks = '';
-  if (hasOldNote) {
+  if (hasPreviousNote) {
     contextBlocks += `
-Current IEP Notes (Communication section):
+Previous IEP Notes (Communication / present levels—OLD data; use as context only; do not repeat):
 ---
-${sanitizedOldNote}
+${sanitizedPreviousNote}
 ---
 `;
   }
   if (hasPastedGoals) {
     contextBlocks += `
-Current IEP Goals (as pasted):
+Previous IEP Goals (as pasted—OLD; use to suggest updated goals):
 ---
 ${sanitizedGoals}
 ---
@@ -728,7 +729,7 @@ ${sanitizedAdditional}
   }
   if (hasAppGoals || recentSessionsSummary) {
     contextBlocks += `
-Session data (performance and cuing from the app):
+Session data (performance and cuing from the app—use this to write the updated present levels):
 ${goalsText}${recentSessionsSection}
 `;
   }
@@ -736,13 +737,13 @@ ${goalsText}${recentSessionsSection}
   const prompt = `You are an expert speech-language pathologist supporting IEP updates for a speech student.
 
 You will be given:
-${hasOldNote ? '- Current IEP notes (Communication section), with "Student" as placeholder for the child\'s name\n' : ''}${hasPastedGoals ? '- Current IEP goals as pasted by the user (the old ones)\n' : ''}${hasAdditionalNotes ? '- Additional notes or summary context\n' : ''}- Session data: goal progress, recent session summary (including performance and cuing levels when present)
+${hasPreviousNote ? '- Previous IEP notes (Communication/present levels)—this is OLD data; use as context only. Do NOT return it verbatim or paraphrased.\n' : ''}${hasPastedGoals ? '- Previous IEP goals (pasted)—OLD; use to suggest updated goals.\n' : ''}${hasAdditionalNotes ? '- Additional notes or summary context\n' : ''}- Session data: goal progress, recent session summary (including performance and cuing levels when present)—use this to write the UPDATED present levels.
 
 Instructions:
 - Use "Student" as the placeholder for the child's name throughout.
 - Use whole-number percentages only (e.g., 69% or 57%, never 69.0% or 57.0%).
-- For the CURRENT SUMMARY: Write a present-levels / summary statement that includes performance (e.g., accuracy, trials) and level of cuing (independent, verbal, visual, tactile, physical) when that information is in the session data.
-- For SUGGESTED GOALS: Compare the user's current goals to the recent session performance and suggest specific, measurable changes (revised targets, baselines, or new goal ideas) with clear rationale.
+- Your output must be NEW/updated language. The previous IEP notes and goals are OLD—do not repeat or paraphrase them. Write updated present levels that reflect current progress and cuing from the session data.
+- For SUGGESTED GOALS: Compare the previous goals to recent session performance and suggest specific, measurable changes (revised targets, baselines, or new goal ideas) with clear rationale.
 
 ${outputInstruction}
 ${contextBlocks}`;

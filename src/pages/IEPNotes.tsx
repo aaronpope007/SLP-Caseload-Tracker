@@ -41,8 +41,8 @@ export const IEPNotes = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [studentInputValue, setStudentInputValue] = useState<string>('');
-  const [oldIEPNote, setOldIEPNote] = useState('');
-  const [currentIEPGoals, setCurrentIEPGoals] = useState('');
+  const [previousIEPNote, setPreviousIEPNote] = useState('');
+  const [previousIEPGoals, setPreviousIEPGoals] = useState('');
   const [additionalNotes, setAdditionalNotes] = useState('');
   const [generatedNote, setGeneratedNote] = useState('');
   const [generating, setGenerating] = useState(false);
@@ -65,15 +65,11 @@ export const IEPNotes = () => {
         if (allStudents.length > 0) {
           const studentIdFromUrl = searchParams.get('studentId');
           const urlStudent = studentIdFromUrl ? allStudents.find((s) => s.id === studentIdFromUrl) : null;
-          const currentInList = allStudents.find((s) => s.id === selectedStudentId);
           if (urlStudent) {
             setSelectedStudentId(urlStudent.id);
             setStudentInputValue(urlStudent.name);
-          } else if (!currentInList) {
-            const first = allStudents[0];
-            setSelectedStudentId(first.id);
-            setStudentInputValue(first.name);
           }
+          // Do not auto-select a student on load; leave the field empty until the user chooses one.
         }
       } catch (error) {
         logError('Failed to load students', error);
@@ -211,13 +207,13 @@ export const IEPNotes = () => {
       });
 
       const hasInput =
-        oldIEPNote.trim().length > 0 ||
-        currentIEPGoals.trim().length > 0 ||
+        previousIEPNote.trim().length > 0 ||
+        previousIEPGoals.trim().length > 0 ||
         additionalNotes.trim().length > 0 ||
         goalsData.length > 0;
       if (!hasInput) {
         showSnackbar(
-          'Provide at least one: Current IEP notes, Current IEP goals, Additional notes, or ensure the student has goals in the app.',
+          'Provide at least one: Previous IEP notes, Previous IEP goals, Additional notes, or ensure the student has goals in the app.',
           'error'
         );
         setGenerating(false);
@@ -243,8 +239,8 @@ export const IEPNotes = () => {
       const update = await generateIEPCommentUpdate({
         apiKey,
         studentName: selectedStudent.name,
-        oldIEPNote: oldIEPNote.trim() || undefined,
-        currentIEPGoals: currentIEPGoals.trim() || undefined,
+        previousIEPNote: previousIEPNote.trim() || undefined,
+        previousIEPGoals: previousIEPGoals.trim() || undefined,
         additionalNotes: additionalNotes.trim() || undefined,
         goalsData,
         recentSessionsSummary,
@@ -285,7 +281,7 @@ export const IEPNotes = () => {
       const note: IEPNote = {
         id: generateId(),
         studentId: selectedStudent.id,
-        previousNote: oldIEPNote.trim(),
+        previousNote: previousIEPNote.trim(),
         generatedNote: generatedNote.trim(),
         dateCreated: new Date().toISOString(),
         dateUpdated: new Date().toISOString(),
@@ -303,9 +299,9 @@ export const IEPNotes = () => {
   };
 
   const handleLoadNote = (note: IEPNote) => {
-    setOldIEPNote(note.previousNote);
+    setPreviousIEPNote(note.previousNote);
     setGeneratedNote(note.generatedNote);
-    setCurrentIEPGoals('');
+    setPreviousIEPGoals('');
     setAdditionalNotes('');
     showSnackbar('Loaded saved note.', 'success');
   };
@@ -337,7 +333,7 @@ export const IEPNotes = () => {
         IEP Communication Notes
       </Typography>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-        Paste current IEP notes, current goals, and any additional notes below. The AI uses the last {SESSIONS_FOR_IEP_NOTES} sessions for this student to generate a current summary (including performance and cuing levels) and suggested goals.
+        Paste the <strong>previous</strong> IEP notes and goals (the old data) below. Add any extra context in Additional notes. The AI uses the last {SESSIONS_FOR_IEP_NOTES} sessions for this student to generate an <strong>updated</strong> present levels of academic achievement and functional performance (reflecting current progress and cuing) and suggested goals. The returned text is new—it does not repeat the previous notes.
       </Typography>
 
       <Card sx={{ mb: 3 }}>
@@ -360,6 +356,11 @@ export const IEPNotes = () => {
                 } else {
                   setStudentInputValue('');
                 }
+                // Clear form and generated content when switching students so UI shows fresh state
+                setPreviousIEPNote('');
+                setPreviousIEPGoals('');
+                setAdditionalNotes('');
+                setGeneratedNote('');
               }}
               renderInput={(params) => (
                 <TextField
@@ -379,24 +380,24 @@ export const IEPNotes = () => {
             />
 
             <TextField
-              label="1. Current IEP Notes"
+              label="1. Previous IEP Notes"
               fullWidth
               multiline
               rows={4}
-              value={oldIEPNote}
-              onChange={(e) => setOldIEPNote(e.target.value)}
-              placeholder="Paste the current IEP Communication/Comments section (the old ones) here."
+              value={previousIEPNote}
+              onChange={(e) => setPreviousIEPNote(e.target.value)}
+              placeholder="Paste the previous IEP Communication/Comments section (present levels) here. This is OLD data—the AI will use it as context and produce updated language."
               helperText="Student-identifying information is stripped before sending to the AI."
             />
 
             <TextField
-              label="2. Current IEP Goals"
+              label="2. Previous IEP Goals"
               fullWidth
               multiline
               rows={4}
-              value={currentIEPGoals}
-              onChange={(e) => setCurrentIEPGoals(e.target.value)}
-              placeholder="Paste the current IEP goals (the old ones) here. The AI will compare these to recent session performance and suggest updated goals."
+              value={previousIEPGoals}
+              onChange={(e) => setPreviousIEPGoals(e.target.value)}
+              placeholder="Paste the previous IEP goals here. The AI will compare these to recent session performance and suggest updated goals."
             />
 
             <TextField
@@ -429,7 +430,7 @@ export const IEPNotes = () => {
         <Card>
           <CardContent>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h6">Suggested Update</Typography>
+              <Typography variant="h6">Updated present levels &amp; suggested goals</Typography>
               <Box sx={{ display: 'flex', gap: 0.5 }}>
                 <Button
                   variant="outlined"
@@ -446,7 +447,7 @@ export const IEPNotes = () => {
               </Box>
             </Box>
             <Alert severity="info" sx={{ mb: 2 }}>
-              This is an AI-generated suggestion. You can edit the text below, then Save or Copy. Saved notes appear in the &quot;Saved notes&quot; list at the bottom of this page for the selected student.{' '}
+              This is AI-generated <strong>updated</strong> language (present levels and suggested goals), based on recent speech sessions—not a copy of the previous notes. You can edit the text below, then Save or Copy. Saved notes appear in the &quot;Saved notes&quot; list at the bottom of this page for the selected student.{' '}
               <Link
                 component="button"
                 variant="body2"

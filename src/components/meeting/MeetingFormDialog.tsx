@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   Box,
   Button,
@@ -11,6 +11,7 @@ import {
   FormControl,
   InputLabel,
   Select,
+  Autocomplete,
 } from '@mui/material';
 import type { Meeting, Student, MeetingActivitySubtype } from '../../types';
 import { toLocalDateTimeString } from '../../utils/helpers';
@@ -49,23 +50,27 @@ export const MeetingFormDialog = ({
     activitySubtype: '' as '' | MeetingActivitySubtype,
   });
   const [saving, setSaving] = useState(false);
+  const [studentInputValue, setStudentInputValue] = useState('');
+  const studentInputRef = useRef('');
 
   useEffect(() => {
     if (editingMeeting) {
       // Convert ISO strings back to local datetime format for datetime-local inputs
       const dateForInput = editingMeeting.date ? toLocalDateTimeString(new Date(editingMeeting.date)) : '';
       const endTimeForInput = editingMeeting.endTime ? toLocalDateTimeString(new Date(editingMeeting.endTime)) : '';
-      
+      const studentId = editingMeeting.studentId || '';
       setFormData({
         school: editingMeeting.school || '',
         title: editingMeeting.title,
         description: editingMeeting.description || '',
         date: dateForInput,
         endTime: endTimeForInput,
-        studentId: editingMeeting.studentId || '',
+        studentId,
         category: editingMeeting.category || '',
         activitySubtype: (editingMeeting.activitySubtype || '') as '' | MeetingActivitySubtype,
       });
+      const student = students.find((s) => s.id === studentId);
+      setStudentInputValue(student?.name ?? '');
     } else {
       // New meeting: use default date (e.g. selected date on Time Tracking) at 8:00 AM local, or now
       const dateForNew = defaultDate
@@ -81,8 +86,9 @@ export const MeetingFormDialog = ({
         category: defaultCategory || '',
         activitySubtype: (defaultCategory === 'IEP' || defaultCategory === '3 year assessment' ? 'meeting' : '') as '' | MeetingActivitySubtype,
       });
+      setStudentInputValue('');
     }
-  }, [editingMeeting, open, selectedSchool, availableSchools, defaultCategory, defaultDate]);
+  }, [editingMeeting, open, selectedSchool, availableSchools, defaultCategory, defaultDate, students]);
 
   const handleSave = async () => {
     if (!formData.title || !formData.date) {
@@ -124,8 +130,44 @@ export const MeetingFormDialog = ({
   };
 
   const studentsInSchool = formData.school
-    ? students.filter(s => s.school === formData.school)
+    ? students.filter((s) => s.school === formData.school)
     : [];
+
+  const studentsInSchoolDeduped = useMemo(() => {
+    const seen = new Set<string>();
+    return studentsInSchool.filter((s) => {
+      if (seen.has(s.id)) return false;
+      seen.add(s.id);
+      return true;
+    });
+  }, [studentsInSchool]);
+
+  const filterStudentOptions = useCallback((options: Student[], inputValue: string) => {
+    if (!inputValue) return options;
+    const searchTerm = inputValue.toLowerCase().trim();
+    const seen = new Set<string>();
+    return options.filter((student) => {
+      if (seen.has(student.id)) return false;
+      const nameMatch = (student.name || '').toLowerCase().includes(searchTerm);
+      const gradeMatch = (student.grade || '').toLowerCase().includes(searchTerm);
+      const concernsMatch = student.concerns?.some((c) => c.toLowerCase().includes(searchTerm)) ?? false;
+      const matches = nameMatch || gradeMatch || concernsMatch;
+      if (matches) seen.add(student.id);
+      return matches;
+    });
+  }, []);
+
+  const handleAutocompleteKeyDown = useCallback(
+    (e: React.KeyboardEvent, filtered: Student[], onSelect: (option: Student) => void) => {
+      if (e.key === 'Tab' || e.key === 'Enter') {
+        if (filtered.length === 1 && !e.shiftKey) {
+          e.preventDefault();
+          onSelect(filtered[0]);
+        }
+      }
+    },
+    []
+  );
 
   const categories = [
     'IEP',
@@ -151,7 +193,10 @@ export const MeetingFormDialog = ({
             <InputLabel>School</InputLabel>
             <Select
               value={formData.school}
-              onChange={(e) => setFormData({ ...formData, school: e.target.value, studentId: '' })}
+              onChange={(e) => {
+                setFormData({ ...formData, school: e.target.value, studentId: '' });
+                setStudentInputValue('');
+              }}
               label="School"
             >
               {availableSchools.map((schoolName) => (
@@ -226,23 +271,44 @@ export const MeetingFormDialog = ({
               <MenuItem value="updates">Updates</MenuItem>
             </TextField>
           )}
-          <TextField
-            label="Student (Optional)"
-            select
-            fullWidth
-            value={formData.studentId}
-            onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
-            margin="normal"
+          <Autocomplete
+            options={studentsInSchoolDeduped}
+            getOptionLabel={(option) => (option ? `${option.name}${option.grade ? ` (${option.grade})` : ''}` : '')}
+            filterOptions={(options, state) => filterStudentOptions(options, state.inputValue)}
+            value={studentsInSchoolDeduped.find((s) => s.id === formData.studentId) ?? null}
+            inputValue={studentInputValue}
+            onInputChange={(_, value) => {
+              setStudentInputValue(value);
+              studentInputRef.current = value;
+            }}
+            onChange={(_, newValue) => {
+              setFormData({ ...formData, studentId: newValue?.id ?? '' });
+              if (newValue) {
+                setStudentInputValue(newValue.name ?? '');
+              } else {
+                setStudentInputValue('');
+                studentInputRef.current = '';
+              }
+            }}
             disabled={!formData.school}
-            helperText={formData.school ? '' : 'Select a school first to choose a student'}
-          >
-            <MenuItem value="">None</MenuItem>
-            {studentsInSchool.map((student) => (
-              <MenuItem key={student.id} value={student.id}>
-                {student.name} {student.grade ? `(${student.grade})` : ''}
-              </MenuItem>
-            ))}
-          </TextField>
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Student (Optional)"
+                margin="normal"
+                InputLabelProps={{ shrink: true }}
+                helperText={formData.school ? '' : 'Select a school first to choose a student'}
+                onKeyDown={(e) => {
+                  const filtered = filterStudentOptions(studentsInSchoolDeduped, studentInputRef.current);
+                  handleAutocompleteKeyDown(e, filtered, (option) => {
+                    setFormData((prev) => ({ ...prev, studentId: option.id }));
+                    setStudentInputValue(option.name ?? '');
+                  });
+                }}
+              />
+            )}
+            isOptionEqualToValue={(option, value) => value != null && option.id === value.id}
+          />
           <TextField
             label="Description"
             fullWidth
