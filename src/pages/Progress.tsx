@@ -24,6 +24,8 @@ import {
   DialogActions,
   IconButton,
   Autocomplete,
+  Link,
+  Alert,
 } from '@mui/material';
 import {
   LineChart,
@@ -41,10 +43,11 @@ import {
   Save as SaveIcon,
   FolderOpen as FolderOpenIcon,
   Delete as DeleteIcon,
-  Edit as EditIcon,
+  ContentCopy as CopyIcon,
+  Visibility as ViewIcon,
 } from '@mui/icons-material';
 import { getStudents, getGoals, getSessions, getCombinedProgressNotes, addCombinedProgressNote, updateCombinedProgressNote, deleteCombinedProgressNote } from '../utils/storage-api';
-import { formatDate, generateId } from '../utils/helpers';
+import { formatDate, generateId, convertMarkupToHtml } from '../utils/helpers';
 import { generateProgressNote, type GoalProgressData } from '../utils/gemini';
 import { useSchool } from '../context/SchoolContext';
 import { useAsyncOperation, useSnackbar, useAIGeneration } from '../hooks';
@@ -96,6 +99,9 @@ export const Progress = () => {
   const [loadingSavedNotes, setLoadingSavedNotes] = useState<boolean>(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [additionalContextForGeneration, setAdditionalContextForGeneration] = useState<string>('');
+  const [formattedDialogOpen, setFormattedDialogOpen] = useState(false);
+  const [formattedDialogContent, setFormattedDialogContent] = useState('');
+  const formattedContentRef = useRef<HTMLDivElement>(null);
   const isMountedRef = useRef(true);
   const [searchParams] = useSearchParams();
 
@@ -538,6 +544,22 @@ export const Progress = () => {
     }
   };
 
+  const handleViewFormatted = (content?: string) => {
+    setFormattedDialogContent(content ?? combinedNote);
+    setFormattedDialogOpen(true);
+  };
+
+  const handleCopyFormatted = async () => {
+    if (!formattedContentRef.current) return;
+    const plain = formattedContentRef.current.innerText || '';
+    try {
+      await navigator.clipboard.writeText(plain);
+      showSnackbar('Formatted version copied to clipboard.', 'success');
+    } catch {
+      showSnackbar('Failed to copy to clipboard.', 'error');
+    }
+  };
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
@@ -854,6 +876,19 @@ export const Progress = () => {
                   sx={{ mb: 2 }}
                 />
 
+                {combinedNote.trim() && (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    View the note with markdown rendered as formatted text.{' '}
+                    <Link
+                      component="button"
+                      variant="body2"
+                      onClick={() => handleViewFormatted()}
+                      sx={{ cursor: 'pointer', fontWeight: 500 }}
+                    >
+                      View formatted version (copy/paste)
+                    </Link>
+                  </Alert>
+                )}
                 <TextField
                   fullWidth
                   multiline
@@ -931,6 +966,13 @@ export const Progress = () => {
                         <Box>
                           <IconButton
                             size="small"
+                            onClick={() => handleViewFormatted(note.content)}
+                            title="View formatted"
+                          >
+                            <ViewIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton
+                            size="small"
                             onClick={() => handleLoadNote(note)}
                             title="Load this note"
                           >
@@ -974,6 +1016,47 @@ export const Progress = () => {
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={formattedDialogOpen} onClose={() => setFormattedDialogOpen(false)} maxWidth="md" fullWidth PaperProps={{ sx: { bgcolor: '#fff' } }}>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', bgcolor: '#fff' }}>
+          <span>Formatted Combined Progress Note</span>
+          <Button variant="contained" size="small" startIcon={<CopyIcon />} onClick={handleCopyFormatted}>
+            Copy formatted
+          </Button>
+        </DialogTitle>
+        <DialogContent sx={{ bgcolor: '#fff' }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            This view converts markdown (##, **bold**, -, etc.) into headings, bullet points, and bold text. Use &quot;Copy formatted&quot; above or below to paste into a progress report or document.
+          </Typography>
+          <Box
+            ref={formattedContentRef}
+            sx={{
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 1,
+              p: 2,
+              bgcolor: '#fff',
+              minHeight: 200,
+              '& h1': { fontSize: '1.25rem', mt: 1, mb: 0.5 },
+              '& h2': { fontSize: '1.1rem', mt: 1.5, mb: 0.5 },
+              '& h3': { fontSize: '1rem', mt: 1, mb: 0.5 },
+              '& ul': { pl: 2, my: 0.5 },
+              '& ol': { pl: 2, my: 0.5 },
+              '& li': { my: 0.25 },
+              '& strong': { fontWeight: 600 },
+              '& p': { my: 0.5 },
+              lineHeight: 1.6,
+            }}
+            dangerouslySetInnerHTML={{ __html: convertMarkupToHtml(formattedDialogContent || '') }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button variant="contained" startIcon={<CopyIcon />} onClick={handleCopyFormatted}>
+            Copy formatted
+          </Button>
+          <Button onClick={() => setFormattedDialogOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
 
       <SnackbarComponent />
     </Box>
