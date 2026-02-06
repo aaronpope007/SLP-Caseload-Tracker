@@ -243,6 +243,9 @@ export const Students = () => {
   };
 
   const handleSave = async () => {
+    // Prevent double-submit (e.g. double-click) which would create duplicate students
+    if (createStudentMutation.isPending || updateStudentMutation.isPending) return;
+
     // Age is optional - only validate if provided
     const ageValue = formData.age.trim() === '' ? undefined : parseInt(formData.age);
     if (ageValue !== undefined && (isNaN(ageValue) || ageValue < 1)) {
@@ -817,13 +820,13 @@ export const Students = () => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
+          <Button onClick={handleCloseDialog} disabled={createStudentMutation.isPending || updateStudentMutation.isPending}>Cancel</Button>
           <Button 
             onClick={handleSave} 
             variant="contained" 
-            disabled={!formData.name}
+            disabled={!formData.name || createStudentMutation.isPending || updateStudentMutation.isPending}
           >
-            Save
+            {createStudentMutation.isPending || updateStudentMutation.isPending ? 'Saving...' : 'Save'}
           </Button>
         </DialogActions>
       </Dialog>
