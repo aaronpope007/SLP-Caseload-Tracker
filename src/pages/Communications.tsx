@@ -365,11 +365,16 @@ export const Communications = () => {
   const filterStudentOptions = useCallback((options: Student[], inputValue: string) => {
     if (!inputValue) return options;
     const searchTerm = inputValue.toLowerCase().trim();
+    // Deduplicate by id so one student never appears twice (fixes selection and display)
+    const seen = new Set<string>();
     return options.filter((student) => {
+      if (seen.has(student.id)) return false;
       const nameMatch = (student.name || '').toLowerCase().includes(searchTerm);
       const gradeMatch = (student.grade || '').toLowerCase().includes(searchTerm);
       const concernsMatch = student.concerns?.some((c) => c.toLowerCase().includes(searchTerm)) || false;
-      return nameMatch || gradeMatch || concernsMatch;
+      const matches = nameMatch || gradeMatch || concernsMatch;
+      if (matches) seen.add(student.id);
+      return matches;
     });
   }, []);
 
@@ -378,6 +383,16 @@ export const Communications = () => {
     () => students.filter((s) => !selectedSchool || s.school === selectedSchool),
     [students, selectedSchool]
   );
+
+  // Deduplicate by id so the same student never appears twice (fixes wrong matches and selection)
+  const studentsForSchoolDeduped = useMemo(() => {
+    const seen = new Set<string>();
+    return studentsForSchool.filter((s) => {
+      if (seen.has(s.id)) return false;
+      seen.add(s.id);
+      return true;
+    });
+  }, [studentsForSchool]);
 
   // Note: We pass full options to Autocomplete and use filterOptions prop for filtering
   // This ensures Material-UI's Autocomplete filtering works correctly
@@ -713,19 +728,19 @@ export const Communications = () => {
             )}
 
             <Autocomplete
-              options={studentsForSchool}
-              getOptionLabel={(option) => option.name}
+              options={studentsForSchoolDeduped}
+              getOptionLabel={(option) => option?.name ?? ''}
               filterOptions={(options, state) => filterStudentOptions(options, state.inputValue)}
-              value={students.find(s => s.id === formData.studentId) || null}
+              value={studentsForSchoolDeduped.find((s) => s.id === formData.studentId) ?? null}
               inputValue={studentInputValue}
-              onInputChange={(_, value, reason) => {
+              onInputChange={(_, value) => {
                 setStudentInputValue(value);
                 studentInputRef.current = value;
               }}
               onChange={(_, newValue) => {
-                setFormData({ ...formData, studentId: newValue?.id || '' });
+                setFormData({ ...formData, studentId: newValue?.id ?? '' });
                 if (newValue) {
-                  setStudentInputValue(newValue.name);
+                  setStudentInputValue(newValue.name ?? '');
                 } else {
                   setStudentInputValue('');
                 }
@@ -738,7 +753,7 @@ export const Communications = () => {
                     shrink: true,
                   }}
                   onKeyDown={(e) => {
-                    const filtered = filterStudentOptions(studentsForSchool, studentInputRef.current);
+                    const filtered = filterStudentOptions(studentsForSchoolDeduped, studentInputRef.current);
                     handleAutocompleteKeyDown(
                       e,
                       filtered,
@@ -749,7 +764,7 @@ export const Communications = () => {
                   }}
                 />
               )}
-              isOptionEqualToValue={(option, value) => option.id === value.id}
+              isOptionEqualToValue={(option, value) => value != null && option.id === value.id}
             />
 
             <FormControl fullWidth>

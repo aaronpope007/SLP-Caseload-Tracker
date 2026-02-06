@@ -20,6 +20,7 @@ import {
   ContentCopy as ContentCopyIcon,
   AccountTree as AccountTreeIcon,
   FlashOn as FlashOnIcon,
+  CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
 import type { Goal } from '../../types';
 import { getPriorityBorderColor } from '../../utils/helpers';
@@ -50,6 +51,7 @@ interface GoalCardProps {
   onEditSubGoal: (goal: Goal) => void;
   onDuplicateSubGoal: (goal: Goal) => void;
   onCopySubtree?: (goal: Goal) => void;
+  onMarkComplete?: (goal: Goal) => void;
   expanded?: boolean;
   onExpandedChange?: (goalId: string, expanded: boolean) => void;
   expandedSubGoals?: Set<string>;
@@ -69,6 +71,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
   onEditSubGoal,
   onDuplicateSubGoal,
   onCopySubtree,
+  onMarkComplete,
   expanded = false,
   onExpandedChange,
   expandedSubGoals = new Set(),
@@ -131,6 +134,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
         onDuplicate={onDuplicateSubGoal}
         onCopySubtree={onCopySubtree}
         onDelete={onDelete}
+        onMarkComplete={onMarkComplete}
         onAddSubGoal={onAddSubGoal}
         onQuickSubGoal={onQuickSubGoal}
         expandedSubGoals={expandedSubGoals}
@@ -166,6 +170,17 @@ export const GoalCard: React.FC<GoalCardProps> = ({
 
   const actionButtons = (
     <Box onClick={(e) => e.stopPropagation()}>
+      {onMarkComplete && goal.status !== 'achieved' && (
+        <Tooltip title="Mark as completed">
+          <IconButton
+            size="small"
+            color="success"
+            onClick={() => onMarkComplete(goal)}
+          >
+            <CheckCircleIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      )}
       <IconButton
         size="small"
         onClick={() => onEdit(goal)}

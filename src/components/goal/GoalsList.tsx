@@ -32,6 +32,7 @@ interface GoalsListProps {
   onEditSubGoal: (goal: Goal) => void;
   onDuplicateSubGoal: (goal: Goal) => void;
   onCopySubtree?: (goal: Goal) => void;
+  onMarkComplete?: (goal: Goal) => void;
 }
 
 export const GoalsList = ({
@@ -45,6 +46,7 @@ export const GoalsList = ({
   onEditSubGoal,
   onDuplicateSubGoal,
   onCopySubtree,
+  onMarkComplete,
 }: GoalsListProps) => {
   // State to track expanded goals and subgoals
   const [expandedGoals, setExpandedGoals] = useState<Set<string>>(new Set());
@@ -235,6 +237,7 @@ export const GoalsList = ({
                     onEditSubGoal={onEditSubGoal}
                     onDuplicateSubGoal={onDuplicateSubGoal}
                     onCopySubtree={onCopySubtree}
+                    onMarkComplete={onMarkComplete}
                     expanded={expandedGoals.has(goal.id)}
                     onExpandedChange={handleGoalExpandedChange}
                     expandedSubGoals={expandedSubGoals}
@@ -271,6 +274,7 @@ export const GoalsList = ({
                     onEditSubGoal={onEditSubGoal}
                     onDuplicateSubGoal={onDuplicateSubGoal}
                     onCopySubtree={onCopySubtree}
+                    onMarkComplete={onMarkComplete}
                     expanded={expandedGoals.has(goal.id)}
                     onExpandedChange={handleGoalExpandedChange}
                     expandedSubGoals={expandedSubGoals}

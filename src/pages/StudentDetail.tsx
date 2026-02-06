@@ -295,6 +295,18 @@ export const StudentDetail = () => {
     openDialog: copySubtreeDialog.openDialog,
   });
 
+  const handleMarkGoalComplete = useCallback(async (goal: Goal) => {
+    try {
+      await updateGoalById(goal.id, {
+        status: 'achieved',
+        dateAchieved: new Date().toISOString().slice(0, 10),
+      });
+      await loadGoals();
+      showSnackbar('Goal marked as completed', 'success');
+    } catch (err) {
+      handleApiError(err, 'Failed to mark goal as completed');
+    }
+  }, [updateGoalById, loadGoals, showSnackbar, handleApiError]);
 
   if (!student) {
     return (
@@ -453,6 +465,7 @@ export const StudentDetail = () => {
           onEditSubGoal={goalDialogHandlers.handleOpenDialog}
           onDuplicateSubGoal={goalDialogHandlers.handleDuplicateSubGoal}
           onCopySubtree={handleCopySubtree}
+          onMarkComplete={handleMarkGoalComplete}
         />
       </Grid>
 

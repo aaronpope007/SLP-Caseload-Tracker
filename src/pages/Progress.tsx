@@ -230,11 +230,15 @@ export const Progress = () => {
   const filterStudentOptions = useCallback((options: Student[], inputValue: string) => {
     if (!inputValue) return options;
     const searchTerm = inputValue.toLowerCase().trim();
+    const seen = new Set<string>();
     return options.filter((student) => {
+      if (seen.has(student.id)) return false;
       const nameMatch = (student.name || '').toLowerCase().includes(searchTerm);
       const gradeMatch = (student.grade || '').toLowerCase().includes(searchTerm);
       const concernsMatch = student.concerns?.some((c) => c.toLowerCase().includes(searchTerm)) || false;
-      return nameMatch || gradeMatch || concernsMatch;
+      const matches = nameMatch || gradeMatch || concernsMatch;
+      if (matches) seen.add(student.id);
+      return matches;
     });
   }, []);
 
@@ -544,14 +548,14 @@ export const Progress = () => {
           size="small"
           sx={{ minWidth: 240 }}
           options={students}
-          getOptionLabel={(option) => option.name}
+          getOptionLabel={(option) => option?.name ?? ''}
           filterOptions={(options, state) => filterStudentOptions(options, state.inputValue)}
           value={selectedStudentId ? students.find((s) => s.id === selectedStudentId) ?? null : null}
           onChange={(_, newValue) => setSelectedStudentId(newValue?.id ?? '')}
           renderInput={(params) => (
             <TextField {...params} label="Select Student" placeholder="Search by name, grade, or concerns" />
           )}
-          isOptionEqualToValue={(option, value) => option.id === value.id}
+          isOptionEqualToValue={(option, value) => value != null && option.id === value.id}
           clearText="Clear"
         />
       </Box>

@@ -26,6 +26,7 @@ interface SubGoalListProps {
   onDuplicate: (goal: Goal) => void;
   onCopySubtree?: (goal: Goal) => void;
   onDelete?: (goalId: string) => void;
+  onMarkComplete?: (goal: Goal) => void;
   onAddSubGoal: (parentGoalId: string) => void;
   onQuickSubGoal?: (parentGoalId: string) => void; // Optional callback for quick subgoal creation
   depth?: number; // Track nesting depth for recursive rendering
@@ -43,6 +44,7 @@ const NestedGoalItem: React.FC<{
   onDuplicate: (goal: Goal) => void;
   onCopySubtree?: (goal: Goal) => void;
   onDelete?: (goalId: string) => void;
+  onMarkComplete?: (goal: Goal) => void;
   onAddSubGoal: (parentGoalId: string) => void;
   onQuickSubGoal?: (parentGoalId: string) => void;
   depth: number;
@@ -59,6 +61,7 @@ const NestedGoalItem: React.FC<{
   onDuplicate,
   onCopySubtree,
   onDelete,
+  onMarkComplete,
   onAddSubGoal,
   onQuickSubGoal,
   depth,
@@ -90,10 +93,12 @@ const NestedGoalItem: React.FC<{
           onDuplicate={() => onDuplicate(goal)}
           onCopySubtree={onCopySubtree ? () => onCopySubtree(goal) : undefined}
           onDelete={onDelete ? () => onDelete(goal.id) : undefined}
+          onMarkComplete={goal.status !== 'achieved' && onMarkComplete ? () => onMarkComplete(goal) : undefined}
           editTitle={`Edit ${depth > 1 ? 'sub-' : ''}goal`}
           duplicateTitle={`Duplicate ${depth > 1 ? 'sub-' : ''}goal`}
           copySubtreeTitle={`Copy ${depth > 1 ? 'sub-' : ''}goal subtree`}
           deleteTitle={`Delete ${depth > 1 ? 'sub-' : ''}goal`}
+          markCompleteTitle="Mark as completed"
         />
       </Box>
       <GoalDateInfo
@@ -112,6 +117,7 @@ const NestedGoalItem: React.FC<{
           onDuplicate={onDuplicate}
           onCopySubtree={onCopySubtree}
           onDelete={onDelete}
+          onMarkComplete={onMarkComplete}
           onAddSubGoal={onAddSubGoal}
           onQuickSubGoal={onQuickSubGoal}
           depth={depth + 1}
@@ -239,6 +245,7 @@ export const SubGoalList: React.FC<SubGoalListProps> = ({
   onDuplicate,
   onCopySubtree,
   onDelete,
+  onMarkComplete,
   onAddSubGoal,
   onQuickSubGoal,
   depth = 0,
@@ -278,6 +285,7 @@ export const SubGoalList: React.FC<SubGoalListProps> = ({
           onDuplicate={onDuplicate}
           onCopySubtree={onCopySubtree}
           onDelete={onDelete}
+          onMarkComplete={onMarkComplete}
           onAddSubGoal={onAddSubGoal}
           onQuickSubGoal={onQuickSubGoal}
           depth={depth}

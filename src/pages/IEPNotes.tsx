@@ -113,14 +113,27 @@ export const IEPNotes = () => {
     [students, selectedSchool]
   );
 
+  const studentsForSchoolDeduped = useMemo(() => {
+    const seen = new Set<string>();
+    return studentsForSchool.filter((s) => {
+      if (seen.has(s.id)) return false;
+      seen.add(s.id);
+      return true;
+    });
+  }, [studentsForSchool]);
+
   const filterStudentOptions = useCallback((options: Student[], inputValue: string) => {
     if (!inputValue) return options;
     const searchTerm = inputValue.toLowerCase().trim();
+    const seen = new Set<string>();
     return options.filter((student) => {
+      if (seen.has(student.id)) return false;
       const nameMatch = (student.name || '').toLowerCase().includes(searchTerm);
       const gradeMatch = (student.grade || '').toLowerCase().includes(searchTerm);
       const concernsMatch = student.concerns?.some((c) => c.toLowerCase().includes(searchTerm)) || false;
-      return nameMatch || gradeMatch || concernsMatch;
+      const matches = nameMatch || gradeMatch || concernsMatch;
+      if (matches) seen.add(student.id);
+      return matches;
     });
   }, []);
 
@@ -331,19 +344,19 @@ export const IEPNotes = () => {
         <CardContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <Autocomplete
-              options={studentsForSchool}
-              getOptionLabel={(option) => `${option.name}${option.grade ? ` (${option.grade})` : ''}`}
+              options={studentsForSchoolDeduped}
+              getOptionLabel={(option) => (option ? `${option.name}${option.grade ? ` (${option.grade})` : ''}` : '')}
               filterOptions={(options, state) => filterStudentOptions(options, state.inputValue)}
-              value={selectedStudent || null}
+              value={studentsForSchoolDeduped.find((s) => s.id === selectedStudentId) ?? null}
               inputValue={studentInputValue}
               onInputChange={(_, value) => {
                 setStudentInputValue(value);
                 studentInputRef.current = value;
               }}
               onChange={(_, newValue) => {
-                setSelectedStudentId(newValue?.id || '');
+                setSelectedStudentId(newValue?.id ?? '');
                 if (newValue) {
-                  setStudentInputValue(newValue.name);
+                  setStudentInputValue(newValue.name ?? '');
                 } else {
                   setStudentInputValue('');
                 }
@@ -354,15 +367,15 @@ export const IEPNotes = () => {
                   label="Select Student"
                   InputLabelProps={{ shrink: true }}
                   onKeyDown={(e) => {
-                    const filtered = filterStudentOptions(studentsForSchool, studentInputRef.current);
+                    const filtered = filterStudentOptions(studentsForSchoolDeduped, studentInputRef.current);
                     handleAutocompleteKeyDown(e, filtered, (option) => {
                       setSelectedStudentId(option.id);
-                      setStudentInputValue(option.name);
+                      setStudentInputValue(option.name ?? '');
                     });
                   }}
                 />
               )}
-              isOptionEqualToValue={(option, value) => option.id === value.id}
+              isOptionEqualToValue={(option, value) => value != null && option.id === value.id}
             />
 
             <TextField

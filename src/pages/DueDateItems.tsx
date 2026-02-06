@@ -504,19 +504,23 @@ export const DueDateItems = () => {
             />
             <Autocomplete
               options={students}
-              getOptionLabel={(option) => `${option.name} (${option.grade})`}
+              getOptionLabel={(option) => (option ? `${option.name} (${option.grade ?? ''})` : '')}
               filterOptions={(options, { inputValue }) => {
                 if (!inputValue) return options;
                 const searchTerm = inputValue.toLowerCase().trim();
+                const seen = new Set<string>();
                 return options.filter((student) => {
+                  if (seen.has(student.id)) return false;
                   const nameMatch = (student.name || '').toLowerCase().includes(searchTerm);
                   const gradeMatch = (student.grade || '').toLowerCase().includes(searchTerm);
-                  return nameMatch || gradeMatch;
+                  const matches = nameMatch || gradeMatch;
+                  if (matches) seen.add(student.id);
+                  return matches;
                 });
               }}
-              value={students.find(s => s.id === formData.studentId) || null}
+              value={students.find((s) => s.id === formData.studentId) ?? null}
               onChange={(_, newValue) => {
-                setFormData({ ...formData, studentId: newValue?.id || '' });
+                setFormData({ ...formData, studentId: newValue?.id ?? '' });
               }}
               renderInput={(params) => (
                 <TextField
@@ -527,7 +531,7 @@ export const DueDateItems = () => {
                   }}
                 />
               )}
-              isOptionEqualToValue={(option, value) => option.id === value.id}
+              isOptionEqualToValue={(option, value) => value != null && option.id === value.id}
             />
             <FormControl fullWidth>
               <InputLabel>Category (Optional)</InputLabel>

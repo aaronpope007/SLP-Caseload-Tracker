@@ -87,11 +87,15 @@ export const Sessions = () => {
   const filterStudentOptions = useCallback((options: Student[], inputValue: string) => {
     if (!inputValue) return options;
     const searchTerm = inputValue.toLowerCase().trim();
+    const seen = new Set<string>();
     return options.filter((student) => {
+      if (seen.has(student.id)) return false;
       const nameMatch = (student.name || '').toLowerCase().includes(searchTerm);
       const gradeMatch = (student.grade || '').toLowerCase().includes(searchTerm);
       const concernsMatch = student.concerns?.some((c) => c.toLowerCase().includes(searchTerm)) || false;
-      return nameMatch || gradeMatch || concernsMatch;
+      const matches = nameMatch || gradeMatch || concernsMatch;
+      if (matches) seen.add(student.id);
+      return matches;
     });
   }, []);
 
@@ -99,6 +103,15 @@ export const Sessions = () => {
     () => students.filter((s) => !selectedSchool || s.school === selectedSchool),
     [students, selectedSchool]
   );
+
+  const studentsForSchoolDeduped = useMemo(() => {
+    const seen = new Set<string>();
+    return studentsForSchool.filter((s) => {
+      if (seen.has(s.id)) return false;
+      seen.add(s.id);
+      return true;
+    });
+  }, [studentsForSchool]);
 
   // Filter sessions by selected student; include full group sessions when any member matches
   const filteredSessions = useMemo(() => {
@@ -333,15 +346,15 @@ export const Sessions = () => {
         <Autocomplete
           size="small"
           sx={{ minWidth: 240 }}
-          options={studentsForSchool}
-          getOptionLabel={(option) => option.name}
+          options={studentsForSchoolDeduped}
+          getOptionLabel={(option) => option?.name ?? ''}
           filterOptions={(options, state) => filterStudentOptions(options, state.inputValue)}
-          value={studentFilterId ? studentsForSchool.find((s) => s.id === studentFilterId) ?? null : null}
+          value={studentFilterId ? studentsForSchoolDeduped.find((s) => s.id === studentFilterId) ?? null : null}
           onChange={(_, newValue) => setStudentFilterId(newValue?.id ?? '')}
           renderInput={(params) => (
             <TextField {...params} label="Filter by student" placeholder="Search by name, grade, or concerns" />
           )}
-          isOptionEqualToValue={(option, value) => option.id === value.id}
+          isOptionEqualToValue={(option, value) => value != null && option.id === value.id}
           clearText="Clear"
         />
       </Stack>
