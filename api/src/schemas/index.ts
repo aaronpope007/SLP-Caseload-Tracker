@@ -375,6 +375,8 @@ export const updateDueDateItemSchema = dueDateItemSchema.partial();
 // Meeting Schema
 // ============================================================================
 
+export const meetingActivitySubtypeSchema = z.enum(['meeting', 'updates']);
+
 export const meetingSchema = z.object({
   id: idString.optional(),
   title: nonEmptyString.pipe(z.string().max(200)),
@@ -384,6 +386,7 @@ export const meetingSchema = z.object({
   school: nonEmptyString,
   studentId: optionalString,
   category: optionalString,
+  activitySubtype: z.enum(['meeting', 'updates']).optional(),
 });
 
 export const createMeetingSchema = meetingSchema.omit({ id: true });

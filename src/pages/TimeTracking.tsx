@@ -14,6 +14,8 @@ import {
   getScheduledSessions,
   getArticulationScreeners,
   getMeetings,
+  createMeeting,
+  updateMeeting,
 } from '../utils/storage-api';
 import { api } from '../utils/api';
 import { formatDate, generateId } from '../utils/helpers';
@@ -22,9 +24,11 @@ import { getSchoolByName } from '../utils/storage-api';
 import { SessionTimeItem } from '../components/session/SessionTimeItem';
 import { EvaluationTimeItem } from '../components/EvaluationTimeItem';
 import { ArticulationScreenerTimeItem } from '../components/ArticulationScreenerTimeItem';
+import { MeetingTimeItem } from '../components/meeting/MeetingTimeItem';
 import { TimesheetNoteDialog } from '../components/TimesheetNoteDialog';
 import { SavedNotesDialog } from '../components/SavedNotesDialog';
 import { TimeTrackingFilter } from '../components/TimeTrackingFilter';
+import { MeetingFormDialog } from '../components/meeting/MeetingFormDialog';
 import { generateTimesheetNote, generateProspectiveTimesheetNote } from '../utils/timesheetNoteGenerator';
 import { useConfirm, useSnackbar, useDialog } from '../hooks';
 import type { TimesheetNote } from '../types';
@@ -32,9 +36,9 @@ import { migrateTimesheetNotes } from '../utils/migrateTimesheetNotes';
 
 interface TimeTrackingItem {
   id: string;
-  type: 'session' | 'evaluation' | 'screener';
+  type: 'session' | 'evaluation' | 'screener' | 'meeting';
   date: string;
-  data: Session | Evaluation | ArticulationScreener;
+  data: Session | Evaluation | ArticulationScreener | Meeting;
 }
 
 // Storage functions for timesheet notes (now using API)
@@ -61,6 +65,9 @@ export const TimeTracking = () => {
   const { showSnackbar, SnackbarComponent } = useSnackbar();
   const timesheetDialog = useDialog();
   const savedNotesDialog = useDialog();
+  const meetingDialog = useDialog();
+  const [editingMeeting, setEditingMeeting] = useState<Meeting | null>(null);
+  const [meetingDefaultCategory, setMeetingDefaultCategory] = useState<'IEP' | '3 year assessment' | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [screeners, setScreeners] = useState<ArticulationScreener[]>([]);
@@ -241,6 +248,17 @@ export const TimeTracking = () => {
         data: screener,
       });
     });
+
+    // Add meetings (filter by selected school)
+    meetings.forEach(meeting => {
+      if (meeting.school !== selectedSchool) return;
+      items.push({
+        id: meeting.id,
+        type: 'meeting' as const,
+        date: meeting.date,
+        data: meeting,
+      });
+    });
     
     // Sort all items by date/time chronologically (most recent first)
     // This ensures group sessions, individual sessions, and evaluations are all intermingled correctly
@@ -255,7 +273,7 @@ export const TimeTracking = () => {
     });
     
     return sorted;
-  }, [sessions, evaluations, screeners, students, selectedSchool]);
+  }, [sessions, evaluations, screeners, meetings, students, selectedSchool]);
 
   // Get calendar date (YYYY-MM-DD) for filtering. Use LOCAL date so that an event at 6pm Jan 29
   // (stored as 2026-01-30T02:00:00.000Z) shows on 1/29 only, and the 9:15 am Jan 30 event shows on 1/30 only.
@@ -418,6 +436,41 @@ export const TimeTracking = () => {
     timesheetDialog.openDialog();
   };
 
+  const handleAddIEPActivity = () => {
+    setEditingMeeting(null);
+    setMeetingDefaultCategory('IEP');
+    meetingDialog.openDialog();
+  };
+
+  const handleAdd3YearReassessment = () => {
+    setEditingMeeting(null);
+    setMeetingDefaultCategory('3 year assessment');
+    meetingDialog.openDialog();
+  };
+
+  const handleCloseMeetingDialog = () => {
+    meetingDialog.closeDialog();
+    setEditingMeeting(null);
+    setMeetingDefaultCategory(null);
+  };
+
+  const handleSaveMeeting = async (meeting: Omit<Meeting, 'id' | 'dateCreated' | 'dateUpdated'>) => {
+    try {
+      if (editingMeeting) {
+        await updateMeeting(editingMeeting.id, meeting);
+        showSnackbar('Meeting updated', 'success');
+      } else {
+        await createMeeting(meeting);
+        showSnackbar('Activity added', 'success');
+      }
+      await loadData();
+      handleCloseMeetingDialog();
+    } catch (error) {
+      logError('Failed to save meeting', error);
+      showSnackbar('Failed to save. Please try again.', 'error');
+    }
+  };
+
   const handleDeleteNote = (id: string) => {
     confirm({
       title: 'Delete Saved Note',
@@ -453,6 +506,8 @@ export const TimeTracking = () => {
         onGenerateTimesheet={handleGenerateTimesheetNote}
         onGenerateProspectiveNote={handleGenerateProspectiveNote}
         onOpenSavedNotes={() => savedNotesDialog.openDialog()}
+        onAddIEPActivity={handleAddIEPActivity}
+        onAdd3YearReassessment={handleAdd3YearReassessment}
         hasItems={filteredItems.length > 0}
         useSpecificTimes={useSpecificTimes}
         onUseSpecificTimesChange={setUseSpecificTimes}
@@ -499,6 +554,14 @@ export const TimeTracking = () => {
                   getStudentName={getStudentName}
                 />
               );
+            } else if (item.type === 'meeting') {
+              return (
+                <MeetingTimeItem
+                  key={item.id}
+                  meeting={item.data as Meeting}
+                  getStudentName={getStudentName}
+                />
+              );
             } else {
               return null;
             }
@@ -520,6 +583,16 @@ export const TimeTracking = () => {
         onClose={savedNotesDialog.closeDialog}
         onLoadNote={handleLoadNote}
         onDeleteNote={handleDeleteNote}
+      />
+
+      <MeetingFormDialog
+        open={meetingDialog.open}
+        editingMeeting={editingMeeting}
+        onClose={handleCloseMeetingDialog}
+        onSave={handleSaveMeeting}
+        students={students}
+        defaultCategory={editingMeeting ? undefined : meetingDefaultCategory ?? undefined}
+        defaultDate={selectedDate || undefined}
       />
 
       <ConfirmDialog />

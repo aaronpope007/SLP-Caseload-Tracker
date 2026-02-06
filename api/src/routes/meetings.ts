@@ -14,6 +14,7 @@ interface MeetingRow {
   school: string;
   studentId: string | null;
   category: string | null;
+  activitySubtype: string | null;
   dateCreated: string;
   dateUpdated: string;
 }
@@ -93,8 +94,8 @@ meetingsRouter.post('/', validateBody(createMeetingSchema), asyncHandler(async (
   db.prepare(`
     INSERT INTO meetings (
       id, title, description, date, endTime, school, studentId,
-      category, dateCreated, dateUpdated
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      category, activitySubtype, dateCreated, dateUpdated
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     meetingId,
     meeting.title,
@@ -104,6 +105,7 @@ meetingsRouter.post('/', validateBody(createMeetingSchema), asyncHandler(async (
     meeting.school,
     meeting.studentId || null,
     meeting.category || null,
+    meeting.activitySubtype || null,
     now,
     now
   );
@@ -130,7 +132,7 @@ meetingsRouter.put('/:id', validateBody(updateMeetingSchema), asyncHandler(async
   db.prepare(`
     UPDATE meetings 
     SET title = ?, description = ?, date = ?, endTime = ?, school = ?,
-        studentId = ?, category = ?, dateUpdated = ?
+        studentId = ?, category = ?, activitySubtype = ?, dateUpdated = ?
     WHERE id = ?
   `).run(
     meeting.title,
@@ -140,6 +142,7 @@ meetingsRouter.put('/:id', validateBody(updateMeetingSchema), asyncHandler(async
     meeting.school,
     meeting.studentId || null,
     meeting.category || null,
+    meeting.activitySubtype || null,
     meeting.dateUpdated,
     id
   );

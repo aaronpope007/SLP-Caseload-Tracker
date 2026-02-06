@@ -257,7 +257,47 @@ export const generateTimesheetNote = ({
       emailCorrespondenceStudentIds.add(comm.studentId);
     }
   });
-  
+
+  // IEP activity: split by meeting vs updates (from meeting activitySubtype; comms → updates)
+  const iepMeetings = meetings.filter(m => m.category === 'IEP');
+  const iepMeetingStudentIds = new Set<string>();
+  const iepUpdatesStudentIds = new Set<string>();
+  let iepMeetingWithoutStudent = false;
+  let iepUpdatesWithoutStudent = false;
+  iepMeetings.forEach(m => {
+    const subtype = m.activitySubtype ?? 'meeting'; // backward compat: missing → meeting
+    if (m.studentId) {
+      if (subtype === 'updates') iepUpdatesStudentIds.add(m.studentId);
+      else iepMeetingStudentIds.add(m.studentId);
+    } else {
+      if (subtype === 'updates') iepUpdatesWithoutStudent = true;
+      else iepMeetingWithoutStudent = true;
+    }
+  });
+  communications.forEach(comm => {
+    if (comm.studentId && comm.relatedTo) {
+      const relatedToLower = comm.relatedTo.toLowerCase();
+      if (relatedToLower.includes('iep')) iepUpdatesStudentIds.add(comm.studentId);
+    }
+  });
+
+  // 3 Year Reassessment: split by meeting vs updates (from meeting activitySubtype)
+  const threeYearReassessmentMeetings = meetings.filter(m => m.category === '3 year assessment');
+  const threeYearMeetingStudentIds = new Set<string>();
+  const threeYearUpdatesStudentIds = new Set<string>();
+  let threeYearMeetingWithoutStudent = false;
+  let threeYearUpdatesWithoutStudent = false;
+  threeYearReassessmentMeetings.forEach(m => {
+    const subtype = m.activitySubtype ?? 'meeting';
+    if (m.studentId) {
+      if (subtype === 'updates') threeYearUpdatesStudentIds.add(m.studentId);
+      else threeYearMeetingStudentIds.add(m.studentId);
+    } else {
+      if (subtype === 'updates') threeYearUpdatesWithoutStudent = true;
+      else threeYearMeetingWithoutStudent = true;
+    }
+  });
+
   // Lesson Planning: All students from all sessions (missed and attended)
   // Per SSG rules: Lesson planning includes all students, including those with missed sessions
   const lessonPlanningStudentIds = new Set<string>();
@@ -284,6 +324,14 @@ export const generateTimesheetNote = ({
   const documentationEntries = buildStudentEntries(documentationStudentIds);
   const emailCorrespondenceEntries = buildStudentEntries(emailCorrespondenceStudentIds);
   const lessonPlanningEntries = buildStudentEntries(lessonPlanningStudentIds);
+  const iepMeetingEntries = buildStudentEntries(iepMeetingStudentIds);
+  const iepUpdatesEntries = buildStudentEntries(iepUpdatesStudentIds);
+  const hasIEPMeeting = iepMeetingEntries.length > 0 || iepMeetingWithoutStudent;
+  const hasIEPUpdates = iepUpdatesEntries.length > 0 || iepUpdatesWithoutStudent;
+  const threeYearMeetingEntries = buildStudentEntries(threeYearMeetingStudentIds);
+  const threeYearUpdatesEntries = buildStudentEntries(threeYearUpdatesStudentIds);
+  const hasThreeYearMeeting = threeYearMeetingEntries.length > 0 || threeYearMeetingWithoutStudent;
+  const hasThreeYearUpdates = threeYearUpdatesEntries.length > 0 || threeYearUpdatesWithoutStudent;
 
   // Build indirect services section with sub-sections
   const indirectServiceLabel = isTeletherapy ? 'Offsite Indirect Services Including:' : 'Indirect services including:';
@@ -312,6 +360,34 @@ export const generateTimesheetNote = ({
   if (speechScreeningDocEntries.length > 0) {
     noteParts.push('Speech Screening Write-Up and Staff Collaboration:');
     noteParts.push(speechScreeningDocEntries.join(', '));
+  }
+
+  // IEP meeting: / IEP updates:
+  if (hasIEPMeeting) {
+    noteParts.push('IEP meeting:');
+    const lineParts: string[] = [...iepMeetingEntries];
+    if (iepMeetingWithoutStudent) lineParts.push('IEP meeting');
+    noteParts.push(lineParts.join(', '));
+  }
+  if (hasIEPUpdates) {
+    noteParts.push('IEP updates:');
+    const lineParts: string[] = [...iepUpdatesEntries];
+    if (iepUpdatesWithoutStudent) lineParts.push('IEP updates');
+    noteParts.push(lineParts.join(', '));
+  }
+
+  // 3 year reassessment meeting: / 3 year reassessment updates:
+  if (hasThreeYearMeeting) {
+    noteParts.push('3 year reassessment meeting:');
+    const lineParts: string[] = [...threeYearMeetingEntries];
+    if (threeYearMeetingWithoutStudent) lineParts.push('3 year reassessment meeting');
+    noteParts.push(lineParts.join(', '));
+  }
+  if (hasThreeYearUpdates) {
+    noteParts.push('3 year reassessment updates:');
+    const lineParts: string[] = [...threeYearUpdatesEntries];
+    if (threeYearUpdatesWithoutStudent) lineParts.push('3 year reassessment updates');
+    noteParts.push(lineParts.join(', '));
   }
 
   noteParts.push(''); // Empty line after service

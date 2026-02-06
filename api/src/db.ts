@@ -642,6 +642,17 @@ export function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_meetings_studentId ON meetings(studentId);
   `);
 
+  // Add activitySubtype to meetings if missing (for IEP / 3 year assessment: meeting vs updates)
+  try {
+    const meetingTableInfo = db.prepare('PRAGMA table_info(meetings)').all() as Array<{ name: string }>;
+    const meetingColumnNames = meetingTableInfo.map(col => col.name);
+    if (!meetingColumnNames.includes('activitySubtype')) {
+      db.exec(`ALTER TABLE meetings ADD COLUMN activitySubtype TEXT`);
+    }
+  } catch (e: any) {
+    console.warn('Could not add activitySubtype column to meetings:', e.message);
+  }
+
   // Drop lunches table if it exists (removed feature)
   try {
     // Check if lunches table exists

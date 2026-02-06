@@ -11,6 +11,8 @@ import {
   Description as DescriptionIcon,
   Folder as FolderIcon,
   Event as EventIcon,
+  Assignment as AssignmentIcon,
+  Assessment as AssessmentIcon,
 } from '@mui/icons-material';
 
 interface TimeTrackingFilterProps {
@@ -19,6 +21,8 @@ interface TimeTrackingFilterProps {
   onGenerateTimesheet: () => void;
   onGenerateProspectiveNote: () => void;
   onOpenSavedNotes: () => void;
+  onAddIEPActivity?: () => void;
+  onAdd3YearReassessment?: () => void;
   hasItems: boolean;
   useSpecificTimes: boolean;
   onUseSpecificTimesChange: (value: boolean) => void;
@@ -30,6 +34,8 @@ export const TimeTrackingFilter = ({
   onGenerateTimesheet,
   onGenerateProspectiveNote,
   onOpenSavedNotes,
+  onAddIEPActivity,
+  onAdd3YearReassessment,
   hasItems,
   useSpecificTimes,
   onUseSpecificTimesChange,
@@ -49,6 +55,30 @@ export const TimeTrackingFilter = ({
         </Grid>
         <Grid item xs={12} sm={6} md={4}>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {onAddIEPActivity && (
+              <Button
+                variant="outlined"
+                color="secondary"
+                startIcon={<AssignmentIcon />}
+                onClick={onAddIEPActivity}
+                disabled={!selectedDate}
+                sx={{ minWidth: 'fit-content' }}
+              >
+                Add IEP activity
+              </Button>
+            )}
+            {onAdd3YearReassessment && (
+              <Button
+                variant="outlined"
+                color="secondary"
+                startIcon={<AssessmentIcon />}
+                onClick={onAdd3YearReassessment}
+                disabled={!selectedDate}
+                sx={{ minWidth: 'fit-content' }}
+              >
+                Add 3 year reassessment
+              </Button>
+            )}
             <Button
               variant="contained"
               startIcon={<DescriptionIcon />}

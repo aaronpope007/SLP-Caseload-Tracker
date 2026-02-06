@@ -12,7 +12,7 @@ import {
   InputLabel,
   Select,
 } from '@mui/material';
-import type { Meeting, Student } from '../../types';
+import type { Meeting, Student, MeetingActivitySubtype } from '../../types';
 import { toLocalDateTimeString } from '../../utils/helpers';
 import { useSchool } from '../../context/SchoolContext';
 
@@ -22,6 +22,10 @@ interface MeetingFormDialogProps {
   onClose: () => void;
   onSave: (meeting: Omit<Meeting, 'id' | 'dateCreated' | 'dateUpdated'>) => Promise<void>;
   students?: Student[];
+  /** When adding a new meeting, pre-fill category (e.g. "IEP") */
+  defaultCategory?: string;
+  /** When adding a new meeting, pre-fill date as YYYY-MM-DD (time will be 8:00 AM local) */
+  defaultDate?: string;
 }
 
 export const MeetingFormDialog = ({
@@ -30,6 +34,8 @@ export const MeetingFormDialog = ({
   onClose,
   onSave,
   students = [],
+  defaultCategory,
+  defaultDate,
 }: MeetingFormDialogProps) => {
   const { selectedSchool, availableSchools } = useSchool();
   const [formData, setFormData] = useState({
@@ -40,6 +46,7 @@ export const MeetingFormDialog = ({
     endTime: '',
     studentId: '',
     category: '',
+    activitySubtype: '' as '' | MeetingActivitySubtype,
   });
   const [saving, setSaving] = useState(false);
 
@@ -57,19 +64,25 @@ export const MeetingFormDialog = ({
         endTime: endTimeForInput,
         studentId: editingMeeting.studentId || '',
         category: editingMeeting.category || '',
+        activitySubtype: (editingMeeting.activitySubtype || '') as '' | MeetingActivitySubtype,
       });
     } else {
+      // New meeting: use default date (e.g. selected date on Time Tracking) at 8:00 AM local, or now
+      const dateForNew = defaultDate
+        ? `${defaultDate}T08:00`
+        : toLocalDateTimeString(new Date()).slice(0, 16);
       setFormData({
         school: selectedSchool || (availableSchools[0] ?? ''),
         title: '',
         description: '',
-        date: toLocalDateTimeString(new Date()),
+        date: dateForNew,
         endTime: '',
         studentId: '',
-        category: '',
+        category: defaultCategory || '',
+        activitySubtype: (defaultCategory === 'IEP' || defaultCategory === '3 year assessment' ? 'meeting' : '') as '' | MeetingActivitySubtype,
       });
     }
-  }, [editingMeeting, open, selectedSchool, availableSchools]);
+  }, [editingMeeting, open, selectedSchool, availableSchools, defaultCategory, defaultDate]);
 
   const handleSave = async () => {
     if (!formData.title || !formData.date) {
@@ -97,6 +110,9 @@ export const MeetingFormDialog = ({
         school: formData.school,
         studentId: formData.studentId || undefined,
         category: formData.category || undefined,
+        activitySubtype: (formData.category === 'IEP' || formData.category === '3 year assessment')
+          ? (formData.activitySubtype || undefined) as MeetingActivitySubtype | undefined
+          : undefined,
       });
       onClose();
     } catch (error) {
@@ -182,7 +198,11 @@ export const MeetingFormDialog = ({
             select
             fullWidth
             value={formData.category}
-            onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+            onChange={(e) => setFormData({
+              ...formData,
+              category: e.target.value,
+              activitySubtype: (e.target.value === 'IEP' || e.target.value === '3 year assessment') ? formData.activitySubtype || 'meeting' : '',
+            })}
             margin="normal"
           >
             <MenuItem value="">None</MenuItem>
@@ -192,6 +212,20 @@ export const MeetingFormDialog = ({
               </MenuItem>
             ))}
           </TextField>
+          {(formData.category === 'IEP' || formData.category === '3 year assessment') && (
+            <TextField
+              label="Activity type"
+              select
+              fullWidth
+              value={formData.activitySubtype || 'meeting'}
+              onChange={(e) => setFormData({ ...formData, activitySubtype: e.target.value as MeetingActivitySubtype })}
+              margin="normal"
+              helperText={formData.category === 'IEP' ? 'Shows on timesheet as "IEP activity, meeting:" or "IEP activity, updates:"' : 'Shows on timesheet as "3 Year Reassessment Planning, meeting:" or "updates:"'}
+            >
+              <MenuItem value="meeting">Meeting</MenuItem>
+              <MenuItem value="updates">Updates</MenuItem>
+            </TextField>
+          )}
           <TextField
             label="Student (Optional)"
             select

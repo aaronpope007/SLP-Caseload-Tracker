@@ -336,6 +336,9 @@ export interface Todo {
   completedDate?: string; // ISO string - when completed
 }
 
+/** For IEP and 3 year assessment: whether this is a meeting or updates/documentation */
+export type MeetingActivitySubtype = 'meeting' | 'updates';
+
 export interface Meeting {
   id: string;
   title: string;
@@ -345,6 +348,8 @@ export interface Meeting {
   school: string; // School name the meeting is for
   studentId?: string; // Optional - link to student if meeting is student-specific
   category?: string; // e.g., "IEP", "Staff Meeting", "Team Meeting", "Other"
+  /** For IEP and 3 year assessment: "meeting" or "updates" - drives timesheet line (e.g. "IEP activity, meeting:" vs "IEP activity, updates:") */
+  activitySubtype?: MeetingActivitySubtype;
   dateCreated: string;
   dateUpdated: string;
 }
