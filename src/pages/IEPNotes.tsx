@@ -463,14 +463,14 @@ export const IEPNotes = () => {
         </Card>
       )}
 
-      <Dialog open={formattedDialogOpen} onClose={() => setFormattedDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+      <Dialog open={formattedDialogOpen} onClose={() => setFormattedDialogOpen(false)} maxWidth="md" fullWidth PaperProps={{ sx: { bgcolor: '#fff' } }}>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', bgcolor: '#fff' }}>
           <span>Formatted version (copy/paste)</span>
           <Button variant="contained" size="small" startIcon={<CopyIcon />} onClick={handleCopyFormatted}>
             Copy formatted
           </Button>
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ bgcolor: '#fff' }}>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             This view converts markdown (##, **bold**, -, etc.) into headings, bullet points, and bold text. Use &quot;Copy formatted&quot; above or below to paste into an IEP or document.
           </Typography>
@@ -481,7 +481,7 @@ export const IEPNotes = () => {
               borderColor: 'divider',
               borderRadius: 1,
               p: 2,
-              bgcolor: 'action.hover',
+              bgcolor: '#fff',
               minHeight: 200,
               '& h1': { fontSize: '1.25rem', mt: 1, mb: 0.5 },
               '& h2': { fontSize: '1.1rem', mt: 1.5, mb: 0.5 },
