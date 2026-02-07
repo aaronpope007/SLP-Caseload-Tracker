@@ -148,7 +148,8 @@ export const Evaluations = () => {
     if (!isMountedRef.current) return;
     setScreeners(schoolScreeners);
     
-    const schoolProgressReports = await getProgressReports(undefined, selectedSchool);
+    const schoolFilter = selectedSchool?.trim() || undefined;
+    const schoolProgressReports = await getProgressReports(undefined, schoolFilter);
     if (!isMountedRef.current) return;
     setProgressReports(schoolProgressReports);
     
@@ -1343,25 +1344,43 @@ export const Evaluations = () => {
 
       {activeTab === 2 && (
         <Box sx={{ height: 'calc(100vh - 200px)', width: '100%' }}>
-          <DataGrid
-            rows={progressReportRows}
-            columns={progressReportColumns}
-            pageSizeOptions={[10, 25, 50, 100]}
-            initialState={{
-              pagination: {
-                paginationModel: { pageSize: 25 },
-              },
-            }}
-            disableRowSelectionOnClick
-            sx={{
-              '& .MuiDataGrid-cell:focus': {
-                outline: 'none',
-              },
-              '& .MuiDataGrid-cell:focus-within': {
-                outline: 'none',
-              },
-            }}
-          />
+          {progressReportRows.length === 0 ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 2, p: 4 }}>
+              <Typography variant="h6" color="text.secondary">
+                No progress reports yet
+              </Typography>
+              <Typography variant="body2" color="text.secondary" textAlign="center">
+                Progress reports for {selectedSchool || 'your school'} will appear here. Schedule or create them from the Progress Reports page.
+              </Typography>
+              <Button
+                variant="contained"
+                startIcon={<VisibilityIcon />}
+                onClick={() => navigate('/progress-reports')}
+              >
+                Go to Progress Reports
+              </Button>
+            </Box>
+          ) : (
+            <DataGrid
+              rows={progressReportRows}
+              columns={progressReportColumns}
+              pageSizeOptions={[10, 25, 50, 100]}
+              initialState={{
+                pagination: {
+                  paginationModel: { pageSize: 25 },
+                },
+              }}
+              disableRowSelectionOnClick
+              sx={{
+                '& .MuiDataGrid-cell:focus': {
+                  outline: 'none',
+                },
+                '& .MuiDataGrid-cell:focus-within': {
+                  outline: 'none',
+                },
+              }}
+            />
+          )}
         </Box>
       )}
 

@@ -35,6 +35,7 @@ progressReportsRouter.use((_req, _res, next) => {
 // Get all progress reports (filterable by studentId, school, status, date range)
 progressReportsRouter.get('/', asyncHandler(async (req, res) => {
   const { studentId, school, status, startDate, endDate } = req.query;
+  const schoolFilter = typeof school === 'string' ? school.trim() : '';
   
   let query = `
     SELECT pr.* FROM progress_reports pr
@@ -47,10 +48,10 @@ progressReportsRouter.get('/', asyncHandler(async (req, res) => {
     params.push(studentId as string);
   }
 
-  if (school) {
+  if (schoolFilter) {
     query += ' INNER JOIN students s ON pr.studentId = s.id';
     conditions.push('s.school = ?');
-    params.push(school as string);
+    params.push(schoolFilter);
   }
 
   if (status) {
@@ -88,6 +89,7 @@ progressReportsRouter.get('/', asyncHandler(async (req, res) => {
 // Get upcoming/overdue reports
 progressReportsRouter.get('/upcoming', asyncHandler(async (req, res) => {
   const { days = '30', school } = req.query;
+  const schoolFilter = typeof school === 'string' ? school.trim() : '';
   const daysNum = parseInt(days as string, 10);
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() + daysNum);
@@ -100,13 +102,13 @@ progressReportsRouter.get('/upcoming', asyncHandler(async (req, res) => {
   `;
   const params: string[] = [cutoffDateStr, todayStr];
 
-  if (school) {
+  if (schoolFilter) {
     query = `
       SELECT pr.* FROM progress_reports pr
       INNER JOIN students s ON pr.studentId = s.id
       WHERE pr.status != 'completed' AND pr.dueDate <= ? AND pr.dueDate >= ? AND s.school = ?
     `;
-    params.push(school as string);
+    params.push(schoolFilter);
   }
 
   query += ' ORDER BY pr.dueDate ASC';
