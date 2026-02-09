@@ -24,6 +24,8 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  Switch,
+  FormControlLabel,
 } from '@mui/material';
 import {
   ChevronLeft,
@@ -108,6 +110,7 @@ export const SessionCalendar = () => {
   const { confirm, ConfirmDialog } = useConfirm();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('month');
+  const [showInitials, setShowInitials] = useState(false);
   const [scheduledSessions, setScheduledSessions] = useState<ScheduledSession[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -229,6 +232,43 @@ export const SessionCalendar = () => {
   const getSchoolForStudentIds = (studentIds: string[]): string | undefined => {
     if (!studentIds.length) return undefined;
     return students.find(s => s.id === studentIds[0])?.school;
+  };
+
+  // Helper to get school initials (e.g. "Lincoln Elementary" -> "LE") for PHI-safe sharing
+  const getSchoolInitials = (schoolName: string): string => {
+    const trimmed = schoolName.trim();
+    if (!trimmed) return '';
+    return trimmed.split(/\s+/).map(w => w[0] || '').join('').toUpperCase();
+  };
+
+  // Helper to get student initials (e.g. "John Smith" -> "JS") for PHI-safe sharing
+  const getStudentInitials = (studentId: string): string => {
+    const student = students.find(s => s.id === studentId);
+    if (!student) return '?';
+    const name = student.name.trim();
+    if (!name) return '?';
+    const parts = name.split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.length >= 2 ? name.slice(0, 2).toUpperCase() : name[0].toUpperCase();
+  };
+
+  // Display title for calendar events: full names or initials based on showInitials (for PHI-safe sharing)
+  const getEventDisplayTitle = (event: CalendarEvent): string => {
+    if (!showInitials) return event.title;
+    const timePart = event.endTime ? `${event.startTime}-${event.endTime}` : event.startTime;
+    if (event.isMeeting) {
+      const meeting = event.meetingId ? meetings.find(m => m.id === event.meetingId) : undefined;
+      const schoolInitials = meeting?.school ? getSchoolInitials(meeting.school) : '';
+      const label = meeting?.activitySubtype === 'assessment' ? 'Assessment' : '-scheduled meeting-';
+      return schoolInitials ? `${timePart} ${label} — ${schoolInitials}` : `${timePart} ${label}`;
+    }
+    const namesPart = event.studentIds.map(id => getStudentInitials(id)).join(', ');
+    const schoolName = getSchoolForStudentIds(event.studentIds);
+    const schoolSuffix = schoolName ? getSchoolInitials(schoolName) : '';
+    const timeAndNames = event.endTime ? `${event.startTime}-${event.endTime} ${namesPart}` : `${event.startTime} ${namesPart}`;
+    return schoolSuffix ? `${timeAndNames} — ${schoolSuffix}` : timeAndNames;
   };
 
   // Helper function to parse date string (handles both ISO strings and yyyy-MM-dd format)
@@ -1828,7 +1868,7 @@ export const SessionCalendar = () => {
 
     confirm({
       title: 'Delete Meeting',
-      message: `Are you sure you want to delete "${event.title}"?`,
+      message: `Are you sure you want to delete "${getEventDisplayTitle(event)}"?`,
       confirmText: 'Delete',
       cancelText: 'Cancel',
       onConfirm: async () => {
@@ -1978,8 +2018,19 @@ export const SessionCalendar = () => {
 
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={showInitials}
+                    onChange={(e) => setShowInitials(e.target.checked)}
+                    size="small"
+                    color="primary"
+                  />
+                }
+                label={<Typography variant="body2">Initials only (share-safe)</Typography>}
+              />
               <IconButton onClick={handlePreviousPeriod}>
                 <ChevronLeft />
               </IconButton>
@@ -2189,7 +2240,7 @@ export const SessionCalendar = () => {
                                 }}
                               >
                                 <Chip
-                                  label={event.title}
+                                  label={getEventDisplayTitle(event)}
                                   size="small"
                                   color={
                                     event.isMeeting 
@@ -2466,7 +2517,7 @@ export const SessionCalendar = () => {
                                 }}
                               >
                                 <Chip
-                                  label={event.title}
+                                  label={getEventDisplayTitle(event)}
                                   size="small"
                                   color={
                                     event.isMeeting 
@@ -2682,7 +2733,7 @@ export const SessionCalendar = () => {
                             }}
                           >
                             <Chip
-                              label={event.title}
+                              label={getEventDisplayTitle(event)}
                               size="small"
                               color={
                                 event.isMeeting 
@@ -2793,7 +2844,7 @@ export const SessionCalendar = () => {
                   {(Array.isArray(scheduledSessions) ? scheduledSessions : [])
                     .filter(s => s.recurrencePattern !== 'none')
                     .map(scheduled => {
-                      const studentNames = scheduled.studentIds.map(id => formatStudentNameWithGrade(id)).join(', ');
+                      const studentNames = scheduled.studentIds.map(id => showInitials ? getStudentInitials(id) : formatStudentNameWithGrade(id)).join(', ');
                       const schoolName = getSchoolForStudentIds(scheduled.studentIds);
                       return (
                         <Card key={scheduled.id} variant="outlined">
@@ -2801,7 +2852,7 @@ export const SessionCalendar = () => {
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                               <Box sx={{ flex: 1 }}>
                                 <Typography variant="subtitle1" fontWeight="bold">
-                                  {studentNames}{schoolName ? ` — ${schoolName}` : ''}
+                                  {studentNames}{schoolName ? ` — ${showInitials ? getSchoolInitials(schoolName) : schoolName}` : ''}
                                 </Typography>
                                 <Typography variant="body2" color="text.secondary">
                                   {scheduled.startTime} {scheduled.endTime && `- ${scheduled.endTime}`}
