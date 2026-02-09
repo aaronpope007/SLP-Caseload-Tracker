@@ -269,6 +269,7 @@ export const MeetingFormDialog = ({
             >
               <MenuItem value="meeting">Meeting</MenuItem>
               <MenuItem value="updates">Updates</MenuItem>
+              <MenuItem value="assessment">Assessment</MenuItem>
             </TextField>
           )}
           <Autocomplete

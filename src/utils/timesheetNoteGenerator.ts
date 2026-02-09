@@ -137,13 +137,19 @@ export const generateTimesheetNote = ({
     })
     .sort();
 
-  // Build direct services: "Direct Therapy:" (sessions with times, one per line) and "Speech screening:" (comma-separated)
+  // Student Assessments: 3 year assessment meetings with activitySubtype === 'assessment'
+  const studentAssessmentMeetings = meetings.filter(
+    m => m.category === '3 year assessment' && m.activitySubtype === 'assessment' && m.studentId
+  );
+
+  // Build direct services: "Direct Therapy:" (sessions with times, one per line), "Student Assessments:" (with times), and "Speech screening:" (comma-separated)
   const shouldUseSpecificTimes = useSpecificTimes || isTeletherapy;
   const hasDirectSessions = directServices.length > 0;
   const hasScreeners = screenerItems.length > 0;
   const hasSpeechScreeningMeetings = speechScreeningMeetings.length > 0;
+  const hasStudentAssessments = studentAssessmentMeetings.length > 0;
 
-  if (hasDirectSessions || hasScreeners || hasSpeechScreeningMeetings) {
+  if (hasDirectSessions || hasScreeners || hasSpeechScreeningMeetings || hasStudentAssessments) {
     const serviceLabel = isTeletherapy ? 'Offsite Direct Services:' : 'Direct services:';
     noteParts.push(serviceLabel);
     noteParts.push('');
@@ -182,6 +188,43 @@ export const generateTimesheetNote = ({
         });
         therapyEntries.sort();
         noteParts.push(therapyEntries.join(', '));
+      }
+    }
+
+    // Student Assessments: 3 year assessment meetings with activitySubtype === 'assessment', with times
+    if (hasStudentAssessments) {
+      // Add blank line for visual separation if Direct Therapy section exists above
+      if (hasDirectSessions) {
+        noteParts.push('');
+      }
+      noteParts.push('Student Assessments:');
+      if (shouldUseSpecificTimes) {
+        const assessmentEntries: Array<{ sortTime: number; initials: string; grade: string; timeRange: string }> = [];
+        studentAssessmentMeetings.forEach(meeting => {
+          if (meeting.studentId) {
+            const timeRange = formatTimeRange(meeting.date, meeting.endTime);
+            assessmentEntries.push({
+              sortTime: new Date(meeting.date).getTime(),
+              initials: getStudentInitials(meeting.studentId),
+              grade: getStudent(meeting.studentId)?.grade || '',
+              timeRange,
+            });
+          }
+        });
+        assessmentEntries.sort((a, b) => a.sortTime - b.sortTime);
+        const assessmentLine = assessmentEntries.map(e => `${e.initials} (${e.grade}) ${e.timeRange}`).join(', ');
+        noteParts.push(assessmentLine);
+      } else {
+        const assessmentEntries = studentAssessmentMeetings
+          .filter(m => m.studentId)
+          .map(meeting => {
+            const initials = getStudentInitials(meeting.studentId!);
+            const student = getStudent(meeting.studentId!);
+            const grade = student?.grade || '';
+            return `${initials} (${grade})`;
+          });
+        assessmentEntries.sort();
+        noteParts.push(assessmentEntries.join(', '));
       }
     }
 
@@ -258,19 +301,23 @@ export const generateTimesheetNote = ({
     }
   });
 
-  // IEP activity: split by meeting vs updates (from meeting activitySubtype; comms → updates)
+  // IEP activity: split by meeting vs updates vs assessment (from meeting activitySubtype; comms → updates)
   const iepMeetings = meetings.filter(m => m.category === 'IEP');
   const iepMeetingStudentIds = new Set<string>();
   const iepUpdatesStudentIds = new Set<string>();
+  const iepAssessmentStudentIds = new Set<string>();
   let iepMeetingWithoutStudent = false;
   let iepUpdatesWithoutStudent = false;
+  let iepAssessmentWithoutStudent = false;
   iepMeetings.forEach(m => {
     const subtype = m.activitySubtype ?? 'meeting'; // backward compat: missing → meeting
     if (m.studentId) {
       if (subtype === 'updates') iepUpdatesStudentIds.add(m.studentId);
+      else if (subtype === 'assessment') iepAssessmentStudentIds.add(m.studentId);
       else iepMeetingStudentIds.add(m.studentId);
     } else {
       if (subtype === 'updates') iepUpdatesWithoutStudent = true;
+      else if (subtype === 'assessment') iepAssessmentWithoutStudent = true;
       else iepMeetingWithoutStudent = true;
     }
   });
@@ -281,19 +328,23 @@ export const generateTimesheetNote = ({
     }
   });
 
-  // 3 Year Reassessment: split by meeting vs updates (from meeting activitySubtype)
+  // 3 Year Reassessment: split by meeting vs updates vs assessment (from meeting activitySubtype)
   const threeYearReassessmentMeetings = meetings.filter(m => m.category === '3 year assessment');
   const threeYearMeetingStudentIds = new Set<string>();
   const threeYearUpdatesStudentIds = new Set<string>();
+  const threeYearAssessmentStudentIds = new Set<string>();
   let threeYearMeetingWithoutStudent = false;
   let threeYearUpdatesWithoutStudent = false;
+  let threeYearAssessmentWithoutStudent = false;
   threeYearReassessmentMeetings.forEach(m => {
     const subtype = m.activitySubtype ?? 'meeting';
     if (m.studentId) {
       if (subtype === 'updates') threeYearUpdatesStudentIds.add(m.studentId);
+      else if (subtype === 'assessment') threeYearAssessmentStudentIds.add(m.studentId);
       else threeYearMeetingStudentIds.add(m.studentId);
     } else {
       if (subtype === 'updates') threeYearUpdatesWithoutStudent = true;
+      else if (subtype === 'assessment') threeYearAssessmentWithoutStudent = true;
       else threeYearMeetingWithoutStudent = true;
     }
   });
@@ -326,12 +377,16 @@ export const generateTimesheetNote = ({
   const lessonPlanningEntries = buildStudentEntries(lessonPlanningStudentIds);
   const iepMeetingEntries = buildStudentEntries(iepMeetingStudentIds);
   const iepUpdatesEntries = buildStudentEntries(iepUpdatesStudentIds);
+  const iepAssessmentEntries = buildStudentEntries(iepAssessmentStudentIds);
   const hasIEPMeeting = iepMeetingEntries.length > 0 || iepMeetingWithoutStudent;
   const hasIEPUpdates = iepUpdatesEntries.length > 0 || iepUpdatesWithoutStudent;
+  const hasIEPAssessment = iepAssessmentEntries.length > 0 || iepAssessmentWithoutStudent;
   const threeYearMeetingEntries = buildStudentEntries(threeYearMeetingStudentIds);
   const threeYearUpdatesEntries = buildStudentEntries(threeYearUpdatesStudentIds);
+  const threeYearAssessmentEntries = buildStudentEntries(threeYearAssessmentStudentIds);
   const hasThreeYearMeeting = threeYearMeetingEntries.length > 0 || threeYearMeetingWithoutStudent;
   const hasThreeYearUpdates = threeYearUpdatesEntries.length > 0 || threeYearUpdatesWithoutStudent;
+  const hasThreeYearAssessment = threeYearAssessmentEntries.length > 0 || threeYearAssessmentWithoutStudent;
 
   // Build indirect services section with sub-sections
   const indirectServiceLabel = isTeletherapy ? 'Offsite Indirect Services Including:' : 'Indirect services including:';
@@ -362,7 +417,7 @@ export const generateTimesheetNote = ({
     noteParts.push(speechScreeningDocEntries.join(', '));
   }
 
-  // IEP meeting: / IEP updates:
+  // IEP meeting: / IEP updates: / IEP assessment:
   if (hasIEPMeeting) {
     noteParts.push('IEP meeting:');
     const lineParts: string[] = [...iepMeetingEntries];
@@ -375,8 +430,14 @@ export const generateTimesheetNote = ({
     if (iepUpdatesWithoutStudent) lineParts.push('IEP updates');
     noteParts.push(lineParts.join(', '));
   }
+  if (hasIEPAssessment) {
+    noteParts.push('IEP assessment:');
+    const lineParts: string[] = [...iepAssessmentEntries];
+    if (iepAssessmentWithoutStudent) lineParts.push('IEP assessment');
+    noteParts.push(lineParts.join(', '));
+  }
 
-  // 3 year reassessment meeting: / 3 year reassessment updates:
+  // 3 year reassessment meeting: / 3 year reassessment updates: / 3 year reassessment assessment:
   if (hasThreeYearMeeting) {
     noteParts.push('3 year reassessment meeting:');
     const lineParts: string[] = [...threeYearMeetingEntries];
@@ -387,6 +448,12 @@ export const generateTimesheetNote = ({
     noteParts.push('3 year reassessment updates:');
     const lineParts: string[] = [...threeYearUpdatesEntries];
     if (threeYearUpdatesWithoutStudent) lineParts.push('3 year reassessment updates');
+    noteParts.push(lineParts.join(', '));
+  }
+  if (hasThreeYearAssessment) {
+    noteParts.push('3 year reassessment assessment:');
+    const lineParts: string[] = [...threeYearAssessmentEntries];
+    if (threeYearAssessmentWithoutStudent) lineParts.push('3 year reassessment assessment');
     noteParts.push(lineParts.join(', '));
   }
 
@@ -550,14 +617,18 @@ export const generateProspectiveTimesheetNote = ({
     }
   });
 
-  // Build direct services: Direct Therapy (one per line with times) and Speech screening (comma-separated)
+  // Build direct services: Direct Therapy (one per line with times), Student Assessments (with times), and Speech screening (comma-separated)
   const speechScreeningMeetingsProspective = meetings.filter(
     m => m.category === 'Speech screening' && m.studentId
   );
+  const studentAssessmentMeetingsProspective = meetings.filter(
+    m => m.category === '3 year assessment' && m.activitySubtype === 'assessment' && m.studentId
+  );
   const hasDirectSessionsProspective = uniqueDirectServices.length > 0;
   const hasSpeechScreeningProspective = speechScreeningMeetingsProspective.length > 0;
+  const hasStudentAssessmentsProspective = studentAssessmentMeetingsProspective.length > 0;
 
-  if (hasDirectSessionsProspective || hasSpeechScreeningProspective) {
+  if (hasDirectSessionsProspective || hasSpeechScreeningProspective || hasStudentAssessmentsProspective) {
     const serviceLabel = isTeletherapy ? 'Offsite Direct Services:' : 'Direct services:';
     noteParts.push(serviceLabel);
     noteParts.push('');
@@ -596,6 +667,44 @@ export const generateProspectiveTimesheetNote = ({
         });
         therapyEntries.sort();
         noteParts.push(therapyEntries.join(', '));
+      }
+    }
+
+    // Student Assessments: 3 year assessment meetings with activitySubtype === 'assessment', with times
+    if (hasStudentAssessmentsProspective) {
+      // Add blank line for visual separation if Direct Therapy section exists above
+      if (hasDirectSessionsProspective) {
+        noteParts.push('');
+      }
+      noteParts.push('Student Assessments:');
+      const shouldUseSpecificTimesProspective = useSpecificTimes || isTeletherapy;
+      if (shouldUseSpecificTimesProspective) {
+        const assessmentEntries: Array<{ sortTime: number; initials: string; grade: string; timeRange: string }> = [];
+        studentAssessmentMeetingsProspective.forEach(meeting => {
+          if (meeting.studentId) {
+            const timeRange = formatTimeRange(meeting.date, meeting.endTime);
+            assessmentEntries.push({
+              sortTime: new Date(meeting.date).getTime(),
+              initials: getStudentInitials(meeting.studentId),
+              grade: getStudent(meeting.studentId)?.grade || '',
+              timeRange,
+            });
+          }
+        });
+        assessmentEntries.sort((a, b) => a.sortTime - b.sortTime);
+        const assessmentLine = assessmentEntries.map(e => `${e.initials} (${e.grade}) ${e.timeRange}`).join(', ');
+        noteParts.push(assessmentLine);
+      } else {
+        const assessmentEntries = studentAssessmentMeetingsProspective
+          .filter(m => m.studentId)
+          .map(meeting => {
+            const initials = getStudentInitials(meeting.studentId!);
+            const student = getStudent(meeting.studentId!);
+            const grade = student?.grade || '';
+            return `${initials} (${grade})`;
+          });
+        assessmentEntries.sort();
+        noteParts.push(assessmentEntries.join(', '));
       }
     }
 

@@ -19,10 +19,13 @@ import {
 import {
   Delete as DeleteIcon,
   Add as AddIcon,
+  Edit as EditIcon,
+  Check as CheckIcon,
+  Close as CloseIcon,
   CheckCircle as CheckCircleIcon,
   RadioButtonUnchecked as RadioButtonUncheckedIcon,
 } from '@mui/icons-material';
-import { getTodos, createTodo, toggleTodo, deleteTodo } from '../utils/storage-api';
+import { getTodos, createTodo, updateTodo, toggleTodo, deleteTodo } from '../utils/storage-api';
 import { logError } from '../utils/logger';
 import type { Todo } from '../types';
 
@@ -30,12 +33,16 @@ export const TodoTracker = () => {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
   const [newTodoText, setNewTodoText] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState('');
+  const [savingId, setSavingId] = useState<string | null>(null);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity?: 'success' | 'error' | 'info' | 'warning' }>({
     open: false,
     message: '',
     severity: 'success',
   });
   const isMountedRef = useRef(true);
+  const editInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -109,6 +116,53 @@ export const TodoTracker = () => {
     }
   };
 
+  const handleStartEdit = (todo: Todo) => {
+    setEditingId(todo.id);
+    setEditingText(todo.text);
+    setTimeout(() => editInputRef.current?.focus(), 0);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditingText('');
+  };
+
+  const handleSaveEdit = async () => {
+    if (editingId == null || !editingText.trim()) {
+      handleCancelEdit();
+      return;
+    }
+    if (savingId) return; // prevent double-save from blur + button click
+    const trimmed = editingText.trim();
+    if (trimmed === (todos.find(t => t.id === editingId)?.text ?? '')) {
+      handleCancelEdit();
+      return;
+    }
+    setSavingId(editingId);
+    try {
+      await updateTodo(editingId, { text: trimmed });
+      if (!isMountedRef.current) return;
+      setSnackbar({ open: true, message: 'Todo updated successfully', severity: 'success' });
+      await loadTodos();
+      handleCancelEdit();
+    } catch (error) {
+      if (!isMountedRef.current) return;
+      logError('Failed to update todo', error);
+      setSnackbar({ open: true, message: 'Failed to update todo', severity: 'error' });
+    } finally {
+      if (isMountedRef.current) setSavingId(null);
+    }
+  };
+
+  const handleEditKeyDown = (e: React.KeyboardEvent, id: string) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSaveEdit();
+    } else if (e.key === 'Escape') {
+      handleCancelEdit();
+    }
+  };
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleAddTodo();
@@ -170,23 +224,73 @@ export const TodoTracker = () => {
                         onChange={() => handleToggleTodo(todo.id)}
                         icon={<RadioButtonUncheckedIcon />}
                         checkedIcon={<CheckCircleIcon />}
+                        disabled={editingId === todo.id}
                       />
-                      <ListItemText
-                        primary={todo.text}
-                        sx={{
-                          textDecoration: todo.completed ? 'line-through' : 'none',
-                          color: todo.completed ? 'text.secondary' : 'text.primary',
-                        }}
-                      />
-                      <ListItemSecondaryAction>
-                        <IconButton
-                          edge="end"
-                          onClick={() => handleDeleteTodo(todo.id)}
+                      {editingId === todo.id ? (
+                        <TextField
+                          inputRef={editInputRef}
                           size="small"
-                          sx={{ color: 'error.main' }}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
+                          fullWidth
+                          value={editingText}
+                          onChange={(e) => setEditingText(e.target.value)}
+                          onKeyDown={(e) => handleEditKeyDown(e, todo.id)}
+                          onBlur={handleSaveEdit}
+                          disabled={savingId === todo.id}
+                          sx={{ ml: 1, mr: 1 }}
+                          slotProps={{
+                            input: { sx: { py: 0.5 } },
+                          }}
+                        />
+                      ) : (
+                        <ListItemText
+                          primary={todo.text}
+                          sx={{
+                            textDecoration: todo.completed ? 'line-through' : 'none',
+                            color: todo.completed ? 'text.secondary' : 'text.primary',
+                          }}
+                        />
+                      )}
+                      <ListItemSecondaryAction>
+                        {editingId === todo.id ? (
+                          <>
+                            <IconButton
+                              edge="end"
+                              onClick={handleSaveEdit}
+                              size="small"
+                              disabled={savingId === todo.id || !editingText.trim()}
+                              sx={{ color: 'success.main' }}
+                            >
+                              <CheckIcon />
+                            </IconButton>
+                            <IconButton
+                              edge="end"
+                              onClick={handleCancelEdit}
+                              size="small"
+                              disabled={savingId === todo.id}
+                            >
+                              <CloseIcon />
+                            </IconButton>
+                          </>
+                        ) : (
+                          <>
+                            <IconButton
+                              edge="end"
+                              onClick={() => handleStartEdit(todo)}
+                              size="small"
+                              sx={{ color: 'text.secondary' }}
+                            >
+                              <EditIcon />
+                            </IconButton>
+                            <IconButton
+                              edge="end"
+                              onClick={() => handleDeleteTodo(todo.id)}
+                              size="small"
+                              sx={{ color: 'error.main' }}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </>
+                        )}
                       </ListItemSecondaryAction>
                     </ListItem>
                   ))}
@@ -204,7 +308,7 @@ export const TodoTracker = () => {
                       <ListItem
                         key={todo.id}
                         sx={{
-                          opacity: 0.6,
+                          opacity: editingId === todo.id ? 1 : 0.6,
                           '&:hover': {
                             backgroundColor: 'action.hover',
                           },
@@ -215,23 +319,73 @@ export const TodoTracker = () => {
                           onChange={() => handleToggleTodo(todo.id)}
                           icon={<RadioButtonUncheckedIcon />}
                           checkedIcon={<CheckCircleIcon />}
+                          disabled={editingId === todo.id}
                         />
-                        <ListItemText
-                          primary={todo.text}
-                          sx={{
-                            textDecoration: 'line-through',
-                            color: 'text.secondary',
-                          }}
-                        />
-                        <ListItemSecondaryAction>
-                          <IconButton
-                            edge="end"
-                            onClick={() => handleDeleteTodo(todo.id)}
+                        {editingId === todo.id ? (
+                          <TextField
+                            inputRef={editInputRef}
                             size="small"
-                            sx={{ color: 'error.main' }}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
+                            fullWidth
+                            value={editingText}
+                            onChange={(e) => setEditingText(e.target.value)}
+                            onKeyDown={(e) => handleEditKeyDown(e, todo.id)}
+                            onBlur={handleSaveEdit}
+                            disabled={savingId === todo.id}
+                            sx={{ ml: 1, mr: 1 }}
+                            slotProps={{
+                              input: { sx: { py: 0.5 } },
+                            }}
+                          />
+                        ) : (
+                          <ListItemText
+                            primary={todo.text}
+                            sx={{
+                              textDecoration: 'line-through',
+                              color: 'text.secondary',
+                            }}
+                          />
+                        )}
+                        <ListItemSecondaryAction>
+                          {editingId === todo.id ? (
+                            <>
+                              <IconButton
+                                edge="end"
+                                onClick={handleSaveEdit}
+                                size="small"
+                                disabled={savingId === todo.id || !editingText.trim()}
+                                sx={{ color: 'success.main' }}
+                              >
+                                <CheckIcon />
+                              </IconButton>
+                              <IconButton
+                                edge="end"
+                                onClick={handleCancelEdit}
+                                size="small"
+                                disabled={savingId === todo.id}
+                              >
+                                <CloseIcon />
+                              </IconButton>
+                            </>
+                          ) : (
+                            <>
+                              <IconButton
+                                edge="end"
+                                onClick={() => handleStartEdit(todo)}
+                                size="small"
+                                sx={{ color: 'text.secondary' }}
+                              >
+                                <EditIcon />
+                              </IconButton>
+                              <IconButton
+                                edge="end"
+                                onClick={() => handleDeleteTodo(todo.id)}
+                                size="small"
+                                sx={{ color: 'error.main' }}
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            </>
+                          )}
                         </ListItemSecondaryAction>
                       </ListItem>
                     ))}
