@@ -67,7 +67,7 @@ export const TimeTracking = () => {
   const savedNotesDialog = useDialog();
   const meetingDialog = useDialog();
   const [editingMeeting, setEditingMeeting] = useState<Meeting | null>(null);
-  const [meetingDefaultCategory, setMeetingDefaultCategory] = useState<'IEP' | '3 year assessment' | null>(null);
+  const [meetingDefaultCategory, setMeetingDefaultCategory] = useState<'IEP' | 'Assessment' | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [screeners, setScreeners] = useState<ArticulationScreener[]>([]);
@@ -444,7 +444,7 @@ export const TimeTracking = () => {
 
   const handleAdd3YearReassessment = () => {
     setEditingMeeting(null);
-    setMeetingDefaultCategory('3 year assessment');
+    setMeetingDefaultCategory('Assessment');
     meetingDialog.openDialog();
   };
 

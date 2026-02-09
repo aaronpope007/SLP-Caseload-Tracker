@@ -137,9 +137,9 @@ export const generateTimesheetNote = ({
     })
     .sort();
 
-  // Student Assessments: 3 year assessment meetings with activitySubtype === 'assessment'
+  // Student Assessments: assessment meetings with activitySubtype === 'assessment'
   const studentAssessmentMeetings = meetings.filter(
-    m => m.category === '3 year assessment' && m.activitySubtype === 'assessment' && m.studentId
+    m => m.category === 'Assessment' && m.activitySubtype === 'assessment' && m.studentId
   );
 
   // Build direct services: "Direct Therapy:" (sessions with times, one per line), "Student Assessments:" (with times), and "Speech screening:" (comma-separated)
@@ -191,7 +191,7 @@ export const generateTimesheetNote = ({
       }
     }
 
-    // Student Assessments: 3 year assessment meetings with activitySubtype === 'assessment', with times
+    // Student Assessments: assessment meetings with activitySubtype === 'assessment', with times
     if (hasStudentAssessments) {
       // Add blank line for visual separation if Direct Therapy section exists above
       if (hasDirectSessions) {
@@ -329,7 +329,7 @@ export const generateTimesheetNote = ({
   });
 
   // 3 Year Reassessment: split by meeting vs updates vs assessment (from meeting activitySubtype)
-  const threeYearReassessmentMeetings = meetings.filter(m => m.category === '3 year assessment');
+  const threeYearReassessmentMeetings = meetings.filter(m => m.category === 'Assessment');
   const threeYearMeetingStudentIds = new Set<string>();
   const threeYearUpdatesStudentIds = new Set<string>();
   const threeYearAssessmentStudentIds = new Set<string>();
@@ -622,7 +622,7 @@ export const generateProspectiveTimesheetNote = ({
     m => m.category === 'Speech screening' && m.studentId
   );
   const studentAssessmentMeetingsProspective = meetings.filter(
-    m => m.category === '3 year assessment' && m.activitySubtype === 'assessment' && m.studentId
+    m => m.category === 'Assessment' && m.activitySubtype === 'assessment' && m.studentId
   );
   const hasDirectSessionsProspective = uniqueDirectServices.length > 0;
   const hasSpeechScreeningProspective = speechScreeningMeetingsProspective.length > 0;
@@ -670,7 +670,7 @@ export const generateProspectiveTimesheetNote = ({
       }
     }
 
-    // Student Assessments: 3 year assessment meetings with activitySubtype === 'assessment', with times
+    // Student Assessments: assessment meetings with activitySubtype === 'assessment', with times
     if (hasStudentAssessmentsProspective) {
       // Add blank line for visual separation if Direct Therapy section exists above
       if (hasDirectSessionsProspective) {

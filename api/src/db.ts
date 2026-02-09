@@ -642,7 +642,7 @@ export function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_meetings_studentId ON meetings(studentId);
   `);
 
-  // Add activitySubtype to meetings if missing (for IEP / 3 year assessment: meeting vs updates)
+  // Add activitySubtype to meetings if missing (for IEP / Assessment: meeting vs updates)
   try {
     const meetingTableInfo = db.prepare('PRAGMA table_info(meetings)').all() as Array<{ name: string }>;
     const meetingColumnNames = meetingTableInfo.map(col => col.name);

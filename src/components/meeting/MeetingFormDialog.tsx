@@ -84,7 +84,7 @@ export const MeetingFormDialog = ({
         endTime: '',
         studentId: '',
         category: defaultCategory || '',
-        activitySubtype: (defaultCategory === 'IEP' || defaultCategory === '3 year assessment' ? 'meeting' : '') as '' | MeetingActivitySubtype,
+        activitySubtype: (defaultCategory === 'IEP' || defaultCategory === 'Assessment' ? 'meeting' : '') as '' | MeetingActivitySubtype,
       });
       setStudentInputValue('');
     }
@@ -116,7 +116,7 @@ export const MeetingFormDialog = ({
         school: formData.school,
         studentId: formData.studentId || undefined,
         category: formData.category || undefined,
-        activitySubtype: (formData.category === 'IEP' || formData.category === '3 year assessment')
+        activitySubtype: (formData.category === 'IEP' || formData.category === 'Assessment')
           ? (formData.activitySubtype || undefined) as MeetingActivitySubtype | undefined
           : undefined,
       });
@@ -176,7 +176,7 @@ export const MeetingFormDialog = ({
     'Parent Meeting',
     'Professional Development',
     'Speech screening',
-    '3 year assessment',
+    'Assessment',
     'Other',
   ];
 
@@ -246,7 +246,7 @@ export const MeetingFormDialog = ({
             onChange={(e) => setFormData({
               ...formData,
               category: e.target.value,
-              activitySubtype: (e.target.value === 'IEP' || e.target.value === '3 year assessment') ? formData.activitySubtype || 'meeting' : '',
+              activitySubtype: (e.target.value === 'IEP' || e.target.value === 'Assessment') ? formData.activitySubtype || 'meeting' : '',
             })}
             margin="normal"
           >
@@ -257,7 +257,7 @@ export const MeetingFormDialog = ({
               </MenuItem>
             ))}
           </TextField>
-          {(formData.category === 'IEP' || formData.category === '3 year assessment') && (
+          {(formData.category === 'IEP' || formData.category === 'Assessment') && (
             <TextField
               label="Activity type"
               select
@@ -265,7 +265,7 @@ export const MeetingFormDialog = ({
               value={formData.activitySubtype || 'meeting'}
               onChange={(e) => setFormData({ ...formData, activitySubtype: e.target.value as MeetingActivitySubtype })}
               margin="normal"
-              helperText={formData.category === 'IEP' ? 'Shows on timesheet as "IEP activity, meeting:" or "IEP activity, updates:"' : 'Shows on timesheet as "3 Year Reassessment Planning, meeting:" or "updates:"'}
+              helperText={formData.category === 'IEP' ? 'Shows on timesheet as "IEP activity, meeting:" or "IEP activity, updates:"' : 'Shows on timesheet as "3 Year ReAssessment Planning, meeting:" or "updates:"'}
             >
               <MenuItem value="meeting">Meeting</MenuItem>
               <MenuItem value="updates">Updates</MenuItem>
