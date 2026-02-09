@@ -16,6 +16,7 @@ import {
   Stack,
   Box,
   Typography,
+  Autocomplete,
 } from '@mui/material';
 import {
   Email as EmailIcon,
@@ -51,6 +52,12 @@ export const SendEmailDialog = ({
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [relatedTo, setRelatedTo] = useState('');
+  const [ccTeacherId, setCcTeacherId] = useState('');
+  const [ccCaseManagerId, setCcCaseManagerId] = useState('');
+  const [ccFreeText, setCcFreeText] = useState('');
+  const [ccTeacherInputValue, setCcTeacherInputValue] = useState('');
+  const [ccCaseManagerInputValue, setCcCaseManagerInputValue] = useState('');
+  const [contactInputValue, setContactInputValue] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -67,6 +74,12 @@ export const SendEmailDialog = ({
       setSubject('');
       setBody('');
       setRelatedTo('');
+      setCcTeacherId('');
+      setCcCaseManagerId('');
+      setCcFreeText('');
+      setCcTeacherInputValue('');
+      setCcCaseManagerInputValue('');
+      setContactInputValue('');
       setError(null);
       setSuccess(false);
       setCopied(false);
@@ -79,6 +92,7 @@ export const SendEmailDialog = ({
     setContactId('');
     setContactName('');
     setContactEmail('');
+    setContactInputValue('');
     
     // If switching to teacher and we have a student selected, try to auto-select their teacher
     if (type === 'teacher' && studentId) {
@@ -92,6 +106,7 @@ export const SendEmailDialog = ({
           setContactId(studentTeacher.id);
           setContactName(studentTeacher.name);
           setContactEmail(studentTeacher.emailAddress || '');
+          setContactInputValue(studentTeacher.name);
         }
       }
     }
@@ -113,36 +128,49 @@ export const SendEmailDialog = ({
           setContactId(studentTeacher.id);
           setContactName(studentTeacher.name);
           setContactEmail(studentTeacher.emailAddress || '');
+          setContactInputValue(studentTeacher.name);
         }
       }
     }
   };
 
-  // Handle contact selection
-  const handleContactSelect = (id: string) => {
-    let contact: Teacher | CaseManager | undefined;
-    
-    if (contactType === 'teacher') {
-      contact = teachers.find(t => t.id === id);
-    } else if (contactType === 'case-manager') {
-      contact = caseManagers.find(c => c.id === id);
+  // Handle contact selection (from Autocomplete)
+  const handleContactSelect = (contact: Teacher | CaseManager | null) => {
+    if (!contact) {
+      setContactId('');
+      setContactName('');
+      setContactEmail('');
+      setContactInputValue('');
+      return;
     }
-    
-    if (contact) {
-      setContactId(contact.id);
-      setContactName(contact.name);
-      setContactEmail(contact.emailAddress || '');
-    }
+    setContactId(contact.id);
+    setContactName(contact.name);
+    setContactEmail(contact.emailAddress || '');
+    setContactInputValue(contact.name);
   };
 
-  // Get available contacts based on type
-  const getAvailableContacts = () => {
-    if (contactType === 'teacher') {
-      return teachers;
-    } else if (contactType === 'case-manager') {
-      return caseManagers;
-    }
-    return [];
+  // Filter teachers by name, email, or grade
+  const filterTeacherOptions = (options: Teacher[], inputValue: string) => {
+    if (!inputValue.trim()) return options;
+    const search = inputValue.toLowerCase().trim();
+    return options.filter((t) => {
+      const name = (t.name || '').toLowerCase();
+      const email = (t.emailAddress || '').toLowerCase();
+      const grade = (t.grade || '').toLowerCase();
+      return name.includes(search) || email.includes(search) || grade.includes(search);
+    });
+  };
+
+  // Filter case managers by name, email, or role
+  const filterCaseManagerOptions = (options: CaseManager[], inputValue: string) => {
+    if (!inputValue.trim()) return options;
+    const search = inputValue.toLowerCase().trim();
+    return options.filter((cm) => {
+      const name = (cm.name || '').toLowerCase();
+      const email = (cm.emailAddress || '').toLowerCase();
+      const role = (cm.role || '').toLowerCase();
+      return name.includes(search) || email.includes(search) || role.includes(search);
+    });
   };
 
   const handleCopy = () => {
@@ -192,7 +220,7 @@ export const SendEmailDialog = ({
       const bodyWithSignature = body.trim() + emailSignature;
       
       // Send email
-      await api.email.send({
+      const sendPayload: Parameters<typeof api.email.send>[0] = {
         to: contactEmail,
         subject: subject,
         body: bodyWithSignature,
@@ -202,7 +230,26 @@ export const SendEmailDialog = ({
         smtpPort: 587,
         smtpUser: emailAddress,
         smtpPassword: emailPassword,
-      });
+      };
+      // Build CC list: selected teacher, selected case manager, and free-text emails
+      const ccEmails: string[] = [];
+      if (ccTeacherId) {
+        const t = teachers.find((te) => te.id === ccTeacherId);
+        if (t?.emailAddress?.trim()) ccEmails.push(t.emailAddress.trim());
+      }
+      if (ccCaseManagerId) {
+        const cm = caseManagers.find((c) => c.id === ccCaseManagerId);
+        if (cm?.emailAddress?.trim()) ccEmails.push(cm.emailAddress.trim());
+      }
+      const freeTextEmails = ccFreeText
+        .split(/[\n,]+/)
+        .map((e) => e.trim())
+        .filter((e) => e.length > 0);
+      ccEmails.push(...freeTextEmails);
+      if (ccEmails.length > 0) {
+        sendPayload.cc = ccEmails;
+      }
+      await api.email.send(sendPayload);
 
       // Automatically log the communication
       try {
@@ -288,39 +335,65 @@ export const SendEmailDialog = ({
           )}
 
           {contactType === 'teacher' && (
-            <FormControl fullWidth>
-              <InputLabel>Teacher</InputLabel>
-              <Select
-                value={contactId}
-                label="Teacher"
-                onChange={(e) => handleContactSelect(e.target.value)}
-              >
-                <MenuItem value="">Select Teacher</MenuItem>
-                {teachers.map((teacher) => (
-                  <MenuItem key={teacher.id} value={teacher.id}>
-                    {teacher.name} {teacher.emailAddress && `(${teacher.emailAddress})`}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Autocomplete
+              fullWidth
+              options={teachers}
+              getOptionLabel={(option) => option.name}
+              filterOptions={(options, state) => filterTeacherOptions(options, state.inputValue)}
+              value={teachers.find((t) => t.id === contactId) ?? null}
+              inputValue={contactInputValue}
+              onInputChange={(_, value) => setContactInputValue(value)}
+              onChange={(_, newValue) => handleContactSelect(newValue)}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Teacher"
+                  InputLabelProps={{ shrink: true }}
+                />
+              )}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              renderOption={(props, option) => (
+                <li {...props} key={option.id}>
+                  {option.name}
+                  {option.emailAddress && (
+                    <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+                      ({option.emailAddress})
+                    </Typography>
+                  )}
+                </li>
+              )}
+            />
           )}
 
           {contactType === 'case-manager' && (
-            <FormControl fullWidth>
-              <InputLabel>Case Manager</InputLabel>
-              <Select
-                value={contactId}
-                label="Case Manager"
-                onChange={(e) => handleContactSelect(e.target.value)}
-              >
-                <MenuItem value="">Select Case Manager</MenuItem>
-                {caseManagers.map((cm) => (
-                  <MenuItem key={cm.id} value={cm.id}>
-                    {cm.name} {cm.emailAddress && `(${cm.emailAddress})`}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Autocomplete
+              fullWidth
+              options={caseManagers}
+              getOptionLabel={(option) => option.name}
+              filterOptions={(options, state) => filterCaseManagerOptions(options, state.inputValue)}
+              value={caseManagers.find((cm) => cm.id === contactId) ?? null}
+              inputValue={contactInputValue}
+              onInputChange={(_, value) => setContactInputValue(value)}
+              onChange={(_, newValue) => handleContactSelect(newValue)}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Case Manager"
+                  InputLabelProps={{ shrink: true }}
+                />
+              )}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              renderOption={(props, option) => (
+                <li {...props} key={option.id}>
+                  {option.name}
+                  {option.emailAddress && (
+                    <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+                      ({option.emailAddress})
+                    </Typography>
+                  )}
+                </li>
+              )}
+            />
           )}
 
           {(contactType === 'parent' || !contactId) && (
@@ -342,6 +415,82 @@ export const SendEmailDialog = ({
               />
             </>
           )}
+
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>
+            CC (Carbon Copy)
+          </Typography>
+          <Autocomplete
+            fullWidth
+            options={teachers}
+            getOptionLabel={(option) => option.name}
+            filterOptions={(options, state) => filterTeacherOptions(options, state.inputValue)}
+            value={teachers.find((t) => t.id === ccTeacherId) ?? null}
+            inputValue={ccTeacherInputValue}
+            onInputChange={(_, value) => setCcTeacherInputValue(value)}
+            onChange={(_, newValue) => {
+              setCcTeacherId(newValue?.id ?? '');
+              setCcTeacherInputValue(newValue?.name ?? '');
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="CC Teacher (Optional)"
+                InputLabelProps={{ shrink: true }}
+              />
+            )}
+            isOptionEqualToValue={(option, value) => option.id === value.id}
+            renderOption={(props, option) => (
+              <li {...props} key={option.id}>
+                {option.name}
+                {option.emailAddress && (
+                  <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+                    ({option.emailAddress})
+                  </Typography>
+                )}
+              </li>
+            )}
+          />
+          <Autocomplete
+            fullWidth
+            options={caseManagers}
+            getOptionLabel={(option) => option.name}
+            filterOptions={(options, state) => filterCaseManagerOptions(options, state.inputValue)}
+            value={caseManagers.find((cm) => cm.id === ccCaseManagerId) ?? null}
+            inputValue={ccCaseManagerInputValue}
+            onInputChange={(_, value) => setCcCaseManagerInputValue(value)}
+            onChange={(_, newValue) => {
+              setCcCaseManagerId(newValue?.id ?? '');
+              setCcCaseManagerInputValue(newValue?.name ?? '');
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="CC Case Manager (Optional)"
+                InputLabelProps={{ shrink: true }}
+              />
+            )}
+            isOptionEqualToValue={(option, value) => option.id === value.id}
+            renderOption={(props, option) => (
+              <li {...props} key={option.id}>
+                {option.name}
+                {option.emailAddress && (
+                  <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+                    ({option.emailAddress})
+                  </Typography>
+                )}
+              </li>
+            )}
+          />
+          <TextField
+            fullWidth
+            multiline
+            minRows={2}
+            label="CC Additional Emails (Optional)"
+            value={ccFreeText}
+            onChange={(e) => setCcFreeText(e.target.value)}
+            placeholder="Additional CC emails, one per line or comma-separated"
+            disabled={sending}
+          />
 
           {/* Student dropdown for non-teacher contact types */}
           {contactType !== 'teacher' && (
