@@ -24,9 +24,11 @@ import type { GridColDef, GridRowParams } from '@mui/x-data-grid';
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
+  Edit as EditIcon,
   Email as EmailIcon,
   Phone as PhoneIcon,
   Person as PersonIcon,
+  Visibility as VisibilityIcon,
 } from '@mui/icons-material';
 import type { Communication, Student, Teacher, CaseManager } from '../types';
 import { api } from '../utils/api';
@@ -241,8 +243,17 @@ export const Communications = () => {
 
   const handleSave = async () => {
     try {
-      // Use current date/time when communication is logged (not the date from the form)
-      // The form date field is kept for reference but the actual communication time is now
+      // Use form date; when editing preserve existing time, when creating use current time
+      let dateIso: string;
+      if (editingCommunication) {
+        const existingDate = editingCommunication.date;
+        const timePart = existingDate.includes('T') ? existingDate.slice(existingDate.indexOf('T')) : 'T12:00:00.000Z';
+        dateIso = formData.date + timePart;
+      } else {
+        const now = new Date();
+        dateIso = formData.date + 'T' + now.toISOString().slice(11);
+      }
+
       const communicationData: Omit<Communication, 'id' | 'dateCreated'> = {
         studentId: formData.studentId || undefined,
         contactType: formData.contactType,
@@ -252,7 +263,7 @@ export const Communications = () => {
         subject: formData.subject,
         body: formData.body,
         method: formData.method,
-        date: new Date().toISOString(), // Use current time when communication is logged
+        date: dateIso,
         sessionId: formData.sessionId || undefined,
         relatedTo: formData.relatedTo || undefined,
       };
@@ -494,7 +505,12 @@ export const Communications = () => {
       width: 120,
       getActions: (params: GridRowParams) => [
         <GridActionsCellItem
-          icon={<PersonIcon />}
+          icon={<EditIcon />}
+          label="Edit"
+          onClick={() => handleOpenDialog(params.row as Communication)}
+        />,
+        <GridActionsCellItem
+          icon={<VisibilityIcon />}
           label="View"
           onClick={() => handleView(params.row as Communication)}
         />,
@@ -505,7 +521,7 @@ export const Communications = () => {
         />,
       ],
     },
-  ], [students, handleView, handleDelete, selectedSchool]);
+  ], [students, handleView, handleDelete, handleOpenDialog, selectedSchool]);
 
   const filteredCommunications = communications;
 
