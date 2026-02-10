@@ -16,6 +16,7 @@ import {
   getMeetings,
   createMeeting,
   updateMeeting,
+  deleteMeeting,
 } from '../utils/storage-api';
 import { api } from '../utils/api';
 import { formatDate, generateId } from '../utils/helpers';
@@ -471,6 +472,12 @@ export const TimeTracking = () => {
     }
   };
 
+  const handleDeleteMeeting = async (meetingId: string) => {
+    await deleteMeeting(meetingId);
+    await loadData();
+    showSnackbar('Meeting deleted', 'success');
+  };
+
   const handleDeleteNote = (id: string) => {
     confirm({
       title: 'Delete Saved Note',
@@ -590,6 +597,7 @@ export const TimeTracking = () => {
         editingMeeting={editingMeeting}
         onClose={handleCloseMeetingDialog}
         onSave={handleSaveMeeting}
+        onDelete={handleDeleteMeeting}
         students={students}
         defaultCategory={editingMeeting ? undefined : meetingDefaultCategory ?? undefined}
         defaultDate={selectedDate || undefined}

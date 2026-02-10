@@ -12,16 +12,21 @@ import {
   InputLabel,
   Select,
   Autocomplete,
+  IconButton,
 } from '@mui/material';
+import { Delete as DeleteIcon } from '@mui/icons-material';
 import type { Meeting, Student, MeetingActivitySubtype } from '../../types';
 import { toLocalDateTimeString } from '../../utils/helpers';
 import { useSchool } from '../../context/SchoolContext';
+import { useConfirm } from '../../hooks';
 
 interface MeetingFormDialogProps {
   open: boolean;
   editingMeeting: Meeting | null;
   onClose: () => void;
   onSave: (meeting: Omit<Meeting, 'id' | 'dateCreated' | 'dateUpdated'>) => Promise<void>;
+  /** When editing, called when user clicks delete (after confirmation). Omit to hide delete. */
+  onDelete?: (meetingId: string) => void | Promise<void>;
   students?: Student[];
   /** When adding a new meeting, pre-fill category (e.g. "IEP") */
   defaultCategory?: string;
@@ -34,11 +39,14 @@ export const MeetingFormDialog = ({
   editingMeeting,
   onClose,
   onSave,
+  onDelete,
   students = [],
   defaultCategory,
   defaultDate,
 }: MeetingFormDialogProps) => {
   const { selectedSchool, availableSchools } = useSchool();
+  const { confirm, ConfirmDialog } = useConfirm();
+  const [deleting, setDeleting] = useState(false);
   const [formData, setFormData] = useState({
     school: '',
     title: '',
@@ -157,6 +165,29 @@ export const MeetingFormDialog = ({
     });
   }, []);
 
+  const handleDelete = () => {
+    if (!editingMeeting?.id || !onDelete) return;
+    confirm({
+      title: 'Delete Meeting',
+      message: 'Are you sure you want to delete this meeting?',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      confirmColor: 'error',
+      onConfirm: async () => {
+        setDeleting(true);
+        try {
+          await onDelete(editingMeeting.id);
+          onClose();
+        } catch (error) {
+          console.error('Failed to delete meeting', error);
+          alert('Failed to delete meeting. Please try again.');
+        } finally {
+          setDeleting(false);
+        }
+      },
+    });
+  };
+
   const handleAutocompleteKeyDown = useCallback(
     (e: React.KeyboardEvent, filtered: Student[], onSelect: (option: Student) => void) => {
       if (e.key === 'Tab' || e.key === 'Enter') {
@@ -181,11 +212,21 @@ export const MeetingFormDialog = ({
   ];
 
   return (
+    <>
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        <Box component="div">
-          <Box component="span">{editingMeeting ? 'Edit Meeting' : 'Add Meeting'}</Box>
-        </Box>
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Box component="span">{editingMeeting ? 'Edit Meeting' : 'Add Meeting'}</Box>
+        {editingMeeting && onDelete && (
+          <IconButton
+            aria-label="Delete meeting"
+            onClick={handleDelete}
+            disabled={saving || deleting}
+            color="error"
+            size="small"
+          >
+            <DeleteIcon />
+          </IconButton>
+        )}
       </DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
@@ -322,18 +363,20 @@ export const MeetingFormDialog = ({
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={saving}>
+        <Button onClick={onClose} disabled={saving || deleting}>
           Cancel
         </Button>
         <Button
           onClick={handleSave}
           variant="contained"
-          disabled={saving || !formData.school || !formData.title || !formData.date}
+          disabled={saving || deleting || !formData.school || !formData.title || !formData.date}
         >
           {saving ? 'Saving...' : 'Save'}
         </Button>
       </DialogActions>
     </Dialog>
+    <ConfirmDialog />
+    </>
   );
 };
 

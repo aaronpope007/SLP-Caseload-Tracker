@@ -1921,6 +1921,13 @@ export const SessionCalendar = () => {
     setEditingMeeting(null);
   };
 
+  const handleDeleteMeetingFromDialog = async (meetingId: string) => {
+    if (!isMountedRef.current) return;
+    await deleteMeeting(meetingId);
+    if (!isMountedRef.current) return;
+    await loadData();
+  };
+
   const handleCancellationEmailSent = async () => {
     if (!isMountedRef.current) return;
     if (pendingCancellation?.event) {
@@ -3167,6 +3174,7 @@ export const SessionCalendar = () => {
         editingMeeting={editingMeeting}
         onClose={handleCloseMeetingDialog}
         onSave={handleSaveMeeting}
+        onDelete={handleDeleteMeetingFromDialog}
         students={students}
       />
     </Box>
