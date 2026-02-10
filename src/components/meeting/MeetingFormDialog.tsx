@@ -19,6 +19,12 @@ import type { Meeting, Student, MeetingActivitySubtype } from '../../types';
 import { toLocalDateTimeString } from '../../utils/helpers';
 import { useSchool } from '../../context/SchoolContext';
 import { useConfirm } from '../../hooks';
+import {
+  MEETING_CATEGORY_GROUPS,
+  getCategoryGroup,
+  isCategoryWithActivitySubtype,
+  type MeetingCategoryGroup,
+} from '../../utils/meetingCategories';
 
 interface MeetingFormDialogProps {
   open: boolean;
@@ -28,7 +34,7 @@ interface MeetingFormDialogProps {
   /** When editing, called when user clicks delete (after confirmation). Omit to hide delete. */
   onDelete?: (meetingId: string) => void | Promise<void>;
   students?: Student[];
-  /** When adding a new meeting, pre-fill category (e.g. "IEP") */
+  /** When adding a new meeting, pre-fill subcategory (e.g. "IEP", "3 Year Reassessment") */
   defaultCategory?: string;
   /** When adding a new meeting, pre-fill date as YYYY-MM-DD (time will be 8:00 AM local) */
   defaultDate?: string;
@@ -92,7 +98,7 @@ export const MeetingFormDialog = ({
         endTime: '',
         studentId: '',
         category: defaultCategory || '',
-        activitySubtype: (defaultCategory === 'IEP' || defaultCategory === 'Assessment' ? 'meeting' : '') as '' | MeetingActivitySubtype,
+        activitySubtype: (defaultCategory && isCategoryWithActivitySubtype(defaultCategory) ? 'meeting' : '') as '' | MeetingActivitySubtype,
       });
       setStudentInputValue('');
     }
@@ -124,7 +130,7 @@ export const MeetingFormDialog = ({
         school: formData.school,
         studentId: formData.studentId || undefined,
         category: formData.category || undefined,
-        activitySubtype: (formData.category === 'IEP' || formData.category === 'Assessment')
+        activitySubtype: isCategoryWithActivitySubtype(formData.category)
           ? (formData.activitySubtype || undefined) as MeetingActivitySubtype | undefined
           : undefined,
       });
@@ -200,16 +206,11 @@ export const MeetingFormDialog = ({
     []
   );
 
-  const categories = [
-    'IEP',
-    'Staff Meeting',
-    'Team Meeting',
-    'Parent Meeting',
-    'Professional Development',
-    'Speech screening',
-    'Assessment',
-    'Other',
-  ];
+  const categoryGroups = Object.keys(MEETING_CATEGORY_GROUPS) as MeetingCategoryGroup[];
+  const currentGroup: MeetingCategoryGroup | '' = formData.category ? (getCategoryGroup(formData.category) ?? '') : '';
+  const subcategoriesForGroup = currentGroup ? MEETING_CATEGORY_GROUPS[currentGroup] : [];
+  const showActivitySubtype = isCategoryWithActivitySubtype(formData.category);
+  const showAssessmentOption = formData.category === 'IEP'; // only IEP has meeting/updates/assessment; planning & legacy have meeting/updates
 
   return (
     <>
@@ -279,26 +280,51 @@ export const MeetingFormDialog = ({
               shrink: true,
             }}
           />
-          <TextField
-            label="Category"
-            select
-            fullWidth
-            value={formData.category}
-            onChange={(e) => setFormData({
-              ...formData,
-              category: e.target.value,
-              activitySubtype: (e.target.value === 'IEP' || e.target.value === 'Assessment') ? formData.activitySubtype || 'meeting' : '',
-            })}
-            margin="normal"
-          >
-            <MenuItem value="">None</MenuItem>
-            {categories.map((cat) => (
-              <MenuItem key={cat} value={cat}>
-                {cat}
-              </MenuItem>
-            ))}
-          </TextField>
-          {(formData.category === 'IEP' || formData.category === 'Assessment') && (
+          <FormControl fullWidth margin="normal">
+            <InputLabel>Category</InputLabel>
+            <Select
+              value={currentGroup}
+              onChange={(e) => {
+                const group = e.target.value as MeetingCategoryGroup;
+                const subs = MEETING_CATEGORY_GROUPS[group];
+                const firstSub = subs?.[0] ?? '';
+                setFormData({
+                  ...formData,
+                  category: firstSub,
+                  activitySubtype: (firstSub && isCategoryWithActivitySubtype(firstSub) ? formData.activitySubtype || 'meeting' : '') as '' | MeetingActivitySubtype,
+                });
+              }}
+              label="Category"
+            >
+              <MenuItem value="">None</MenuItem>
+              {categoryGroups.map((group) => (
+                <MenuItem key={group} value={group}>
+                  {group}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          {currentGroup && (
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Type</InputLabel>
+              <Select
+                value={formData.category}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  category: e.target.value,
+                  activitySubtype: (e.target.value && isCategoryWithActivitySubtype(e.target.value) ? formData.activitySubtype || 'meeting' : '') as '' | MeetingActivitySubtype,
+                })}
+                label="Type"
+              >
+                {subcategoriesForGroup.map((sub) => (
+                  <MenuItem key={sub} value={sub}>
+                    {sub}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+          {showActivitySubtype && (
             <TextField
               label="Activity type"
               select
@@ -306,11 +332,21 @@ export const MeetingFormDialog = ({
               value={formData.activitySubtype || 'meeting'}
               onChange={(e) => setFormData({ ...formData, activitySubtype: e.target.value as MeetingActivitySubtype })}
               margin="normal"
-              helperText={formData.category === 'IEP' ? 'Shows on timesheet as "IEP activity, meeting:" or "IEP activity, updates:"' : 'Shows on timesheet as "3 Year ReAssessment Planning, meeting:" or "updates:"'}
+              helperText={
+                formData.category === 'IEP'
+                  ? 'Shows on timesheet as "IEP meeting:", "IEP updates:", or "IEP assessment:"'
+                  : formData.category === 'IEP planning'
+                    ? 'Shows on timesheet as "IEP planning, meeting:" or "updates:"'
+                    : formData.category === 'Assessment planning'
+                      ? 'Shows on timesheet as "Assessment planning, meeting:" or "updates:"'
+                      : formData.category === '3 year reassessment planning' || formData.category === 'Assessment'
+                        ? 'Shows on timesheet as "3 year reassessment planning, meeting:" or "updates:" (or legacy "3 year reassessment...")'
+                        : undefined
+              }
             >
               <MenuItem value="meeting">Meeting</MenuItem>
               <MenuItem value="updates">Updates</MenuItem>
-              <MenuItem value="assessment">Assessment</MenuItem>
+              {showAssessmentOption && <MenuItem value="assessment">Assessment</MenuItem>}
             </TextField>
           )}
           <Autocomplete

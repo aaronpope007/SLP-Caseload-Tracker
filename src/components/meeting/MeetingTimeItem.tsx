@@ -3,10 +3,12 @@ import {
   Card,
   CardContent,
   Chip,
+  IconButton,
   Typography,
 } from '@mui/material';
 import {
   AccessTime as AccessTimeIcon,
+  Edit as EditIcon,
   Event as EventIcon,
   Person as PersonIcon,
 } from '@mui/icons-material';
@@ -16,17 +18,29 @@ import { formatDateTime } from '../../utils/helpers';
 interface MeetingTimeItemProps {
   meeting: Meeting;
   getStudentName: (studentId: string) => string;
+  /** When provided, the card is clickable and shows an edit button to open the meeting in the edit dialog */
+  onEdit?: (meeting: Meeting) => void;
 }
 
 export const MeetingTimeItem = ({
   meeting,
   getStudentName,
+  onEdit,
 }: MeetingTimeItemProps) => {
   const isIEP = meeting.category === 'IEP';
   const studentName = meeting.studentId ? getStudentName(meeting.studentId) : null;
 
   return (
-    <Card sx={{ mb: 2 }}>
+    <Card
+      sx={{
+        mb: 2,
+        ...(onEdit && {
+          cursor: 'pointer',
+          '&:hover': { boxShadow: 2 },
+        }),
+      }}
+      onClick={onEdit ? () => onEdit(meeting) : undefined}
+    >
       <CardContent>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
           <Box sx={{ flex: 1 }}>
@@ -56,6 +70,19 @@ export const MeetingTimeItem = ({
               </Typography>
             )}
           </Box>
+          {onEdit && (
+            <IconButton
+              size="small"
+              aria-label="Edit meeting"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(meeting);
+              }}
+              sx={{ ml: 0.5 }}
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
+          )}
         </Box>
         {meeting.description && (
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
