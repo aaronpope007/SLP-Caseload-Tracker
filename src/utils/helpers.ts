@@ -166,6 +166,38 @@ export const getTodayLocalDateString = (): string => {
 };
 
 /**
+ * Extracts time portion (HH:mm) from an ISO date string
+ * @param isoString - ISO date string
+ * @returns Time string in HH:mm format, or empty string if invalid
+ */
+export const extractTimeFromISO = (isoString: string | undefined | null): string => {
+  if (!isoString) return '';
+  try {
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return '';
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  } catch {
+    return '';
+  }
+};
+
+/**
+ * Combines a datetime-local string (YYYY-MM-DDTHH:mm) with a time string (HH:mm)
+ * to create a new datetime-local string with the same date but different time
+ * @param dateTimeString - Datetime string in YYYY-MM-DDTHH:mm format
+ * @param timeString - Time string in HH:mm format
+ * @returns Combined datetime string in YYYY-MM-DDTHH:mm format
+ */
+export const combineDateWithTime = (dateTimeString: string, timeString: string): string => {
+  if (!dateTimeString || !timeString) return dateTimeString;
+  // Extract date portion (YYYY-MM-DD) from datetime string
+  const datePart = dateTimeString.split('T')[0];
+  return `${datePart}T${timeString}`;
+};
+
+/**
  * Gets the chip color for goal status
  * @param status - Goal status
  * @returns Material-UI chip color

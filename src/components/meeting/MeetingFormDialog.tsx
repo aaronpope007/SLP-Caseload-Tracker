@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import { Delete as DeleteIcon } from '@mui/icons-material';
 import type { Meeting, Student, MeetingActivitySubtype } from '../../types';
-import { toLocalDateTimeString } from '../../utils/helpers';
+import { toLocalDateTimeString, extractTimeFromISO, combineDateWithTime } from '../../utils/helpers';
 import { useSchool } from '../../context/SchoolContext';
 import { useConfirm } from '../../hooks';
 import {
@@ -71,7 +71,8 @@ export const MeetingFormDialog = ({
     if (editingMeeting) {
       // Convert ISO strings back to local datetime format for datetime-local inputs
       const dateForInput = editingMeeting.date ? toLocalDateTimeString(new Date(editingMeeting.date)) : '';
-      const endTimeForInput = editingMeeting.endTime ? toLocalDateTimeString(new Date(editingMeeting.endTime)) : '';
+      // Extract just the time portion (HH:mm) from the endTime ISO string
+      const endTimeForInput = editingMeeting.endTime ? extractTimeFromISO(editingMeeting.endTime) : '';
       const studentId = editingMeeting.studentId || '';
       setFormData({
         school: editingMeeting.school || '',
@@ -120,7 +121,11 @@ export const MeetingFormDialog = ({
       // datetime-local returns format: "2026-01-16T14:15"
       // We need to convert to ISO string
       const dateISO = new Date(formData.date).toISOString();
-      const endTimeISO = formData.endTime ? new Date(formData.endTime).toISOString() : undefined;
+      // Combine the start date with the end time to create full end datetime
+      // endTime is in HH:mm format, so we combine it with the date portion of formData.date
+      const endTimeISO = formData.endTime 
+        ? new Date(combineDateWithTime(formData.date, formData.endTime)).toISOString() 
+        : undefined;
 
       await onSave({
         title: formData.title,
@@ -271,7 +276,7 @@ export const MeetingFormDialog = ({
           />
           <TextField
             label="End Time"
-            type="datetime-local"
+            type="time"
             fullWidth
             value={formData.endTime}
             onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
