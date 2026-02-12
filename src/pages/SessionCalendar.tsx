@@ -736,9 +736,23 @@ export const SessionCalendar = () => {
       );
       if (alreadyMatched) return;
       
-      // Skip if this session has a scheduledSessionId that exists
+      // Check if this session has a scheduledSessionId that exists
       if (session.scheduledSessionId && scheduledSessionIds.has(session.scheduledSessionId)) {
-        return;
+        // Check if the scheduled session date for this session is cancelled
+        // If cancelled, we should still show it as a standalone logged session
+        const scheduled = scheduledSessions.find(s => s.id === session.scheduledSessionId);
+        if (scheduled) {
+          const sessionDateStr = format(startOfDay(new Date(session.date)), 'yyyy-MM-dd');
+          const isCancelled = scheduled.cancelledDates?.includes(sessionDateStr);
+          // If the date is cancelled, allow it to show as standalone logged session
+          // Otherwise, skip it (it should match to the scheduled session event)
+          if (!isCancelled) {
+            return;
+          }
+        } else {
+          // Scheduled session doesn't exist, skip
+          return;
+        }
       }
       
       // Check if session date is within visible range
@@ -1167,8 +1181,119 @@ export const SessionCalendar = () => {
 
   const handleOpenSessionDialog = (event: CalendarEvent) => {
     if (!Array.isArray(scheduledSessions)) return;
+    
+    // Handle logged sessions that don't have a matching scheduled session
+    // (e.g., sessions created from dragging cancelled scheduled sessions)
+    if (event.isLogged && event.matchedSessions && event.matchedSessions.length > 0 && (!event.scheduledSessionId || event.scheduledSessionId === '')) {
+      // This is a logged session without a scheduled session - handle it directly
+      const session = event.matchedSessions[0];
+      setEditingSession(session);
+      setEditingGroupSessionId(null);
+      
+      const startDate = new Date(session.date);
+      const endDate = session.endTime ? new Date(session.endTime) : null;
+      
+      // Filter out achieved goals when editing
+      const activeGoalsTargeted = (session.goalsTargeted || []).filter(gId => {
+        const goal = goals.find(g => g.id === gId);
+        return goal && !isGoalAchieved(goal);
+      });
+      
+      const newFormData = {
+        studentIds: [session.studentId],
+        date: toLocalDateTimeString(startDate),
+        endTime: endDate ? toLocalDateTimeString(endDate) : '',
+        goalsTargeted: activeGoalsTargeted,
+        activitiesUsed: session.activitiesUsed,
+        performanceData: session.performanceData
+          .filter(p => activeGoalsTargeted.includes(p.goalId))
+          .map(p => ({
+            goalId: p.goalId,
+            studentId: session.studentId,
+            accuracy: p.accuracy?.toString(),
+            correctTrials: p.correctTrials,
+            incorrectTrials: p.incorrectTrials,
+            notes: p.notes,
+            cuingLevels: p.cuingLevels,
+          })),
+        notes: session.notes,
+        isDirectServices: session.isDirectServices === true,
+        indirectServicesNotes: session.indirectServicesNotes || '',
+        missedSession: session.missedSession || false,
+        selectedSubjectiveStatements: session.selectedSubjectiveStatements || [],
+        customSubjective: session.customSubjective || '',
+        plan: session.plan || '',
+      };
+      
+      setSessionFormData(newFormData);
+      initialSessionFormDataRef.current = { ...newFormData };
+      setCurrentEvent(event);
+      setSessionDialogOpen(true);
+      return;
+    }
+    
     const scheduled = scheduledSessions.find(s => s.id === event.scheduledSessionId);
-    if (!scheduled) return;
+    if (!scheduled) {
+      // If no scheduled session found but this is a logged session, try to handle it
+      if (event.isLogged && event.matchedSessions && event.matchedSessions.length > 0) {
+        // Check if the scheduled session was cancelled for this date
+        const session = event.matchedSessions[0];
+        if (session.scheduledSessionId) {
+          const scheduledForSession = scheduledSessions.find(s => s.id === session.scheduledSessionId);
+          if (scheduledForSession) {
+            const sessionDateStr = format(startOfDay(new Date(session.date)), 'yyyy-MM-dd');
+            const isCancelled = scheduledForSession.cancelledDates?.includes(sessionDateStr);
+            if (isCancelled) {
+              // This is a logged session from a cancelled scheduled session - handle it
+              setEditingSession(session);
+              setEditingGroupSessionId(null);
+              
+              const startDate = new Date(session.date);
+              const endDate = session.endTime ? new Date(session.endTime) : null;
+              
+              // Filter out achieved goals when editing
+              const activeGoalsTargeted = (session.goalsTargeted || []).filter(gId => {
+                const goal = goals.find(g => g.id === gId);
+                return goal && !isGoalAchieved(goal);
+              });
+              
+              const newFormData = {
+                studentIds: [session.studentId],
+                date: toLocalDateTimeString(startDate),
+                endTime: endDate ? toLocalDateTimeString(endDate) : '',
+                goalsTargeted: activeGoalsTargeted,
+                activitiesUsed: session.activitiesUsed,
+                performanceData: session.performanceData
+                  .filter(p => activeGoalsTargeted.includes(p.goalId))
+                  .map(p => ({
+                    goalId: p.goalId,
+                    studentId: session.studentId,
+                    accuracy: p.accuracy?.toString(),
+                    correctTrials: p.correctTrials,
+                    incorrectTrials: p.incorrectTrials,
+                    notes: p.notes,
+                    cuingLevels: p.cuingLevels,
+                  })),
+                notes: session.notes,
+                isDirectServices: session.isDirectServices === true,
+                indirectServicesNotes: session.indirectServicesNotes || '',
+                missedSession: session.missedSession || false,
+                selectedSubjectiveStatements: session.selectedSubjectiveStatements || [],
+                customSubjective: session.customSubjective || '',
+                plan: session.plan || '',
+              };
+              
+              setSessionFormData(newFormData);
+              initialSessionFormDataRef.current = { ...newFormData };
+              setCurrentEvent(event);
+              setSessionDialogOpen(true);
+              return;
+            }
+          }
+        }
+      }
+      return;
+    }
 
     // Check if this is an existing logged session
     // CRITICAL FIX: When matching sessions, we need to filter by time to ensure we get the correct session
@@ -1787,32 +1912,149 @@ export const SessionCalendar = () => {
     setDraggedSession(eventId);
   };
 
-  const handleDrop = async (targetDate: Date) => {
+  const handleDrop = async (targetDate: Date, dropEvent?: React.DragEvent) => {
     if (!isMountedRef.current) return;
     if (!draggedSession) return;
 
     const event = calendarEvents.find(e => e.id === draggedSession);
     if (!event) return;
 
+    // Check if this is a logged session (has matched sessions)
+    if (event.isLogged && event.matchedSessions && event.matchedSessions.length > 0) {
+      // Handle logged session drag - update the actual session(s)
+      let targetTime = event.startTime; // Default to original time if no drop event
+      
+      // Calculate target time from drop position if drop event is provided
+      if (dropEvent && dropEvent.currentTarget) {
+        const rect = (dropEvent.currentTarget as HTMLElement).getBoundingClientRect();
+        const y = dropEvent.clientY - rect.top;
+        const { startHour: schoolStartHour, endHour: schoolEndHour } = getSchoolHours;
+        
+        // Calculate which time slot was dropped on (each slot is 60px, 30 minutes)
+        // Use the same logic as getEventTopPosition but in reverse
+        const minutesFromDayStart = (y / 60) * 30; // Convert pixels to minutes
+        const totalMinutes = schoolStartHour * 60 + minutesFromDayStart;
+        const targetHour = Math.floor(totalMinutes / 60);
+        const targetMinute = Math.floor((totalMinutes % 60) / 30) * 30; // Round to nearest 30 minutes
+        
+        // Ensure time is within valid range
+        if (targetHour >= schoolStartHour && targetHour < schoolEndHour) {
+          targetTime = `${String(targetHour).padStart(2, '0')}:${String(targetMinute).padStart(2, '0')}`;
+        }
+      }
+      
+      // Update each matched session
+      const updatePromises = event.matchedSessions.map(async (session) => {
+        const originalDate = new Date(session.date);
+        const [originalHour, originalMinute] = event.startTime.split(':').map(Number);
+        const [targetHour, targetMinute] = targetTime.split(':').map(Number);
+        
+    // Calculate new date/time
+    const newDate = setMinutes(setHours(targetDate, targetHour), targetMinute);
+    
+    // Preserve duration - calculate new end time
+    let newEndTime: string | undefined;
+    if (session.endTime) {
+      const originalEndDate = new Date(session.endTime);
+      const duration = originalEndDate.getTime() - originalDate.getTime();
+      const newEndDate = new Date(newDate.getTime() + duration);
+      newEndTime = newEndDate.toISOString();
+    }
+    
+    // Update the session
+    await updateSession(session.id, {
+      date: newDate.toISOString(),
+      endTime: newEndTime,
+    });
+      });
+      
+      await Promise.all(updatePromises);
+      if (!isMountedRef.current) return;
+      
+      setDraggedSession(null);
+      await loadData();
+      return;
+    }
+
+    // Handle scheduled session drag - cancel the original occurrence and create a new one-time scheduled session at new time
     if (!Array.isArray(scheduledSessions)) return;
     const scheduled = scheduledSessions.find(s => s.id === event.scheduledSessionId);
     if (!scheduled) return;
 
-    // For one-time or specific dates, update the date
-    if (scheduled.recurrencePattern === 'none') {
+    // Calculate target time from drop position if drop event is provided
+    let targetTime = event.startTime; // Default to original time if no drop event
+    if (dropEvent && dropEvent.currentTarget) {
+      const rect = (dropEvent.currentTarget as HTMLElement).getBoundingClientRect();
+      const y = dropEvent.clientY - rect.top;
+      const { startHour: schoolStartHour, endHour: schoolEndHour } = getSchoolHours;
+      
+      // Calculate which time slot was dropped on (each slot is 60px, 30 minutes)
+      const minutesFromDayStart = (y / 60) * 30; // Convert pixels to minutes
+      const totalMinutes = schoolStartHour * 60 + minutesFromDayStart;
+      const targetHour = Math.floor(totalMinutes / 60);
+      const targetMinute = Math.floor((totalMinutes % 60) / 30) * 30; // Round to nearest 30 minutes
+      
+      // Ensure time is within valid range
+      if (targetHour >= schoolStartHour && targetHour < schoolEndHour) {
+        targetTime = `${String(targetHour).padStart(2, '0')}:${String(targetMinute).padStart(2, '0')}`;
+      }
+    }
+
+    // Cancel the original occurrence
+    const dateStr = format(event.date, 'yyyy-MM-dd');
+    const cancelledDates = scheduled.cancelledDates || [];
+    if (!cancelledDates.includes(dateStr)) {
       await updateScheduledSession(scheduled.id, {
-        startDate: format(targetDate, 'yyyy-MM-dd'),
-      });
-      if (!isMountedRef.current) return;
-    } else if (scheduled.recurrencePattern === 'specific-dates') {
-      const oldDateStr = format(event.date, 'yyyy-MM-dd');
-      const newDates = scheduled.specificDates?.filter(d => d !== oldDateStr) || [];
-      newDates.push(format(targetDate, 'yyyy-MM-dd'));
-      await updateScheduledSession(scheduled.id, {
-        specificDates: newDates.sort(),
+        cancelledDates: [...cancelledDates, dateStr],
       });
       if (!isMountedRef.current) return;
     }
+
+    // Calculate new end time based on duration
+    let newEndTime: string | undefined;
+    if (scheduled.endTime) {
+      const [originalHour, originalMinute] = scheduled.startTime.split(':').map(Number);
+      const [endHour, endMinute] = scheduled.endTime.split(':').map(Number);
+      const originalStartMinutes = originalHour * 60 + originalMinute;
+      const originalEndMinutes = endHour * 60 + endMinute;
+      const duration = originalEndMinutes - originalStartMinutes;
+      const [targetHour, targetMinute] = targetTime.split(':').map(Number);
+      const newEndMinutes = targetHour * 60 + targetMinute + duration;
+      const newEndHour = Math.floor(newEndMinutes / 60);
+      const newEndMin = newEndMinutes % 60;
+      newEndTime = `${String(newEndHour).padStart(2, '0')}:${String(newEndMin).padStart(2, '0')}`;
+    } else if (scheduled.duration) {
+      const [targetHour, targetMinute] = targetTime.split(':').map(Number);
+      const newEndMinutes = targetHour * 60 + targetMinute + scheduled.duration;
+      const newEndHour = Math.floor(newEndMinutes / 60);
+      const newEndMin = newEndMinutes % 60;
+      newEndTime = `${String(newEndHour).padStart(2, '0')}:${String(newEndMin).padStart(2, '0')}`;
+    }
+
+    // Create a new one-time scheduled session at the new time/date
+    // This keeps it as a scheduled session (blue) that can be logged later
+    const newScheduledSession: ScheduledSession = {
+      id: generateId(),
+      studentIds: scheduled.studentIds,
+      startTime: targetTime,
+      endTime: newEndTime,
+      duration: scheduled.duration,
+      dayOfWeek: undefined,
+      specificDates: undefined,
+      recurrencePattern: 'none', // One-time session
+      startDate: format(targetDate, 'yyyy-MM-dd'),
+      endDate: undefined,
+      goalsTargeted: scheduled.goalsTargeted || [],
+      notes: scheduled.notes,
+      isDirectServices: scheduled.isDirectServices !== false,
+      dateCreated: new Date().toISOString(),
+      dateUpdated: new Date().toISOString(),
+      active: true,
+      cancelledDates: [],
+    };
+
+    await addScheduledSession(newScheduledSession);
+    if (!isMountedRef.current) return;
 
     setDraggedSession(null);
     await loadData();
@@ -1913,7 +2155,9 @@ export const SessionCalendar = () => {
     } catch (error) {
       if (!isMountedRef.current) return;
       logError('Failed to save meeting', error);
-      alert('Failed to save meeting. Please try again.');
+      const message = error instanceof Error ? error.message : 'Validation or server error';
+      alert(`Failed to save meeting. ${message}`);
+      throw error; // Re-throw so MeetingFormDialog can keep dialog open and show saving: false
     }
   };
 
@@ -2196,7 +2440,7 @@ export const SessionCalendar = () => {
                             position: 'relative',
                             height: timeSlots.length * 60, // Total height for all slots
                           }}
-                          onDrop={() => handleDrop(day)}
+                          onDrop={(e) => handleDrop(day, e)}
                           onDragOver={handleDragOver}
                         >
                           {/* Render time slot rows for gap visualization */}
@@ -2473,7 +2717,7 @@ export const SessionCalendar = () => {
                             position: 'relative',
                             height: timeSlots.length * 60, // Total height for all slots
                           }}
-                          onDrop={() => handleDrop(day)}
+                          onDrop={(e) => handleDrop(day, e)}
                           onDragOver={handleDragOver}
                         >
                           {/* Render time slot rows for gap visualization */}
@@ -2675,7 +2919,7 @@ export const SessionCalendar = () => {
                       flexDirection: 'column',
                     }}
                     onDoubleClick={() => handleOpenDialog(day)}
-                    onDrop={() => handleDrop(day)}
+                    onDrop={(e) => handleDrop(day, e)}
                     onDragOver={handleDragOver}
                   >
                     <Box

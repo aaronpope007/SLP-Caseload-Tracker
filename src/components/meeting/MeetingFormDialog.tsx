@@ -105,26 +105,14 @@ export const MeetingFormDialog = ({
     }
   }, [editingMeeting, open, selectedSchool, availableSchools, defaultCategory, defaultDate, students]);
 
-  const handleSave = async () => {
-    if (!formData.title || !formData.date) {
-      alert('Please fill in Title and Date');
-      return;
-    }
-    if (!formData.school) {
-      alert('Please select a school');
-      return;
-    }
+  const doSave = useCallback(async () => {
+    if (!formData.title || !formData.date || !formData.school) return;
 
     setSaving(true);
     try {
-      // Convert datetime-local format to ISO string
-      // datetime-local returns format: "2026-01-16T14:15"
-      // We need to convert to ISO string
       const dateISO = new Date(formData.date).toISOString();
-      // Combine the start date with the end time to create full end datetime
-      // endTime is in HH:mm format, so we combine it with the date portion of formData.date
-      const endTimeISO = formData.endTime 
-        ? new Date(combineDateWithTime(formData.date, formData.endTime)).toISOString() 
+      const endTimeISO = formData.endTime
+        ? new Date(combineDateWithTime(formData.date, formData.endTime)).toISOString()
         : undefined;
 
       await onSave({
@@ -146,6 +134,35 @@ export const MeetingFormDialog = ({
     } finally {
       setSaving(false);
     }
+  }, [formData, onSave, onClose]);
+
+  const handleSave = async () => {
+    if (!formData.title || !formData.date) {
+      alert('Please fill in Title and Date');
+      return;
+    }
+    if (!formData.school) {
+      alert('Please select a school');
+      return;
+    }
+
+    // For new meetings only: warn if the selected date is in the past
+    if (!editingMeeting) {
+      const selectedDate = new Date(formData.date);
+      const now = new Date();
+      if (selectedDate.getTime() < now.getTime()) {
+        confirm({
+          title: 'Date in the past',
+          message: 'You selected a date in the past. Do you want to save this meeting anyway?',
+          confirmText: 'Yes, save anyway',
+          cancelText: 'No, change date',
+          onConfirm: doSave,
+        });
+        return;
+      }
+    }
+
+    await doSave();
   };
 
   const studentsInSchool = formData.school
