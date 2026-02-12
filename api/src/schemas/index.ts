@@ -377,12 +377,28 @@ export const updateDueDateItemSchema = dueDateItemSchema.partial();
 
 export const meetingActivitySubtypeSchema = z.enum(['meeting', 'updates', 'assessment']);
 
+/** Accept ISO datetime with offset, date-only, or local datetime (no offset); normalize to full ISO for storage */
+const meetingDateSchema = isoDateString.or(
+  z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{3})?)?(?:Z)?$/).transform((val) => {
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? val : d.toISOString();
+  })
+);
+
+/** Optional meeting end time - same formats as date */
+const meetingEndTimeSchema = optionalIsoDate.or(
+  z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{3})?)?(?:Z)?$/).transform((val) => {
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? val : d.toISOString();
+  }).optional().or(z.literal('').transform(() => undefined))
+);
+
 export const meetingSchema = z.object({
   id: idString.optional(),
   title: nonEmptyString.pipe(z.string().max(200)),
   description: optionalString,
-  date: isoDateString,
-  endTime: optionalIsoDate,
+  date: meetingDateSchema,
+  endTime: meetingEndTimeSchema,
   school: nonEmptyString,
   studentId: optionalString,
   category: optionalString,
