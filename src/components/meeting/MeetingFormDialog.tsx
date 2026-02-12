@@ -234,25 +234,31 @@ export const MeetingFormDialog = ({
   const showActivitySubtype = isCategoryWithActivitySubtype(formData.category);
   const showAssessmentOption = formData.category === 'IEP'; // only IEP has meeting/updates/assessment; planning & legacy have meeting/updates
 
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleSave();
+  };
+
   return (
     <>
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Box component="span">{editingMeeting ? 'Edit Meeting' : 'Add Meeting'}</Box>
-        {editingMeeting && onDelete && (
-          <IconButton
-            aria-label="Delete meeting"
-            onClick={handleDelete}
-            disabled={saving || deleting}
-            color="error"
-            size="small"
-          >
-            <DeleteIcon />
-          </IconButton>
-        )}
-      </DialogTitle>
-      <DialogContent>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+      <form onSubmit={handleFormSubmit}>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box component="span">{editingMeeting ? 'Edit Meeting' : 'Add Meeting'}</Box>
+          {editingMeeting && onDelete && (
+            <IconButton
+              aria-label="Delete meeting"
+              onClick={handleDelete}
+              disabled={saving || deleting}
+              color="error"
+              size="small"
+            >
+              <DeleteIcon />
+            </IconButton>
+          )}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
           <FormControl fullWidth required margin="normal">
             <InputLabel>School</InputLabel>
             <Select
@@ -419,19 +425,20 @@ export const MeetingFormDialog = ({
             margin="normal"
           />
         </Box>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={saving || deleting}>
-          Cancel
-        </Button>
-        <Button
-          onClick={handleSave}
-          variant="contained"
-          disabled={saving || deleting || !formData.school || !formData.title || !formData.date}
-        >
-          {saving ? 'Saving...' : 'Save'}
-        </Button>
-      </DialogActions>
+        </DialogContent>
+        <DialogActions>
+          <Button type="button" onClick={onClose} disabled={saving || deleting}>
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={saving || deleting || !formData.school || !formData.title || !formData.date}
+          >
+            {saving ? 'Saving...' : 'Save'}
+          </Button>
+        </DialogActions>
+      </form>
     </Dialog>
     <ConfirmDialog />
     </>
