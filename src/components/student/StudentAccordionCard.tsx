@@ -10,6 +10,7 @@ import {
   Menu,
   MenuItem,
   Tooltip,
+  Button,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -20,8 +21,10 @@ import {
   Unarchive as UnarchiveIcon,
   Male as MaleIcon,
   Female as FemaleIcon,
+  Email as EmailIcon,
 } from '@mui/icons-material';
 import type { Student, Teacher, CaseManager } from '../../types';
+import { EmailTeacherModal } from './EmailTeacherModal';
 
 /**
  * Custom div component to use as AccordionSummary content wrapper.
@@ -105,6 +108,7 @@ export const StudentAccordionCard = ({
   hasNoGoals = false,
 }: StudentAccordionCardProps) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
   
   // Get teacher name if student has a teacher assigned
   const teacher = student.teacherId ? teachers.find(t => t.id === student.teacherId) : null;
@@ -266,6 +270,18 @@ export const StudentAccordionCard = ({
                 </Box>
               </Box>
             )}
+            {teacher && (
+              <Box sx={{ mt: 2 }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<EmailIcon />}
+                  onClick={() => setEmailModalOpen(true)}
+                  size="small"
+                >
+                  Email Teacher
+                </Button>
+              </Box>
+            )}
           </Box>
         </AccordionDetails>
       </Accordion>
@@ -310,6 +326,15 @@ export const StudentAccordionCard = ({
           <DeleteIcon sx={{ mr: 1 }} /> Delete
         </MenuItem>
       </Menu>
+      {teacher && (
+        <EmailTeacherModal
+          open={emailModalOpen}
+          onClose={() => setEmailModalOpen(false)}
+          student={student}
+          teacher={teacher}
+          caseManager={caseManager || null}
+        />
+      )}
     </>
   );
 };
