@@ -88,6 +88,7 @@ A comprehensive web application designed to help Speech-Language Pathologists (S
 - **IEP Goal Suggestions**: AI-assisted creation of comprehensive annual IEP goals from assessment data
 
 ### 📋 Clinical Documentation
+- **IEP Notes**: View and manage IEP notes per student; add and delete notes linked to students
 - **SOAP Notes**: 
   - Generate professional SOAP (Subjective, Objective, Assessment, Plan) notes from session data
   - Customizable templates with common subjective statements
@@ -394,6 +395,7 @@ SLP Caseload Tracker/
 │   ├── components/       # Reusable UI components
 │   │   ├── common/       # Common/shared components
 │   │   ├── goal/         # Goal-related components
+│   │   ├── meeting/      # Meeting-related components
 │   │   ├── session/      # Session-related components
 │   │   ├── student/      # Student-related components
 │   │   ├── settings/     # Settings components
@@ -408,6 +410,7 @@ SLP Caseload Tracker/
 │   │   ├── ProgressReports.tsx
 │   │   ├── TreatmentIdeas.tsx
 │   │   ├── DocumentationTemplates.tsx
+│   │   ├── IEPNotes.tsx
 │   │   ├── SOAPNotes.tsx
 │   │   ├── TimeTracking.tsx
 │   │   ├── Evaluations.tsx
