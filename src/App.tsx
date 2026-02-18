@@ -29,6 +29,7 @@ const TimeTracking = lazy(() => import('./pages/TimeTracking').then(m => ({ defa
 const SOAPNotes = lazy(() => import('./pages/SOAPNotes').then(m => ({ default: m.SOAPNotes })));
 const IEPNotes = lazy(() => import('./pages/IEPNotes').then(m => ({ default: m.IEPNotes })));
 const ProgressReports = lazy(() => import('./pages/ProgressReports').then(m => ({ default: m.ProgressReports })));
+const Reports = lazy(() => import('./pages/Reports').then(m => ({ default: m.Reports })));
 const DueDateItems = lazy(() => import('./pages/DueDateItems').then(m => ({ default: m.DueDateItems })));
 const SessionCalendar = lazy(() => import('./pages/SessionCalendar').then(m => ({ default: m.SessionCalendar })));
 const Communications = lazy(() => import('./pages/Communications').then(m => ({ default: m.Communications })));
@@ -212,6 +213,17 @@ const router = createBrowserRouter([
       <ProtectedLayout>
         <Suspense fallback={<PageLoader />}>
           <ProgressReports />
+        </Suspense>
+      </ProtectedLayout>
+    ),
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
+    path: '/reports',
+    element: (
+      <ProtectedLayout>
+        <Suspense fallback={<PageLoader />}>
+          <Reports />
         </Suspense>
       </ProtectedLayout>
     ),

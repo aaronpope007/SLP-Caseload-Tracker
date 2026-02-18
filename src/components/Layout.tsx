@@ -101,6 +101,7 @@ const menuStructure: MenuItem[] = [
     items: [
       { text: 'Progress Tracking', path: '/progress' },
       { text: 'Progress Reports', path: '/progress-reports' },
+      { text: 'Reports', path: '/reports' },
       { text: 'Due Date Items', path: '/due-date-items' },
     ],
   },
