@@ -405,6 +405,15 @@ export const generateTimesheetNote = ({
     }
   });
 
+  // Assessment documentation (indirect): single type, no meeting/updates/assessment subtype
+  const assessmentDocumentationMeetings = meetings.filter(m => m.category === 'Assessment documentation');
+  const assessmentDocumentationStudentIds = new Set<string>();
+  let assessmentDocumentationWithoutStudent = false;
+  assessmentDocumentationMeetings.forEach(m => {
+    if (m.studentId) assessmentDocumentationStudentIds.add(m.studentId);
+    else assessmentDocumentationWithoutStudent = true;
+  });
+
   // Lesson Planning: All students from all sessions (missed and attended)
   // Per SSG rules: Lesson planning includes all students, including those with missed sessions
   const lessonPlanningStudentIds = new Set<string>();
@@ -449,6 +458,8 @@ export const generateTimesheetNote = ({
   const assessmentPlanningUpdatesEntries = buildStudentEntries(assessmentPlanningUpdatesStudentIds);
   const hasAssessmentPlanningMeeting = assessmentPlanningMeetingEntries.length > 0 || assessmentPlanningMeetingWithoutStudent;
   const hasAssessmentPlanningUpdates = assessmentPlanningUpdatesEntries.length > 0 || assessmentPlanningUpdatesWithoutStudent;
+  const assessmentDocumentationEntries = buildStudentEntries(assessmentDocumentationStudentIds);
+  const hasAssessmentDocumentation = assessmentDocumentationEntries.length > 0 || assessmentDocumentationWithoutStudent;
 
   // Build indirect services section with sub-sections
   const indirectServiceLabel = isTeletherapy ? 'Offsite Indirect Services Including:' : 'Indirect services including:';
@@ -536,6 +547,13 @@ export const generateTimesheetNote = ({
     noteParts.push('3 year reassessment planning updates:');
     const lineParts: string[] = [...threeYearPlanningUpdatesEntries];
     if (threeYearPlanningUpdatesWithoutStudent) lineParts.push('3 year reassessment planning updates');
+    noteParts.push(lineParts.join(', '));
+  }
+  // Assessment documentation (indirect activity)
+  if (hasAssessmentDocumentation) {
+    noteParts.push('Assessment documentation:');
+    const lineParts: string[] = [...assessmentDocumentationEntries];
+    if (assessmentDocumentationWithoutStudent) lineParts.push('Assessment documentation');
     noteParts.push(lineParts.join(', '));
   }
 
@@ -862,6 +880,23 @@ export const generateProspectiveTimesheetNote = ({
     })
     .sort();
 
+  // Assessment documentation: meetings with category "Assessment documentation" on target date
+  const assessmentDocumentationMeetingsProspective = meetings.filter(
+    m => m.category === 'Assessment documentation'
+  );
+  const assessmentDocumentationStudentEntriesProspective = assessmentDocumentationMeetingsProspective
+    .filter(m => m.studentId)
+    .map(meeting => {
+      const initials = getStudentInitials(meeting.studentId!);
+      const student = getStudent(meeting.studentId!);
+      const grade = student?.grade || '';
+      return `${initials} (${grade})`;
+    })
+    .sort();
+  const hasAssessmentDocumentationProspective =
+    assessmentDocumentationStudentEntriesProspective.length > 0 ||
+    assessmentDocumentationMeetingsProspective.some(m => !m.studentId);
+
   // Build indirect services section
   const indirectServiceLabel = isTeletherapy ? 'Offsite Indirect Services Including:' : 'Indirect services including:';
   noteParts.push(indirectServiceLabel);
@@ -885,6 +920,14 @@ export const generateProspectiveTimesheetNote = ({
   if (speechScreeningStudentEntries.length > 0) {
     noteParts.push('Speech Screening Write-Up and Staff Collaboration:');
     noteParts.push(speechScreeningStudentEntries.join(', '));
+  }
+
+  // Assessment documentation (indirect activity)
+  if (hasAssessmentDocumentationProspective) {
+    noteParts.push('Assessment documentation:');
+    const lineParts: string[] = [...assessmentDocumentationStudentEntriesProspective];
+    if (assessmentDocumentationMeetingsProspective.some(m => !m.studentId)) lineParts.push('Assessment documentation');
+    noteParts.push(lineParts.join(', '));
   }
 
   noteParts.push(''); // Empty line after service

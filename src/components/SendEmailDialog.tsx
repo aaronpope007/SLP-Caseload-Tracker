@@ -249,6 +249,8 @@ export const SendEmailDialog = ({
       if (ccEmails.length > 0) {
         sendPayload.cc = ccEmails;
       }
+      // Always BCC the sender so they get a copy of their sent email
+      sendPayload.bcc = emailAddress;
       await api.email.send(sendPayload);
 
       // Automatically log the communication

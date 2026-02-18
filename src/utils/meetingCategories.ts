@@ -9,7 +9,7 @@
 export const MEETING_CATEGORY_GROUPS = {
   'Direct Contact': ['Initial Assessment', '3 Year Reassessment', 'Assessment'], // Assessment = legacy, prefer Initial/3 Year
   Planning: ['IEP planning', 'Assessment planning', '3 year reassessment planning'],
-  Meetings: ['IEP', 'Staff Meeting', 'Team Meeting', 'Parent Meeting', 'Professional Development', 'Speech screening'],
+  Meetings: ['IEP', 'Staff Meeting', 'Team Meeting', 'Parent Meeting', 'Professional Development', 'Speech screening', 'Assessment documentation'],
   Other: ['Other'],
 } as const;
 
