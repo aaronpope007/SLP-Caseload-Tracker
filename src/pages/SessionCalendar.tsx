@@ -1640,14 +1640,25 @@ export const SessionCalendar = () => {
         await updateSession(editingSession.id, updates);
         if (!isMountedRef.current) return;
       } else if (editingGroupSessionId) {
-        // Editing a group session - update all sessions in the group
+        // Editing a group session - sync roster with sessionFormData.studentIds
+        // Remove sessions for students no longer in the form, add sessions for new students, update existing
         const groupSessions = sessions.filter(s => s.groupSessionId === editingGroupSessionId);
-        
+        const formStudentIds = new Set(sessionFormData.studentIds);
+
+        // Delete sessions for students removed from the form
         for (const existingSession of groupSessions) {
-          const studentGoals = goals.filter(g => g.studentId === existingSession.studentId && !isGoalAchieved(g)).map(g => g.id);
+          if (!formStudentIds.has(existingSession.studentId)) {
+            await deleteSession(existingSession.id);
+            if (!isMountedRef.current) return;
+          }
+        }
+
+        // Update existing sessions and create new ones for added students
+        for (const studentId of sessionFormData.studentIds) {
+          const studentGoals = goals.filter(g => g.studentId === studentId && !isGoalAchieved(g)).map(g => g.id);
           const studentGoalsTargeted = sessionFormData.goalsTargeted.filter(gId => studentGoals.includes(gId));
           const studentPerformanceData = sessionFormData.performanceData
-            .filter(p => p.studentId === existingSession.studentId && studentGoalsTargeted.includes(p.goalId))
+            .filter(p => p.studentId === studentId && studentGoalsTargeted.includes(p.goalId))
             .map((p) => ({
               goalId: p.goalId,
               accuracy: p.accuracy ? parseFloat(p.accuracy) : undefined,
@@ -1657,22 +1668,45 @@ export const SessionCalendar = () => {
               cuingLevels: p.cuingLevels,
             }));
 
-          const updates: Partial<Session> = {
-            date: fromLocalDateTimeString(sessionFormData.date),
-            endTime: sessionFormData.endTime ? fromLocalDateTimeString(sessionFormData.endTime) : undefined,
-            goalsTargeted: studentGoalsTargeted,
-            activitiesUsed: sessionFormData.activitiesUsed,
-            performanceData: studentPerformanceData,
-            notes: sessionFormData.notes,
-            isDirectServices: sessionFormData.isDirectServices === true,
-            indirectServicesNotes: sessionFormData.indirectServicesNotes || undefined,
-            missedSession: sessionFormData.isDirectServices ? (sessionFormData.missedSession || false) : undefined,
-            selectedSubjectiveStatements: sessionFormData.selectedSubjectiveStatements.length > 0 ? sessionFormData.selectedSubjectiveStatements : undefined,
-            customSubjective: sessionFormData.customSubjective.trim() || undefined,
-            plan: sessionFormData.plan.trim() || undefined,
-          };
-
-          await updateSession(existingSession.id, updates);
+          const existingSession = groupSessions.find(s => s.studentId === studentId);
+          if (existingSession) {
+            const updates: Partial<Session> = {
+              date: fromLocalDateTimeString(sessionFormData.date),
+              endTime: sessionFormData.endTime ? fromLocalDateTimeString(sessionFormData.endTime) : undefined,
+              goalsTargeted: studentGoalsTargeted,
+              activitiesUsed: sessionFormData.activitiesUsed,
+              performanceData: studentPerformanceData,
+              notes: sessionFormData.notes,
+              isDirectServices: sessionFormData.isDirectServices === true,
+              indirectServicesNotes: sessionFormData.indirectServicesNotes || undefined,
+              missedSession: sessionFormData.isDirectServices ? (sessionFormData.missedSession || false) : undefined,
+              selectedSubjectiveStatements: sessionFormData.selectedSubjectiveStatements.length > 0 ? sessionFormData.selectedSubjectiveStatements : undefined,
+              customSubjective: sessionFormData.customSubjective.trim() || undefined,
+              plan: sessionFormData.plan.trim() || undefined,
+            };
+            await updateSession(existingSession.id, updates);
+          } else {
+            // New student added to the group - create session
+            const sessionData: Session = {
+              id: generateId(),
+              studentId: studentId,
+              date: fromLocalDateTimeString(sessionFormData.date),
+              endTime: sessionFormData.endTime ? fromLocalDateTimeString(sessionFormData.endTime) : undefined,
+              goalsTargeted: studentGoalsTargeted,
+              activitiesUsed: sessionFormData.activitiesUsed,
+              performanceData: studentPerformanceData,
+              notes: sessionFormData.notes,
+              isDirectServices: sessionFormData.isDirectServices === true,
+              indirectServicesNotes: sessionFormData.indirectServicesNotes || undefined,
+              groupSessionId: editingGroupSessionId,
+              missedSession: sessionFormData.isDirectServices ? (sessionFormData.missedSession || false) : undefined,
+              selectedSubjectiveStatements: sessionFormData.selectedSubjectiveStatements.length > 0 ? sessionFormData.selectedSubjectiveStatements : undefined,
+              customSubjective: sessionFormData.customSubjective.trim() || undefined,
+              plan: sessionFormData.plan.trim() || undefined,
+              scheduledSessionId: currentEvent?.scheduledSessionId,
+            };
+            await addSession(sessionData);
+          }
           if (!isMountedRef.current) return;
         }
       } else {
