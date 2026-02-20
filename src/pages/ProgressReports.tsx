@@ -106,6 +106,9 @@ export const ProgressReports = () => {
     dueDate: '',
   });
 
+  const [studentInputValue, setStudentInputValue] = useState('');
+  const studentInputRef = useRef('');
+
   const studentsForForm = useMemo(
     () => students.filter(s => s.status === 'active' && s.archived !== true),
     [students]
@@ -124,6 +127,19 @@ export const ProgressReports = () => {
       if (matches) seen.add(student.id);
       return matches;
     });
+  }, []);
+
+  const handleAutocompleteKeyDown = useCallback((
+    e: React.KeyboardEvent,
+    filtered: Student[],
+    onSelect: (option: Student) => void
+  ) => {
+    if (e.key === 'Tab' || e.key === 'Enter') {
+      if (filtered.length === 1 && !e.shiftKey) {
+        e.preventDefault();
+        onSelect(filtered[0]);
+      }
+    }
   }, []);
 
   const loadData = useCallback(async () => {
@@ -181,6 +197,7 @@ export const ProgressReports = () => {
   const handleOpenDialog = () => {
     // Pre-fill student if filtered by student
     const prefillStudentId = studentFilter || '';
+    const prefillStudent = studentsForForm.find((s) => s.id === prefillStudentId);
     setFormData({
       studentId: prefillStudentId,
       reportType: 'quarterly',
@@ -188,6 +205,8 @@ export const ProgressReports = () => {
       periodEnd: '',
       dueDate: '',
     });
+    setStudentInputValue(prefillStudent ? `${prefillStudent.name}${prefillStudent.grade ? ` (${prefillStudent.grade})` : ''}` : '');
+    studentInputRef.current = prefillStudent ? `${prefillStudent.name}${prefillStudent.grade ? ` (${prefillStudent.grade})` : ''}` : '';
     reportDialog.openDialog();
   };
 
@@ -200,6 +219,8 @@ export const ProgressReports = () => {
       periodEnd: '',
       dueDate: '',
     });
+    setStudentInputValue('');
+    studentInputRef.current = '';
   };
 
   const handleSaveReport = async () => {
@@ -741,9 +762,39 @@ export const ProgressReports = () => {
               getOptionLabel={(option) => `${option.name}${option.grade ? ` (${option.grade})` : ''}`}
               filterOptions={(options, state) => filterStudentOptions(options, state.inputValue)}
               value={studentsForForm.find((s) => s.id === formData.studentId) ?? null}
-              onChange={(_, newValue) => setFormData({ ...formData, studentId: newValue?.id ?? '' })}
+              inputValue={studentInputValue}
+              onInputChange={(_, value) => {
+                setStudentInputValue(value);
+                studentInputRef.current = value;
+              }}
+              onChange={(_, newValue) => {
+                setFormData((prev) => ({ ...prev, studentId: newValue?.id ?? '' }));
+                if (newValue) {
+                  const display = `${newValue.name}${newValue.grade ? ` (${newValue.grade})` : ''}`;
+                  setStudentInputValue(display);
+                  studentInputRef.current = display;
+                } else {
+                  setStudentInputValue('');
+                  studentInputRef.current = '';
+                }
+              }}
               renderInput={(params) => (
-                <TextField {...params} label="Student" placeholder="Search by name, grade, or concerns" required />
+                <TextField
+                  {...params}
+                  label="Student"
+                  placeholder="Search by name, grade, or concerns"
+                  required
+                  InputLabelProps={{ shrink: true }}
+                  onKeyDown={(e) => {
+                    const filtered = filterStudentOptions(studentsForForm, studentInputRef.current);
+                    handleAutocompleteKeyDown(e, filtered, (option) => {
+                      setFormData((prev) => ({ ...prev, studentId: option.id }));
+                      const display = `${option.name}${option.grade ? ` (${option.grade})` : ''}`;
+                      setStudentInputValue(display);
+                      studentInputRef.current = display;
+                    });
+                  }}
+                />
               )}
               isOptionEqualToValue={(option, value) => value != null && option.id === value.id}
               clearText="Clear"
