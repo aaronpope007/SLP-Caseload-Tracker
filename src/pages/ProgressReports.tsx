@@ -12,6 +12,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Autocomplete,
   Card,
   CardContent,
   Alert,
@@ -104,6 +105,26 @@ export const ProgressReports = () => {
     periodEnd: '',
     dueDate: '',
   });
+
+  const studentsForForm = useMemo(
+    () => students.filter(s => s.status === 'active' && s.archived !== true),
+    [students]
+  );
+
+  const filterStudentOptions = useCallback((options: Student[], inputValue: string) => {
+    if (!inputValue) return options;
+    const searchTerm = inputValue.toLowerCase().trim();
+    const seen = new Set<string>();
+    return options.filter((student) => {
+      if (seen.has(student.id)) return false;
+      const nameMatch = (student.name || '').toLowerCase().includes(searchTerm);
+      const gradeMatch = (student.grade || '').toLowerCase().includes(searchTerm);
+      const concernsMatch = student.concerns?.some((c) => c.toLowerCase().includes(searchTerm)) || false;
+      const matches = nameMatch || gradeMatch || concernsMatch;
+      if (matches) seen.add(student.id);
+      return matches;
+    });
+  }, []);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -714,20 +735,19 @@ export const ProgressReports = () => {
         <DialogTitle>Add New Progress Report</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-            <FormControl fullWidth required>
-              <InputLabel>Student</InputLabel>
-              <Select
-                value={formData.studentId}
-                label="Student"
-                onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
-              >
-                {students.filter(s => s.status === 'active' && s.archived !== true).map((student) => (
-                  <MenuItem key={student.id} value={student.id}>
-                    {student.name} ({student.grade})
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Autocomplete
+              fullWidth
+              options={studentsForForm}
+              getOptionLabel={(option) => `${option.name}${option.grade ? ` (${option.grade})` : ''}`}
+              filterOptions={(options, state) => filterStudentOptions(options, state.inputValue)}
+              value={studentsForForm.find((s) => s.id === formData.studentId) ?? null}
+              onChange={(_, newValue) => setFormData({ ...formData, studentId: newValue?.id ?? '' })}
+              renderInput={(params) => (
+                <TextField {...params} label="Student" placeholder="Search by name, grade, or concerns" required />
+              )}
+              isOptionEqualToValue={(option, value) => value != null && option.id === value.id}
+              clearText="Clear"
+            />
             <FormControl fullWidth required>
               <InputLabel>Report Type</InputLabel>
               <Select

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Box,
   Button,
@@ -7,6 +7,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Autocomplete,
+  TextField,
   Card,
   CardContent,
   Table,
@@ -30,7 +32,6 @@ import {
 import {
   Print as PrintIcon,
   PictureAsPdf as PdfIcon,
-  Person as PersonIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
 import type { Student, Goal, Session } from '../types';
@@ -81,6 +82,21 @@ export const Reports = () => {
     };
     loadStudents();
   }, [selectedSchool]);
+
+  const filterStudentOptions = useCallback((options: Student[], inputValue: string) => {
+    if (!inputValue) return options;
+    const searchTerm = inputValue.toLowerCase().trim();
+    const seen = new Set<string>();
+    return options.filter((student) => {
+      if (seen.has(student.id)) return false;
+      const nameMatch = (student.name || '').toLowerCase().includes(searchTerm);
+      const gradeMatch = (student.grade || '').toLowerCase().includes(searchTerm);
+      const concernsMatch = student.concerns?.some((c) => c.toLowerCase().includes(searchTerm)) || false;
+      const matches = nameMatch || gradeMatch || concernsMatch;
+      if (matches) seen.add(student.id);
+      return matches;
+    });
+  }, []);
 
   useEffect(() => {
     if (!selectedStudentId) {
@@ -384,26 +400,19 @@ export const Reports = () => {
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap' }}>
-            <FormControl sx={{ minWidth: 250 }}>
-              <InputLabel>Student</InputLabel>
-              <Select
-                value={selectedStudentId}
-                label="Student"
-                onChange={(e) => setSelectedStudentId(e.target.value)}
-              >
-                <MenuItem value="">
-                  <em>Select a student</em>
-                </MenuItem>
-                {students.map((student) => (
-                  <MenuItem key={student.id} value={student.id}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <PersonIcon fontSize="small" />
-                      {student.name} ({student.grade})
-                    </Box>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Autocomplete
+              sx={{ minWidth: 250 }}
+              options={students}
+              getOptionLabel={(option) => `${option.name}${option.grade ? ` (${option.grade})` : ''}`}
+              filterOptions={(options, state) => filterStudentOptions(options, state.inputValue)}
+              value={selectedStudent ?? null}
+              onChange={(_, newValue) => setSelectedStudentId(newValue?.id ?? '')}
+              renderInput={(params) => (
+                <TextField {...params} label="Student" placeholder="Search by name, grade, or concerns" />
+              )}
+              isOptionEqualToValue={(option, value) => value != null && option.id === value.id}
+              clearText="Clear"
+            />
             <FormControl sx={{ minWidth: 250 }}>
               <InputLabel>Report Type</InputLabel>
               <Select
