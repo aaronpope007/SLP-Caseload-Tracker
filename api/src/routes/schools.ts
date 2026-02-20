@@ -14,6 +14,7 @@ interface SchoolRow {
   dateCreated: string;
   schoolHours: string | null; // JSON string
   studentTimes: string | null; // JSON string
+  primarySchoolContact: string | null; // JSON string
 }
 
 export const schoolsRouter = Router();
@@ -52,7 +53,7 @@ schoolsRouter.get('/', asyncHandler(async (req, res) => {
     countMap.set(key, existing + row.count);
   }
   
-  // Parse boolean, schoolHours JSON, studentTimes JSON, and add student count
+  // Parse boolean, schoolHours JSON, studentTimes JSON, primarySchoolContact, and add student count
   const parsed = schools.map((s) => {
     const key = s.name.toLowerCase();
     const studentCount = countMap.get(key) || 0;
@@ -61,6 +62,7 @@ schoolsRouter.get('/', asyncHandler(async (req, res) => {
       teletherapy: s.teletherapy === 1,
       schoolHours: parseJsonField<{ startHour: number; endHour: number }>(s.schoolHours, undefined),
       studentTimes: parseJsonField<{ startTime: string; endTime: string }>(s.studentTimes, undefined),
+      primarySchoolContact: parseJsonField<{ contactType: string; contactId?: string; name?: string; email?: string }>(s.primarySchoolContact, undefined),
       studentCount,
     };
   });
@@ -87,6 +89,7 @@ schoolsRouter.get('/:id', asyncHandler(async (req, res) => {
     teletherapy: school.teletherapy === 1,
     schoolHours: parseJsonField<{ startHour: number; endHour: number }>(school.schoolHours, undefined),
     studentTimes: parseJsonField<{ startTime: string; endTime: string }>(school.studentTimes, undefined),
+    primarySchoolContact: parseJsonField<{ contactType: string; contactId?: string; name?: string; email?: string }>(school.primarySchoolContact, undefined),
   });
 }));
 
@@ -109,6 +112,7 @@ schoolsRouter.get('/name/:name', asyncHandler(async (req, res) => {
     teletherapy: school.teletherapy === 1,
     schoolHours: parseJsonField<{ startHour: number; endHour: number }>(school.schoolHours, undefined),
     studentTimes: parseJsonField<{ startTime: string; endTime: string }>(school.studentTimes, undefined),
+    primarySchoolContact: parseJsonField<{ contactType: string; contactId?: string; name?: string; email?: string }>(school.primarySchoolContact, undefined),
   });
 }));
 
@@ -154,8 +158,8 @@ schoolsRouter.post('/', validateBody(createSchoolSchema), asyncHandler(async (re
   const dateCreated = new Date().toISOString();
   
   db.prepare(`
-    INSERT INTO schools (id, name, state, teletherapy, dateCreated, schoolHours, studentTimes)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO schools (id, name, state, teletherapy, dateCreated, schoolHours, studentTimes, primarySchoolContact)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     schoolId,
     schoolName,
@@ -163,7 +167,8 @@ schoolsRouter.post('/', validateBody(createSchoolSchema), asyncHandler(async (re
     school.teletherapy ? 1 : 0,
     dateCreated,
     stringifyJsonField(school.schoolHours),
-    stringifyJsonField(school.studentTimes)
+    stringifyJsonField(school.studentTimes),
+    stringifyJsonField(school.primarySchoolContact)
   );
   
   res.status(201).json({ id: schoolId, message: 'School created' });
@@ -193,10 +198,13 @@ schoolsRouter.put('/:id', validateBody(updateSchoolSchema), asyncHandler(async (
   const studentTimes = updates.studentTimes !== undefined
     ? stringifyJsonField(updates.studentTimes)
     : existing.studentTimes;
+  const primarySchoolContact = updates.primarySchoolContact !== undefined
+    ? stringifyJsonField(updates.primarySchoolContact)
+    : (existing as { primarySchoolContact?: string | null }).primarySchoolContact ?? null;
   
   db.prepare(`
     UPDATE schools 
-    SET name = ?, state = ?, teletherapy = ?, schoolHours = ?, studentTimes = ?
+    SET name = ?, state = ?, teletherapy = ?, schoolHours = ?, studentTimes = ?, primarySchoolContact = ?
     WHERE id = ?
   `).run(
     name,
@@ -204,6 +212,7 @@ schoolsRouter.put('/:id', validateBody(updateSchoolSchema), asyncHandler(async (
     teletherapy,
     schoolHours,
     studentTimes,
+    primarySchoolContact,
     id
   );
   

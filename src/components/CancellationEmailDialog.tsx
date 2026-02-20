@@ -17,14 +17,16 @@ import {
   ListItem,
   ListItemText,
   Divider,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import {
   ContentCopy as ContentCopyIcon,
   Email as EmailIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
-import type { Student, Teacher, CaseManager, ScheduledSession, Session } from '../types';
-import { getTeachers, getSessionsBySchool, getSchoolByName, getMeetings } from '../utils/storage-api';
+import type { Student, Teacher, CaseManager, School, ScheduledSession, Session } from '../types';
+import { getTeachers, getCaseManagers, getSessionsBySchool, getSchoolByName, getMeetings } from '../utils/storage-api';
 import { getScheduledSessions } from '../utils/storage-api';
 import { format, isBefore, isAfter, parse, isSameDay, startOfDay } from 'date-fns';
 import { api } from '../utils/api';
@@ -56,12 +58,16 @@ export const CancellationEmailDialog = ({
 }: CancellationEmailDialogProps) => {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [teacherEmails, setTeacherEmails] = useState<TeacherEmailData[]>([]);
+  const [caseManagers, setCaseManagers] = useState<CaseManager[]>([]);
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [sendSuccess, setSendSuccess] = useState<string[]>([]); // Track which teachers received emails
   const [selectedTeacherIndex, setSelectedTeacherIndex] = useState<number | null>(null);
+  const [ccCaseManager, setCcCaseManager] = useState(false);
+  const [ccPrimarySchoolContact, setCcPrimarySchoolContact] = useState(false);
+  const [school, setSchool] = useState<School | null>(null);
 
   // Track if component is mounted to prevent state updates after unmount
   const isMountedRef = useRef(true);
@@ -84,6 +90,9 @@ export const CancellationEmailDialog = ({
       setSendError(null);
       setSendSuccess([]);
       setSelectedTeacherIndex(null);
+      setCcCaseManager(false);
+      setCcPrimarySchoolContact(false);
+      setSchool(null);
     }
   }, [open, studentIds, sessionDate, sessionTime, sessionEndTime]);
 
@@ -498,19 +507,41 @@ export const CancellationEmailDialog = ({
     return verifiedOpenSlots;
   };
 
+  const getPrimarySchoolContactEmail = (schoolToUse: School | null, teachersList: Teacher[], caseManagersList: CaseManager[]): string | null => {
+    const pc = schoolToUse?.primarySchoolContact;
+    if (!pc) return null;
+    if (pc.contactType === 'custom' && pc.email) return pc.email;
+    if (pc.contactType === 'teacher' && pc.contactId) {
+      const t = teachersList.find(x => x.id === pc.contactId);
+      return t?.emailAddress ?? null;
+    }
+    if (pc.contactType === 'case-manager' && pc.contactId) {
+      const cm = caseManagersList.find(x => x.id === pc.contactId);
+      return cm?.emailAddress ?? null;
+    }
+    return null;
+  };
+
   const loadTeachersAndGenerateEmails = async () => {
     if (studentIds.length === 0) return;
     if (!isMountedRef.current) return;
+
+    const primaryStudent = students.find(s => studentIds.includes(s.id));
+    if (primaryStudent) {
+      const schoolData = await getSchoolByName(primaryStudent.school);
+      if (isMountedRef.current) setSchool(schoolData ?? null);
+    }
 
     // Find available times first
     const availableTimesList = await findAvailableTimes();
     if (!isMountedRef.current) return;
     setAvailableTimes(availableTimesList);
 
-    // Get all teachers
-    const allTeachers = await getTeachers();
+    // Get all teachers and case managers
+    const [allTeachers, allCaseManagers] = await Promise.all([getTeachers(), getCaseManagers()]);
     if (!isMountedRef.current) return;
     setTeachers(allTeachers);
+    setCaseManagers(allCaseManagers);
 
     // Group students by teacher
     const teacherMap = new Map<string, { teacher: Teacher; studentIds: string[] }>();
@@ -615,6 +646,25 @@ export const CancellationEmailDialog = ({
         : associatedStudents.map(s => s.name).join(', ');
       
       const emailSubject = `Speech Therapy Session Cancellation - ${dateStr}`;
+
+      // Build CC: always CC me, optionally CC case manager(s), optionally CC primary school contact
+      const ccAddresses: string[] = [emailAddress];
+      if (ccCaseManager) {
+        const studentCaseManagerIds = associatedStudents
+          .map(s => s.caseManagerId)
+          .filter((id): id is string => !!id);
+        const uniqueCaseManagerIds = [...new Set(studentCaseManagerIds)];
+        for (const cmId of uniqueCaseManagerIds) {
+          const cm = caseManagers.find(c => c.id === cmId);
+          if (cm?.emailAddress) {
+            ccAddresses.push(cm.emailAddress);
+          }
+        }
+      }
+      const primaryContactEmail = ccPrimarySchoolContact ? getPrimarySchoolContactEmail(school, teachers, caseManagers) : null;
+      if (primaryContactEmail && !ccAddresses.includes(primaryContactEmail)) {
+        ccAddresses.push(primaryContactEmail);
+      }
       
       await api.email.send({
         to: emailData.teacher.emailAddress,
@@ -626,6 +676,7 @@ export const CancellationEmailDialog = ({
         smtpPort: 587,
         smtpUser: emailAddress,
         smtpPassword: emailPassword,
+        cc: ccAddresses,
       });
 
       // Log communication for each student
@@ -699,7 +750,26 @@ export const CancellationEmailDialog = ({
         const userName = localStorage.getItem('user_name') || 'Aaron Pope';
         const dateStr = format(sessionDate, 'MMMM d, yyyy');
         const emailSubject = `Speech Therapy Session Cancellation - ${dateStr}`;
-        
+        const associatedStudents = emailData.studentIds
+          .map(id => students.find(s => s.id === id))
+          .filter((s): s is Student => s !== undefined);
+        const ccAddresses: string[] = [emailAddress];
+        if (ccCaseManager) {
+          const studentCaseManagerIds = associatedStudents
+            .map(s => s.caseManagerId)
+            .filter((id): id is string => !!id);
+          const uniqueCaseManagerIds = [...new Set(studentCaseManagerIds)];
+          for (const cmId of uniqueCaseManagerIds) {
+            const cm = caseManagers.find(c => c.id === cmId);
+            if (cm?.emailAddress) {
+              ccAddresses.push(cm.emailAddress);
+            }
+          }
+        }
+        const primaryContactEmail = ccPrimarySchoolContact ? getPrimarySchoolContactEmail(school, teachers, caseManagers) : null;
+        if (primaryContactEmail && !ccAddresses.includes(primaryContactEmail)) {
+          ccAddresses.push(primaryContactEmail);
+        }
         await api.email.send({
           to: emailData.teacher.emailAddress!,
           subject: emailSubject,
@@ -710,6 +780,7 @@ export const CancellationEmailDialog = ({
           smtpPort: 587,
           smtpUser: emailAddress,
           smtpPassword: emailPassword,
+          cc: ccAddresses,
         });
 
         // Log communication for each student
@@ -837,6 +908,33 @@ export const CancellationEmailDialog = ({
                     No email address found for {currentEmail.teacher.name}. You can copy the email text and send it manually.
                   </Alert>
                 )}
+
+                <Box sx={{ mb: 2 }}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={ccCaseManager}
+                        onChange={(e) => setCcCaseManager(e.target.checked)}
+                        color="primary"
+                      />
+                    }
+                    label="CC case manager"
+                  />
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={ccPrimarySchoolContact}
+                        onChange={(e) => setCcPrimarySchoolContact(e.target.checked)}
+                        color="primary"
+                        disabled={!school?.primarySchoolContact}
+                      />
+                    }
+                    label="CC primary school contact"
+                  />
+                  <Typography variant="caption" display="block" color="text.secondary">
+                    You will always be CC'd on cancellation emails.
+                  </Typography>
+                </Box>
 
                 <TextField
                   fullWidth

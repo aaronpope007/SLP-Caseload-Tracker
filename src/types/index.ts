@@ -1,3 +1,11 @@
+/** Primary school contact for CC on cancellation emails - teacher, case manager, or custom */
+export interface PrimarySchoolContact {
+  contactType: 'teacher' | 'case-manager' | 'custom';
+  contactId?: string; // For teacher/case-manager
+  name?: string; // For custom
+  email?: string; // For custom
+}
+
 export interface School {
   id: string;
   name: string;
@@ -13,6 +21,7 @@ export interface School {
     startTime: string; // Student start time in HH:mm format (e.g., "08:00"), default "08:00"
     endTime: string; // Student end time in HH:mm format (e.g., "15:00"), default "15:00"
   };
+  primarySchoolContact?: PrimarySchoolContact;
 }
 
 export interface Teacher {

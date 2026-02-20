@@ -127,6 +127,7 @@ export const Schools = () => {
       startTime: '08:00',
       endTime: '15:00',
     },
+    primarySchoolContact: undefined as { contactType: 'teacher' | 'case-manager' | 'custom'; contactId?: string; name?: string; email?: string } | undefined,
   });
 
   const loadSchools = async () => {
@@ -250,6 +251,7 @@ export const Schools = () => {
         teletherapy: school.teletherapy || false,
         schoolHours: school.schoolHours || { startHour: 8, endHour: 17 },
         studentTimes: school.studentTimes || { startTime: '08:00', endTime: '15:00' },
+        primarySchoolContact: school.primarySchoolContact,
       });
     } else {
       setEditingSchool(null);
@@ -265,6 +267,7 @@ export const Schools = () => {
           startTime: '08:00',
           endTime: '15:00',
         },
+        primarySchoolContact: undefined,
       });
     }
     clearAllErrors(); // Clear any previous validation errors
@@ -286,6 +289,7 @@ export const Schools = () => {
         startTime: '08:00',
         endTime: '15:00',
       },
+      primarySchoolContact: undefined,
     });
   };
 
@@ -301,6 +305,7 @@ export const Schools = () => {
         teletherapy: formData.teletherapy,
         schoolHours: formData.schoolHours,
         studentTimes: formData.studentTimes,
+        primarySchoolContact: formData.primarySchoolContact,
       };
       
       if (editingSchool) {

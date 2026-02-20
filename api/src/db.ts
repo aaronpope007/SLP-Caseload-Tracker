@@ -39,6 +39,9 @@ export function initDatabase() {
     if (!schoolColumnNames.includes('studentTimes')) {
       db.exec(`ALTER TABLE schools ADD COLUMN studentTimes TEXT`);
     }
+    if (!schoolColumnNames.includes('primarySchoolContact')) {
+      db.exec(`ALTER TABLE schools ADD COLUMN primarySchoolContact TEXT`);
+    }
   } catch (e: any) {
     console.warn('Could not add schoolHours or studentTimes column to schools table:', e.message);
   }

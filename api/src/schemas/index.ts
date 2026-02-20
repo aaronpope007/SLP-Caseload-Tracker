@@ -30,6 +30,13 @@ const idString = z.string().min(1, 'ID is required');
 // School Schema
 // ============================================================================
 
+const primarySchoolContactSchema = z.object({
+  contactType: z.enum(['teacher', 'case-manager', 'custom']),
+  contactId: z.string().optional(),
+  name: z.string().max(200).optional(),
+  email: z.string().email().optional().or(z.literal('')),
+}).optional();
+
 export const schoolSchema = z.object({
   id: idString.optional(),
   name: nonEmptyString.pipe(z.string().max(200, 'Name must be 200 characters or less')),
@@ -43,6 +50,7 @@ export const schoolSchema = z.object({
     startTime: z.string().regex(/^\d{2}:\d{2}$/, 'Start time must be in HH:mm format').default('08:00'),
     endTime: z.string().regex(/^\d{2}:\d{2}$/, 'End time must be in HH:mm format').default('15:00'),
   }).optional(),
+  primarySchoolContact: primarySchoolContactSchema,
 });
 
 export const createSchoolSchema = schoolSchema.omit({ id: true });
