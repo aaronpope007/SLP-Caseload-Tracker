@@ -20,6 +20,17 @@ interface GoalRow {
   domain: string | null;
   priority: string | null;
   templateId: string | null;
+  archived?: number;
+  dateArchived?: string | null;
+}
+
+function goalRowToResponse(g: GoalRow) {
+  return {
+    ...g,
+    subGoalIds: parseJsonField<string[]>(g.subGoalIds, undefined),
+    archived: g.archived === 1,
+    dateArchived: g.dateArchived || undefined,
+  };
 }
 
 export const goalsRouter = Router();
@@ -46,33 +57,26 @@ export const goalsRouter = Router();
  *         description: List of goals
  */
 goalsRouter.get('/', asyncHandler(async (req, res) => {
-  const { studentId, school } = req.query;
+  const { studentId, school, includeArchived } = req.query;
+  const showArchived = includeArchived === 'true' || includeArchived === '1';
+  const archivedFilter = showArchived ? '' : ' AND (archived IS NULL OR archived = 0)';
+  const archivedFilterForJoin = showArchived ? '' : ' AND (g.archived IS NULL OR g.archived = 0)';
   
-  let query = 'SELECT * FROM goals';
-  const params: string[] = [];
+  let query: string;
+  const params: (string | number)[] = [];
   
   if (studentId && typeof studentId === 'string') {
-    query += ' WHERE studentId = ?';
+    query = `SELECT * FROM goals WHERE studentId = ?${archivedFilter}`;
     params.push(studentId);
   } else if (school && typeof school === 'string') {
-    // Get goals for students in a specific school
-    query = `
-      SELECT g.* FROM goals g
-      INNER JOIN students s ON g.studentId = s.id
-      WHERE s.school = ?
-    `;
+    query = `SELECT g.* FROM goals g INNER JOIN students s ON g.studentId = s.id WHERE s.school = ?${archivedFilterForJoin}`;
     params.push(school);
+  } else {
+    query = showArchived ? 'SELECT * FROM goals' : 'SELECT * FROM goals WHERE (archived IS NULL OR archived = 0)';
   }
   
   const goals = db.prepare(query).all(...params) as GoalRow[];
-  
-  // Parse JSON fields
-  const parsed = goals.map((g) => ({
-    ...g,
-    subGoalIds: parseJsonField<string[]>(g.subGoalIds, undefined),
-  }));
-  
-  res.json(parsed);
+  res.json(goals.map(goalRowToResponse));
 }));
 
 /**
@@ -106,10 +110,7 @@ goalsRouter.get('/:id', asyncHandler(async (req, res) => {
     return res.status(404).json({ error: 'Goal not found' });
   }
   
-  res.json({
-    ...goal,
-    subGoalIds: parseJsonField<string[]>(goal.subGoalIds, undefined),
-  });
+  res.json(goalRowToResponse(goal));
 }));
 
 /**
@@ -299,6 +300,50 @@ goalsRouter.post('/bulk', asyncHandler(async (req, res) => {
   res.json({ created, updated, errors });
 }));
 
+/**
+ * @openapi
+ * /api/goals/archive:
+ *   post:
+ *     tags: [Goals]
+ *     summary: Archive all goals for a student (e.g. after reassessment, start fresh)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [studentId]
+ *             properties:
+ *               studentId:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Goals archived
+ *       400:
+ *         description: Validation error
+ */
+goalsRouter.post('/archive', asyncHandler(async (req, res) => {
+  const { studentId } = req.body;
+  
+  if (!studentId || typeof studentId !== 'string') {
+    return res.status(400).json({ error: 'studentId is required' });
+  }
+  
+  const student = db.prepare('SELECT id FROM students WHERE id = ?').get(studentId);
+  if (!student) {
+    return res.status(400).json({ error: 'Student not found', details: [{ field: 'studentId', message: 'Student does not exist' }] });
+  }
+  
+  const dateArchived = new Date().toISOString();
+  const result = db.prepare(`
+    UPDATE goals 
+    SET archived = 1, dateArchived = ? 
+    WHERE studentId = ? AND (archived IS NULL OR archived = 0)
+  `).run(dateArchived, studentId);
+  
+  res.json({ message: 'Goals archived', archivedCount: result.changes });
+}));
+
 // Update goal - with validation
 goalsRouter.put('/:id', validateBody(updateGoalSchema), asyncHandler(async (req, res) => {
   const { id } = req.params;
@@ -327,10 +372,14 @@ goalsRouter.put('/:id', validateBody(updateGoalSchema), asyncHandler(async (req,
     ...updates 
   };
   
+  const isArchived = goal.archived === true || goal.archived === 1;
+  const dateArchivedVal = isArchived ? (goal.dateArchived || new Date().toISOString()) : null;
+  
   db.prepare(`
     UPDATE goals 
     SET studentId = ?, description = ?, baseline = ?, target = ?, status = ?, 
-        dateAchieved = ?, parentGoalId = ?, subGoalIds = ?, domain = ?, priority = ?, templateId = ?
+        dateAchieved = ?, parentGoalId = ?, subGoalIds = ?, domain = ?, priority = ?, templateId = ?,
+        archived = ?, dateArchived = ?
     WHERE id = ?
   `).run(
     goal.studentId,
@@ -344,6 +393,8 @@ goalsRouter.put('/:id', validateBody(updateGoalSchema), asyncHandler(async (req,
     goal.domain || null,
     goal.priority || null,
     goal.templateId || null,
+    isArchived ? 1 : 0,
+    dateArchivedVal,
     id
   );
   

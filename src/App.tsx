@@ -43,12 +43,17 @@ const PageLoader = () => (
   </Box>
 );
 
-// Protected Layout wrapper - combines Layout with authentication check
+// Protected Layout wrapper - SchoolProvider and SessionDialogProvider must be inside the router
+// so Layout (which uses useSchool) is rendered within SchoolProvider's context
 const ProtectedLayout = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute>
-    <Layout>
-      {children}
-    </Layout>
+    <SchoolProvider>
+      <SessionDialogProvider>
+        <Layout>
+          {children}
+        </Layout>
+      </SessionDialogProvider>
+    </SchoolProvider>
   </ProtectedRoute>
 );
 
@@ -307,11 +312,7 @@ function AppContent() {
         <CssBaseline />
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
-            <SchoolProvider>
-              <SessionDialogProvider>
-                <RouterProvider router={router} />
-              </SessionDialogProvider>
-            </SchoolProvider>
+            <RouterProvider router={router} />
           </AuthProvider>
         </QueryClientProvider>
       </MuiThemeProvider>

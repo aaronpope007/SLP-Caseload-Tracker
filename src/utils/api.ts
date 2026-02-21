@@ -297,8 +297,8 @@ export const api = {
 
   // Goals
   goals: {
-    getAll: (studentId?: string, school?: string) => 
-      request<Goal[]>(`/goals${buildQueryString({ studentId, school })}`),
+    getAll: (studentId?: string, school?: string, includeArchived?: boolean) => 
+      request<Goal[]>(`/goals${buildQueryString({ studentId, school, includeArchived: includeArchived ? 'true' : undefined })}`),
     getById: (id: string) => 
       request<Goal>(`/goals/${id}`),
     create: (goal: Omit<Goal, 'id' | 'dateCreated'>) => 
@@ -319,6 +319,11 @@ export const api = {
       request<{ created: number; updated: number; errors: Array<{ id?: string; error: string }> }>('/goals/bulk', {
         method: 'POST',
         body: JSON.stringify({ goals }),
+      }),
+    archive: (studentId: string) => 
+      request<{ message: string; archivedCount: number }>('/goals/archive', {
+        method: 'POST',
+        body: JSON.stringify({ studentId }),
       }),
   },
 

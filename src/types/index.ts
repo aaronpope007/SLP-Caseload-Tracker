@@ -83,6 +83,8 @@ export interface Goal {
   domain?: string; // e.g., 'Articulation', 'Language', 'Pragmatics', 'Fluency'
   priority?: 'high' | 'medium' | 'low';
   templateId?: string; // Reference to goal template used
+  archived?: boolean; // Optional for backward compatibility
+  dateArchived?: string; // Date when goal set was archived (e.g. after reassessment)
 }
 
 export interface GoalTemplate {

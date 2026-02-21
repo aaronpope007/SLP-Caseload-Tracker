@@ -8,6 +8,7 @@ import {
   Psychology as PsychologyIcon,
   School as SchoolIcon,
   FlashOn as FlashOnIcon,
+  Archive as ArchiveIcon,
 } from '@mui/icons-material';
 
 interface GoalActionsBarProps {
@@ -15,6 +16,7 @@ interface GoalActionsBarProps {
   onQuickGoal: () => void;
   onGenerateIEPGoals: () => void;
   onGenerateTreatmentRecommendations: () => void;
+  onArchiveGoals?: () => void;
   hasGoals: boolean;
 }
 
@@ -23,6 +25,7 @@ export const GoalActionsBar = ({
   onQuickGoal,
   onGenerateIEPGoals,
   onGenerateTreatmentRecommendations,
+  onArchiveGoals,
   hasGoals,
 }: GoalActionsBarProps) => {
   return (
@@ -51,6 +54,17 @@ export const GoalActionsBar = ({
         >
           Quick Goal
         </Button>
+        {onArchiveGoals && (
+          <Button
+            variant="outlined"
+            color="secondary"
+            startIcon={<ArchiveIcon />}
+            onClick={onArchiveGoals}
+            disabled={!hasGoals}
+          >
+            Archive Goals & Start Fresh
+          </Button>
+        )}
         <Button
           variant="contained"
           startIcon={<AddIcon />}

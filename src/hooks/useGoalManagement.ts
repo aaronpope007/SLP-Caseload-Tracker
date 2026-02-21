@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { Goal } from '../types';
-import { getGoalsByStudent, addGoal, updateGoal, deleteGoal } from '../utils/storage-api';
+import { getGoalsByStudent, addGoal, updateGoal, deleteGoal, archiveGoalsForStudent as apiArchiveGoals } from '../utils/storage-api';
 import { logError } from '../utils/logger';
 
 interface UseGoalManagementOptions {
@@ -19,19 +19,26 @@ export const useGoalManagement = ({
   onGoalDeleted,
 }: UseGoalManagementOptions) => {
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [archivedGoals, setArchivedGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | undefined>();
 
-  const loadGoals = useCallback(async () => {
+  const loadGoals = useCallback(async (includeArchived = false) => {
     if (!studentId) return;
     
     setLoading(true);
     setError(undefined);
     try {
-      const loadedGoals = await getGoalsByStudent(studentId, school);
+      const loadedGoals = await getGoalsByStudent(studentId, school, includeArchived);
       // Filter out any undefined or null values to prevent errors
       const validGoals = loadedGoals.filter((g): g is Goal => g !== undefined && g !== null);
-      setGoals(validGoals);
+      if (includeArchived) {
+        setGoals(validGoals.filter((g) => !g.archived));
+        setArchivedGoals(validGoals.filter((g) => g.archived));
+      } else {
+        setGoals(validGoals);
+        setArchivedGoals([]);
+      }
     } catch (err) {
       logError('Failed to load goals', err);
       setError('Failed to load goals');
@@ -128,14 +135,33 @@ export const useGoalManagement = ({
     }
   }, [onGoalDeleted]);
 
+  const archiveGoals = useCallback(async (): Promise<number> => {
+    try {
+      const count = await apiArchiveGoals(studentId);
+      await loadGoals();
+      return count;
+    } catch (err) {
+      logError('Failed to archive goals', err);
+      setError('Failed to archive goals');
+      throw err;
+    }
+  }, [studentId, loadGoals]);
+
+  const loadArchivedGoals = useCallback(async () => {
+    await loadGoals(true);
+  }, [loadGoals]);
+
   return {
     goals,
+    archivedGoals,
     loading,
     error,
     loadGoals,
+    loadArchivedGoals,
     createGoal,
     updateGoal: updateGoalById,
     deleteGoal: removeGoal,
+    archiveGoals,
     setGoals, // Allow manual updates if needed
   };
 };

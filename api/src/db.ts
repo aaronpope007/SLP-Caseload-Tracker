@@ -109,9 +109,25 @@ export function initDatabase() {
       domain TEXT,
       priority TEXT CHECK(priority IN ('high', 'medium', 'low')),
       templateId TEXT,
+      archived INTEGER DEFAULT 0,
+      dateArchived TEXT,
       FOREIGN KEY (studentId) REFERENCES students(id) ON DELETE CASCADE
     )
   `);
+
+  // Add archived columns to goals table if they don't exist (for existing databases)
+  try {
+    const goalTableInfo = db.prepare('PRAGMA table_info(goals)').all() as Array<{ name: string }>;
+    const goalColumnNames = goalTableInfo.map(col => col.name);
+    if (!goalColumnNames.includes('archived')) {
+      db.exec(`ALTER TABLE goals ADD COLUMN archived INTEGER DEFAULT 0`);
+    }
+    if (!goalColumnNames.includes('dateArchived')) {
+      db.exec(`ALTER TABLE goals ADD COLUMN dateArchived TEXT`);
+    }
+  } catch (e: any) {
+    console.warn('Could not add archived columns to goals table:', e.message);
+  }
 
   // Sessions table
   db.exec(`

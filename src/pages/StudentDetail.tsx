@@ -16,6 +16,9 @@ import {
   ListItemText,
   Checkbox,
   Chip,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -27,6 +30,9 @@ import {
   Assessment as AssessmentIcon,
   Email as EmailIcon,
   OpenInNew as OpenInNewIcon,
+  Archive as ArchiveIcon,
+  ExpandMore as ExpandMoreIcon,
+  Unarchive as UnarchiveIcon,
 } from '@mui/icons-material';
 import type { Student, Goal, Session, ReassessmentPlanItem } from '../types';
 import { useSchool } from '../context/SchoolContext';
@@ -84,10 +90,13 @@ export const StudentDetail = () => {
   // Goal management hook
   const {
     goals,
+    archivedGoals,
     loadGoals,
+    loadArchivedGoals,
     createGoal,
     updateGoal: updateGoalById,
     deleteGoal: removeGoal,
+    archiveGoals,
   } = useGoalManagement({
     studentId: id || '',
     school: selectedSchool,
@@ -295,6 +304,33 @@ export const StudentDetail = () => {
     openDialog: copySubtreeDialog.openDialog,
   });
 
+  const handleArchiveGoals = useCallback(() => {
+    confirm({
+      title: 'Archive all goals?',
+      message: "This will archive all current goals for this student (e.g. after a reassessment). You can add new goals afterward. Archived goals remain in the system but won't appear in the active list.",
+      confirmText: 'Archive',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          const count = await archiveGoals();
+          showSnackbar(`Archived ${count} goal${count !== 1 ? 's' : ''}. Ready to add new goals.`, 'success');
+        } catch {
+          showSnackbar('Failed to archive goals', 'error');
+        }
+      },
+    });
+  }, [confirm, archiveGoals, showSnackbar]);
+
+  const handleUnarchiveGoal = useCallback(async (goal: Goal) => {
+    try {
+      await updateGoalById(goal.id, { archived: false });
+      await loadGoals(true); // Reload to refresh both active and archived lists
+      showSnackbar('Goal restored to active', 'success');
+    } catch (err) {
+      handleApiError(err, 'Failed to restore goal');
+    }
+  }, [updateGoalById, loadGoals, showSnackbar, handleApiError]);
+
   const handleMarkGoalComplete = useCallback(async (goal: Goal) => {
     try {
       await updateGoalById(goal.id, {
@@ -434,6 +470,7 @@ export const StudentDetail = () => {
       <GoalActionsBar
         onAddGoal={() => goalDialogHandlers.handleOpenDialog()}
         onQuickGoal={() => quickGoalsDialog.openDialog()}
+        onArchiveGoals={handleArchiveGoals}
         onGenerateIEPGoals={() => {
           aiFeatures.setAssessmentData('');
           aiFeatures.setIepGoals('');
@@ -468,6 +505,67 @@ export const StudentDetail = () => {
           onMarkComplete={handleMarkGoalComplete}
         />
       </Grid>
+
+      <Accordion
+        sx={{ mt: 2 }}
+        onChange={async (_e, expanded) => {
+          if (expanded) await loadArchivedGoals();
+        }}
+      >
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <ArchiveIcon color="action" />
+            <Typography>Archived goals</Typography>
+            {archivedGoals.length > 0 && (
+              <Chip label={archivedGoals.length} size="small" variant="outlined" />
+            )}
+          </Box>
+        </AccordionSummary>
+        <AccordionDetails>
+          {archivedGoals.length === 0 ? (
+            <Typography color="text.secondary">
+              No archived goals. Goals are archived when you use &quot;Archive Goals &amp; Start Fresh&quot; after a reassessment.
+            </Typography>
+          ) : (
+            <Grid container spacing={2}>
+              {archivedGoals.map((goal) => (
+                <Grid item xs={12} md={6} key={goal.id}>
+                  <Card variant="outlined" sx={{ opacity: 0.9 }}>
+                    <CardContent>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                        <Chip label={goal.domain || 'General'} size="small" sx={{ mb: 1 }} />
+                        <Button
+                          size="small"
+                          startIcon={<UnarchiveIcon />}
+                          onClick={() => handleUnarchiveGoal(goal)}
+                        >
+                          Restore
+                        </Button>
+                      </Box>
+                      <Typography variant="body2" sx={{ mb: 0.5 }}>{goal.description}</Typography>
+                      {goal.baseline && (
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          Baseline: {goal.baseline}
+                        </Typography>
+                      )}
+                      {goal.target && (
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          Target: {goal.target}
+                        </Typography>
+                      )}
+                      {goal.dateArchived && (
+                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                          Archived: {formatDate(goal.dateArchived)}
+                        </Typography>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          )}
+        </AccordionDetails>
+      </Accordion>
 
       {incompleteReassessmentItems.length > 0 && (
         <Card sx={{ mt: 3 }}>

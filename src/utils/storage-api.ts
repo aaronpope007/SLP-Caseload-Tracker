@@ -75,9 +75,9 @@ export const getGoals = async (): Promise<Goal[]> => {
   }
 };
 
-export const getGoalsByStudent = async (studentId: string, school?: string): Promise<Goal[]> => {
+export const getGoalsByStudent = async (studentId: string, school?: string, includeArchived?: boolean): Promise<Goal[]> => {
   try {
-    return await api.goals.getAll(studentId, school);
+    return await api.goals.getAll(studentId, school, includeArchived);
   } catch (error) {
     logError('Failed to fetch goals', error);
     return [];
@@ -119,6 +119,11 @@ export const updateGoal = async (id: string, updates: Partial<Goal>): Promise<vo
 
 export const deleteGoal = async (id: string): Promise<void> => {
   await api.goals.delete(id);
+};
+
+export const archiveGoalsForStudent = async (studentId: string): Promise<number> => {
+  const result = await api.goals.archive(studentId);
+  return result.archivedCount;
 };
 
 // Sessions

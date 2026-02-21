@@ -142,6 +142,8 @@ export const goalSchema = z.object({
   domain: optionalString,
   priority: prioritySchema.optional(),
   templateId: optionalString,
+  archived: z.boolean().default(false),
+  dateArchived: optionalIsoDate,
 });
 
 export const createGoalSchema = goalSchema.omit({ id: true });
