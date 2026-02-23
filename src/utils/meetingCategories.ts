@@ -9,7 +9,8 @@
 export const MEETING_CATEGORY_GROUPS = {
   'Direct Contact': ['Initial Assessment', '3 Year Reassessment', 'Assessment'], // Assessment = legacy, prefer Initial/3 Year
   Planning: ['IEP planning', 'Assessment planning', '3 year reassessment planning'],
-  Meetings: ['IEP', 'Staff Meeting', 'Team Meeting', 'Parent Meeting', 'Professional Development', 'Speech screening', 'Assessment documentation'],
+  Meetings: ['IEP', 'Staff Meeting', 'Team Meeting', 'Parent Meeting', 'Professional Development', 'Speech screening'],
+  Documentation: ['Initial assessment documentation', '3 year documentation', 'IEP documentation'],
   Other: ['Other'],
 } as const;
 
@@ -34,6 +35,16 @@ export const CATEGORIES_WITH_ACTIVITY_SUBTYPE = [
 
 /** Legacy category: stored on old meetings; we map to new behavior in timesheet */
 export const LEGACY_ASSESSMENT_CATEGORY = 'Assessment';
+
+/** Documentation subcategories (assessment documentation time) - for timesheet grouping */
+export const DOCUMENTATION_CATEGORIES = [
+  'Initial assessment documentation',
+  '3 year documentation',
+  'IEP documentation',
+] as const;
+
+/** Legacy: old "Assessment documentation" (no subtype) - map to generic in timesheet */
+export const LEGACY_ASSESSMENT_DOCUMENTATION = 'Assessment documentation';
 
 export function getCategoryGroup(subcategory: string): MeetingCategoryGroup | null {
   for (const [group, subs] of Object.entries(MEETING_CATEGORY_GROUPS)) {

@@ -3,6 +3,7 @@ import { parse, format, isSameDay, isBefore, isAfter, setHours, setMinutes } fro
 import {
   isLegacyDirectAssessment,
   LEGACY_ASSESSMENT_CATEGORY,
+  LEGACY_ASSESSMENT_DOCUMENTATION,
 } from './meetingCategories';
 
 interface TimeTrackingItem {
@@ -405,13 +406,34 @@ export const generateTimesheetNote = ({
     }
   });
 
-  // Assessment documentation (indirect): single type, no meeting/updates/assessment subtype
-  const assessmentDocumentationMeetings = meetings.filter(m => m.category === 'Assessment documentation');
-  const assessmentDocumentationStudentIds = new Set<string>();
-  let assessmentDocumentationWithoutStudent = false;
-  assessmentDocumentationMeetings.forEach(m => {
-    if (m.studentId) assessmentDocumentationStudentIds.add(m.studentId);
-    else assessmentDocumentationWithoutStudent = true;
+  // Assessment documentation (indirect): Initial assessment, 3 year, IEP
+  const initialAssessmentDocMeetings = meetings.filter(m => m.category === 'Initial assessment documentation');
+  const threeYearDocMeetings = meetings.filter(m => m.category === '3 year documentation');
+  const iepDocMeetings = meetings.filter(m => m.category === 'IEP documentation');
+  const legacyAssessmentDocMeetings = meetings.filter(m => m.category === LEGACY_ASSESSMENT_DOCUMENTATION);
+  const initialAssessmentDocStudentIds = new Set<string>();
+  const threeYearDocStudentIds = new Set<string>();
+  const iepDocStudentIds = new Set<string>();
+  const legacyAssessmentDocStudentIds = new Set<string>();
+  let initialAssessmentDocWithoutStudent = false;
+  let threeYearDocWithoutStudent = false;
+  let iepDocWithoutStudent = false;
+  let legacyAssessmentDocWithoutStudent = false;
+  initialAssessmentDocMeetings.forEach(m => {
+    if (m.studentId) initialAssessmentDocStudentIds.add(m.studentId);
+    else initialAssessmentDocWithoutStudent = true;
+  });
+  threeYearDocMeetings.forEach(m => {
+    if (m.studentId) threeYearDocStudentIds.add(m.studentId);
+    else threeYearDocWithoutStudent = true;
+  });
+  iepDocMeetings.forEach(m => {
+    if (m.studentId) iepDocStudentIds.add(m.studentId);
+    else iepDocWithoutStudent = true;
+  });
+  legacyAssessmentDocMeetings.forEach(m => {
+    if (m.studentId) legacyAssessmentDocStudentIds.add(m.studentId);
+    else legacyAssessmentDocWithoutStudent = true;
   });
 
   // Lesson Planning: All students from all sessions (missed and attended)
@@ -458,8 +480,14 @@ export const generateTimesheetNote = ({
   const assessmentPlanningUpdatesEntries = buildStudentEntries(assessmentPlanningUpdatesStudentIds);
   const hasAssessmentPlanningMeeting = assessmentPlanningMeetingEntries.length > 0 || assessmentPlanningMeetingWithoutStudent;
   const hasAssessmentPlanningUpdates = assessmentPlanningUpdatesEntries.length > 0 || assessmentPlanningUpdatesWithoutStudent;
-  const assessmentDocumentationEntries = buildStudentEntries(assessmentDocumentationStudentIds);
-  const hasAssessmentDocumentation = assessmentDocumentationEntries.length > 0 || assessmentDocumentationWithoutStudent;
+  const initialAssessmentDocEntries = buildStudentEntries(initialAssessmentDocStudentIds);
+  const threeYearDocEntries = buildStudentEntries(threeYearDocStudentIds);
+  const iepDocEntries = buildStudentEntries(iepDocStudentIds);
+  const legacyAssessmentDocEntries = buildStudentEntries(legacyAssessmentDocStudentIds);
+  const hasInitialAssessmentDoc = initialAssessmentDocEntries.length > 0 || initialAssessmentDocWithoutStudent;
+  const hasThreeYearDoc = threeYearDocEntries.length > 0 || threeYearDocWithoutStudent;
+  const hasIEPDoc = iepDocEntries.length > 0 || iepDocWithoutStudent;
+  const hasLegacyAssessmentDoc = legacyAssessmentDocEntries.length > 0 || legacyAssessmentDocWithoutStudent;
 
   // Build indirect services section with sub-sections
   const indirectServiceLabel = isTeletherapy ? 'Offsite Indirect Services Including:' : 'Indirect services including:';
@@ -549,11 +577,30 @@ export const generateTimesheetNote = ({
     if (threeYearPlanningUpdatesWithoutStudent) lineParts.push('3 year reassessment planning updates');
     noteParts.push(lineParts.join(', '));
   }
-  // Assessment documentation (indirect activity)
-  if (hasAssessmentDocumentation) {
+  // Assessment documentation (indirect): Initial assessment, 3 year, IEP
+  if (hasInitialAssessmentDoc) {
+    noteParts.push('Initial assessment documentation:');
+    const lineParts: string[] = [...initialAssessmentDocEntries];
+    if (initialAssessmentDocWithoutStudent) lineParts.push('Initial assessment documentation');
+    noteParts.push(lineParts.join(', '));
+  }
+  if (hasThreeYearDoc) {
+    noteParts.push('3 year documentation:');
+    const lineParts: string[] = [...threeYearDocEntries];
+    if (threeYearDocWithoutStudent) lineParts.push('3 year documentation');
+    noteParts.push(lineParts.join(', '));
+  }
+  if (hasIEPDoc) {
+    noteParts.push('IEP documentation:');
+    const lineParts: string[] = [...iepDocEntries];
+    if (iepDocWithoutStudent) lineParts.push('IEP documentation');
+    noteParts.push(lineParts.join(', '));
+  }
+  // Legacy: old "Assessment documentation" (no subtype)
+  if (hasLegacyAssessmentDoc) {
     noteParts.push('Assessment documentation:');
-    const lineParts: string[] = [...assessmentDocumentationEntries];
-    if (assessmentDocumentationWithoutStudent) lineParts.push('Assessment documentation');
+    const lineParts: string[] = [...legacyAssessmentDocEntries];
+    if (legacyAssessmentDocWithoutStudent) lineParts.push('Assessment documentation');
     noteParts.push(lineParts.join(', '));
   }
 
@@ -880,22 +927,33 @@ export const generateProspectiveTimesheetNote = ({
     })
     .sort();
 
-  // Assessment documentation: meetings with category "Assessment documentation" on target date
-  const assessmentDocumentationMeetingsProspective = meetings.filter(
-    m => m.category === 'Assessment documentation'
-  );
-  const assessmentDocumentationStudentEntriesProspective = assessmentDocumentationMeetingsProspective
-    .filter(m => m.studentId)
-    .map(meeting => {
-      const initials = getStudentInitials(meeting.studentId!);
-      const student = getStudent(meeting.studentId!);
-      const grade = student?.grade || '';
-      return `${initials} (${grade})`;
-    })
-    .sort();
-  const hasAssessmentDocumentationProspective =
-    assessmentDocumentationStudentEntriesProspective.length > 0 ||
-    assessmentDocumentationMeetingsProspective.some(m => !m.studentId);
+  // Assessment documentation: Initial assessment, 3 year, IEP (and legacy)
+  const initialAssessmentDocProspective = meetings.filter(m => m.category === 'Initial assessment documentation');
+  const threeYearDocProspective = meetings.filter(m => m.category === '3 year documentation');
+  const iepDocProspective = meetings.filter(m => m.category === 'IEP documentation');
+  const legacyAssessmentDocProspective = meetings.filter(m => m.category === LEGACY_ASSESSMENT_DOCUMENTATION);
+  const buildDocEntries = (meetingList: typeof meetings) =>
+    meetingList
+      .filter(m => m.studentId)
+      .map(meeting => {
+        const initials = getStudentInitials(meeting.studentId!);
+        const student = getStudent(meeting.studentId!);
+        const grade = student?.grade || '';
+        return `${initials} (${grade})`;
+      })
+      .sort();
+  const initialAssessmentDocEntriesProspective = buildDocEntries(initialAssessmentDocProspective);
+  const threeYearDocEntriesProspective = buildDocEntries(threeYearDocProspective);
+  const iepDocEntriesProspective = buildDocEntries(iepDocProspective);
+  const legacyAssessmentDocEntriesProspective = buildDocEntries(legacyAssessmentDocProspective);
+  const hasInitialAssessmentDocProspective =
+    initialAssessmentDocEntriesProspective.length > 0 || initialAssessmentDocProspective.some(m => !m.studentId);
+  const hasThreeYearDocProspective =
+    threeYearDocEntriesProspective.length > 0 || threeYearDocProspective.some(m => !m.studentId);
+  const hasIEPDocProspective =
+    iepDocEntriesProspective.length > 0 || iepDocProspective.some(m => !m.studentId);
+  const hasLegacyAssessmentDocProspective =
+    legacyAssessmentDocEntriesProspective.length > 0 || legacyAssessmentDocProspective.some(m => !m.studentId);
 
   // Build indirect services section
   const indirectServiceLabel = isTeletherapy ? 'Offsite Indirect Services Including:' : 'Indirect services including:';
@@ -922,11 +980,29 @@ export const generateProspectiveTimesheetNote = ({
     noteParts.push(speechScreeningStudentEntries.join(', '));
   }
 
-  // Assessment documentation (indirect activity)
-  if (hasAssessmentDocumentationProspective) {
+  // Assessment documentation (indirect): Initial assessment, 3 year, IEP
+  if (hasInitialAssessmentDocProspective) {
+    noteParts.push('Initial assessment documentation:');
+    const lineParts: string[] = [...initialAssessmentDocEntriesProspective];
+    if (initialAssessmentDocProspective.some(m => !m.studentId)) lineParts.push('Initial assessment documentation');
+    noteParts.push(lineParts.join(', '));
+  }
+  if (hasThreeYearDocProspective) {
+    noteParts.push('3 year documentation:');
+    const lineParts: string[] = [...threeYearDocEntriesProspective];
+    if (threeYearDocProspective.some(m => !m.studentId)) lineParts.push('3 year documentation');
+    noteParts.push(lineParts.join(', '));
+  }
+  if (hasIEPDocProspective) {
+    noteParts.push('IEP documentation:');
+    const lineParts: string[] = [...iepDocEntriesProspective];
+    if (iepDocProspective.some(m => !m.studentId)) lineParts.push('IEP documentation');
+    noteParts.push(lineParts.join(', '));
+  }
+  if (hasLegacyAssessmentDocProspective) {
     noteParts.push('Assessment documentation:');
-    const lineParts: string[] = [...assessmentDocumentationStudentEntriesProspective];
-    if (assessmentDocumentationMeetingsProspective.some(m => !m.studentId)) lineParts.push('Assessment documentation');
+    const lineParts: string[] = [...legacyAssessmentDocEntriesProspective];
+    if (legacyAssessmentDocProspective.some(m => !m.studentId)) lineParts.push('Assessment documentation');
     noteParts.push(lineParts.join(', '));
   }
 

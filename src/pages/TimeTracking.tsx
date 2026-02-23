@@ -68,7 +68,7 @@ export const TimeTracking = () => {
   const savedNotesDialog = useDialog();
   const meetingDialog = useDialog();
   const [editingMeeting, setEditingMeeting] = useState<Meeting | null>(null);
-  const [meetingDefaultCategory, setMeetingDefaultCategory] = useState<'IEP' | '3 Year Reassessment' | null>(null);
+  const [meetingDefaultCategory, setMeetingDefaultCategory] = useState<'IEP' | '3 Year Reassessment' | 'Initial assessment documentation' | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [screeners, setScreeners] = useState<ArticulationScreener[]>([]);
@@ -449,6 +449,12 @@ export const TimeTracking = () => {
     meetingDialog.openDialog();
   };
 
+  const handleAddDocumentation = () => {
+    setEditingMeeting(null);
+    setMeetingDefaultCategory('Initial assessment documentation');
+    meetingDialog.openDialog();
+  };
+
   const handleCloseMeetingDialog = () => {
     meetingDialog.closeDialog();
     setEditingMeeting(null);
@@ -515,6 +521,7 @@ export const TimeTracking = () => {
         onOpenSavedNotes={() => savedNotesDialog.openDialog()}
         onAddIEPActivity={handleAddIEPActivity}
         onAdd3YearReassessment={handleAdd3YearReassessment}
+        onAddDocumentation={handleAddDocumentation}
         hasItems={filteredItems.length > 0}
         useSpecificTimes={useSpecificTimes}
         onUseSpecificTimesChange={setUseSpecificTimes}

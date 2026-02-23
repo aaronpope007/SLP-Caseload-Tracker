@@ -262,7 +262,13 @@ export const SessionCalendar = () => {
       const meeting = event.meetingId ? meetings.find(m => m.id === event.meetingId) : undefined;
       const schoolInitials = meeting?.school ? getSchoolInitials(meeting.school) : '';
       const cat = meeting?.category;
-      const label = cat === 'Initial Assessment' ? 'Initial Assessment' : cat === '3 Year Reassessment' ? '3 Year Reassessment' : meeting?.activitySubtype === 'assessment' ? 'Assessment' : '-scheduled meeting-';
+      const label = cat === 'Initial Assessment' ? 'Initial Assessment'
+        : cat === '3 Year Reassessment' ? '3 Year Reassessment'
+        : meeting?.activitySubtype === 'assessment' ? 'Assessment'
+        : cat === 'Initial assessment documentation' ? 'Initial assessment documentation'
+        : cat === '3 year documentation' ? '3 year documentation'
+        : cat === 'IEP documentation' ? 'IEP documentation'
+        : cat || '-scheduled meeting-';
       return schoolInitials ? `${timePart} ${label} — ${schoolInitials}` : `${timePart} ${label}`;
     }
     const namesPart = event.studentIds.map(id => getStudentInitials(id)).join(', ');

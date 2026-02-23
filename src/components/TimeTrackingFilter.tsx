@@ -13,6 +13,7 @@ import {
   Event as EventIcon,
   Assignment as AssignmentIcon,
   Assessment as AssessmentIcon,
+  NoteAdd as NoteAddIcon,
 } from '@mui/icons-material';
 
 interface TimeTrackingFilterProps {
@@ -23,6 +24,7 @@ interface TimeTrackingFilterProps {
   onOpenSavedNotes: () => void;
   onAddIEPActivity?: () => void;
   onAdd3YearReassessment?: () => void;
+  onAddDocumentation?: () => void;
   hasItems: boolean;
   useSpecificTimes: boolean;
   onUseSpecificTimesChange: (value: boolean) => void;
@@ -36,6 +38,7 @@ export const TimeTrackingFilter = ({
   onOpenSavedNotes,
   onAddIEPActivity,
   onAdd3YearReassessment,
+  onAddDocumentation,
   hasItems,
   useSpecificTimes,
   onUseSpecificTimesChange,
@@ -77,6 +80,18 @@ export const TimeTrackingFilter = ({
                 sx={{ minWidth: 'fit-content' }}
               >
                 Add 3 year reassessment
+              </Button>
+            )}
+            {onAddDocumentation && (
+              <Button
+                variant="outlined"
+                color="secondary"
+                startIcon={<NoteAddIcon />}
+                onClick={onAddDocumentation}
+                disabled={!selectedDate}
+                sx={{ minWidth: 'fit-content' }}
+              >
+                Add documentation
               </Button>
             )}
             <Button
