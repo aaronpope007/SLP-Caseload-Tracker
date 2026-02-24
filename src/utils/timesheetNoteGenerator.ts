@@ -8,9 +8,9 @@ import {
 
 interface TimeTrackingItem {
   id: string;
-  type: 'session' | 'evaluation' | 'screener';
+  type: 'session' | 'evaluation' | 'screener' | 'meeting' | 'communication';
   date: string;
-  data: Session | Evaluation | ArticulationScreener;
+  data: Session | Evaluation | ArticulationScreener | Meeting | Communication;
 }
 
 interface GenerateTimesheetNoteParams {

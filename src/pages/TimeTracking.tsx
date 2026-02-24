@@ -26,6 +26,7 @@ import { SessionTimeItem } from '../components/session/SessionTimeItem';
 import { EvaluationTimeItem } from '../components/EvaluationTimeItem';
 import { ArticulationScreenerTimeItem } from '../components/ArticulationScreenerTimeItem';
 import { MeetingTimeItem } from '../components/meeting/MeetingTimeItem';
+import { CommunicationTimeItem } from '../components/communication/CommunicationTimeItem';
 import { TimesheetNoteDialog } from '../components/TimesheetNoteDialog';
 import { SavedNotesDialog } from '../components/SavedNotesDialog';
 import { TimeTrackingFilter } from '../components/TimeTrackingFilter';
@@ -37,9 +38,9 @@ import { migrateTimesheetNotes } from '../utils/migrateTimesheetNotes';
 
 interface TimeTrackingItem {
   id: string;
-  type: 'session' | 'evaluation' | 'screener' | 'meeting';
+  type: 'session' | 'evaluation' | 'screener' | 'meeting' | 'communication';
   date: string;
-  data: Session | Evaluation | ArticulationScreener | Meeting;
+  data: Session | Evaluation | ArticulationScreener | Meeting | Communication;
 }
 
 // Storage functions for timesheet notes (now using API)
@@ -260,6 +261,20 @@ export const TimeTracking = () => {
         data: meeting,
       });
     });
+
+    // Add teacher emails (from student card / communications) for time reporting
+    communications.forEach(comm => {
+      if (comm.contactType !== 'teacher' || comm.method !== 'email' || !comm.studentId) return;
+      const commSchool = getSchoolForItem(comm.studentId);
+      if (commSchool !== selectedSchool) return;
+      if (!comm.date) return;
+      items.push({
+        id: comm.id,
+        type: 'communication' as const,
+        date: comm.date,
+        data: comm,
+      });
+    });
     
     // Sort all items by date/time chronologically (most recent first)
     // This ensures group sessions, individual sessions, and evaluations are all intermingled correctly
@@ -274,7 +289,7 @@ export const TimeTracking = () => {
     });
     
     return sorted;
-  }, [sessions, evaluations, screeners, meetings, students, selectedSchool]);
+  }, [sessions, evaluations, screeners, meetings, communications, students, selectedSchool]);
 
   // Get calendar date (YYYY-MM-DD) for filtering. Use LOCAL date so that an event at 6pm Jan 29
   // (stored as 2026-01-30T02:00:00.000Z) shows on 1/29 only, and the 9:15 am Jan 30 event shows on 1/30 only.
@@ -362,9 +377,9 @@ export const TimeTracking = () => {
   const handleGenerateTimesheetNote = async () => {
     const school = await getSchoolByName(selectedSchool);
     const isTeletherapy = school?.teletherapy || false;
-    
+    type TimesheetNoteItems = Parameters<typeof generateTimesheetNote>[0]['filteredItems'];
     const note = generateTimesheetNote({
-      filteredItems,
+      filteredItems: filteredItems as TimesheetNoteItems,
       sessions,
       communications: filteredCommunications,
       meetings: filteredMeetings,
@@ -579,6 +594,14 @@ export const TimeTracking = () => {
                     setMeetingDefaultCategory(null);
                     meetingDialog.openDialog();
                   }}
+                />
+              );
+            } else if (item.type === 'communication') {
+              return (
+                <CommunicationTimeItem
+                  key={item.id}
+                  communication={item.data as Communication}
+                  getStudentName={getStudentName}
                 />
               );
             } else {
