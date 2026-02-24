@@ -81,6 +81,25 @@ interface GoalProgressItem {
   performanceHistory: PerformanceHistoryItem[];
 }
 
+/** Isolated field so typing doesn't re-render the heavy Progress page. */
+const AdditionalContextField = ({
+  valueRef,
+  ...textFieldProps
+}: React.ComponentProps<typeof TextField> & { valueRef: React.MutableRefObject<string> }) => {
+  const [value, setValue] = useState('');
+  return (
+    <TextField
+      {...textFieldProps}
+      value={value}
+      onChange={(e) => {
+        const v = e.target.value;
+        setValue(v);
+        valueRef.current = v;
+      }}
+    />
+  );
+};
+
 export const Progress = () => {
   const { selectedSchool } = useSchool();
   const { showSnackbar, SnackbarComponent } = useSnackbar();
@@ -98,7 +117,7 @@ export const Progress = () => {
   const [savingNote, setSavingNote] = useState<boolean>(false);
   const [loadingSavedNotes, setLoadingSavedNotes] = useState<boolean>(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [additionalContextForGeneration, setAdditionalContextForGeneration] = useState<string>('');
+  const additionalContextRef = useRef<string>('');
   const [formattedDialogOpen, setFormattedDialogOpen] = useState(false);
   const [formattedDialogContent, setFormattedDialogContent] = useState('');
   const formattedContentRef = useRef<HTMLDivElement>(null);
@@ -312,7 +331,7 @@ export const Progress = () => {
         performanceHistory,
       };
 
-      const note = await generateProgressNote(selectedStudent.name, [goalData], apiKey, additionalContextForGeneration || undefined);
+      const note = await generateProgressNote(selectedStudent.name, [goalData], apiKey, additionalContextRef.current || undefined);
       setGoalNotes({ ...goalNotes, [goal.goalId]: note });
     } catch (err: unknown) {
       const errorMessage = getErrorMessage(err);
@@ -420,7 +439,7 @@ export const Progress = () => {
         performanceHistory: goal.performanceHistory,
       }));
 
-      const note = await generateProgressNote(selectedStudent.name, goalsData, apiKey, additionalContextForGeneration || undefined);
+      const note = await generateProgressNote(selectedStudent.name, goalsData, apiKey, additionalContextRef.current || undefined);
       if (!isMountedRef.current) return;
       setCombinedNote(note);
     } catch (err: unknown) {
@@ -863,13 +882,12 @@ export const Progress = () => {
                   })}
                 </Box>
 
-                <TextField
+                <AdditionalContextField
+                  valueRef={additionalContextRef}
                   fullWidth
                   multiline
                   minRows={2}
                   maxRows={4}
-                  value={additionalContextForGeneration}
-                  onChange={(e) => setAdditionalContextForGeneration(e.target.value)}
                   label="Additional context for the AI (optional)"
                   placeholder="e.g. I only saw this student for four sessions, so the data is limited."
                   helperText="Give Gemini extra context (e.g. limited sessions, partial data) so it can write a more nuanced note."
