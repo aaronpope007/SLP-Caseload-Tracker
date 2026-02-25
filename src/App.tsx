@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Outlet } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -43,13 +43,15 @@ const PageLoader = () => (
   </Box>
 );
 
-// Protected Layout wrapper - SchoolProvider must wrap Layout so useSchool() has context
-const ProtectedLayout = ({ children }: { children: React.ReactNode }) => (
+// Protected layout route: auth + SchoolProvider + Layout + Outlet so useSchool() has context.
+const ProtectedLayoutRoute = () => (
   <ProtectedRoute>
     <SchoolProvider>
       <SessionDialogProvider>
         <Layout>
-          {children}
+          <Suspense fallback={<PageLoader />}>
+            <Outlet />
+          </Suspense>
         </Layout>
       </SessionDialogProvider>
     </SchoolProvider>
@@ -58,213 +60,90 @@ const ProtectedLayout = ({ children }: { children: React.ReactNode }) => (
 
 const router = createBrowserRouter([
   {
-    path: '/',
-    element: (
-      <ProtectedLayout>
-        <Suspense fallback={<PageLoader />}>
-          <Dashboard />
-        </Suspense>
-      </ProtectedLayout>
-    ),
+    element: <ProtectedLayoutRoute />,
     errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: '/students',
-    element: (
-      <ProtectedLayout>
-        <Suspense fallback={<PageLoader />}>
-          <Students />
-        </Suspense>
-      </ProtectedLayout>
-    ),
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: '/students/:id',
-    element: (
-      <ProtectedLayout>
-        <Suspense fallback={<PageLoader />}>
-          <StudentDetail />
-        </Suspense>
-      </ProtectedLayout>
-    ),
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: '/teachers',
-    element: (
-      <ProtectedLayout>
-        <Suspense fallback={<PageLoader />}>
-          <Teachers />
-        </Suspense>
-      </ProtectedLayout>
-    ),
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: '/case-managers',
-    element: (
-      <ProtectedLayout>
-        <Suspense fallback={<PageLoader />}>
-          <CaseManagers />
-        </Suspense>
-      </ProtectedLayout>
-    ),
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: '/sessions',
-    element: (
-      <ProtectedLayout>
-        <Suspense fallback={<PageLoader />}>
-          <Sessions />
-        </Suspense>
-      </ProtectedLayout>
-    ),
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: '/progress',
-    element: (
-      <ProtectedLayout>
-        <Suspense fallback={<PageLoader />}>
-          <Progress />
-        </Suspense>
-      </ProtectedLayout>
-    ),
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: '/ideas',
-    element: (
-      <ProtectedLayout>
-        <Suspense fallback={<PageLoader />}>
-          <TreatmentIdeas />
-        </Suspense>
-      </ProtectedLayout>
-    ),
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: '/documentation',
-    element: (
-      <ProtectedLayout>
-        <Suspense fallback={<PageLoader />}>
-          <DocumentationTemplates />
-        </Suspense>
-      </ProtectedLayout>
-    ),
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: '/time-tracking',
-    element: (
-      <ProtectedLayout>
-        <Suspense fallback={<PageLoader />}>
-          <TimeTracking />
-        </Suspense>
-      </ProtectedLayout>
-    ),
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: '/evaluations',
-    element: (
-      <ProtectedLayout>
-        <Suspense fallback={<PageLoader />}>
-          <Evaluations />
-        </Suspense>
-      </ProtectedLayout>
-    ),
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: '/schools',
-    element: (
-      <ProtectedLayout>
-        <Suspense fallback={<PageLoader />}>
-          <Schools />
-        </Suspense>
-      </ProtectedLayout>
-    ),
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: '/soap-notes',
-    element: (
-      <ProtectedLayout>
-        <Suspense fallback={<PageLoader />}>
-          <SOAPNotes />
-        </Suspense>
-      </ProtectedLayout>
-    ),
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: '/iep-notes',
-    element: (
-      <ProtectedLayout>
-        <Suspense fallback={<PageLoader />}>
-          <IEPNotes />
-        </Suspense>
-      </ProtectedLayout>
-    ),
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: '/progress-reports',
-    element: (
-      <ProtectedLayout>
-        <Suspense fallback={<PageLoader />}>
-          <ProgressReports />
-        </Suspense>
-      </ProtectedLayout>
-    ),
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: '/reports',
-    element: (
-      <ProtectedLayout>
-        <Suspense fallback={<PageLoader />}>
-          <Reports />
-        </Suspense>
-      </ProtectedLayout>
-    ),
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: '/due-date-items',
-    element: (
-      <ProtectedLayout>
-        <Suspense fallback={<PageLoader />}>
-          <DueDateItems />
-        </Suspense>
-      </ProtectedLayout>
-    ),
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: '/session-calendar',
-    element: (
-      <ProtectedLayout>
-        <Suspense fallback={<PageLoader />}>
-          <SessionCalendar />
-        </Suspense>
-      </ProtectedLayout>
-    ),
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: '/communications',
-    element: (
-      <ProtectedLayout>
-        <Suspense fallback={<PageLoader />}>
-          <Communications />
-        </Suspense>
-      </ProtectedLayout>
-    ),
-    errorElement: <RouteErrorBoundary />,
+    children: [
+      {
+        path: '/',
+        element: <Dashboard />,
+      },
+      {
+        path: '/students',
+        element: <Students />,
+      },
+      {
+        path: '/students/:id',
+        element: <StudentDetail />,
+      },
+      {
+        path: '/teachers',
+        element: <Teachers />,
+      },
+      {
+        path: '/case-managers',
+        element: <CaseManagers />,
+      },
+      {
+        path: '/sessions',
+        element: <Sessions />,
+      },
+      {
+        path: '/progress',
+        element: <Progress />,
+      },
+      {
+        path: '/ideas',
+        element: <TreatmentIdeas />,
+      },
+      {
+        path: '/documentation',
+        element: <DocumentationTemplates />,
+      },
+      {
+        path: '/time-tracking',
+        element: <TimeTracking />,
+      },
+      {
+        path: '/evaluations',
+        element: <Evaluations />,
+      },
+      {
+        path: '/schools',
+        element: <Schools />,
+      },
+      {
+        path: '/soap-notes',
+        element: <SOAPNotes />,
+      },
+      {
+        path: '/iep-notes',
+        element: <IEPNotes />,
+      },
+      {
+        path: '/progress-reports',
+        element: <ProgressReports />,
+      },
+      {
+        path: '/reports',
+        element: <Reports />,
+      },
+      {
+        path: '/due-date-items',
+        element: <DueDateItems />,
+      },
+      {
+        path: '/session-calendar',
+        element: <SessionCalendar />,
+      },
+      {
+        path: '/communications',
+        element: <Communications />,
+      },
+      {
+        path: '*',
+        element: <NotFound />,
+      },
+    ],
   },
   // Login route (public, no Layout wrapper)
   {
@@ -275,17 +154,6 @@ const router = createBrowserRouter([
       </Suspense>
     ),
     errorElement: <RouteErrorBoundary />,
-  },
-  // 404 catch-all route - must be last
-  {
-    path: '*',
-    element: (
-      <ProtectedLayout>
-        <Suspense fallback={<PageLoader />}>
-          <NotFound />
-        </Suspense>
-      </ProtectedLayout>
-    ),
   },
 ]);
 
@@ -311,9 +179,7 @@ function AppContent() {
         <CssBaseline />
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
-            <SchoolProvider>
-              <RouterProvider router={router} />
-            </SchoolProvider>
+            <RouterProvider router={router} />
           </AuthProvider>
         </QueryClientProvider>
       </MuiThemeProvider>
