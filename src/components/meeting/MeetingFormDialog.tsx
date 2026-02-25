@@ -411,7 +411,11 @@ export const MeetingFormDialog = ({
                 label="Students (Optional)"
                 margin="normal"
                 InputLabelProps={{ shrink: true }}
-                placeholder={formData.studentIds.length > 0 ? '' : 'Add students (e.g. for caseload planning)'}
+                placeholder={formData.studentIds.length > 0 ? '' : 'Type to search students…'}
+                inputProps={{
+                  ...params.inputProps,
+                  style: { ...(params.inputProps?.style as React.CSSProperties), minWidth: 180 },
+                }}
                 helperText={formData.school ? 'You can select multiple students for planning meetings.' : 'Select a school first to choose students'}
                 onKeyDown={(e) => {
                   const filtered = filterStudentOptions(studentsInSchoolDeduped, studentInputRef.current);
