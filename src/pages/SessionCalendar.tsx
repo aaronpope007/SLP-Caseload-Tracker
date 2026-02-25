@@ -141,7 +141,7 @@ export const SessionCalendar = () => {
   // Meeting dialog state
   const [meetingDialogOpen, setMeetingDialogOpen] = useState(false);
   const [editingMeeting, setEditingMeeting] = useState<Meeting | null>(null);
-  
+
   const [sessionFormData, setSessionFormData] = useState({
     studentIds: [] as string[],
     date: toLocalDateTimeString(new Date()),
