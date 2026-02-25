@@ -241,9 +241,21 @@ export const MeetingFormDialog = ({
 
   return (
     <>
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <form onSubmit={handleFormSubmit}>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{
+        sx: {
+          display: 'flex',
+          flexDirection: 'column',
+          maxHeight: '90vh',
+        },
+      }}
+    >
+      <form onSubmit={handleFormSubmit} style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <Box component="span">{editingMeeting ? 'Edit Meeting' : 'Add Meeting'}</Box>
           {editingMeeting && onDelete && (
             <IconButton
@@ -257,7 +269,7 @@ export const MeetingFormDialog = ({
             </IconButton>
           )}
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ overflow: 'auto', flex: '1 1 auto', minHeight: 0 }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
           <FormControl fullWidth required margin="normal">
             <InputLabel>School</InputLabel>
@@ -426,7 +438,7 @@ export const MeetingFormDialog = ({
           />
         </Box>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ flexShrink: 0 }}>
           <Button type="button" onClick={onClose} disabled={saving || deleting}>
             Cancel
           </Button>
