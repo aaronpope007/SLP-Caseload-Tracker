@@ -1014,59 +1014,74 @@ export const SessionFormDialog = ({
                     />
                   )}
 
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography variant="subtitle2">
-                      Goals Targeted:
-                    </Typography>
-                    {formData.studentIds.length === 2 && (
-                      <ToggleButtonGroup
-                        value={viewMode}
-                        exclusive
-                        onChange={(_, newMode) => {
-                          if (newMode) setViewMode(newMode);
-                        }}
-                        size="small"
-                      >
-                        <ToggleButton value="hierarchy">
-                          <Tooltip title="Hierarchy View">
-                            <ViewListIcon fontSize="small" />
-                          </Tooltip>
-                        </ToggleButton>
-                        <ToggleButton value="matrix">
-                          <Tooltip title="Matrix View (Side-by-side for 2 students)">
-                            <ViewModuleIcon fontSize="small" />
-                          </Tooltip>
-                        </ToggleButton>
-                      </ToggleButtonGroup>
-                    )}
-                  </Box>
+                  {/* Sticky block: title + search + active goals snap to top when scrolling */}
+                  <Box
+                    sx={{
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 10,
+                      bgcolor: 'background.paper',
+                      pb: 2,
+                      mb: 0,
+                      borderBottom: '1px solid',
+                      borderColor: 'divider',
+                      boxShadow: formData.goalsTargeted.length > 0 ? 2 : 0,
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="subtitle2">
+                        Goals Targeted:
+                      </Typography>
+                      {formData.studentIds.length === 2 && (
+                        <ToggleButtonGroup
+                          value={viewMode}
+                          exclusive
+                          onChange={(_, newMode) => {
+                            if (newMode) setViewMode(newMode);
+                          }}
+                          size="small"
+                        >
+                          <ToggleButton value="hierarchy">
+                            <Tooltip title="Hierarchy View">
+                              <ViewListIcon fontSize="small" />
+                            </Tooltip>
+                          </ToggleButton>
+                          <ToggleButton value="matrix">
+                            <Tooltip title="Matrix View (Side-by-side for 2 students)">
+                              <ViewModuleIcon fontSize="small" />
+                            </Tooltip>
+                          </ToggleButton>
+                        </ToggleButtonGroup>
+                      )}
+                    </Box>
 
-                  {/* Goal Search Bar */}
-                  <Box sx={{ mb: 2 }}>
-                    <GoalSearchBar
+                    {/* Goal Search Bar */}
+                    <Box sx={{ mb: 2 }}>
+                      <GoalSearchBar
+                        goals={goals}
+                        students={students}
+                        selectedStudentIds={formData.studentIds}
+                        goalsTargeted={formData.goalsTargeted}
+                        onGoalSelect={onGoalToggle}
+                        inputRef={searchInputRef}
+                      />
+                    </Box>
+
+                    {/* Active Goals Tracking Panel */}
+                    <ActiveGoalsTrackingPanel
                       goals={goals}
                       students={students}
-                      selectedStudentIds={formData.studentIds}
                       goalsTargeted={formData.goalsTargeted}
-                      onGoalSelect={onGoalToggle}
-                      inputRef={searchInputRef}
+                      performanceData={formData.performanceData}
+                      focusedGoalId={focusedGoalId}
+                      getRecentPerformance={getRecentPerformance}
+                      onGoalFocus={setFocusedGoalId}
+                      onGoalToggle={onGoalToggle}
+                      onTrialUpdate={onTrialUpdate}
+                      collapsed={trackingPanelCollapsed}
+                      onToggleCollapse={() => setTrackingPanelCollapsed(!trackingPanelCollapsed)}
                     />
                   </Box>
-
-                  {/* Active Goals Tracking Panel */}
-                  <ActiveGoalsTrackingPanel
-                    goals={goals}
-                    students={students}
-                    goalsTargeted={formData.goalsTargeted}
-                    performanceData={formData.performanceData}
-                    focusedGoalId={focusedGoalId}
-                    getRecentPerformance={getRecentPerformance}
-                    onGoalFocus={setFocusedGoalId}
-                    onGoalToggle={onGoalToggle}
-                    onTrialUpdate={onTrialUpdate}
-                    collapsed={trackingPanelCollapsed}
-                    onToggleCollapse={() => setTrackingPanelCollapsed(!trackingPanelCollapsed)}
-                  />
 
                   {/* Quick Access Goals Bar */}
                   <QuickAccessGoalsBar

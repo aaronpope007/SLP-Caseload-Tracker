@@ -101,9 +101,6 @@ export const ActiveGoalsTrackingPanel = memo(({
   return (
     <Paper
       sx={{
-        position: 'sticky',
-        top: 0,
-        zIndex: 100,
         mb: 2,
         border: '2px solid',
         borderColor: focusedGoalId ? 'primary.main' : 'divider',
