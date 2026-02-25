@@ -59,7 +59,7 @@ export const MeetingFormDialog = ({
     description: '',
     date: toLocalDateTimeString(new Date()),
     endTime: '',
-    studentId: '',
+    studentIds: [] as string[],
     category: '',
     activitySubtype: '' as '' | MeetingActivitySubtype,
   });
@@ -73,19 +73,20 @@ export const MeetingFormDialog = ({
       const dateForInput = editingMeeting.date ? toLocalDateTimeString(new Date(editingMeeting.date)) : '';
       // Extract just the time portion (HH:mm) from the endTime ISO string
       const endTimeForInput = editingMeeting.endTime ? extractTimeFromISO(editingMeeting.endTime) : '';
-      const studentId = editingMeeting.studentId || '';
+      const studentIds = editingMeeting.studentIds?.length
+        ? editingMeeting.studentIds
+        : (editingMeeting.studentId ? [editingMeeting.studentId] : []);
       setFormData({
         school: editingMeeting.school || '',
         title: editingMeeting.title,
         description: editingMeeting.description || '',
         date: dateForInput,
         endTime: endTimeForInput,
-        studentId,
+        studentIds,
         category: editingMeeting.category || '',
         activitySubtype: (editingMeeting.activitySubtype || '') as '' | MeetingActivitySubtype,
       });
-      const student = students.find((s) => s.id === studentId);
-      setStudentInputValue(student?.name ?? '');
+      setStudentInputValue('');
     } else {
       // New meeting: use default date (e.g. selected date on Time Tracking) at 8:00 AM local, or now
       const dateForNew = defaultDate
@@ -97,7 +98,7 @@ export const MeetingFormDialog = ({
         description: '',
         date: dateForNew,
         endTime: '',
-        studentId: '',
+        studentIds: [],
         category: defaultCategory || '',
         activitySubtype: (defaultCategory && isCategoryWithActivitySubtype(defaultCategory) ? 'meeting' : '') as '' | MeetingActivitySubtype,
       });
@@ -121,7 +122,7 @@ export const MeetingFormDialog = ({
         date: dateISO,
         endTime: endTimeISO,
         school: formData.school,
-        studentId: formData.studentId || undefined,
+        studentIds: formData.studentIds.length > 0 ? formData.studentIds : undefined,
         category: formData.category || undefined,
         activitySubtype: isCategoryWithActivitySubtype(formData.category)
           ? (formData.activitySubtype || undefined) as MeetingActivitySubtype | undefined
@@ -276,7 +277,7 @@ export const MeetingFormDialog = ({
             <Select
               value={formData.school}
               onChange={(e) => {
-                setFormData({ ...formData, school: e.target.value, studentId: '' });
+                setFormData({ ...formData, school: e.target.value, studentIds: [] });
                 setStudentInputValue('');
               }}
               label="School"
@@ -390,37 +391,36 @@ export const MeetingFormDialog = ({
             </TextField>
           )}
           <Autocomplete
+            multiple
             options={studentsInSchoolDeduped}
             getOptionLabel={(option) => (option ? `${option.name}${option.grade ? ` (${option.grade})` : ''}` : '')}
             filterOptions={(options, state) => filterStudentOptions(options, state.inputValue)}
-            value={studentsInSchoolDeduped.find((s) => s.id === formData.studentId) ?? null}
+            value={studentsInSchoolDeduped.filter((s) => formData.studentIds.includes(s.id))}
             inputValue={studentInputValue}
             onInputChange={(_, value) => {
               setStudentInputValue(value);
               studentInputRef.current = value;
             }}
             onChange={(_, newValue) => {
-              setFormData({ ...formData, studentId: newValue?.id ?? '' });
-              if (newValue) {
-                setStudentInputValue(newValue.name ?? '');
-              } else {
-                setStudentInputValue('');
-                studentInputRef.current = '';
-              }
+              setFormData({ ...formData, studentIds: newValue.map((s) => s.id) });
             }}
             disabled={!formData.school}
             renderInput={(params) => (
               <TextField
                 {...params}
-                label="Student (Optional)"
+                label="Students (Optional)"
                 margin="normal"
                 InputLabelProps={{ shrink: true }}
-                helperText={formData.school ? '' : 'Select a school first to choose a student'}
+                placeholder={formData.studentIds.length > 0 ? '' : 'Add students (e.g. for caseload planning)'}
+                helperText={formData.school ? 'You can select multiple students for planning meetings.' : 'Select a school first to choose students'}
                 onKeyDown={(e) => {
                   const filtered = filterStudentOptions(studentsInSchoolDeduped, studentInputRef.current);
                   handleAutocompleteKeyDown(e, filtered, (option) => {
-                    setFormData((prev) => ({ ...prev, studentId: option.id }));
-                    setStudentInputValue(option.name ?? '');
+                    if (!formData.studentIds.includes(option.id)) {
+                      setFormData((prev) => ({ ...prev, studentIds: [...prev.studentIds, option.id] }));
+                    }
+                    setStudentInputValue('');
+                    studentInputRef.current = '';
                   });
                 }}
               />

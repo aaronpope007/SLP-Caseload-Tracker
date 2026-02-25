@@ -28,7 +28,12 @@ export const MeetingTimeItem = ({
   onEdit,
 }: MeetingTimeItemProps) => {
   const isIEP = meeting.category === 'IEP';
-  const studentName = meeting.studentId ? getStudentName(meeting.studentId) : null;
+  const studentIds = meeting.studentIds?.length
+    ? meeting.studentIds
+    : (meeting.studentId ? [meeting.studentId] : []);
+  const studentNames = studentIds.length > 0
+    ? studentIds.map((id) => getStudentName(id)).join(', ')
+    : null;
 
   return (
     <Card
@@ -63,10 +68,10 @@ export const MeetingTimeItem = ({
               {formatDateTime(meeting.date)}
               {meeting.endTime && ` - ${formatDateTime(meeting.endTime)}`}
             </Typography>
-            {studentName && (
+            {studentNames && (
               <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <PersonIcon sx={{ fontSize: 16 }} />
-                <strong>Student:</strong> {studentName}
+                <strong>{studentIds.length > 1 ? 'Students:' : 'Student:'}</strong> {studentNames}
               </Typography>
             )}
           </Box>

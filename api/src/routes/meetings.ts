@@ -3,6 +3,7 @@ import { db } from '../db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { validateBody } from '../middleware/validateRequest';
 import { createMeetingSchema, updateMeetingSchema } from '../schemas';
+import { parseJsonField, stringifyJsonField } from '../utils/jsonHelpers';
 
 // Database row types
 interface MeetingRow {
@@ -13,10 +14,30 @@ interface MeetingRow {
   endTime: string | null;
   school: string;
   studentId: string | null;
+  studentIds: string | null;
   category: string | null;
   activitySubtype: string | null;
   dateCreated: string;
   dateUpdated: string;
+}
+
+function rowToMeeting(row: MeetingRow) {
+  const studentIds = parseJsonField<string[]>(row.studentIds, []);
+  const safeStudentIds = Array.isArray(studentIds) ? studentIds : (row.studentId ? [row.studentId] : []);
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description ?? undefined,
+    date: row.date,
+    endTime: row.endTime ?? undefined,
+    school: row.school,
+    studentIds: safeStudentIds,
+    studentId: safeStudentIds[0] ?? undefined,
+    category: row.category ?? undefined,
+    activitySubtype: row.activitySubtype ?? undefined,
+    dateCreated: row.dateCreated,
+    dateUpdated: row.dateUpdated,
+  };
 }
 
 export const meetingsRouter = Router();
@@ -29,11 +50,7 @@ meetingsRouter.get('/', asyncHandler(async (req, res) => {
   const params: string[] = [];
   const conditions: string[] = [];
 
-  if (studentId && typeof studentId === 'string') {
-    conditions.push('studentId = ?');
-    params.push(studentId);
-  }
-
+  // Don't filter by studentId in SQL so we can support studentIds array (filter in JS)
   if (school && typeof school === 'string') {
     conditions.push('school = ?');
     params.push(school);
@@ -61,7 +78,12 @@ meetingsRouter.get('/', asyncHandler(async (req, res) => {
 
   query += ' ORDER BY date ASC';
 
-  const meetings = db.prepare(query).all(...params) as MeetingRow[];
+  const rows = db.prepare(query).all(...params) as MeetingRow[];
+  let meetings = rows.map(rowToMeeting);
+
+  if (studentId && typeof studentId === 'string') {
+    meetings = meetings.filter(m => m.studentIds?.includes(studentId) || m.studentId === studentId);
+  }
 
   res.json(meetings);
 }));
@@ -74,28 +96,32 @@ meetingsRouter.get('/:id', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Invalid meeting ID' });
   }
   
-  const meeting = db.prepare('SELECT * FROM meetings WHERE id = ?').get(id) as MeetingRow | undefined;
+  const row = db.prepare('SELECT * FROM meetings WHERE id = ?').get(id) as MeetingRow | undefined;
   
-  if (!meeting) {
+  if (!row) {
     return res.status(404).json({ error: 'Meeting not found' });
   }
   
-  res.json(meeting);
+  res.json(rowToMeeting(row));
 }));
 
 // Create meeting - with validation
 meetingsRouter.post('/', validateBody(createMeetingSchema), asyncHandler(async (req, res) => {
   const meeting = req.body;
-  
+  const studentIds = Array.isArray(meeting.studentIds) && meeting.studentIds.length > 0
+    ? meeting.studentIds
+    : (meeting.studentId ? [meeting.studentId] : []);
+  const studentId = studentIds[0] || null;
+
   // Generate ID if not provided
   const meetingId = meeting.id || `meeting-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   const now = new Date().toISOString();
-  
+
   db.prepare(`
     INSERT INTO meetings (
-      id, title, description, date, endTime, school, studentId,
+      id, title, description, date, endTime, school, studentId, studentIds,
       category, activitySubtype, dateCreated, dateUpdated
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     meetingId,
     meeting.title,
@@ -103,13 +129,14 @@ meetingsRouter.post('/', validateBody(createMeetingSchema), asyncHandler(async (
     meeting.date,
     meeting.endTime || null,
     meeting.school,
-    meeting.studentId || null,
+    studentId,
+    stringifyJsonField(studentIds),
     meeting.category || null,
     meeting.activitySubtype || null,
     now,
     now
   );
-  
+
   res.status(201).json({ id: meetingId, message: 'Meeting created' });
 }));
 
@@ -117,22 +144,35 @@ meetingsRouter.post('/', validateBody(createMeetingSchema), asyncHandler(async (
 meetingsRouter.put('/:id', validateBody(updateMeetingSchema), asyncHandler(async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
-  
+
   if (!id || typeof id !== 'string') {
     return res.status(400).json({ error: 'Invalid meeting ID' });
   }
-  
+
   const existing = db.prepare('SELECT * FROM meetings WHERE id = ?').get(id) as MeetingRow | undefined;
   if (!existing) {
     return res.status(404).json({ error: 'Meeting not found' });
   }
-  
-  const meeting = { ...existing, ...updates, dateUpdated: new Date().toISOString() };
-  
+
+  const existingStudentIds = parseJsonField<string[]>(existing.studentIds, []);
+  const safeExisting = Array.isArray(existingStudentIds) ? existingStudentIds : (existing.studentId ? [existing.studentId] : []);
+  const studentIds = updates.studentIds !== undefined
+    ? (Array.isArray(updates.studentIds) ? updates.studentIds : safeExisting)
+    : (updates.studentId !== undefined ? (updates.studentId ? [updates.studentId] : []) : safeExisting);
+  const studentId = studentIds[0] || null;
+
+  const meeting = {
+    ...existing,
+    ...updates,
+    dateUpdated: new Date().toISOString(),
+    studentId,
+    studentIds: stringifyJsonField(studentIds),
+  };
+
   db.prepare(`
     UPDATE meetings 
     SET title = ?, description = ?, date = ?, endTime = ?, school = ?,
-        studentId = ?, category = ?, activitySubtype = ?, dateUpdated = ?
+        studentId = ?, studentIds = ?, category = ?, activitySubtype = ?, dateUpdated = ?
     WHERE id = ?
   `).run(
     meeting.title,
@@ -140,13 +180,14 @@ meetingsRouter.put('/:id', validateBody(updateMeetingSchema), asyncHandler(async
     meeting.date,
     meeting.endTime || null,
     meeting.school,
-    meeting.studentId || null,
+    meeting.studentId,
+    meeting.studentIds,
     meeting.category || null,
     meeting.activitySubtype || null,
     meeting.dateUpdated,
     id
   );
-  
+
   res.json({ message: 'Meeting updated' });
 }));
 

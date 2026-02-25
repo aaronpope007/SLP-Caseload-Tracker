@@ -411,6 +411,8 @@ export const meetingSchema = z.object({
   endTime: meetingEndTimeSchema,
   school: nonEmptyString,
   studentId: optionalString,
+  /** Array of student IDs (e.g. for caseload planning). Takes precedence over studentId when both present. */
+  studentIds: z.array(z.string()).optional(),
   category: optionalString,
   activitySubtype: z.enum(['meeting', 'updates', 'assessment']).optional(),
 });

@@ -672,6 +672,23 @@ export function initDatabase() {
     console.warn('Could not add activitySubtype column to meetings:', e.message);
   }
 
+  // Add studentIds to meetings (JSON array) for multiple students; backfill from studentId
+  try {
+    const meetingTableInfo = db.prepare('PRAGMA table_info(meetings)').all() as Array<{ name: string }>;
+    const meetingColumnNames = meetingTableInfo.map(col => col.name);
+    if (!meetingColumnNames.includes('studentIds')) {
+      db.exec(`ALTER TABLE meetings ADD COLUMN studentIds TEXT`);
+      db.prepare(
+        `UPDATE meetings SET studentIds = json_array(studentId) WHERE studentId IS NOT NULL AND (studentIds IS NULL OR studentIds = '')`
+      ).run();
+      db.prepare(
+        `UPDATE meetings SET studentIds = '[]' WHERE (studentIds IS NULL OR studentIds = '')`
+      ).run();
+    }
+  } catch (e: any) {
+    console.warn('Could not add studentIds column to meetings:', e.message);
+  }
+
   // Drop lunches table if it exists (removed feature)
   try {
     // Check if lunches table exists

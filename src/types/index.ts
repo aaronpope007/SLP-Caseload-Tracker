@@ -357,7 +357,10 @@ export interface Meeting {
   date: string; // ISO string - meeting date/time (start)
   endTime?: string; // ISO string - meeting end time
   school: string; // School name the meeting is for
-  studentId?: string; // Optional - link to student if meeting is student-specific
+  /** Optional - one or more students (e.g. for caseload planning). Prefer this over studentId. */
+  studentIds?: string[];
+  /** @deprecated Use studentIds. Optional - single student (legacy). */
+  studentId?: string;
   category?: string; // e.g., "IEP", "Staff Meeting", "Team Meeting", "Other"
   /** For IEP and Assessment: "meeting", "updates", or "assessment" - drives timesheet line (e.g. "IEP activity, meeting:" vs "IEP activity, updates:" vs "IEP activity, assessment:") */
   activitySubtype?: MeetingActivitySubtype;
