@@ -1870,10 +1870,10 @@ export const SessionCalendar = () => {
     });
   };
 
-  // Get week days (Monday to Friday)
+  // Get week days (Monday through Sunday so weekends can be used for documentation)
   const getWeekDays = useMemo(() => {
     const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); // Monday
-    return Array.from({ length: 5 }, (_, i) => addDays(weekStart, i)); // Mon-Fri
+    return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)); // Mon-Sun
   }, [currentDate]);
 
   // Generate time slots for week view based on school hours (30-minute intervals)
@@ -2683,7 +2683,7 @@ export const SessionCalendar = () => {
                         key={day.toISOString()}
                         sx={{
                           flex: 1,
-                          borderRight: dayIndex < 4 ? '1px solid' : 'none',
+                          borderRight: dayIndex < 6 ? '1px solid' : 'none',
                           borderColor: 'divider',
                           minWidth: 0,
                         }}
