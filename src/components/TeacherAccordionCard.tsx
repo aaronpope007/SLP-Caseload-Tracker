@@ -50,10 +50,8 @@ export const TeacherAccordionCard = ({
   const [loadingStudents, setLoadingStudents] = useState(false);
 
   useEffect(() => {
-    if (expanded) {
-      loadRelatedStudents();
-    }
-  }, [expanded, teacher.id]);
+    loadRelatedStudents();
+  }, [teacher.id]);
 
   const loadRelatedStudents = async () => {
     setLoadingStudents(true);
@@ -119,7 +117,7 @@ export const TeacherAccordionCard = ({
           }}
         >
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', pr: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, minWidth: 0 }}>
               <PersonIcon color="primary" />
               <Box
                 component="span"
@@ -142,6 +140,15 @@ export const TeacherAccordionCard = ({
                   <FemaleIcon sx={{ fontSize: '1.25rem', color: 'text.secondary' }} />
                 )}
               </Box>
+              {!loadingStudents && (
+                <Chip
+                  size="small"
+                  label={relatedStudents.length === 0 ? 'No students' : `${relatedStudents.length} student${relatedStudents.length !== 1 ? 's' : ''}`}
+                  variant="outlined"
+                  color={relatedStudents.length > 0 ? 'primary' : 'default'}
+                  sx={{ flexShrink: 0 }}
+                />
+              )}
             </Box>
             <IconButton
               size="small"

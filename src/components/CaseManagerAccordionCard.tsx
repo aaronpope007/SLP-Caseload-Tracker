@@ -49,10 +49,8 @@ export const CaseManagerAccordionCard = ({
   const [loadingStudents, setLoadingStudents] = useState(false);
 
   useEffect(() => {
-    if (expanded) {
-      loadRelatedStudents();
-    }
-  }, [expanded, caseManager.id]);
+    loadRelatedStudents();
+  }, [caseManager.id]);
 
   const loadRelatedStudents = async () => {
     setLoadingStudents(true);
@@ -118,9 +116,18 @@ export const CaseManagerAccordionCard = ({
           }}
         >
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', pr: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, minWidth: 0 }}>
               <PersonIcon color="primary" />
-              <Typography variant="h6" component="div">{caseManager.name}</Typography>
+              <Typography variant="h6" component="div" noWrap sx={{ minWidth: 0 }}>{caseManager.name}</Typography>
+              {!loadingStudents && (
+                <Chip
+                  size="small"
+                  label={relatedStudents.length === 0 ? 'No students' : `${relatedStudents.length} student${relatedStudents.length !== 1 ? 's' : ''}`}
+                  variant="outlined"
+                  color={relatedStudents.length > 0 ? 'primary' : 'default'}
+                  sx={{ flexShrink: 0 }}
+                />
+              )}
             </Box>
             <IconButton
               size="small"
