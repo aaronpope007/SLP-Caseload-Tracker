@@ -14,6 +14,7 @@ import {
   Assignment as AssignmentIcon,
   Assessment as AssessmentIcon,
   NoteAdd as NoteAddIcon,
+  ViewList as ViewListIcon,
 } from '@mui/icons-material';
 
 interface TimeTrackingFilterProps {
@@ -25,6 +26,7 @@ interface TimeTrackingFilterProps {
   onAddIEPActivity?: () => void;
   onAdd3YearReassessment?: () => void;
   onAddDocumentation?: () => void;
+  onAddCaseloadPlanning?: () => void;
   hasItems: boolean;
   useSpecificTimes: boolean;
   onUseSpecificTimesChange: (value: boolean) => void;
@@ -39,6 +41,7 @@ export const TimeTrackingFilter = ({
   onAddIEPActivity,
   onAdd3YearReassessment,
   onAddDocumentation,
+  onAddCaseloadPlanning,
   hasItems,
   useSpecificTimes,
   onUseSpecificTimesChange,
@@ -92,6 +95,18 @@ export const TimeTrackingFilter = ({
                 sx={{ minWidth: 'fit-content' }}
               >
                 Add documentation
+              </Button>
+            )}
+            {onAddCaseloadPlanning && (
+              <Button
+                variant="outlined"
+                color="secondary"
+                startIcon={<ViewListIcon />}
+                onClick={onAddCaseloadPlanning}
+                disabled={!selectedDate}
+                sx={{ minWidth: 'fit-content' }}
+              >
+                Add caseload planning
               </Button>
             )}
             <Button

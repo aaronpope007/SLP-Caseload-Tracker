@@ -463,6 +463,16 @@ export const generateTimesheetNote = ({
     else legacyAssessmentDocWithoutStudent = true;
   });
 
+  // Caseload planning (indirect documentation): student or multiple students
+  const caseloadPlanningMeetings = meetings.filter(m => m.category === 'Caseload planning');
+  const caseloadPlanningStudentIds = new Set<string>();
+  let caseloadPlanningWithoutStudent = false;
+  caseloadPlanningMeetings.forEach(m => {
+    const ids = getMeetingStudentIds(m);
+    if (ids.length > 0) ids.forEach(id => caseloadPlanningStudentIds.add(id));
+    else caseloadPlanningWithoutStudent = true;
+  });
+
   // Lesson Planning: All students from all sessions (missed and attended)
   // Per SSG rules: Lesson planning includes all students, including those with missed sessions
   const lessonPlanningStudentIds = new Set<string>();
@@ -511,10 +521,12 @@ export const generateTimesheetNote = ({
   const threeYearDocEntries = buildStudentEntries(threeYearDocStudentIds);
   const iepDocEntries = buildStudentEntries(iepDocStudentIds);
   const legacyAssessmentDocEntries = buildStudentEntries(legacyAssessmentDocStudentIds);
+  const caseloadPlanningEntries = buildStudentEntries(caseloadPlanningStudentIds);
   const hasInitialAssessmentDoc = initialAssessmentDocEntries.length > 0 || initialAssessmentDocWithoutStudent;
   const hasThreeYearDoc = threeYearDocEntries.length > 0 || threeYearDocWithoutStudent;
   const hasIEPDoc = iepDocEntries.length > 0 || iepDocWithoutStudent;
   const hasLegacyAssessmentDoc = legacyAssessmentDocEntries.length > 0 || legacyAssessmentDocWithoutStudent;
+  const hasCaseloadPlanning = caseloadPlanningEntries.length > 0 || caseloadPlanningWithoutStudent;
 
   // Build indirect services section with sub-sections
   const indirectServiceLabel = isTeletherapy ? 'Offsite Indirect Services Including:' : 'Indirect services including:';
@@ -628,6 +640,13 @@ export const generateTimesheetNote = ({
     noteParts.push('Assessment documentation:');
     const lineParts: string[] = [...legacyAssessmentDocEntries];
     if (legacyAssessmentDocWithoutStudent) lineParts.push('Assessment documentation');
+    noteParts.push(lineParts.join(', '));
+  }
+  // Caseload planning (indirect)
+  if (hasCaseloadPlanning) {
+    noteParts.push('Caseload planning:');
+    const lineParts: string[] = [...caseloadPlanningEntries];
+    if (caseloadPlanningWithoutStudent) lineParts.push('Caseload planning');
     noteParts.push(lineParts.join(', '));
   }
 
@@ -973,11 +992,12 @@ export const generateProspectiveTimesheetNote = ({
   });
   speechScreeningStudentEntries.sort();
 
-  // Assessment documentation: Initial assessment, 3 year, IEP (and legacy)
+  // Assessment documentation: Initial assessment, 3 year, IEP (and legacy), Caseload planning
   const initialAssessmentDocProspective = meetings.filter(m => m.category === 'Initial assessment documentation');
   const threeYearDocProspective = meetings.filter(m => m.category === '3 year documentation');
   const iepDocProspective = meetings.filter(m => m.category === 'IEP documentation');
   const legacyAssessmentDocProspective = meetings.filter(m => m.category === LEGACY_ASSESSMENT_DOCUMENTATION);
+  const caseloadPlanningProspective = meetings.filter(m => m.category === 'Caseload planning');
   const buildDocEntries = (meetingList: Meeting[]) => {
     const entries: string[] = [];
     meetingList.forEach(meeting => {
@@ -994,6 +1014,7 @@ export const generateProspectiveTimesheetNote = ({
   const threeYearDocEntriesProspective = buildDocEntries(threeYearDocProspective);
   const iepDocEntriesProspective = buildDocEntries(iepDocProspective);
   const legacyAssessmentDocEntriesProspective = buildDocEntries(legacyAssessmentDocProspective);
+  const caseloadPlanningEntriesProspective = buildDocEntries(caseloadPlanningProspective);
   const hasInitialAssessmentDocProspective =
     initialAssessmentDocEntriesProspective.length > 0 || hasMeetingWithoutStudents(initialAssessmentDocProspective);
   const hasThreeYearDocProspective =
@@ -1002,6 +1023,8 @@ export const generateProspectiveTimesheetNote = ({
     iepDocEntriesProspective.length > 0 || hasMeetingWithoutStudents(iepDocProspective);
   const hasLegacyAssessmentDocProspective =
     legacyAssessmentDocEntriesProspective.length > 0 || hasMeetingWithoutStudents(legacyAssessmentDocProspective);
+  const hasCaseloadPlanningProspective =
+    caseloadPlanningEntriesProspective.length > 0 || hasMeetingWithoutStudents(caseloadPlanningProspective);
 
   // Build indirect services section
   const indirectServiceLabel = isTeletherapy ? 'Offsite Indirect Services Including:' : 'Indirect services including:';
@@ -1051,6 +1074,12 @@ export const generateProspectiveTimesheetNote = ({
     noteParts.push('Assessment documentation:');
     const lineParts: string[] = [...legacyAssessmentDocEntriesProspective];
     if (hasMeetingWithoutStudents(legacyAssessmentDocProspective)) lineParts.push('Assessment documentation');
+    noteParts.push(lineParts.join(', '));
+  }
+  if (hasCaseloadPlanningProspective) {
+    noteParts.push('Caseload planning:');
+    const lineParts: string[] = [...caseloadPlanningEntriesProspective];
+    if (hasMeetingWithoutStudents(caseloadPlanningProspective)) lineParts.push('Caseload planning');
     noteParts.push(lineParts.join(', '));
   }
 
