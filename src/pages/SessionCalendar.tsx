@@ -216,9 +216,9 @@ export const SessionCalendar = () => {
     }
   };
 
-  // Fixed schedule hours 8 AM - 4 PM for all schools (helps when viewing multiple schools)
+  // Schedule hours 8 AM - 11 PM (covers school day through 4 PM and allows documentation as late as 11 PM)
   const getSchoolHours = useMemo(() => {
-    return { startHour: 8, endHour: 16 };
+    return { startHour: 8, endHour: 24 };
   }, []);
 
   // Helper function to format student name with grade
@@ -881,11 +881,8 @@ export const SessionCalendar = () => {
   const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 }); // Start week on Monday
   const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 }); // End week on Sunday
   const allDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
-  // Filter out weekends (Saturday = 6, Sunday = 0)
-  const daysInMonth = allDays.filter(day => {
-    const dayOfWeek = day.getDay();
-    return dayOfWeek !== 0 && dayOfWeek !== 6; // Exclude Sunday (0) and Saturday (6)
-  });
+  // Include all days (Mon–Sun) so weekends can be used for documentation
+  const daysInMonth = allDays;
 
   const handlePreviousPeriod = () => {
     if (viewMode === 'week') {

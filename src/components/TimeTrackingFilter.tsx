@@ -85,18 +85,6 @@ export const TimeTrackingFilter = ({
                 Add 3 year reassessment
               </Button>
             )}
-            {onAddDocumentation && (
-              <Button
-                variant="outlined"
-                color="secondary"
-                startIcon={<NoteAddIcon />}
-                onClick={onAddDocumentation}
-                disabled={!selectedDate}
-                sx={{ minWidth: 'fit-content' }}
-              >
-                Add documentation
-              </Button>
-            )}
             {onAddCaseloadPlanning && (
               <Button
                 variant="outlined"
@@ -107,6 +95,18 @@ export const TimeTrackingFilter = ({
                 sx={{ minWidth: 'fit-content' }}
               >
                 Add caseload planning
+              </Button>
+            )}
+            {onAddDocumentation && (
+              <Button
+                variant="outlined"
+                color="secondary"
+                startIcon={<NoteAddIcon />}
+                onClick={onAddDocumentation}
+                disabled={!selectedDate}
+                sx={{ minWidth: 'fit-content' }}
+              >
+                Add documentation
               </Button>
             )}
             <Button
