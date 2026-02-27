@@ -320,20 +320,20 @@ export const generateTimesheetNote = ({
     documentationStudentIds.add(screener.studentId);
   });
   
-  // Email Correspondence: Students from communications
+  // Email Correspondence: Count communications per student (show multiple as "RH(3) x2", etc.)
   // Per SSG rules: Filter out IEP/Evaluation emails (they're coded separately as IEP/Evaluation, not indirect services)
   // Only include emails for scheduling, collaboration, or intervention-based communication
-  const emailCorrespondenceStudentIds = new Set<string>();
+  const emailCorrespondenceCountByStudent = new Map<string, number>();
   communications.forEach(comm => {
     if (comm.studentId && comm.relatedTo) {
       const relatedToLower = comm.relatedTo.toLowerCase();
       // Exclude IEP and Evaluation emails (they're coded separately)
       if (!relatedToLower.includes('iep') && !relatedToLower.includes('evaluation') && !relatedToLower.includes('eval')) {
-        emailCorrespondenceStudentIds.add(comm.studentId);
+        emailCorrespondenceCountByStudent.set(comm.studentId, (emailCorrespondenceCountByStudent.get(comm.studentId) ?? 0) + 1);
       }
     } else if (comm.studentId && !comm.relatedTo) {
       // If no relatedTo specified, assume it's indirect services (scheduling/collaboration)
-      emailCorrespondenceStudentIds.add(comm.studentId);
+      emailCorrespondenceCountByStudent.set(comm.studentId, (emailCorrespondenceCountByStudent.get(comm.studentId) ?? 0) + 1);
     }
   });
 
@@ -464,13 +464,14 @@ export const generateTimesheetNote = ({
   });
 
   // Caseload planning (indirect documentation): student or multiple students
+  // Meetings without students are listed individually with title and time (e.g. "Meeting with Sue (3:00 pm-4:00 pm)")
   const caseloadPlanningMeetings = meetings.filter(m => m.category === 'Caseload planning');
   const caseloadPlanningStudentIds = new Set<string>();
-  let caseloadPlanningWithoutStudent = false;
+  const caseloadPlanningMeetingsWithoutStudents: Meeting[] = [];
   caseloadPlanningMeetings.forEach(m => {
     const ids = getMeetingStudentIds(m);
     if (ids.length > 0) ids.forEach(id => caseloadPlanningStudentIds.add(id));
-    else caseloadPlanningWithoutStudent = true;
+    else caseloadPlanningMeetingsWithoutStudents.push(m);
   });
 
   // Lesson Planning: All students from all sessions (missed and attended)
@@ -496,8 +497,19 @@ export const generateTimesheetNote = ({
     }).sort();
   };
 
+  // Build email correspondence entries with counts: "RH(3) x2", "TV(1) x4", "CV(5)" (no x1 when count is 1)
+  const buildEmailCorrespondenceEntries = (countByStudent: Map<string, number>): string[] => {
+    return Array.from(countByStudent.entries()).map(([studentId, count]) => {
+      const student = getStudent(studentId);
+      const initials = getStudentInitials(studentId);
+      const grade = student?.grade || '';
+      const base = `${initials} (${grade})`;
+      return count > 1 ? `${base} x${count}` : base;
+    }).sort();
+  };
+
   const documentationEntries = buildStudentEntries(documentationStudentIds);
-  const emailCorrespondenceEntries = buildStudentEntries(emailCorrespondenceStudentIds);
+  const emailCorrespondenceEntries = buildEmailCorrespondenceEntries(emailCorrespondenceCountByStudent);
   const lessonPlanningEntries = buildStudentEntries(lessonPlanningStudentIds);
   const iepMeetingEntries = buildStudentEntries(iepMeetingStudentIds);
   const iepUpdatesEntries = buildStudentEntries(iepUpdatesStudentIds);
@@ -526,7 +538,7 @@ export const generateTimesheetNote = ({
   const hasThreeYearDoc = threeYearDocEntries.length > 0 || threeYearDocWithoutStudent;
   const hasIEPDoc = iepDocEntries.length > 0 || iepDocWithoutStudent;
   const hasLegacyAssessmentDoc = legacyAssessmentDocEntries.length > 0 || legacyAssessmentDocWithoutStudent;
-  const hasCaseloadPlanning = caseloadPlanningEntries.length > 0 || caseloadPlanningWithoutStudent;
+  const hasCaseloadPlanning = caseloadPlanningEntries.length > 0 || caseloadPlanningMeetingsWithoutStudents.length > 0;
 
   // Build indirect services section with sub-sections
   const indirectServiceLabel = isTeletherapy ? 'Offsite Indirect Services Including:' : 'Indirect services including:';
@@ -646,7 +658,11 @@ export const generateTimesheetNote = ({
   if (hasCaseloadPlanning) {
     noteParts.push('Caseload planning:');
     const lineParts: string[] = [...caseloadPlanningEntries];
-    if (caseloadPlanningWithoutStudent) lineParts.push('Caseload planning');
+    caseloadPlanningMeetingsWithoutStudents.forEach(m => {
+      const label = m.title?.trim() || 'Caseload planning';
+      const timeStr = formatTimeRange(m.date, m.endTime);
+      lineParts.push(`${label} (${timeStr})`);
+    });
     noteParts.push(lineParts.join(', '));
   }
 
@@ -1079,7 +1095,13 @@ export const generateProspectiveTimesheetNote = ({
   if (hasCaseloadPlanningProspective) {
     noteParts.push('Caseload planning:');
     const lineParts: string[] = [...caseloadPlanningEntriesProspective];
-    if (hasMeetingWithoutStudents(caseloadPlanningProspective)) lineParts.push('Caseload planning');
+    caseloadPlanningProspective
+      .filter(m => getMeetingStudentIds(m).length === 0)
+      .forEach(m => {
+        const label = m.title?.trim() || 'Caseload planning';
+        const timeStr = formatTimeRange(m.date, m.endTime);
+        lineParts.push(`${label} (${timeStr})`);
+      });
     noteParts.push(lineParts.join(', '));
   }
 

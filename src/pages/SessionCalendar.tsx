@@ -216,9 +216,9 @@ export const SessionCalendar = () => {
     }
   };
 
-  // Schedule hours 8 AM - 11 PM (covers school day through 4 PM and allows documentation as late as 11 PM)
+  // Display 6 AM - 10 PM on daily/week view (reporting can record any hour; display shows main work hours)
   const getSchoolHours = useMemo(() => {
-    return { startHour: 8, endHour: 24 };
+    return { startHour: 6, endHour: 22 };
   }, []);
 
   // Helper function to format student name with grade
