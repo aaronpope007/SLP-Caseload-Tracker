@@ -375,13 +375,13 @@ export const MeetingFormDialog = ({
               margin="normal"
               helperText={
                 formData.category === 'IEP'
-                  ? 'Shows on timesheet as "IEP meeting:", "IEP updates:", or "IEP assessment:"'
+                  ? 'Shows on timesheet as "Due process (IEP)"'
                   : formData.category === 'IEP planning'
-                    ? 'Shows on timesheet as "IEP planning, meeting:" or "updates:"'
+                    ? 'Shows on timesheet as "Due process (IEP)"'
                     : formData.category === 'Assessment planning'
-                      ? 'Shows on timesheet as "Assessment planning, meeting:" or "updates:"'
+                      ? 'Shows on timesheet as "Due process (Eval PWN)"'
                       : formData.category === '3 year reassessment planning' || formData.category === 'Assessment'
-                        ? 'Shows on timesheet as "3 year reassessment planning, meeting:" or "updates:" (or legacy "3 year reassessment...")'
+                        ? 'Shows on timesheet as "Due process (Eval PWN)" (meeting/updates) or "Evaluation (Test administrated)" (assessment)'
                         : undefined
               }
             >

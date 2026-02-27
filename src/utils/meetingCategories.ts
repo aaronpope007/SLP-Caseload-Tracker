@@ -9,8 +9,9 @@
 export const MEETING_CATEGORY_GROUPS = {
   'Direct Contact': ['Initial Assessment', '3 Year Reassessment', 'Assessment'], // Assessment = legacy, prefer Initial/3 Year
   Planning: ['IEP planning', 'Assessment planning', '3 year reassessment planning'],
-  Meetings: ['IEP', 'Staff Meeting', 'Team Meeting', 'Parent Meeting', 'Professional Development', 'Speech screening'],
-  Documentation: ['Initial assessment documentation', '3 year documentation', 'IEP documentation', 'Caseload planning'],
+  Meetings: ['IEP', 'CST Meeting', 'Sped Team meeting', 'Staff Meeting', 'Team Meeting', 'Parent Meeting', 'Professional Development', 'Speech screening'],
+  Documentation: ['Initial assessment documentation', '3 year documentation', 'IEP documentation', 'Caseload planning', 'Case Management', 'Due process (progress reports)'],
+  Consultation: ['Consultation/screening', 'Consultation/intervention'],
   Other: ['Other'],
 } as const;
 
@@ -18,7 +19,7 @@ export type MeetingCategoryGroup = keyof typeof MEETING_CATEGORY_GROUPS;
 
 /** All subcategory values stored on Meeting.category */
 export const ALL_MEETING_SUBCATEGORIES = (
-  Object.values(MEETING_CATEGORY_GROUPS) as readonly string[][]
+  Object.values(MEETING_CATEGORY_GROUPS) as unknown as string[][]
 ).flat();
 
 /** Categories that show as direct contact on the timesheet (with studentId). Includes legacy "Assessment" when activitySubtype === 'assessment'. */

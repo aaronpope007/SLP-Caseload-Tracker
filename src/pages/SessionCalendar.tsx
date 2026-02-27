@@ -2270,7 +2270,16 @@ export const SessionCalendar = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
+      <Box
+        sx={{
+          position: 'sticky',
+          top: 64,
+          zIndex: 10,
+          backgroundColor: 'background.paper',
+          pb: 1,
+        }}
+      >
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Typography variant="h4" component="h1">
           Session Planning Calendar
         </Typography>
@@ -2305,7 +2314,7 @@ export const SessionCalendar = () => {
         </Box>
       </Box>
 
-      <Card sx={{ mb: 3 }}>
+        <Card sx={{ mb: 3 }}>
         <CardContent>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
@@ -2463,7 +2472,7 @@ export const SessionCalendar = () => {
                                   }}
                                   title="Cancel all appointments for this day"
                                 >
-                                  <EventBusyIcon fontSize="small" />
+                                  <EventBusyIcon sx={{ fontSize: '1rem' }} />
                                 </IconButton>
                               );
                             }
@@ -3106,6 +3115,7 @@ export const SessionCalendar = () => {
           )}
         </CardContent>
       </Card>
+      </Box>
 
       {/* Scheduled Recurring Sessions List */}
       <Card>

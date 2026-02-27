@@ -29,7 +29,7 @@ interface GenerateTimesheetNoteParams {
 
 export const generateTimesheetNote = ({
   filteredItems,
-  sessions,
+  sessions: _sessions,
   communications,
   meetings = [],
   getStudent,
@@ -37,7 +37,7 @@ export const generateTimesheetNote = ({
   getGroupSessions,
   isTeletherapy,
   useSpecificTimes,
-  formatTime12Hour,
+  formatTime12Hour: _formatTime12Hour,
   formatTimeRange,
 }: GenerateTimesheetNoteParams): string => {
   const noteParts: string[] = [];
@@ -162,13 +162,12 @@ export const generateTimesheetNote = ({
   const hasDirectAssessments = hasInitialAssessments || hasThreeYearReassessmentDirect;
 
   if (hasDirectSessions || hasScreeners || hasSpeechScreeningMeetings || hasDirectAssessments) {
-    const serviceLabel = isTeletherapy ? 'Offsite Direct Services:' : 'Direct services:';
+    const serviceLabel = isTeletherapy ? 'Offsite Direct Services:' : 'Direct Services:';
     noteParts.push(serviceLabel);
     noteParts.push('');
 
-    // Direct Therapy: treatment sessions only, with times, comma-separated on one line
+    // 1:1 Direct Instruction / Group Direct Instruction per MN DOE guidelines
     if (hasDirectSessions) {
-      noteParts.push('Direct Therapy:');
       if (shouldUseSpecificTimes) {
         const timeRangeMap = new Map<string, Array<{ session: Session; timeRange: string }>>();
         directServices.forEach(session => {
@@ -181,25 +180,52 @@ export const generateTimesheetNote = ({
           const timeB = new Date(b[1][0].session.date).getTime();
           return timeA - timeB;
         });
-        const therapyEntries: string[] = [];
+        const oneToOneEntries: string[] = [];
+        const groupEntries: string[] = [];
         sortedTimeRanges.forEach(([, sessionData]) => {
-          sessionData.forEach(({ session, timeRange }) => {
+          const studentsInSlot = sessionData.map(({ session }) => {
             const student = getStudent(session.studentId);
             const initials = getStudentInitials(session.studentId);
             const grade = student?.grade || '';
-            therapyEntries.push(`${initials} (${grade}) ${timeRange}`);
+            return `${initials} (${grade})`;
           });
+          const isGroup = sessionData.length > 1 || (sessionData[0].session.groupSessionId && getGroupSessions(sessionData[0].session.groupSessionId!).length > 1);
+          const studentList = studentsInSlot.join(', ');
+          const timeRange = sessionData[0].timeRange;
+          const entry = `${studentList} ${timeRange}`;
+          if (isGroup) groupEntries.push(entry);
+          else oneToOneEntries.push(entry);
         });
-        noteParts.push(therapyEntries.join(', '));
+        if (oneToOneEntries.length > 0) {
+          noteParts.push('1:1 Direct Instruction:');
+          noteParts.push(oneToOneEntries.join(', '));
+        }
+        if (groupEntries.length > 0) {
+          if (oneToOneEntries.length > 0) noteParts.push('');
+          noteParts.push('Group Direct Instruction:');
+          noteParts.push(groupEntries.join(', '));
+        }
       } else {
-        const therapyEntries = directServices.map(session => {
+        const oneToOne: string[] = [];
+        const group: string[] = [];
+        directServices.forEach(session => {
           const student = getStudent(session.studentId);
           const initials = getStudentInitials(session.studentId);
           const grade = student?.grade || '';
-          return `${initials} (${grade})`;
+          const entry = `${initials} (${grade})`;
+          const isGroup = !!session.groupSessionId && getGroupSessions(session.groupSessionId!).length > 1;
+          if (isGroup) group.push(entry);
+          else oneToOne.push(entry);
         });
-        therapyEntries.sort();
-        noteParts.push(therapyEntries.join(', '));
+        if (oneToOne.length > 0) {
+          noteParts.push('1:1 Direct Instruction:');
+          noteParts.push([...new Set(oneToOne)].sort().join(', '));
+        }
+        if (group.length > 0) {
+          if (oneToOne.length > 0) noteParts.push('');
+          noteParts.push('Group Direct Instruction:');
+          noteParts.push([...new Set(group)].sort().join(', '));
+        }
       }
     }
 
@@ -232,10 +258,10 @@ export const generateTimesheetNote = ({
         noteParts.push(entries.join(', '));
       }
     }
-    // 3 Year Reassessment: direct contact with times
+    // 3 Year Reassessment (Evaluation direct contact) - per MN DOE
     if (hasThreeYearReassessmentDirect) {
       if (hasDirectSessions || hasInitialAssessments) noteParts.push('');
-      noteParts.push('3 Year Reassessment:');
+      noteParts.push('Evaluation (Test administrated):');
       if (shouldUseSpecificTimes) {
         const entries: Array<{ sortTime: number; initials: string; grade: string; timeRange: string }> = [];
         threeYearReassessmentDirectMeetings.forEach(meeting => {
@@ -474,6 +500,24 @@ export const generateTimesheetNote = ({
     else caseloadPlanningMeetingsWithoutStudents.push(m);
   });
 
+  // CST Meeting, Sped Team meeting (no student initials per MN DOE)
+  const cstMeetings = meetings.filter(m => m.category === 'CST Meeting');
+  const spedTeamMeetings = meetings.filter(m => m.category === 'Sped Team meeting');
+
+  // Case Management (student-specific per MN DOE)
+  const caseManagementMeetings = meetings.filter(m => m.category === 'Case Management');
+  const caseManagementStudentIds = new Set<string>();
+  caseManagementMeetings.forEach(m => getMeetingStudentIds(m).forEach(id => caseManagementStudentIds.add(id)));
+
+  // Consultation/screening, Consultation/intervention (require duration per MN DOE)
+  const consultationScreeningMeetings = meetings.filter(m => m.category === 'Consultation/screening');
+  const consultationInterventionMeetings = meetings.filter(m => m.category === 'Consultation/intervention');
+
+  // Due process (progress reports) per MN DOE
+  const progressReportsMeetings = meetings.filter(m => m.category === 'Due process (progress reports)');
+  const progressReportsStudentIds = new Set<string>();
+  progressReportsMeetings.forEach(m => getMeetingStudentIds(m).forEach(id => progressReportsStudentIds.add(id)));
+
   // Lesson Planning: All students from all sessions (missed and attended)
   // Per SSG rules: Lesson planning includes all students, including those with missed sessions
   const lessonPlanningStudentIds = new Set<string>();
@@ -514,53 +558,35 @@ export const generateTimesheetNote = ({
   const iepMeetingEntries = buildStudentEntries(iepMeetingStudentIds);
   const iepUpdatesEntries = buildStudentEntries(iepUpdatesStudentIds);
   const iepAssessmentEntries = buildStudentEntries(iepAssessmentStudentIds);
-  const hasIEPMeeting = iepMeetingEntries.length > 0 || iepMeetingWithoutStudent;
-  const hasIEPUpdates = iepUpdatesEntries.length > 0 || iepUpdatesWithoutStudent;
-  const hasIEPAssessment = iepAssessmentEntries.length > 0 || iepAssessmentWithoutStudent;
   const threeYearPlanningMeetingEntries = buildStudentEntries(threeYearPlanningMeetingStudentIds);
   const threeYearPlanningUpdatesEntries = buildStudentEntries(threeYearPlanningUpdatesStudentIds);
-  const hasThreeYearPlanningMeeting = threeYearPlanningMeetingEntries.length > 0 || threeYearPlanningMeetingWithoutStudent;
-  const hasThreeYearPlanningUpdates = threeYearPlanningUpdatesEntries.length > 0 || threeYearPlanningUpdatesWithoutStudent;
   const iepPlanningMeetingEntries = buildStudentEntries(iepPlanningMeetingStudentIds);
   const iepPlanningUpdatesEntries = buildStudentEntries(iepPlanningUpdatesStudentIds);
-  const hasIEPPlanningMeeting = iepPlanningMeetingEntries.length > 0 || iepPlanningMeetingWithoutStudent;
-  const hasIEPPlanningUpdates = iepPlanningUpdatesEntries.length > 0 || iepPlanningUpdatesWithoutStudent;
   const assessmentPlanningMeetingEntries = buildStudentEntries(assessmentPlanningMeetingStudentIds);
   const assessmentPlanningUpdatesEntries = buildStudentEntries(assessmentPlanningUpdatesStudentIds);
-  const hasAssessmentPlanningMeeting = assessmentPlanningMeetingEntries.length > 0 || assessmentPlanningMeetingWithoutStudent;
-  const hasAssessmentPlanningUpdates = assessmentPlanningUpdatesEntries.length > 0 || assessmentPlanningUpdatesWithoutStudent;
   const initialAssessmentDocEntries = buildStudentEntries(initialAssessmentDocStudentIds);
   const threeYearDocEntries = buildStudentEntries(threeYearDocStudentIds);
   const iepDocEntries = buildStudentEntries(iepDocStudentIds);
   const legacyAssessmentDocEntries = buildStudentEntries(legacyAssessmentDocStudentIds);
   const caseloadPlanningEntries = buildStudentEntries(caseloadPlanningStudentIds);
-  const hasInitialAssessmentDoc = initialAssessmentDocEntries.length > 0 || initialAssessmentDocWithoutStudent;
-  const hasThreeYearDoc = threeYearDocEntries.length > 0 || threeYearDocWithoutStudent;
-  const hasIEPDoc = iepDocEntries.length > 0 || iepDocWithoutStudent;
-  const hasLegacyAssessmentDoc = legacyAssessmentDocEntries.length > 0 || legacyAssessmentDocWithoutStudent;
   const hasCaseloadPlanning = caseloadPlanningEntries.length > 0 || caseloadPlanningMeetingsWithoutStudents.length > 0;
 
   // Build indirect services section with sub-sections
-  const indirectServiceLabel = isTeletherapy ? 'Offsite Indirect Services Including:' : 'Indirect services including:';
+  const indirectServiceLabel = isTeletherapy ? 'Offsite Indirect Services Including:' : 'Indirect Services Including:';
   noteParts.push(indirectServiceLabel);
   noteParts.push('');
 
-  // Documentation sub-section
-  if (documentationEntries.length > 0) {
-    noteParts.push('Session Documentation:');
-    noteParts.push(documentationEntries.join(', '));
+  // Indirect services: Session documentation + Lesson planning (per MN DOE)
+  const indirectServicesEntries = [...new Set([...documentationEntries, ...lessonPlanningEntries])].sort();
+  if (indirectServicesEntries.length > 0) {
+    noteParts.push('Indirect services:');
+    noteParts.push(indirectServicesEntries.join(', '));
   }
 
-  // Email Correspondence sub-section
+  // Email correspondence (lowercase 'c' per MN DOE)
   if (emailCorrespondenceEntries.length > 0) {
-    noteParts.push('Email Correspondence:');
+    noteParts.push('Email correspondence:');
     noteParts.push(emailCorrespondenceEntries.join(', '));
-  }
-  
-  // Lesson Planning sub-section
-  if (lessonPlanningEntries.length > 0) {
-    noteParts.push('Lesson Planning:');
-    noteParts.push(lessonPlanningEntries.join(', '));
   }
 
   // Speech Screening Write-Up and Staff Collaboration (indirect) - screeners + speech screening meetings
@@ -569,94 +595,27 @@ export const generateTimesheetNote = ({
     noteParts.push(speechScreeningDocEntries.join(', '));
   }
 
-  // IEP meeting: / IEP updates: / IEP assessment:
-  if (hasIEPMeeting) {
-    noteParts.push('IEP meeting:');
-    const lineParts: string[] = [...iepMeetingEntries];
-    if (iepMeetingWithoutStudent) lineParts.push('IEP meeting');
-    noteParts.push(lineParts.join(', '));
+  // Due process (IEP) - all IEP activities per MN DOE
+  const dueProcessIEPEntries = [...iepMeetingEntries, ...iepUpdatesEntries, ...iepAssessmentEntries, ...iepPlanningMeetingEntries, ...iepPlanningUpdatesEntries, ...iepDocEntries];
+  const hasDueProcessIEP = dueProcessIEPEntries.length > 0 || iepMeetingWithoutStudent || iepUpdatesWithoutStudent || iepAssessmentWithoutStudent || iepPlanningMeetingWithoutStudent || iepPlanningUpdatesWithoutStudent || iepDocWithoutStudent;
+  if (hasDueProcessIEP) {
+    noteParts.push('Due process (IEP):');
+    const lineParts: string[] = [...new Set(dueProcessIEPEntries)];
+    if (iepMeetingWithoutStudent || iepUpdatesWithoutStudent || iepAssessmentWithoutStudent || iepPlanningMeetingWithoutStudent || iepPlanningUpdatesWithoutStudent || iepDocWithoutStudent) lineParts.push('Due process (IEP)');
+    noteParts.push(lineParts.sort().join(', '));
   }
-  if (hasIEPUpdates) {
-    noteParts.push('IEP updates:');
-    const lineParts: string[] = [...iepUpdatesEntries];
-    if (iepUpdatesWithoutStudent) lineParts.push('IEP updates');
-    noteParts.push(lineParts.join(', '));
+  // Due process (Eval PWN) - assessment planning, 3 year planning, evaluation documentation per MN DOE
+  const dueProcessEvalPWNEntries = [...assessmentPlanningMeetingEntries, ...assessmentPlanningUpdatesEntries, ...threeYearPlanningMeetingEntries, ...threeYearPlanningUpdatesEntries, ...threeYearDocEntries, ...initialAssessmentDocEntries, ...legacyAssessmentDocEntries];
+  const hasDueProcessEvalPWN = dueProcessEvalPWNEntries.length > 0 || assessmentPlanningMeetingWithoutStudent || assessmentPlanningUpdatesWithoutStudent || threeYearPlanningMeetingWithoutStudent || threeYearPlanningUpdatesWithoutStudent || threeYearDocWithoutStudent || initialAssessmentDocWithoutStudent || legacyAssessmentDocWithoutStudent;
+  if (hasDueProcessEvalPWN) {
+    noteParts.push('Due process (Eval PWN):');
+    const lineParts: string[] = [...new Set(dueProcessEvalPWNEntries)];
+    if (assessmentPlanningMeetingWithoutStudent || assessmentPlanningUpdatesWithoutStudent || threeYearPlanningMeetingWithoutStudent || threeYearPlanningUpdatesWithoutStudent || threeYearDocWithoutStudent || initialAssessmentDocWithoutStudent || legacyAssessmentDocWithoutStudent) lineParts.push('Due process (Eval PWN)');
+    noteParts.push(lineParts.sort().join(', '));
   }
-  if (hasIEPAssessment) {
-    noteParts.push('IEP assessment:');
-    const lineParts: string[] = [...iepAssessmentEntries];
-    if (iepAssessmentWithoutStudent) lineParts.push('IEP assessment');
-    noteParts.push(lineParts.join(', '));
-  }
-
-  // IEP planning meeting: / IEP planning updates:
-  if (hasIEPPlanningMeeting) {
-    noteParts.push('IEP planning meeting:');
-    const lineParts: string[] = [...iepPlanningMeetingEntries];
-    if (iepPlanningMeetingWithoutStudent) lineParts.push('IEP planning meeting');
-    noteParts.push(lineParts.join(', '));
-  }
-  if (hasIEPPlanningUpdates) {
-    noteParts.push('IEP planning updates:');
-    const lineParts: string[] = [...iepPlanningUpdatesEntries];
-    if (iepPlanningUpdatesWithoutStudent) lineParts.push('IEP planning updates');
-    noteParts.push(lineParts.join(', '));
-  }
-  // Assessment planning meeting: / Assessment planning updates:
-  if (hasAssessmentPlanningMeeting) {
-    noteParts.push('Assessment planning meeting:');
-    const lineParts: string[] = [...assessmentPlanningMeetingEntries];
-    if (assessmentPlanningMeetingWithoutStudent) lineParts.push('Assessment planning meeting');
-    noteParts.push(lineParts.join(', '));
-  }
-  if (hasAssessmentPlanningUpdates) {
-    noteParts.push('Assessment planning updates:');
-    const lineParts: string[] = [...assessmentPlanningUpdatesEntries];
-    if (assessmentPlanningUpdatesWithoutStudent) lineParts.push('Assessment planning updates');
-    noteParts.push(lineParts.join(', '));
-  }
-  // 3 year reassessment planning meeting: / 3 year reassessment planning updates:
-  if (hasThreeYearPlanningMeeting) {
-    noteParts.push('3 year reassessment planning meeting:');
-    const lineParts: string[] = [...threeYearPlanningMeetingEntries];
-    if (threeYearPlanningMeetingWithoutStudent) lineParts.push('3 year reassessment planning meeting');
-    noteParts.push(lineParts.join(', '));
-  }
-  if (hasThreeYearPlanningUpdates) {
-    noteParts.push('3 year reassessment planning updates:');
-    const lineParts: string[] = [...threeYearPlanningUpdatesEntries];
-    if (threeYearPlanningUpdatesWithoutStudent) lineParts.push('3 year reassessment planning updates');
-    noteParts.push(lineParts.join(', '));
-  }
-  // Assessment documentation (indirect): Initial assessment, 3 year, IEP
-  if (hasInitialAssessmentDoc) {
-    noteParts.push('Initial assessment documentation:');
-    const lineParts: string[] = [...initialAssessmentDocEntries];
-    if (initialAssessmentDocWithoutStudent) lineParts.push('Initial assessment documentation');
-    noteParts.push(lineParts.join(', '));
-  }
-  if (hasThreeYearDoc) {
-    noteParts.push('3 year documentation:');
-    const lineParts: string[] = [...threeYearDocEntries];
-    if (threeYearDocWithoutStudent) lineParts.push('3 year documentation');
-    noteParts.push(lineParts.join(', '));
-  }
-  if (hasIEPDoc) {
-    noteParts.push('IEP documentation:');
-    const lineParts: string[] = [...iepDocEntries];
-    if (iepDocWithoutStudent) lineParts.push('IEP documentation');
-    noteParts.push(lineParts.join(', '));
-  }
-  // Legacy: old "Assessment documentation" (no subtype)
-  if (hasLegacyAssessmentDoc) {
-    noteParts.push('Assessment documentation:');
-    const lineParts: string[] = [...legacyAssessmentDocEntries];
-    if (legacyAssessmentDocWithoutStudent) lineParts.push('Assessment documentation');
-    noteParts.push(lineParts.join(', '));
-  }
-  // Caseload planning (indirect)
+  // Caseload planning (Indirect services per MN DOE)
   if (hasCaseloadPlanning) {
-    noteParts.push('Caseload planning:');
+    noteParts.push('Indirect services:');
     const lineParts: string[] = [...caseloadPlanningEntries];
     caseloadPlanningMeetingsWithoutStudents.forEach(m => {
       const label = m.title?.trim() || 'Caseload planning';
@@ -664,6 +623,52 @@ export const generateTimesheetNote = ({
       lineParts.push(`${label} (${timeStr})`);
     });
     noteParts.push(lineParts.join(', '));
+  }
+
+  // CST Meeting, Sped Team meeting (per MN DOE - no student initials)
+  if (cstMeetings.length > 0) {
+    noteParts.push('CST Meeting');
+  }
+  if (spedTeamMeetings.length > 0) {
+    noteParts.push('Sped Team Meetings');
+  }
+
+  // Case Management per MN DOE
+  const caseManagementEntries = buildStudentEntries(caseManagementStudentIds);
+  if (caseManagementEntries.length > 0) {
+    noteParts.push('Case Management:');
+    noteParts.push(caseManagementEntries.join(', '));
+  }
+
+  // Consultation/screening, Consultation/intervention (duration required per MN DOE)
+  const getMeetingDurationMins = (m: Meeting): number => {
+    if (!m.endTime) return 0;
+    const start = new Date(m.date).getTime();
+    const end = new Date(m.endTime).getTime();
+    return Math.round((end - start) / 60000);
+  };
+  consultationScreeningMeetings.forEach(m => {
+    const ids = getMeetingStudentIds(m);
+    const entries = ids.map(id => `${getStudentInitials(id)} (${getStudent(id)?.grade || ''})`).sort();
+    const duration = getMeetingDurationMins(m);
+    const durationStr = duration > 0 ? ` (${duration} mins)` : '';
+    const line = entries.length > 0 ? `Consultation/screening: ${entries.join(', ')}${durationStr}` : `Consultation/screening${durationStr}`;
+    noteParts.push(line);
+  });
+  consultationInterventionMeetings.forEach(m => {
+    const ids = getMeetingStudentIds(m);
+    const entries = ids.map(id => `${getStudentInitials(id)} (${getStudent(id)?.grade || ''})`).sort();
+    const duration = getMeetingDurationMins(m);
+    const durationStr = duration > 0 ? ` (${duration} mins)` : '';
+    const line = entries.length > 0 ? `Consultation/intervention: ${entries.join(', ')}${durationStr}` : `Consultation/intervention${durationStr}`;
+    noteParts.push(line);
+  });
+
+  // Due process (progress reports) per MN DOE
+  const progressReportsEntries = buildStudentEntries(progressReportsStudentIds);
+  if (progressReportsEntries.length > 0) {
+    noteParts.push('Due process (progress reports):');
+    noteParts.push(progressReportsEntries.join(', '));
   }
 
   noteParts.push(''); // Empty line after service
@@ -844,12 +849,12 @@ export const generateProspectiveTimesheetNote = ({
   const hasDirectAssessmentsProspective = initialAssessmentMeetingsProspective.length > 0 || threeYearReassessmentDirectProspective.length > 0;
 
   if (hasDirectSessionsProspective || hasSpeechScreeningProspective || hasDirectAssessmentsProspective) {
-    const serviceLabel = isTeletherapy ? 'Offsite Direct Services:' : 'Direct services:';
+    const serviceLabel = isTeletherapy ? 'Offsite Direct Services:' : 'Direct Services:';
     noteParts.push(serviceLabel);
     noteParts.push('');
 
     if (hasDirectSessionsProspective) {
-      noteParts.push('Direct Therapy:');
+      noteParts.push('1:1 Direct Instruction:');
       const shouldUseSpecificTimesProspective = useSpecificTimes || isTeletherapy;
       if (shouldUseSpecificTimesProspective) {
         const timeRangeMap = new Map<string, Array<{ session: ProspectiveSessionData; timeRange: string }>>();
@@ -916,7 +921,7 @@ export const generateProspectiveTimesheetNote = ({
     }
     if (threeYearReassessmentDirectProspective.length > 0) {
       if (hasDirectSessionsProspective || initialAssessmentMeetingsProspective.length > 0) noteParts.push('');
-      noteParts.push('3 Year Reassessment:');
+      noteParts.push('Evaluation (Test administrated):');
       const shouldUseSpecificTimesProspective = useSpecificTimes || isTeletherapy;
       if (shouldUseSpecificTimesProspective) {
         const entries: Array<{ sortTime: number; initials: string; grade: string; timeRange: string }> = [];
@@ -1031,34 +1036,19 @@ export const generateProspectiveTimesheetNote = ({
   const iepDocEntriesProspective = buildDocEntries(iepDocProspective);
   const legacyAssessmentDocEntriesProspective = buildDocEntries(legacyAssessmentDocProspective);
   const caseloadPlanningEntriesProspective = buildDocEntries(caseloadPlanningProspective);
-  const hasInitialAssessmentDocProspective =
-    initialAssessmentDocEntriesProspective.length > 0 || hasMeetingWithoutStudents(initialAssessmentDocProspective);
-  const hasThreeYearDocProspective =
-    threeYearDocEntriesProspective.length > 0 || hasMeetingWithoutStudents(threeYearDocProspective);
-  const hasIEPDocProspective =
-    iepDocEntriesProspective.length > 0 || hasMeetingWithoutStudents(iepDocProspective);
-  const hasLegacyAssessmentDocProspective =
-    legacyAssessmentDocEntriesProspective.length > 0 || hasMeetingWithoutStudents(legacyAssessmentDocProspective);
   const hasCaseloadPlanningProspective =
     caseloadPlanningEntriesProspective.length > 0 || hasMeetingWithoutStudents(caseloadPlanningProspective);
 
   // Build indirect services section
-  const indirectServiceLabel = isTeletherapy ? 'Offsite Indirect Services Including:' : 'Indirect services including:';
+  const indirectServiceLabel = isTeletherapy ? 'Offsite Indirect Services Including:' : 'Indirect Services Including:';
   noteParts.push(indirectServiceLabel);
   noteParts.push('');
 
-  // Documentation sub-section
-  if (documentationEntries.length > 0) {
-    noteParts.push('Session Documentation:');
-    noteParts.push(documentationEntries.join(', '));
-  }
-
-  // Email Correspondence sub-section - skip for prospective notes (can't predict emails)
-  
-  // Lesson Planning sub-section
-  if (lessonPlanningEntries.length > 0) {
-    noteParts.push('Lesson Planning:');
-    noteParts.push(lessonPlanningEntries.join(', '));
+  // Indirect services: Session documentation + Lesson planning (per MN DOE)
+  const indirectServicesEntriesProspective = [...new Set([...documentationEntries, ...lessonPlanningEntries])].sort();
+  if (indirectServicesEntriesProspective.length > 0) {
+    noteParts.push('Indirect services:');
+    noteParts.push(indirectServicesEntriesProspective.join(', '));
   }
 
   // Speech Screening Write-Up and Staff Collaboration (indirect only)
@@ -1067,33 +1057,23 @@ export const generateProspectiveTimesheetNote = ({
     noteParts.push(speechScreeningStudentEntries.join(', '));
   }
 
-  // Assessment documentation (indirect): Initial assessment, 3 year, IEP
-  if (hasInitialAssessmentDocProspective) {
-    noteParts.push('Initial assessment documentation:');
-    const lineParts: string[] = [...initialAssessmentDocEntriesProspective];
-    if (hasMeetingWithoutStudents(initialAssessmentDocProspective)) lineParts.push('Initial assessment documentation');
-    noteParts.push(lineParts.join(', '));
+  // Due process (IEP) and Due process (Eval PWN) per MN DOE
+  const dueProcessIEPProspective = [...iepDocEntriesProspective];
+  const dueProcessEvalPWNProspective = [...initialAssessmentDocEntriesProspective, ...threeYearDocEntriesProspective, ...legacyAssessmentDocEntriesProspective];
+  if (dueProcessIEPProspective.length > 0 || hasMeetingWithoutStudents(iepDocProspective)) {
+    noteParts.push('Due process (IEP):');
+    const lineParts: string[] = [...dueProcessIEPProspective];
+    if (hasMeetingWithoutStudents(iepDocProspective)) lineParts.push('Due process (IEP)');
+    noteParts.push(lineParts.sort().join(', '));
   }
-  if (hasThreeYearDocProspective) {
-    noteParts.push('3 year documentation:');
-    const lineParts: string[] = [...threeYearDocEntriesProspective];
-    if (hasMeetingWithoutStudents(threeYearDocProspective)) lineParts.push('3 year documentation');
-    noteParts.push(lineParts.join(', '));
-  }
-  if (hasIEPDocProspective) {
-    noteParts.push('IEP documentation:');
-    const lineParts: string[] = [...iepDocEntriesProspective];
-    if (hasMeetingWithoutStudents(iepDocProspective)) lineParts.push('IEP documentation');
-    noteParts.push(lineParts.join(', '));
-  }
-  if (hasLegacyAssessmentDocProspective) {
-    noteParts.push('Assessment documentation:');
-    const lineParts: string[] = [...legacyAssessmentDocEntriesProspective];
-    if (hasMeetingWithoutStudents(legacyAssessmentDocProspective)) lineParts.push('Assessment documentation');
-    noteParts.push(lineParts.join(', '));
+  if (dueProcessEvalPWNProspective.length > 0 || hasMeetingWithoutStudents(initialAssessmentDocProspective) || hasMeetingWithoutStudents(threeYearDocProspective) || hasMeetingWithoutStudents(legacyAssessmentDocProspective)) {
+    noteParts.push('Due process (Eval PWN):');
+    const lineParts: string[] = [...new Set(dueProcessEvalPWNProspective)];
+    if (hasMeetingWithoutStudents(initialAssessmentDocProspective) || hasMeetingWithoutStudents(threeYearDocProspective) || hasMeetingWithoutStudents(legacyAssessmentDocProspective)) lineParts.push('Due process (Eval PWN)');
+    noteParts.push(lineParts.sort().join(', '));
   }
   if (hasCaseloadPlanningProspective) {
-    noteParts.push('Caseload planning:');
+    noteParts.push('Indirect services:');
     const lineParts: string[] = [...caseloadPlanningEntriesProspective];
     caseloadPlanningProspective
       .filter(m => getMeetingStudentIds(m).length === 0)
