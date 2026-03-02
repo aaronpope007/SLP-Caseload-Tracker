@@ -2909,7 +2909,7 @@ export const SessionCalendar = () => {
           ) : (
             // Month View
           <Box>
-            {/* Day Headers */}
+            {/* Day Headers (Mon–Sun so weekends are visible) */}
             <Box 
               sx={{ 
                 display: 'flex',
@@ -2918,7 +2918,7 @@ export const SessionCalendar = () => {
                 borderColor: 'divider',
               }}
             >
-              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(day => (
+              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
                 <Box
                   key={day}
                   sx={{
@@ -2935,11 +2935,11 @@ export const SessionCalendar = () => {
               ))}
             </Box>
             
-            {/* Calendar Days */}
+            {/* Calendar Days (7 columns to match Mon–Sun) */}
             <Box
               sx={{
-                display: 'flex',
-                flexWrap: 'wrap',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(7, 1fr)',
                 gap: 0.5,
               }}
             >
@@ -2952,7 +2952,6 @@ export const SessionCalendar = () => {
                   <Box
                     key={day.toISOString()}
                     sx={{
-                      flex: '1 1 calc(20% - 4px)', // 100% / 5 columns minus gap (Mon-Fri only)
                       minWidth: 0,
                       minHeight: 120,
                       border: '1px solid',

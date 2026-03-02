@@ -504,6 +504,11 @@ export const generateTimesheetNote = ({
   const cstMeetings = meetings.filter(m => m.category === 'CST Meeting');
   const spedTeamMeetings = meetings.filter(m => m.category === 'Sped Team meeting');
 
+  // Indirect services staff meeting (student-specific - show associated students per MN DOE)
+  const staffMeetingMeetings = meetings.filter(m => m.category === 'Staff Meeting');
+  const staffMeetingStudentIds = new Set<string>();
+  staffMeetingMeetings.forEach(m => getMeetingStudentIds(m).forEach(id => staffMeetingStudentIds.add(id)));
+
   // Case Management (student-specific per MN DOE)
   const caseManagementMeetings = meetings.filter(m => m.category === 'Case Management');
   const caseManagementStudentIds = new Set<string>();
@@ -570,17 +575,27 @@ export const generateTimesheetNote = ({
   const legacyAssessmentDocEntries = buildStudentEntries(legacyAssessmentDocStudentIds);
   const caseloadPlanningEntries = buildStudentEntries(caseloadPlanningStudentIds);
   const hasCaseloadPlanning = caseloadPlanningEntries.length > 0 || caseloadPlanningMeetingsWithoutStudents.length > 0;
+  const staffMeetingEntries = buildStudentEntries(staffMeetingStudentIds);
 
   // Build indirect services section with sub-sections
   const indirectServiceLabel = isTeletherapy ? 'Offsite Indirect Services Including:' : 'Indirect Services Including:';
   noteParts.push(indirectServiceLabel);
   noteParts.push('');
 
-  // Indirect services: Session documentation + Lesson planning (per MN DOE)
-  const indirectServicesEntries = [...new Set([...documentationEntries, ...lessonPlanningEntries])].sort();
-  if (indirectServicesEntries.length > 0) {
-    noteParts.push('Indirect services:');
-    noteParts.push(indirectServicesEntries.join(', '));
+  // Indirect services, therapy session planning: Session documentation + Lesson planning (per MN DOE)
+  const therapySessionPlanningEntries = [...new Set([...documentationEntries, ...lessonPlanningEntries])].sort();
+  if (therapySessionPlanningEntries.length > 0) {
+    noteParts.push('Indirect services, therapy session planning:');
+    noteParts.push(therapySessionPlanningEntries.join(', '));
+  }
+
+  // Indirect services, data collection and session documentation: All students who received direct instruction
+  const dataCollectionDocStudentIds = new Set<string>();
+  directServices.forEach(session => dataCollectionDocStudentIds.add(session.studentId));
+  const dataCollectionDocEntries = buildStudentEntries(dataCollectionDocStudentIds);
+  if (dataCollectionDocEntries.length > 0) {
+    noteParts.push('Indirect services, data collection and session documentation:');
+    noteParts.push(dataCollectionDocEntries.join(', '));
   }
 
   // Email correspondence (lowercase 'c' per MN DOE)
@@ -604,18 +619,27 @@ export const generateTimesheetNote = ({
     if (iepMeetingWithoutStudent || iepUpdatesWithoutStudent || iepAssessmentWithoutStudent || iepPlanningMeetingWithoutStudent || iepPlanningUpdatesWithoutStudent || iepDocWithoutStudent) lineParts.push('Due process (IEP)');
     noteParts.push(lineParts.sort().join(', '));
   }
-  // Due process (Eval PWN) - assessment planning, 3 year planning, evaluation documentation per MN DOE
-  const dueProcessEvalPWNEntries = [...assessmentPlanningMeetingEntries, ...assessmentPlanningUpdatesEntries, ...threeYearPlanningMeetingEntries, ...threeYearPlanningUpdatesEntries, ...threeYearDocEntries, ...initialAssessmentDocEntries, ...legacyAssessmentDocEntries];
-  const hasDueProcessEvalPWN = dueProcessEvalPWNEntries.length > 0 || assessmentPlanningMeetingWithoutStudent || assessmentPlanningUpdatesWithoutStudent || threeYearPlanningMeetingWithoutStudent || threeYearPlanningUpdatesWithoutStudent || threeYearDocWithoutStudent || initialAssessmentDocWithoutStudent || legacyAssessmentDocWithoutStudent;
+  // Due process (Eval PWN) - assessment planning, 3 year planning (PWN only; excludes evaluation documentation)
+  const dueProcessEvalPWNEntries = [...assessmentPlanningMeetingEntries, ...assessmentPlanningUpdatesEntries, ...threeYearPlanningMeetingEntries, ...threeYearPlanningUpdatesEntries];
+  const hasDueProcessEvalPWN = dueProcessEvalPWNEntries.length > 0 || assessmentPlanningMeetingWithoutStudent || assessmentPlanningUpdatesWithoutStudent || threeYearPlanningMeetingWithoutStudent || threeYearPlanningUpdatesWithoutStudent;
   if (hasDueProcessEvalPWN) {
     noteParts.push('Due process (Eval PWN):');
     const lineParts: string[] = [...new Set(dueProcessEvalPWNEntries)];
-    if (assessmentPlanningMeetingWithoutStudent || assessmentPlanningUpdatesWithoutStudent || threeYearPlanningMeetingWithoutStudent || threeYearPlanningUpdatesWithoutStudent || threeYearDocWithoutStudent || initialAssessmentDocWithoutStudent || legacyAssessmentDocWithoutStudent) lineParts.push('Due process (Eval PWN)');
+    if (assessmentPlanningMeetingWithoutStudent || assessmentPlanningUpdatesWithoutStudent || threeYearPlanningMeetingWithoutStudent || threeYearPlanningUpdatesWithoutStudent) lineParts.push('Due process (Eval PWN)');
+    noteParts.push(lineParts.sort().join(', '));
+  }
+  // Indirect services, evaluation documentation - 3 year, initial assessment, legacy assessment report writing (not PWN)
+  const evaluationDocEntries = [...threeYearDocEntries, ...initialAssessmentDocEntries, ...legacyAssessmentDocEntries];
+  const hasEvaluationDoc = evaluationDocEntries.length > 0 || threeYearDocWithoutStudent || initialAssessmentDocWithoutStudent || legacyAssessmentDocWithoutStudent;
+  if (hasEvaluationDoc) {
+    noteParts.push('Indirect services, evaluation documentation:');
+    const lineParts: string[] = [...new Set(evaluationDocEntries)];
+    if (threeYearDocWithoutStudent || initialAssessmentDocWithoutStudent || legacyAssessmentDocWithoutStudent) lineParts.push('Indirect services, evaluation documentation');
     noteParts.push(lineParts.sort().join(', '));
   }
   // Caseload planning (Indirect services per MN DOE)
   if (hasCaseloadPlanning) {
-    noteParts.push('Indirect services:');
+    noteParts.push('Indirect services, caseload planning:');
     const lineParts: string[] = [...caseloadPlanningEntries];
     caseloadPlanningMeetingsWithoutStudents.forEach(m => {
       const label = m.title?.trim() || 'Caseload planning';
@@ -623,6 +647,12 @@ export const generateTimesheetNote = ({
       lineParts.push(`${label} (${timeStr})`);
     });
     noteParts.push(lineParts.join(', '));
+  }
+
+  // Indirect services staff meeting (per MN DOE - with associated students)
+  if (staffMeetingEntries.length > 0) {
+    noteParts.push('Indirect services, staff meeting:');
+    noteParts.push(staffMeetingEntries.join(', '));
   }
 
   // CST Meeting, Sped Team meeting (per MN DOE - no student initials)
@@ -1038,17 +1068,28 @@ export const generateProspectiveTimesheetNote = ({
   const caseloadPlanningEntriesProspective = buildDocEntries(caseloadPlanningProspective);
   const hasCaseloadPlanningProspective =
     caseloadPlanningEntriesProspective.length > 0 || hasMeetingWithoutStudents(caseloadPlanningProspective);
+  const staffMeetingProspective = meetings.filter(m => m.category === 'Staff Meeting');
+  const staffMeetingEntriesProspective = buildDocEntries(staffMeetingProspective);
 
   // Build indirect services section
   const indirectServiceLabel = isTeletherapy ? 'Offsite Indirect Services Including:' : 'Indirect Services Including:';
   noteParts.push(indirectServiceLabel);
   noteParts.push('');
 
-  // Indirect services: Session documentation + Lesson planning (per MN DOE)
-  const indirectServicesEntriesProspective = [...new Set([...documentationEntries, ...lessonPlanningEntries])].sort();
-  if (indirectServicesEntriesProspective.length > 0) {
-    noteParts.push('Indirect services:');
-    noteParts.push(indirectServicesEntriesProspective.join(', '));
+  // Indirect services, therapy session planning: Session documentation + Lesson planning (per MN DOE)
+  const therapySessionPlanningEntriesProspective = [...new Set([...documentationEntries, ...lessonPlanningEntries])].sort();
+  if (therapySessionPlanningEntriesProspective.length > 0) {
+    noteParts.push('Indirect services, therapy session planning:');
+    noteParts.push(therapySessionPlanningEntriesProspective.join(', '));
+  }
+
+  // Indirect services, data collection and session documentation: All students who received direct instruction
+  const dataCollectionDocProspective = buildStudentEntries(
+    new Set(uniqueDirectServices.map(s => s.studentId))
+  );
+  if (dataCollectionDocProspective.length > 0) {
+    noteParts.push('Indirect services, data collection and session documentation:');
+    noteParts.push(dataCollectionDocProspective.join(', '));
   }
 
   // Speech Screening Write-Up and Staff Collaboration (indirect only)
@@ -1057,23 +1098,35 @@ export const generateProspectiveTimesheetNote = ({
     noteParts.push(speechScreeningStudentEntries.join(', '));
   }
 
-  // Due process (IEP) and Due process (Eval PWN) per MN DOE
+  // Due process (IEP) per MN DOE
   const dueProcessIEPProspective = [...iepDocEntriesProspective];
-  const dueProcessEvalPWNProspective = [...initialAssessmentDocEntriesProspective, ...threeYearDocEntriesProspective, ...legacyAssessmentDocEntriesProspective];
   if (dueProcessIEPProspective.length > 0 || hasMeetingWithoutStudents(iepDocProspective)) {
     noteParts.push('Due process (IEP):');
     const lineParts: string[] = [...dueProcessIEPProspective];
     if (hasMeetingWithoutStudents(iepDocProspective)) lineParts.push('Due process (IEP)');
     noteParts.push(lineParts.sort().join(', '));
   }
-  if (dueProcessEvalPWNProspective.length > 0 || hasMeetingWithoutStudents(initialAssessmentDocProspective) || hasMeetingWithoutStudents(threeYearDocProspective) || hasMeetingWithoutStudents(legacyAssessmentDocProspective)) {
-    noteParts.push('Due process (Eval PWN):');
-    const lineParts: string[] = [...new Set(dueProcessEvalPWNProspective)];
-    if (hasMeetingWithoutStudents(initialAssessmentDocProspective) || hasMeetingWithoutStudents(threeYearDocProspective) || hasMeetingWithoutStudents(legacyAssessmentDocProspective)) lineParts.push('Due process (Eval PWN)');
+  // Due process (Eval PWN) - planning only; prospective doesn't include planning meetings in this flow
+  // Indirect services, evaluation documentation - 3 year, initial assessment, legacy assessment report writing (not PWN)
+  const evaluationDocEntriesProspective = [...initialAssessmentDocEntriesProspective, ...threeYearDocEntriesProspective, ...legacyAssessmentDocEntriesProspective];
+  const hasEvaluationDocProspective =
+    evaluationDocEntriesProspective.length > 0 ||
+    hasMeetingWithoutStudents(initialAssessmentDocProspective) ||
+    hasMeetingWithoutStudents(threeYearDocProspective) ||
+    hasMeetingWithoutStudents(legacyAssessmentDocProspective);
+  if (hasEvaluationDocProspective) {
+    noteParts.push('Indirect services, evaluation documentation:');
+    const lineParts: string[] = [...new Set(evaluationDocEntriesProspective)];
+    if (
+      hasMeetingWithoutStudents(initialAssessmentDocProspective) ||
+      hasMeetingWithoutStudents(threeYearDocProspective) ||
+      hasMeetingWithoutStudents(legacyAssessmentDocProspective)
+    )
+      lineParts.push('Indirect services, evaluation documentation');
     noteParts.push(lineParts.sort().join(', '));
   }
   if (hasCaseloadPlanningProspective) {
-    noteParts.push('Indirect services:');
+    noteParts.push('Indirect services, caseload planning:');
     const lineParts: string[] = [...caseloadPlanningEntriesProspective];
     caseloadPlanningProspective
       .filter(m => getMeetingStudentIds(m).length === 0)
@@ -1083,6 +1136,10 @@ export const generateProspectiveTimesheetNote = ({
         lineParts.push(`${label} (${timeStr})`);
       });
     noteParts.push(lineParts.join(', '));
+  }
+  if (staffMeetingEntriesProspective.length > 0) {
+    noteParts.push('Indirect services, staff meeting:');
+    noteParts.push(staffMeetingEntriesProspective.join(', '));
   }
 
   noteParts.push(''); // Empty line after service
