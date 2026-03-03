@@ -64,7 +64,6 @@ export const MeetingFormDialog = ({
     activitySubtype: '' as '' | MeetingActivitySubtype,
   });
   const [saving, setSaving] = useState(false);
-  const [studentInputValue, setStudentInputValue] = useState('');
   const studentInputRef = useRef('');
 
   useEffect(() => {
@@ -86,7 +85,7 @@ export const MeetingFormDialog = ({
         category: editingMeeting.category || '',
         activitySubtype: (editingMeeting.activitySubtype || '') as '' | MeetingActivitySubtype,
       });
-      setStudentInputValue('');
+      studentInputRef.current = '';
     } else {
       // New meeting: use default date (e.g. selected date on Time Tracking) at 8:00 AM local, or now
       const dateForNew = defaultDate
@@ -102,7 +101,7 @@ export const MeetingFormDialog = ({
         category: defaultCategory || '',
         activitySubtype: (defaultCategory && isCategoryWithActivitySubtype(defaultCategory) ? 'meeting' : '') as '' | MeetingActivitySubtype,
       });
-      setStudentInputValue('');
+      studentInputRef.current = '';
     }
   }, [editingMeeting, open, selectedSchool, availableSchools, defaultCategory, defaultDate, students]);
 
@@ -278,7 +277,7 @@ export const MeetingFormDialog = ({
               value={formData.school}
               onChange={(e) => {
                 setFormData({ ...formData, school: e.target.value, studentIds: [] });
-                setStudentInputValue('');
+                studentInputRef.current = '';
               }}
               label="School"
             >
@@ -396,10 +395,8 @@ export const MeetingFormDialog = ({
             getOptionLabel={(option) => (option ? `${option.name}${option.grade ? ` (${option.grade})` : ''}` : '')}
             filterOptions={(options, state) => filterStudentOptions(options, state.inputValue)}
             value={studentsInSchoolDeduped.filter((s) => formData.studentIds.includes(s.id))}
-            inputValue={studentInputValue}
             onInputChange={(_, value) => {
-              setStudentInputValue(value);
-              studentInputRef.current = value;
+              studentInputRef.current = value ?? '';
             }}
             onChange={(_, newValue) => {
               setFormData({ ...formData, studentIds: newValue.map((s) => s.id) });
@@ -423,7 +420,6 @@ export const MeetingFormDialog = ({
                     if (!formData.studentIds.includes(option.id)) {
                       setFormData((prev) => ({ ...prev, studentIds: [...prev.studentIds, option.id] }));
                     }
-                    setStudentInputValue('');
                     studentInputRef.current = '';
                   });
                 }}
