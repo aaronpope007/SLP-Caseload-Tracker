@@ -3112,14 +3112,9 @@ export const SessionCalendar = () => {
             </Box>
           </Box>
           )}
-        </CardContent>
-      </Card>
-      </Box>
 
-      {/* Scheduled Recurring Sessions List */}
-      <Card>
-        <CardContent>
-          <Accordion defaultExpanded={false}>
+          {/* Scheduled Recurring Sessions - below calendar */}
+          <Accordion defaultExpanded={false} sx={{ mt: 3 }}>
             <AccordionSummary 
               expandIcon={<ExpandMoreIcon />}
               slotProps={{
@@ -3192,6 +3187,7 @@ export const SessionCalendar = () => {
           </Accordion>
         </CardContent>
       </Card>
+      </Box>
 
       {/* Schedule Session Dialog */}
       <Dialog 
