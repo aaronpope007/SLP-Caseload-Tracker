@@ -346,22 +346,26 @@ export const generateTimesheetNote = ({
     documentationStudentIds.add(screener.studentId);
   });
   
-  // Email Correspondence: Count communications per student (show multiple as "RH(3) x2", etc.)
-  // Per SSG rules: Filter out IEP/Evaluation emails (they're coded separately as IEP/Evaluation, not indirect services)
-  // Only include emails for scheduling, collaboration, or intervention-based communication
-  const emailCorrespondenceCountByStudent = new Map<string, number>();
-  communications.forEach(comm => {
-    if (comm.studentId && comm.relatedTo) {
-      const relatedToLower = comm.relatedTo.toLowerCase();
-      // Exclude IEP and Evaluation emails (they're coded separately)
-      if (!relatedToLower.includes('iep') && !relatedToLower.includes('evaluation') && !relatedToLower.includes('eval')) {
-        emailCorrespondenceCountByStudent.set(comm.studentId, (emailCorrespondenceCountByStudent.get(comm.studentId) ?? 0) + 1);
+  // Count communications per student by method — email, phone, and text reported separately
+  // Per SSG rules: Filter out IEP/Evaluation (they're coded separately as IEP/Evaluation, not indirect services)
+  const countByMethod = (method: 'email' | 'phone' | 'text') => {
+    const countByStudent = new Map<string, number>();
+    communications.forEach(comm => {
+      if (comm.method !== method || !comm.studentId) return;
+      if (comm.relatedTo) {
+        const relatedToLower = comm.relatedTo.toLowerCase();
+        if (relatedToLower.includes('iep') || relatedToLower.includes('evaluation') || relatedToLower.includes('eval')) return;
       }
-    } else if (comm.studentId && !comm.relatedTo) {
-      // If no relatedTo specified, assume it's indirect services (scheduling/collaboration)
-      emailCorrespondenceCountByStudent.set(comm.studentId, (emailCorrespondenceCountByStudent.get(comm.studentId) ?? 0) + 1);
-    }
-  });
+      countByStudent.set(comm.studentId, (countByStudent.get(comm.studentId) ?? 0) + 1);
+    });
+    return countByStudent;
+  };
+  const emailCorrespondenceCountByStudent = countByMethod('email');
+  const phoneCallCountByStudent = countByMethod('phone');
+  const textMessageCountByStudent = countByMethod('text');
+  const phoneOrTextCountByStudent = new Map<string, number>();
+  phoneCallCountByStudent.forEach((count, studentId) => phoneOrTextCountByStudent.set(studentId, (phoneOrTextCountByStudent.get(studentId) ?? 0) + count));
+  textMessageCountByStudent.forEach((count, studentId) => phoneOrTextCountByStudent.set(studentId, (phoneOrTextCountByStudent.get(studentId) ?? 0) + count));
 
   // IEP activity: split by meeting vs updates vs assessment (from meeting activitySubtype; comms → updates)
   const iepMeetings = meetings.filter(m => m.category === 'IEP');
@@ -559,6 +563,7 @@ export const generateTimesheetNote = ({
 
   const documentationEntries = buildStudentEntries(documentationStudentIds);
   const emailCorrespondenceEntries = buildEmailCorrespondenceEntries(emailCorrespondenceCountByStudent);
+  const phoneOrTextEntries = buildEmailCorrespondenceEntries(phoneOrTextCountByStudent);
   const lessonPlanningEntries = buildStudentEntries(lessonPlanningStudentIds);
   const iepMeetingEntries = buildStudentEntries(iepMeetingStudentIds);
   const iepUpdatesEntries = buildStudentEntries(iepUpdatesStudentIds);
@@ -602,6 +607,12 @@ export const generateTimesheetNote = ({
   if (emailCorrespondenceEntries.length > 0) {
     noteParts.push('Email correspondence:');
     noteParts.push(emailCorrespondenceEntries.join(', '));
+  }
+
+  // Phone calls or texts — reported separately from email
+  if (phoneOrTextEntries.length > 0) {
+    noteParts.push('Phone calls or texts:');
+    noteParts.push(phoneOrTextEntries.join(', '));
   }
 
   // Speech Screening Write-Up and Staff Collaboration (indirect) - screeners + speech screening meetings

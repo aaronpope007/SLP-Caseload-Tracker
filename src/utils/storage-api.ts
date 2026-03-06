@@ -114,7 +114,8 @@ export const addGoal = async (goal: Omit<Goal, 'id' | 'dateCreated'>): Promise<s
 };
 
 export const updateGoal = async (id: string, updates: Partial<Goal>): Promise<void> => {
-  await api.goals.update(id, updates);
+  const modifiedBy = typeof localStorage !== 'undefined' ? localStorage.getItem('user_name') || undefined : undefined;
+  await api.goals.update(id, { ...updates, ...(modifiedBy != null && updates.modifiedBy === undefined ? { modifiedBy } : {}) });
 };
 
 export const deleteGoal = async (id: string): Promise<void> => {

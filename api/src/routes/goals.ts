@@ -15,6 +15,9 @@ interface GoalRow {
   status: string;
   dateCreated: string;
   dateAchieved: string | null;
+  createdBy: string | null;
+  dateModified: string | null;
+  modifiedBy: string | null;
   parentGoalId: string | null;
   subGoalIds: string | null; // JSON string
   domain: string | null;
@@ -146,8 +149,8 @@ goalsRouter.post('/', validateBody(createGoalSchema), asyncHandler(async (req, r
   
   db.prepare(`
     INSERT INTO goals (id, studentId, description, baseline, target, status, dateCreated, 
-                       dateAchieved, parentGoalId, subGoalIds, domain, priority, templateId)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                       dateAchieved, createdBy, parentGoalId, subGoalIds, domain, priority, templateId)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     goalId,
     goal.studentId,
@@ -157,6 +160,7 @@ goalsRouter.post('/', validateBody(createGoalSchema), asyncHandler(async (req, r
     goal.status || 'in-progress',
     dateCreated,
     goal.dateAchieved || null,
+    goal.createdBy || null,
     goal.parentGoalId || null,
     stringifyJsonField(goal.subGoalIds),
     goal.domain || null,
@@ -240,10 +244,11 @@ goalsRouter.post('/bulk', asyncHandler(async (req, res) => {
             ...goal 
           };
           
+          const dateModified = new Date().toISOString();
           db.prepare(`
             UPDATE goals 
             SET studentId = ?, description = ?, baseline = ?, target = ?, status = ?, 
-                dateAchieved = ?, parentGoalId = ?, subGoalIds = ?, domain = ?, priority = ?, templateId = ?
+                dateAchieved = ?, dateModified = ?, modifiedBy = ?, parentGoalId = ?, subGoalIds = ?, domain = ?, priority = ?, templateId = ?
             WHERE id = ?
           `).run(
             merged.studentId,
@@ -252,6 +257,8 @@ goalsRouter.post('/bulk', asyncHandler(async (req, res) => {
             merged.target || '',
             merged.status,
             merged.dateAchieved || null,
+            dateModified,
+            merged.modifiedBy ?? existingFull.modifiedBy ?? null,
             merged.parentGoalId || null,
             stringifyJsonField(merged.subGoalIds),
             merged.domain || null,
@@ -267,8 +274,8 @@ goalsRouter.post('/bulk', asyncHandler(async (req, res) => {
           
           db.prepare(`
             INSERT INTO goals (id, studentId, description, baseline, target, status, dateCreated, 
-                               dateAchieved, parentGoalId, subGoalIds, domain, priority, templateId)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                               dateAchieved, createdBy, parentGoalId, subGoalIds, domain, priority, templateId)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `).run(
             goalId,
             goal.studentId,
@@ -278,6 +285,7 @@ goalsRouter.post('/bulk', asyncHandler(async (req, res) => {
             goal.status || 'in-progress',
             dateCreated,
             goal.dateAchieved || null,
+            goal.createdBy || null,
             goal.parentGoalId || null,
             stringifyJsonField(goal.subGoalIds),
             goal.domain || null,
@@ -374,11 +382,12 @@ goalsRouter.put('/:id', validateBody(updateGoalSchema), asyncHandler(async (req,
   
   const isArchived = goal.archived === true || goal.archived === 1;
   const dateArchivedVal = isArchived ? (goal.dateArchived || new Date().toISOString()) : null;
+  const dateModified = new Date().toISOString();
   
   db.prepare(`
     UPDATE goals 
     SET studentId = ?, description = ?, baseline = ?, target = ?, status = ?, 
-        dateAchieved = ?, parentGoalId = ?, subGoalIds = ?, domain = ?, priority = ?, templateId = ?,
+        dateAchieved = ?, createdBy = ?, dateModified = ?, modifiedBy = ?, parentGoalId = ?, subGoalIds = ?, domain = ?, priority = ?, templateId = ?,
         archived = ?, dateArchived = ?
     WHERE id = ?
   `).run(
@@ -388,6 +397,9 @@ goalsRouter.put('/:id', validateBody(updateGoalSchema), asyncHandler(async (req,
     goal.target || '',
     goal.status,
     goal.dateAchieved || null,
+    existing.createdBy ?? null,
+    dateModified,
+    goal.modifiedBy ?? updates.modifiedBy ?? null,
     goal.parentGoalId || null,
     stringifyJsonField(goal.subGoalIds),
     goal.domain || null,

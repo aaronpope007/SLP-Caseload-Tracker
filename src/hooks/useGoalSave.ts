@@ -75,8 +75,10 @@ export const useGoalSave = ({
         goalData.dateAchieved = editingGoal.dateAchieved;
       }
 
+      const userName = typeof localStorage !== 'undefined' ? localStorage.getItem('user_name') || undefined : undefined;
+
       if (editingGoal) {
-        await updateGoal(editingGoal.id, goalData);
+        await updateGoal(editingGoal.id, { ...goalData, modifiedBy: userName });
         
         // If this goal now has a parent, update parent's subGoalIds
         if (goalData.parentGoalId) {
@@ -94,6 +96,7 @@ export const useGoalSave = ({
         const newGoal = await createGoal({
           ...goalData,
           studentId: studentId,
+          createdBy: userName,
         });
         
         // If this is a sub-goal, update parent's subGoalIds

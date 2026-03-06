@@ -105,6 +105,9 @@ const NestedGoalItem: React.FC<{
         dateCreated={goal.dateCreated}
         status={goal.status}
         dateAchieved={goal.dateAchieved}
+        createdBy={goal.createdBy}
+        dateModified={goal.dateModified}
+        modifiedBy={goal.modifiedBy}
       />
       
       {/* Recursively render nested sub-goals */}

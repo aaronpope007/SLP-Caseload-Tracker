@@ -262,9 +262,10 @@ export const TimeTracking = () => {
       });
     });
 
-    // Add teacher emails (from student card / communications) for time reporting
+    // Add teacher communications (email, phone, text) for time reporting — each method reported separately
     communications.forEach(comm => {
-      if (comm.contactType !== 'teacher' || comm.method !== 'email' || !comm.studentId) return;
+      if (comm.contactType !== 'teacher' || !comm.studentId) return;
+      if (comm.method !== 'email' && comm.method !== 'phone' && comm.method !== 'text') return;
       const commSchool = getSchoolForItem(comm.studentId);
       if (commSchool !== selectedSchool) return;
       if (!comm.date) return;

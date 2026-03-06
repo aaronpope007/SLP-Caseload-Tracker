@@ -26,6 +26,7 @@ import {
   Delete as DeleteIcon,
   Edit as EditIcon,
   Email as EmailIcon,
+  Message as MessageIcon,
   Phone as PhoneIcon,
   Person as PersonIcon,
   Visibility as VisibilityIcon,
@@ -58,6 +59,8 @@ const getMethodIcon = (method: Communication['method']) => {
       return <EmailIcon fontSize="small" />;
     case 'phone':
       return <PhoneIcon fontSize="small" />;
+    case 'text':
+      return <MessageIcon fontSize="small" />;
     default:
       return <PersonIcon fontSize="small" />;
   }
@@ -796,7 +799,7 @@ export const Communications = () => {
                       const highlightedItem = menuElement.querySelector('[data-highlighted="true"], .Mui-focusVisible, [aria-selected="true"]') as HTMLElement;
                       if (highlightedItem) {
                         const value = highlightedItem.getAttribute('data-value');
-                        if (value && ['email', 'phone', 'in-person', 'other'].includes(value)) {
+                        if (value && ['email', 'phone', 'text', 'in-person', 'other'].includes(value)) {
                           e.preventDefault();
                           setFormData({ ...formData, method: value as Communication['method'] });
                           // Close menu and move to next field
@@ -812,6 +815,7 @@ export const Communications = () => {
               >
                 <MenuItem value="email">Email</MenuItem>
                 <MenuItem value="phone">Phone</MenuItem>
+                <MenuItem value="text">Text</MenuItem>
                 <MenuItem value="in-person">In Person</MenuItem>
                 <MenuItem value="other">Other</MenuItem>
               </Select>

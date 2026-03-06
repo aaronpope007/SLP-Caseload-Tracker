@@ -104,6 +104,9 @@ export function initDatabase() {
       status TEXT NOT NULL CHECK(status IN ('in-progress', 'achieved', 'modified')),
       dateCreated TEXT NOT NULL,
       dateAchieved TEXT,
+      createdBy TEXT,
+      dateModified TEXT,
+      modifiedBy TEXT,
       parentGoalId TEXT,
       subGoalIds TEXT,
       domain TEXT,
@@ -115,7 +118,7 @@ export function initDatabase() {
     )
   `);
 
-  // Add archived columns to goals table if they don't exist (for existing databases)
+  // Add archived columns and audit columns to goals table if they don't exist (for existing databases)
   try {
     const goalTableInfo = db.prepare('PRAGMA table_info(goals)').all() as Array<{ name: string }>;
     const goalColumnNames = goalTableInfo.map(col => col.name);
@@ -125,8 +128,17 @@ export function initDatabase() {
     if (!goalColumnNames.includes('dateArchived')) {
       db.exec(`ALTER TABLE goals ADD COLUMN dateArchived TEXT`);
     }
+    if (!goalColumnNames.includes('createdBy')) {
+      db.exec(`ALTER TABLE goals ADD COLUMN createdBy TEXT`);
+    }
+    if (!goalColumnNames.includes('dateModified')) {
+      db.exec(`ALTER TABLE goals ADD COLUMN dateModified TEXT`);
+    }
+    if (!goalColumnNames.includes('modifiedBy')) {
+      db.exec(`ALTER TABLE goals ADD COLUMN modifiedBy TEXT`);
+    }
   } catch (e: any) {
-    console.warn('Could not add archived columns to goals table:', e.message);
+    console.warn('Could not add archived or audit columns to goals table:', e.message);
   }
 
   // Sessions table
@@ -498,7 +510,7 @@ export function initDatabase() {
       contactEmail TEXT,
       subject TEXT NOT NULL,
       body TEXT NOT NULL,
-      method TEXT NOT NULL CHECK(method IN ('email', 'phone', 'in-person', 'other')),
+      method TEXT NOT NULL CHECK(method IN ('email', 'phone', 'text', 'in-person', 'other')),
       date TEXT NOT NULL,
       sessionId TEXT,
       relatedTo TEXT,
@@ -507,6 +519,38 @@ export function initDatabase() {
       FOREIGN KEY (sessionId) REFERENCES sessions(id) ON DELETE SET NULL
     )
   `);
+
+  // Migration: allow 'text' method in communications (recreate table if it had old CHECK)
+  try {
+    const tableInfo = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='communications'").get() as { sql: string } | undefined;
+    if (tableInfo?.sql && !tableInfo.sql.includes("'text'")) {
+      db.exec(`
+        CREATE TABLE communications_new (
+          id TEXT PRIMARY KEY,
+          studentId TEXT,
+          contactType TEXT NOT NULL CHECK(contactType IN ('teacher', 'parent', 'case-manager')),
+          contactId TEXT,
+          contactName TEXT NOT NULL,
+          contactEmail TEXT,
+          subject TEXT NOT NULL,
+          body TEXT NOT NULL,
+          method TEXT NOT NULL CHECK(method IN ('email', 'phone', 'text', 'in-person', 'other')),
+          date TEXT NOT NULL,
+          sessionId TEXT,
+          relatedTo TEXT,
+          dateCreated TEXT NOT NULL,
+          FOREIGN KEY (studentId) REFERENCES students(id) ON DELETE SET NULL,
+          FOREIGN KEY (sessionId) REFERENCES sessions(id) ON DELETE SET NULL
+        )
+      `);
+      db.exec(`INSERT INTO communications_new SELECT * FROM communications`);
+      db.exec(`DROP TABLE communications`);
+      db.exec(`ALTER TABLE communications_new RENAME TO communications`);
+      console.log('Migrated communications table to support method=text');
+    }
+  } catch (e: any) {
+    console.warn('Communications method migration:', e.message);
+  }
 
   // Timesheet Notes table
   db.exec(`

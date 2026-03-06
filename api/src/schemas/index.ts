@@ -137,6 +137,9 @@ export const goalSchema = z.object({
   target: z.string().max(500, 'Target must be 500 characters or less').default(''),
   status: goalStatusSchema.default('in-progress'),
   dateAchieved: optionalIsoDate,
+  createdBy: z.string().max(200).optional(),
+  dateModified: optionalIsoDate,
+  modifiedBy: z.string().max(200).optional(),
   parentGoalId: optionalString,
   subGoalIds: z.array(z.string()).optional(),
   domain: optionalString,
@@ -425,7 +428,7 @@ export const updateMeetingSchema = meetingSchema.partial();
 // ============================================================================
 
 export const contactTypeSchema = z.enum(['teacher', 'parent', 'case-manager']);
-export const communicationMethodSchema = z.enum(['email', 'phone', 'in-person', 'other']);
+export const communicationMethodSchema = z.enum(['email', 'phone', 'text', 'in-person', 'other']);
 
 export const communicationSchema = z.object({
   id: idString.optional(),

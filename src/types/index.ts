@@ -77,6 +77,12 @@ export interface Goal {
   status: 'in-progress' | 'achieved' | 'modified';
   dateCreated: string;
   dateAchieved?: string; // Date when goal was marked as achieved
+  /** User who created the goal (from settings) */
+  createdBy?: string;
+  /** When the goal was last modified (ISO string) */
+  dateModified?: string;
+  /** User who last edited the goal (from settings) */
+  modifiedBy?: string;
   // Goal management enhancements
   parentGoalId?: string; // For sub-goals
   subGoalIds?: string[]; // IDs of sub-goals
@@ -323,7 +329,7 @@ export interface Communication {
   contactEmail?: string; // Email address
   subject: string;
   body: string;
-  method: 'email' | 'phone' | 'in-person' | 'other';
+  method: 'email' | 'phone' | 'text' | 'in-person' | 'other';
   date: string; // ISO string - when communication occurred
   sessionId?: string; // Optional - link to session if related to missed session
   relatedTo?: string; // Optional - description of what this is related to (e.g., "Missed Session")

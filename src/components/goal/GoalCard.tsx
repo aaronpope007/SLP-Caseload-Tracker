@@ -164,6 +164,9 @@ export const GoalCard: React.FC<GoalCardProps> = ({
         dateCreated={goal.dateCreated}
         status={goal.status}
         dateAchieved={goal.dateAchieved}
+        createdBy={goal.createdBy}
+        dateModified={goal.dateModified}
+        modifiedBy={goal.modifiedBy}
       />
     </>
   );
