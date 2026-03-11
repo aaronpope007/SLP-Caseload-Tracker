@@ -1207,8 +1207,8 @@ export const SessionCalendar = () => {
         date: toLocalDateTimeString(startDate),
         endTime: endDate ? toLocalDateTimeString(endDate) : '',
         goalsTargeted: activeGoalsTargeted,
-        activitiesUsed: session.activitiesUsed,
-        performanceData: session.performanceData
+        activitiesUsed: session.activitiesUsed ?? [],
+        performanceData: (session.performanceData ?? [])
           .filter(p => activeGoalsTargeted.includes(p.goalId))
           .map(p => ({
             goalId: p.goalId,
@@ -1219,22 +1219,22 @@ export const SessionCalendar = () => {
             notes: p.notes,
             cuingLevels: p.cuingLevels,
           })),
-        notes: session.notes,
+        notes: session.notes ?? '',
         isDirectServices: session.isDirectServices === true,
-        indirectServicesNotes: session.indirectServicesNotes || '',
-        missedSession: session.missedSession || false,
-        selectedSubjectiveStatements: session.selectedSubjectiveStatements || [],
-        customSubjective: session.customSubjective || '',
-        plan: session.plan || '',
+        indirectServicesNotes: session.indirectServicesNotes ?? '',
+        missedSession: session.missedSession ?? false,
+        selectedSubjectiveStatements: session.selectedSubjectiveStatements ?? [],
+        customSubjective: session.customSubjective ?? '',
+        plan: session.plan ?? '',
       };
-      
+
       setSessionFormData(newFormData);
       initialSessionFormDataRef.current = { ...newFormData };
       setCurrentEvent(event);
       setSessionDialogOpen(true);
       return;
     }
-    
+
     const scheduled = scheduledSessions.find(s => s.id === event.scheduledSessionId);
     if (!scheduled) {
       // If no scheduled session found but this is a logged session, try to handle it
@@ -1265,8 +1265,8 @@ export const SessionCalendar = () => {
                 date: toLocalDateTimeString(startDate),
                 endTime: endDate ? toLocalDateTimeString(endDate) : '',
                 goalsTargeted: activeGoalsTargeted,
-                activitiesUsed: session.activitiesUsed,
-                performanceData: session.performanceData
+                activitiesUsed: session.activitiesUsed ?? [],
+                performanceData: (session.performanceData ?? [])
                   .filter(p => activeGoalsTargeted.includes(p.goalId))
                   .map(p => ({
                     goalId: p.goalId,
@@ -1277,15 +1277,15 @@ export const SessionCalendar = () => {
                     notes: p.notes,
                     cuingLevels: p.cuingLevels,
                   })),
-                notes: session.notes,
+                notes: session.notes ?? '',
                 isDirectServices: session.isDirectServices === true,
-                indirectServicesNotes: session.indirectServicesNotes || '',
-                missedSession: session.missedSession || false,
-                selectedSubjectiveStatements: session.selectedSubjectiveStatements || [],
-                customSubjective: session.customSubjective || '',
-                plan: session.plan || '',
+                indirectServicesNotes: session.indirectServicesNotes ?? '',
+                missedSession: session.missedSession ?? false,
+                selectedSubjectiveStatements: session.selectedSubjectiveStatements ?? [],
+                customSubjective: session.customSubjective ?? '',
+                plan: session.plan ?? '',
               };
-              
+
               setSessionFormData(newFormData);
               initialSessionFormDataRef.current = { ...newFormData };
               setCurrentEvent(event);
@@ -1304,7 +1304,8 @@ export const SessionCalendar = () => {
     if (event.isLogged && event.matchedSessions && event.matchedSessions.length > 0) {
       // Load existing session(s) for editing
       // Verify we're using the correct session by matching the time
-      const eventStartTime = setMinutes(setHours(event.date, parseInt(event.startTime.split(':')[0])), parseInt(event.startTime.split(':')[1]));
+      const [startH = 0, startM = 0] = (event.startTime ?? '00:00').split(':').map(Number);
+      const eventStartTime = setMinutes(setHours(event.date, startH), startM);
       
       // Filter and sort matched sessions by time proximity to ensure we get the right one
       // CRITICAL FIX: Filter out sessions that are too far apart in time (more than 2 hours)
@@ -1318,7 +1319,7 @@ export const SessionCalendar = () => {
         .filter(item => item.timeDiff <= 2 * 60 * 60 * 1000) // Only include sessions within 2 hours
         .sort((a, b) => a.timeDiff - b.timeDiff) // Sort by closest time match
         .map(item => item.session); // Extract sessions in order
-      
+
       // If no sessions match after time filtering, treat as unlogged and create new session
       if (matchedSessions.length > 0) {
         if (matchedSessions.length === 1) {
@@ -1326,23 +1327,23 @@ export const SessionCalendar = () => {
         const session = matchedSessions[0];
         setEditingSession(session);
         setEditingGroupSessionId(null);
-        
+
         const startDate = new Date(session.date);
         const endDate = session.endTime ? new Date(session.endTime) : null;
-        
+
         // Filter out achieved goals when editing
-        const activeGoalsTargeted = (session.goalsTargeted || []).filter(gId => {
+        const activeGoalsTargeted = (session.goalsTargeted ?? []).filter(gId => {
           const goal = goals.find(g => g.id === gId);
           return goal && !isGoalAchieved(goal);
         });
-        
+
         const newFormData = {
           studentIds: [session.studentId],
           date: toLocalDateTimeString(startDate),
           endTime: endDate ? toLocalDateTimeString(endDate) : '',
           goalsTargeted: activeGoalsTargeted,
-          activitiesUsed: session.activitiesUsed,
-          performanceData: session.performanceData
+          activitiesUsed: session.activitiesUsed ?? [],
+          performanceData: (session.performanceData ?? [])
             .filter(p => activeGoalsTargeted.includes(p.goalId))
             .map(p => ({
               goalId: p.goalId,
@@ -1353,15 +1354,15 @@ export const SessionCalendar = () => {
               notes: p.notes,
               cuingLevels: p.cuingLevels,
             })),
-          notes: session.notes,
+          notes: session.notes ?? '',
           isDirectServices: session.isDirectServices === true,
-          indirectServicesNotes: session.indirectServicesNotes || '',
-          missedSession: session.missedSession || false,
-          selectedSubjectiveStatements: session.selectedSubjectiveStatements || [],
-          customSubjective: session.customSubjective || '',
-          plan: session.plan || '',
+          indirectServicesNotes: session.indirectServicesNotes ?? '',
+          missedSession: session.missedSession ?? false,
+          selectedSubjectiveStatements: session.selectedSubjectiveStatements ?? [],
+          customSubjective: session.customSubjective ?? '',
+          plan: session.plan ?? '',
         };
-        
+
         setSessionFormData(newFormData);
         initialSessionFormDataRef.current = { ...newFormData };
       } else {
@@ -1382,14 +1383,14 @@ export const SessionCalendar = () => {
         const allPerformanceData: typeof sessionFormData.performanceData = [];
         
         matchedSessions.forEach(session => {
-          (session.goalsTargeted || []).forEach(gId => {
+          (session.goalsTargeted ?? []).forEach(gId => {
             const goal = goals.find(g => g.id === gId);
             if (goal && !isGoalAchieved(goal)) {
               allGoalsTargeted.add(gId);
             }
           });
-          
-          session.performanceData.forEach(p => {
+
+          (session.performanceData ?? []).forEach(p => {
             const goal = goals.find(g => g.id === p.goalId);
             if (goal && !isGoalAchieved(goal)) {
               allPerformanceData.push({
@@ -1410,21 +1411,21 @@ export const SessionCalendar = () => {
           date: toLocalDateTimeString(startDate),
           endTime: endDate ? toLocalDateTimeString(endDate) : '',
           goalsTargeted: Array.from(allGoalsTargeted),
-          activitiesUsed: firstSession.activitiesUsed, // Use first session's activities (should be same for all)
+          activitiesUsed: firstSession.activitiesUsed ?? [],
           performanceData: allPerformanceData,
-          notes: firstSession.notes, // Use first session's notes (should be same for all)
+          notes: firstSession.notes ?? '',
           isDirectServices: firstSession.isDirectServices === true,
-          indirectServicesNotes: firstSession.indirectServicesNotes || '',
+          indirectServicesNotes: firstSession.indirectServicesNotes ?? '',
           missedSession: matchedSessions.some(s => s.missedSession === true),
-          selectedSubjectiveStatements: firstSession.selectedSubjectiveStatements || [],
-          customSubjective: firstSession.customSubjective || '',
-          plan: firstSession.plan || '',
+          selectedSubjectiveStatements: firstSession.selectedSubjectiveStatements ?? [],
+          customSubjective: firstSession.customSubjective ?? '',
+          plan: firstSession.plan ?? '',
         };
-        
+
         setSessionFormData(newFormData);
         initialSessionFormDataRef.current = { ...newFormData };
         }
-        
+
         // Open session dialog for both single and group sessions
         setSessionDialogOpen(true);
         setCurrentEvent(event);

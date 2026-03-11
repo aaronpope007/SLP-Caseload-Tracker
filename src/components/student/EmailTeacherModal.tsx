@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -20,6 +20,7 @@ import type { Student, Teacher, CaseManager, Communication } from '../../types';
 import { api } from '../../utils/api';
 import { logError } from '../../utils/logger';
 import { getErrorMessage } from '../../utils/validators';
+import { useConfirm } from '../../hooks/useConfirm';
 
 interface EmailTeacherModalProps {
   open: boolean;
@@ -38,12 +39,16 @@ export const EmailTeacherModal = ({
   caseManager,
   onEmailSent,
 }: EmailTeacherModalProps) => {
+  const { confirm, ConfirmDialog } = useConfirm();
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [ccCaseManager, setCcCaseManager] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const initialFormRef = useRef({ subject: '', body: '' });
+
+  const isDirty = subject !== initialFormRef.current.subject || body !== initialFormRef.current.body;
 
   // Generate greeting based on teacher gender (e.g. "Dear Mr. Jensen," or "Dear Ms. Smith,")
   const getGreeting = (): string => {
@@ -71,16 +76,33 @@ export const EmailTeacherModal = ({
     return `${greeting}\n\n\n\n${signature}`;
   };
 
-  // Reset form when dialog opens/closes
+  // Reset form when dialog opens
   useEffect(() => {
     if (open && teacher) {
+      const template = generateTemplate();
+      initialFormRef.current = { subject: '', body: template };
       setSubject('');
-      setBody(generateTemplate());
+      setBody(template);
       setCcCaseManager(caseManager !== null);
       setError(null);
       setSuccess(false);
     }
   }, [open, teacher, caseManager]);
+
+  const handleClose = () => {
+    if (isDirty) {
+      confirm({
+        title: 'Unsaved Changes',
+        message: 'You have unsaved changes to your email. Are you sure you want to close without sending?',
+        confirmText: 'Discard',
+        cancelText: 'Cancel',
+        confirmColor: 'error',
+        onConfirm: () => onClose(),
+      });
+    } else {
+      onClose();
+    }
+  };
 
   const handleSend = async () => {
     if (!teacher || !teacher.emailAddress) {
@@ -178,7 +200,8 @@ export const EmailTeacherModal = ({
   }
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <>
+      <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
       <DialogTitle>Email Teacher</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
@@ -234,7 +257,7 @@ export const EmailTeacherModal = ({
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={sending}>
+        <Button onClick={handleClose} disabled={sending}>
           Cancel
         </Button>
         <Button
@@ -247,5 +270,7 @@ export const EmailTeacherModal = ({
         </Button>
       </DialogActions>
     </Dialog>
+    <ConfirmDialog />
+    </>
   );
 };

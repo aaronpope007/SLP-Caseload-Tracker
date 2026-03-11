@@ -128,12 +128,18 @@ export const SessionFormDialog = ({
   // Use transition for non-urgent goal hierarchy updates to keep typing responsive
   const [isPending, startTransition] = useTransition();
 
+  // Safe accessors for formData arrays (guard against undefined from API or stale state)
+  const studentIds = Array.isArray(formData.studentIds) ? formData.studentIds : [];
+  const activitiesUsed = Array.isArray(formData.activitiesUsed) ? formData.activitiesUsed : [];
+  const performanceData = Array.isArray(formData.performanceData) ? formData.performanceData : [];
+  const selectedSubjectiveStatements = Array.isArray(formData.selectedSubjectiveStatements) ? formData.selectedSubjectiveStatements : [];
+
   // Local state for text fields to prevent re-renders on every keystroke
-  const [localNotes, setLocalNotes] = useState(formData.notes);
+  const [localNotes, setLocalNotes] = useState(formData.notes ?? '');
   const [localPlan, setLocalPlan] = useState(formData.plan || '');
-  const [localActivitiesUsed, setLocalActivitiesUsed] = useState(formData.activitiesUsed.join(', '));
+  const [localActivitiesUsed, setLocalActivitiesUsed] = useState(activitiesUsed.join(', '));
   const [localCustomSubjective, setLocalCustomSubjective] = useState(formData.customSubjective || '');
-  const [localIndirectServicesNotes, setLocalIndirectServicesNotes] = useState(formData.indirectServicesNotes);
+  const [localIndirectServicesNotes, setLocalIndirectServicesNotes] = useState(formData.indirectServicesNotes ?? '');
 
   // Use ref for onFormDataChange to keep debounce effect stable
   const onFormDataChangeRef = useRef(onFormDataChange);
@@ -141,11 +147,11 @@ export const SessionFormDialog = ({
 
   // Track last synced values to prevent sync loops
   const lastSyncedRef = useRef({
-    notes: formData.notes,
+    notes: formData.notes ?? '',
     plan: formData.plan || '',
-    activitiesUsed: formData.activitiesUsed.join(', '),
+    activitiesUsed: activitiesUsed.join(', '),
     customSubjective: formData.customSubjective || '',
-    indirectServicesNotes: formData.indirectServicesNotes,
+    indirectServicesNotes: formData.indirectServicesNotes ?? '',
   });
 
   // Sync local state when formData changes externally (e.g., when editing a session)
@@ -166,7 +172,7 @@ export const SessionFormDialog = ({
   }, [formData.plan]);
   
   useEffect(() => {
-    const newActivities = formData.activitiesUsed.join(', ');
+    const newActivities = (Array.isArray(formData.activitiesUsed) ? formData.activitiesUsed : []).join(', ');
     if (newActivities !== lastSyncedRef.current.activitiesUsed) {
       setLocalActivitiesUsed(newActivities);
       lastSyncedRef.current.activitiesUsed = newActivities;
@@ -301,11 +307,11 @@ export const SessionFormDialog = ({
 
   // Helper function to format student names for the dialog title
   const formatStudentNamesForTitle = (): string => {
-    if (formData.studentIds.length === 0) {
+    if (studentIds.length === 0) {
       return '';
     }
     
-    const selectedStudents = formData.studentIds
+    const selectedStudents = studentIds
       .map(id => students.find(s => s.id === id))
       .filter((s): s is Student => s !== undefined)
       .map(s => {
@@ -356,11 +362,11 @@ export const SessionFormDialog = ({
   
   // Memoize selected student names to avoid unnecessary effect re-runs
   const selectedStudentNames = useMemo(() => {
-    if (formData.studentIds.length === 0) {
+    if (studentIds.length === 0) {
       return '';
     }
     
-    const selectedStudents = formData.studentIds
+    const selectedStudents = studentIds
       .map(id => students.find(s => s.id === id))
       .filter((s): s is Student => s !== undefined)
       .map(s => {
@@ -379,7 +385,7 @@ export const SessionFormDialog = ({
     } else {
       return `${selectedStudents.slice(0, -1).join(', ')} and ${selectedStudents[selectedStudents.length - 1]}`;
     }
-  }, [formData.studentIds, students]);
+  }, [studentIds, students]);
   
   useEffect(() => {
     // Skip if original title not yet initialized
@@ -515,12 +521,12 @@ export const SessionFormDialog = ({
 
   // Auto-switch to matrix view for 2 students
   useEffect(() => {
-    if (formData.studentIds.length === 2 && viewMode === 'hierarchy') {
+    if (studentIds.length === 2 && viewMode === 'hierarchy') {
       setViewMode('matrix');
-    } else if (formData.studentIds.length !== 2 && viewMode === 'matrix') {
+    } else if (studentIds.length !== 2 && viewMode === 'matrix') {
       setViewMode('hierarchy');
     }
-  }, [formData.studentIds.length, viewMode]);
+  }, [studentIds.length, viewMode]);
 
   // Use refs to avoid re-attaching event listeners on every formData change
   // Direct assignment in render is safe and more efficient than 6 separate useEffects
@@ -559,6 +565,8 @@ export const SessionFormDialog = ({
 
       // Get current values from refs to avoid stale closures
       const currentFormData = formDataRef.current;
+      const safeGoalsTargeted = Array.isArray(currentFormData?.goalsTargeted) ? currentFormData.goalsTargeted : [];
+      const safePerformanceData = Array.isArray(currentFormData?.performanceData) ? currentFormData.performanceData : [];
       const currentFocusedGoalId = focusedGoalIdRef.current;
       const currentGoals = goalsRef.current;
       const currentOnTrialUpdate = onTrialUpdateRef.current;
@@ -566,18 +574,18 @@ export const SessionFormDialog = ({
       const currentSetFocusedGoalId = setFocusedGoalIdRef.current;
 
       // Arrow keys for navigation and trial logging (only when there are active goals)
-      if (currentFormData.goalsTargeted.length > 0) {
+      if (safeGoalsTargeted.length > 0) {
         // Arrow Up: Move to previous goal
         if (event.key === 'ArrowUp') {
           event.preventDefault();
           const currentIndex = currentFocusedGoalId 
-            ? currentFormData.goalsTargeted.indexOf(currentFocusedGoalId)
+            ? safeGoalsTargeted.indexOf(currentFocusedGoalId)
             : -1;
           if (currentIndex > 0) {
-            currentSetFocusedGoalId(currentFormData.goalsTargeted[currentIndex - 1]);
-          } else if (currentIndex === -1 && currentFormData.goalsTargeted.length > 0) {
+            currentSetFocusedGoalId(safeGoalsTargeted[currentIndex - 1]);
+          } else if (currentIndex === -1 && safeGoalsTargeted.length > 0) {
             // If no goal is focused, focus the last one
-            currentSetFocusedGoalId(currentFormData.goalsTargeted[currentFormData.goalsTargeted.length - 1]);
+            currentSetFocusedGoalId(safeGoalsTargeted[safeGoalsTargeted.length - 1]);
           }
           return;
         }
@@ -586,13 +594,13 @@ export const SessionFormDialog = ({
         if (event.key === 'ArrowDown') {
           event.preventDefault();
           const currentIndex = currentFocusedGoalId 
-            ? currentFormData.goalsTargeted.indexOf(currentFocusedGoalId)
+            ? safeGoalsTargeted.indexOf(currentFocusedGoalId)
             : -1;
-          if (currentIndex >= 0 && currentIndex < currentFormData.goalsTargeted.length - 1) {
-            currentSetFocusedGoalId(currentFormData.goalsTargeted[currentIndex + 1]);
-          } else if (currentIndex === -1 && currentFormData.goalsTargeted.length > 0) {
+          if (currentIndex >= 0 && currentIndex < safeGoalsTargeted.length - 1) {
+            currentSetFocusedGoalId(safeGoalsTargeted[currentIndex + 1]);
+          } else if (currentIndex === -1 && safeGoalsTargeted.length > 0) {
             // If no goal is focused, focus the first one
-            currentSetFocusedGoalId(currentFormData.goalsTargeted[0]);
+            currentSetFocusedGoalId(safeGoalsTargeted[0]);
           }
           return;
         }
@@ -600,15 +608,15 @@ export const SessionFormDialog = ({
         // Arrow Left: Same as + (increment correct trials)
         if (event.key === 'ArrowLeft') {
           event.preventDefault();
-          const targetGoalId = currentFocusedGoalId || currentFormData.goalsTargeted[0];
+          const targetGoalId = currentFocusedGoalId || safeGoalsTargeted[0];
           const goal = currentGoals.find(g => g.id === targetGoalId);
           if (goal) {
-            let perfData = currentFormData.performanceData.find(p => p.goalId === targetGoalId && p.studentId === goal.studentId);
+            let perfData = safePerformanceData.find(p => p.goalId === targetGoalId && p.studentId === goal.studentId);
             if (!perfData) {
               currentHandleFormDataChange((prev) => ({
                 ...prev,
                 performanceData: [
-                  ...prev.performanceData,
+                  ...(Array.isArray(prev.performanceData) ? prev.performanceData : []),
                   { goalId: targetGoalId, studentId: goal.studentId, correctTrials: 0, incorrectTrials: 0 },
                 ],
               }));
@@ -622,15 +630,15 @@ export const SessionFormDialog = ({
         // Arrow Right: Same as - (increment incorrect trials)
         if (event.key === 'ArrowRight') {
           event.preventDefault();
-          const targetGoalId = currentFocusedGoalId || currentFormData.goalsTargeted[0];
+          const targetGoalId = currentFocusedGoalId || safeGoalsTargeted[0];
           const goal = currentGoals.find(g => g.id === targetGoalId);
           if (goal) {
-            let perfData = currentFormData.performanceData.find(p => p.goalId === targetGoalId && p.studentId === goal.studentId);
+            let perfData = safePerformanceData.find(p => p.goalId === targetGoalId && p.studentId === goal.studentId);
             if (!perfData) {
               currentHandleFormDataChange((prev) => ({
                 ...prev,
                 performanceData: [
-                  ...prev.performanceData,
+                  ...(Array.isArray(prev.performanceData) ? prev.performanceData : []),
                   { goalId: targetGoalId, studentId: goal.studentId, correctTrials: 0, incorrectTrials: 0 },
                 ],
               }));
@@ -643,20 +651,20 @@ export const SessionFormDialog = ({
       }
 
       // Number keys 1-5 to log correct trials (when a goal is focused or selected)
-      if (event.key >= '1' && event.key <= '5' && currentFormData.goalsTargeted.length > 0) {
+      if (event.key >= '1' && event.key <= '5' && safeGoalsTargeted.length > 0) {
         const count = parseInt(event.key);
         // Use focused goal, or fall back to first selected goal
-        const targetGoalId = currentFocusedGoalId || currentFormData.goalsTargeted[0];
+        const targetGoalId = currentFocusedGoalId || safeGoalsTargeted[0];
         const goal = currentGoals.find(g => g.id === targetGoalId);
         if (goal) {
           // Ensure performance data exists
-          let perfData = currentFormData.performanceData.find(p => p.goalId === targetGoalId && p.studentId === goal.studentId);
+          let perfData = safePerformanceData.find(p => p.goalId === targetGoalId && p.studentId === goal.studentId);
           if (!perfData) {
             // Initialize performance data if it doesn't exist
             currentHandleFormDataChange((prev) => ({
               ...prev,
               performanceData: [
-                ...prev.performanceData,
+                ...(Array.isArray(prev.performanceData) ? prev.performanceData : []),
                 { goalId: targetGoalId, studentId: goal.studentId, correctTrials: 0, incorrectTrials: 0 },
               ],
             }));
@@ -671,15 +679,15 @@ export const SessionFormDialog = ({
 
       // + to increment, - to decrement
       if (event.key === '+' || event.key === '=') {
-        const targetGoalId = currentFocusedGoalId || currentFormData.goalsTargeted[0];
+        const targetGoalId = currentFocusedGoalId || safeGoalsTargeted[0];
         const goal = currentGoals.find(g => g.id === targetGoalId);
         if (goal) {
-          let perfData = currentFormData.performanceData.find(p => p.goalId === targetGoalId && p.studentId === goal.studentId);
+          let perfData = safePerformanceData.find(p => p.goalId === targetGoalId && p.studentId === goal.studentId);
           if (!perfData) {
             currentHandleFormDataChange((prev) => ({
               ...prev,
               performanceData: [
-                ...prev.performanceData,
+                ...(Array.isArray(prev.performanceData) ? prev.performanceData : []),
                 { goalId: targetGoalId, studentId: goal.studentId, correctTrials: 0, incorrectTrials: 0 },
               ],
             }));
@@ -691,15 +699,15 @@ export const SessionFormDialog = ({
       }
 
       if (event.key === '-' || event.key === '_') {
-        const targetGoalId = currentFocusedGoalId || currentFormData.goalsTargeted[0];
+        const targetGoalId = currentFocusedGoalId || safeGoalsTargeted[0];
         const goal = currentGoals.find(g => g.id === targetGoalId);
         if (goal) {
-          let perfData = currentFormData.performanceData.find(p => p.goalId === targetGoalId && p.studentId === goal.studentId);
+          let perfData = safePerformanceData.find(p => p.goalId === targetGoalId && p.studentId === goal.studentId);
           if (!perfData) {
             currentHandleFormDataChange((prev) => ({
               ...prev,
               performanceData: [
-                ...prev.performanceData,
+                ...(Array.isArray(prev.performanceData) ? prev.performanceData : []),
                 { goalId: targetGoalId, studentId: goal.studentId, correctTrials: 0, incorrectTrials: 0 },
               ],
             }));
@@ -721,22 +729,22 @@ export const SessionFormDialog = ({
   // Memoized to prevent expensive recalculation on every render
   // NOTE: Excludes formData.notes from dependencies - only recalculates when relevant fields change
   const lastSessionPlan = useMemo(() => {
-    if (editingSession || editingGroupSessionId || formData.studentIds.length === 0 || (formData.plan || '').trim()) {
+    if (editingSession || editingGroupSessionId || studentIds.length === 0 || (formData.plan || '').trim()) {
       return null;
     }
     
-    const firstStudentId = formData.studentIds[0];
+    const firstStudentId = studentIds[0];
     const studentSessions = sessions
       .filter(s => s.studentId === firstStudentId && s.isDirectServices && s.plan && s.plan.trim())
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     return studentSessions[0]?.plan || null;
-  }, [editingSession, editingGroupSessionId, formData.studentIds, formData.plan, sessions]);
+  }, [editingSession, editingGroupSessionId, studentIds, formData.plan, sessions]);
 
   // Get previous session's plan to display above goals (for new sessions only)
   // Memoized to prevent expensive recalculation on every render
   // NOTE: Excludes formData.notes from dependencies - only recalculates when relevant fields change
   const previousSessionPlan = useMemo(() => {
-    if (editingSession || editingGroupSessionId || formData.studentIds.length === 0 || !formData.isDirectServices) {
+    if (editingSession || editingGroupSessionId || studentIds.length === 0 || !formData.isDirectServices) {
       return null;
     }
 
@@ -745,9 +753,9 @@ export const SessionFormDialog = ({
       s => s.isDirectServices && s.plan && s.plan.trim()
     );
 
-    if (formData.studentIds.length === 1) {
+    if (studentIds.length === 1) {
       // Single student: find the most recent session for that student
-      const studentId = formData.studentIds[0];
+      const studentId = studentIds[0];
       const studentSessions = validSessions
         .filter(s => s.studentId === studentId)
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -771,8 +779,8 @@ export const SessionFormDialog = ({
       
       groupSessionsMap.forEach((groupSessions, groupId) => {
         const groupStudentIds = groupSessions.map(s => s.studentId);
-        const allStudentsMatch = formData.studentIds.every(id => groupStudentIds.includes(id)) &&
-                                 groupStudentIds.length === formData.studentIds.length;
+        const allStudentsMatch = studentIds.every(id => groupStudentIds.includes(id)) &&
+                                 groupStudentIds.length === studentIds.length;
         
         if (allStudentsMatch && groupSessions.length > 0) {
           // Use the date from the first session in the group
@@ -794,7 +802,7 @@ export const SessionFormDialog = ({
     }
 
     return null;
-  }, [editingSession, editingGroupSessionId, formData.studentIds, formData.isDirectServices, sessions]);
+  }, [editingSession, editingGroupSessionId, studentIds, formData.isDirectServices, sessions]);
 
   // Memoize goal hierarchies per student to avoid recalculating on every render
   // This cache only updates when goals for that specific student change
@@ -815,11 +823,11 @@ export const SessionFormDialog = ({
   // Uses cached hierarchies and only recalculates when studentIds, goals, or students change
   // NOTE: Excludes formData.notes and other form fields from dependencies
   const availableGoalsByStudent = useMemo(() => {
-    if (formData.studentIds.length === 0) {
+    if (studentIds.length === 0) {
       return [];
     }
     
-    return formData.studentIds.map(studentId => {
+    return studentIds.map(studentId => {
       const studentGoals = goals.filter((g) => g.studentId === studentId);
       const activeGoals = studentGoals.filter(g => !isGoalAchieved(g));
       const completedGoals = studentGoals.filter(g => isGoalAchieved(g));
@@ -833,13 +841,14 @@ export const SessionFormDialog = ({
         hierarchy,
       };
     });
-  }, [formData.studentIds, goals, students, isGoalAchieved, goalHierarchiesByStudent]);
+  }, [studentIds, goals, students, isGoalAchieved, goalHierarchiesByStudent]);
 
   // Defer goal-related updates when typing to keep input responsive
   // This allows typing in notes without blocking on expensive goal hierarchy recalculations
   const deferredAvailableGoalsByStudent = useDeferredValue(availableGoalsByStudent);
-  const deferredGoalsTargeted = useDeferredValue(formData.goalsTargeted);
-  const deferredPerformanceData = useDeferredValue(formData.performanceData);
+  const goalsTargeted = Array.isArray(formData.goalsTargeted) ? formData.goalsTargeted : [];
+  const deferredGoalsTargeted = useDeferredValue(goalsTargeted);
+  const deferredPerformanceData = useDeferredValue(performanceData);
 
   return (
     <Dialog 
@@ -871,7 +880,7 @@ export const SessionFormDialog = ({
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
           <StudentSelector
             students={students}
-            selectedStudentIds={formData.studentIds}
+            selectedStudentIds={studentIds}
             searchTerm={studentSearch}
             onSearchChange={onStudentSearchChange}
             onStudentToggle={onStudentToggle}
@@ -921,7 +930,7 @@ export const SessionFormDialog = ({
           {formData.isDirectServices && (
             <>
               {/* Show last session's plan at the top */}
-              {lastSessionPlan && formData.studentIds.length === 1 && (
+              {lastSessionPlan && studentIds.length === 1 && (
                 <Paper sx={{ p: 2, bgcolor: 'info.light', color: 'info.contrastText' }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
@@ -950,13 +959,13 @@ export const SessionFormDialog = ({
                   />
                   <Typography variant="body2">Missed Session</Typography>
                 </Box>
-                {formData.missedSession && formData.studentIds.length > 0 && (
+                {formData.missedSession && studentIds.length > 0 && (
                   <Button
                     variant="outlined"
                     size="small"
                     startIcon={<EmailIcon />}
                     onClick={() => {
-                      const selectedStudents = students.filter(s => formData.studentIds.includes(s.id));
+                      const selectedStudents = students.filter(s => studentIds.includes(s.id));
                       if (selectedStudents.length > 0) {
                         if (selectedStudents.length === 1) {
                           setSelectedStudentForEmail(selectedStudents[0]);
@@ -978,7 +987,7 @@ export const SessionFormDialog = ({
 
           {formData.isDirectServices ? (
             <>
-              {formData.studentIds.length > 0 && (
+              {studentIds.length > 0 && (
                 <Box>
                   {/* Previous Session Goals */}
                   {!editingSession && !editingGroupSessionId && (
@@ -986,8 +995,8 @@ export const SessionFormDialog = ({
                       students={students}
                       goals={goals}
                       sessions={sessions}
-                      selectedStudentIds={formData.studentIds}
-                      goalsTargeted={formData.goalsTargeted}
+                      selectedStudentIds={studentIds}
+                      goalsTargeted={goalsTargeted}
                       getRecentPerformance={getRecentPerformance}
                       onGoalToggle={onGoalToggle}
                       isDirectServices={formData.isDirectServices}
@@ -1025,14 +1034,14 @@ export const SessionFormDialog = ({
                       mb: 0,
                       borderBottom: '1px solid',
                       borderColor: 'divider',
-                      boxShadow: formData.goalsTargeted.length > 0 ? 2 : 0,
+                      boxShadow: goalsTargeted.length > 0 ? 2 : 0,
                     }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
                       <Typography variant="subtitle2">
                         Goals Targeted:
                       </Typography>
-                      {formData.studentIds.length === 2 && (
+                      {studentIds.length === 2 && (
                         <ToggleButtonGroup
                           value={viewMode}
                           exclusive
@@ -1060,8 +1069,8 @@ export const SessionFormDialog = ({
                       <GoalSearchBar
                         goals={goals}
                         students={students}
-                        selectedStudentIds={formData.studentIds}
-                        goalsTargeted={formData.goalsTargeted}
+                        selectedStudentIds={studentIds}
+                        goalsTargeted={goalsTargeted}
                         onGoalSelect={onGoalToggle}
                         inputRef={searchInputRef}
                       />
@@ -1071,8 +1080,8 @@ export const SessionFormDialog = ({
                     <ActiveGoalsTrackingPanel
                       goals={goals}
                       students={students}
-                      goalsTargeted={formData.goalsTargeted}
-                      performanceData={formData.performanceData}
+                      goalsTargeted={goalsTargeted}
+                      performanceData={performanceData}
                       focusedGoalId={focusedGoalId}
                       getRecentPerformance={getRecentPerformance}
                       onGoalFocus={setFocusedGoalId}
@@ -1087,8 +1096,8 @@ export const SessionFormDialog = ({
                   <QuickAccessGoalsBar
                     goals={goals}
                     students={students}
-                    selectedStudentIds={formData.studentIds}
-                    goalsTargeted={formData.goalsTargeted}
+                    selectedStudentIds={studentIds}
+                    goalsTargeted={goalsTargeted}
                     pinnedGoalIds={pinnedGoalIds}
                     onGoalToggle={onGoalToggle}
                     onPinToggle={togglePin}
@@ -1098,10 +1107,10 @@ export const SessionFormDialog = ({
                   />
 
                   {/* Matrix View for 2 students */}
-                  {viewMode === 'matrix' && formData.studentIds.length === 2 && (
+                  {viewMode === 'matrix' && studentIds.length === 2 && (
                     <Box sx={{ mt: 2 }}>
                       <GoalMatrixView
-                        students={students.filter(s => formData.studentIds.includes(s.id))}
+                        students={students.filter(s => studentIds.includes(s.id))}
                         goals={goals}
                         goalsTargeted={deferredGoalsTargeted}
                         performanceData={deferredPerformanceData}
@@ -1316,9 +1325,9 @@ export const SessionFormDialog = ({
                               <FormControlLabel
                                 control={
                                   <Checkbox
-                                    checked={formData.selectedSubjectiveStatements.includes(statement)}
+                                    checked={selectedSubjectiveStatements.includes(statement)}
                                     onChange={(e) => {
-                                      const current = formData.selectedSubjectiveStatements;
+                                      const current = selectedSubjectiveStatements;
                                       const updated = e.target.checked
                                         ? [...current, statement]
                                         : current.filter(s => s !== statement);
@@ -1349,8 +1358,8 @@ export const SessionFormDialog = ({
                         }}
                         onBlur={() => handleFormDataChange({ customSubjective: localCustomSubjective })}
                         placeholder="Enter your own subjective statement..."
-                        error={formData.selectedSubjectiveStatements.length === 0 && localCustomSubjective.trim().length === 0}
-                        helperText={formData.selectedSubjectiveStatements.length === 0 && localCustomSubjective.trim().length === 0 ? "Required: Select a statement above or enter a custom statement" : ""}
+                        error={selectedSubjectiveStatements.length === 0 && localCustomSubjective.trim().length === 0}
+                        helperText={selectedSubjectiveStatements.length === 0 && localCustomSubjective.trim().length === 0 ? "Required: Select a statement above or enter a custom statement" : ""}
                       />
                     </Box>
                   </AccordionDetails>
@@ -1445,7 +1454,7 @@ export const SessionFormDialog = ({
         <Button
           onClick={handleSave}
           variant="contained"
-          disabled={formData.studentIds.length === 0}
+          disabled={studentIds.length === 0}
         >
           Save
         </Button>
