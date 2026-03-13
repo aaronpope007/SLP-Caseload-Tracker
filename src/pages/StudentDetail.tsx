@@ -211,6 +211,7 @@ export const StudentDetail = () => {
     resetDirty,
     showSnackbar,
     onValidationError: handleApiError,
+    confirm,
   });
 
   // Goal delete hook

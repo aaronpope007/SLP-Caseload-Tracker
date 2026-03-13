@@ -4,6 +4,15 @@ import { getGoals } from '../utils/storage-api';
 import { logError } from '../utils/logger';
 import { ApiError } from '../utils/api';
 
+type ConfirmFn = (options: {
+  title?: string;
+  message: string;
+  confirmText?: string;
+  cancelText?: string;
+  onConfirm: () => void;
+  onCancel?: () => void;
+}) => void;
+
 interface UseGoalSaveParams {
   studentId: string;
   formData: {
@@ -26,6 +35,7 @@ interface UseGoalSaveParams {
   resetDirty: () => void;
   showSnackbar: (message: string, severity: 'success' | 'error' | 'info' | 'warning') => void;
   onValidationError?: (error: ApiError) => boolean;
+  confirm: ConfirmFn;
 }
 
 export const useGoalSave = ({
@@ -42,15 +52,16 @@ export const useGoalSave = ({
   resetDirty,
   showSnackbar,
   onValidationError,
+  confirm,
 }: UseGoalSaveParams) => {
-  const handleSave = useCallback(async () => {
+  const performSave = useCallback(async (targetOverride?: string) => {
     if (!studentId) return;
 
     try {
       const goalData: Partial<Goal> = {
         description: formData.description,
         baseline: formData.baseline,
-        target: formData.target,
+        target: targetOverride !== undefined ? targetOverride : formData.target,
         status: formData.status,
         domain: formData.domain || undefined,
         priority: formData.priority,
@@ -126,21 +137,25 @@ export const useGoalSave = ({
       
       showSnackbar('Failed to save goal. Please try again.', 'error');
     }
-  }, [
-    studentId,
-    formData,
-    editingGoal,
-    selectedTemplateId,
-    createGoal,
-    updateGoal,
-    loadGoals,
-    loadSessions,
-    closeDialog,
-    resetForm,
-    resetDirty,
-    showSnackbar,
-    onValidationError,
-  ]);
+  }, [studentId, formData, editingGoal, selectedTemplateId, createGoal, updateGoal, loadGoals, loadSessions, closeDialog, resetForm, resetDirty, showSnackbar, onValidationError]);
+
+  const handleSave = useCallback(() => {
+    if (!studentId) return;
+
+    const hasNoTarget = !editingGoal && !formData.target?.trim();
+    if (hasNoTarget) {
+      confirm({
+        title: 'No Target Set',
+        message: 'Would you like to use 80% as the target?',
+        confirmText: 'Use 80%',
+        cancelText: 'No, save without target',
+        onConfirm: () => performSave('80%'),
+        onCancel: () => performSave(''),
+      });
+    } else {
+      performSave();
+    }
+  }, [studentId, formData, editingGoal, confirm, performSave]);
 
   return { handleSave };
 };
