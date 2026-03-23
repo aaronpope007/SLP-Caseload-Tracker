@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback, useTransition } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { logError } from '../utils/logger';
 import {
   Box,
@@ -17,7 +17,6 @@ import {
   Select,
   MenuItem,
   Chip,
-  Grid,
   Alert,
   ToggleButton,
   ToggleButtonGroup,
@@ -118,7 +117,7 @@ export const SessionCalendar = () => {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingScheduledSession, setEditingScheduledSession] = useState<ScheduledSession | null>(null);
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [_selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [draggedSession, setDraggedSession] = useState<string | null>(null);
   const [scheduleStudentSearch, setScheduleStudentSearch] = useState('');
   const [scheduleFormSchool, setScheduleFormSchool] = useState('');
@@ -292,7 +291,6 @@ export const SessionCalendar = () => {
   // Generate calendar events from scheduled sessions
   const calendarEvents = useMemo((): CalendarEvent[] => {
     const events: CalendarEvent[] = [];
-    const today = startOfDay(new Date());
     const viewStart = startOfMonth(currentDate);
     const viewEnd = endOfMonth(addMonths(currentDate, 2)); // Show events up to 2 months ahead
     // Use a longer range (1 year) for recurring sessions without an endDate
@@ -610,7 +608,7 @@ export const SessionCalendar = () => {
           });
           
           // Check each group to see if all scheduled students are present
-          for (const [groupId, groupSessions] of groupSessionsMap.entries()) {
+          for (const [_groupId, groupSessions] of groupSessionsMap.entries()) {
             const groupStudentIds = groupSessions.map(s => s.studentId);
             
             // Check if all scheduled students are in this logged group
@@ -1984,7 +1982,7 @@ export const SessionCalendar = () => {
       // Update each matched session
       const updatePromises = event.matchedSessions.map(async (session) => {
         const originalDate = new Date(session.date);
-        const [originalHour, originalMinute] = event.startTime.split(':').map(Number);
+        const [_originalHour, _originalMinute] = event.startTime.split(':').map(Number);
         const [targetHour, targetMinute] = targetTime.split(':').map(Number);
         
     // Calculate new date/time
@@ -2209,22 +2207,6 @@ export const SessionCalendar = () => {
     await deleteMeeting(meetingId);
     if (!isMountedRef.current) return;
     await loadData();
-  };
-
-  const handleCancellationEmailSent = async () => {
-    if (!isMountedRef.current) return;
-    if (pendingCancellation?.event) {
-      await performCancellation(pendingCancellation.event);
-      if (!isMountedRef.current) return;
-      setPendingCancellation(null);
-    } else if (pendingCancellation?.events) {
-      // Handle multiple events cancellation
-      for (const event of pendingCancellation.events) {
-        await performCancellation(event);
-        if (!isMountedRef.current) return;
-      }
-      setPendingCancellation(null);
-    }
   };
 
   const handleCancelAllEventsForDay = (day: Date) => {
@@ -2517,8 +2499,6 @@ export const SessionCalendar = () => {
                           
                           {/* Render events positioned absolutely by their actual times */}
                           {getEventsForDaySorted(day).map((event) => {
-                            const eventDate = startOfDay(event.date);
-                            const today = startOfDay(new Date());
                             const canCancel = !event.isLogged;
                             const topPosition = getEventTopPosition(event);
                             const eventHeight = getEventHeight(event);
@@ -2685,9 +2665,7 @@ export const SessionCalendar = () => {
                 <Box sx={{ display: 'flex', flex: 1 }}>
                   {getWeekDays.map((day, dayIndex) => {
                     const isToday = isSameDay(day, new Date());
-                    const isCurrentWeek = isSameMonth(day, currentDate) || 
-                      Math.abs(day.getMonth() - currentDate.getMonth()) <= 1;
-                    
+
                     return (
                       <Box
                         key={day.toISOString()}
@@ -2794,8 +2772,6 @@ export const SessionCalendar = () => {
                           
                           {/* Render events positioned absolutely by their actual times */}
                           {getEventsForDaySorted(day).map((event) => {
-                            const eventDate = startOfDay(event.date);
-                            const today = startOfDay(new Date());
                             const canCancel = !event.isLogged;
                             const topPosition = getEventTopPosition(event);
                             const eventHeight = getEventHeight(event);
@@ -3012,9 +2988,6 @@ export const SessionCalendar = () => {
                     </Box>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, flex: 1 }}>
                       {dayEvents.map(event => {
-                        const eventDate = startOfDay(event.date);
-                        const today = startOfDay(new Date());
-                        const isFuture = isAfter(eventDate, today) || isSameDay(eventDate, today);
                         const canCancel = !event.isLogged;
 
                         return (
@@ -3193,7 +3166,7 @@ export const SessionCalendar = () => {
       {/* Schedule Session Dialog */}
       <Dialog 
         open={dialogOpen} 
-        onClose={(event, reason) => {
+        onClose={(_event, reason) => {
           // Prevent closing on backdrop click or escape key - let the handler decide
           if (reason === 'backdropClick' || reason === 'escapeKeyDown') {
             handleCloseDialog();
@@ -3372,7 +3345,7 @@ export const SessionCalendar = () => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
+          <Button onClick={() => handleCloseDialog()}>Cancel</Button>
           <Button onClick={handleSave} variant="contained">
             Save
           </Button>

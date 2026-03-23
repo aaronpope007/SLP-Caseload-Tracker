@@ -45,11 +45,14 @@ export const useGoalForm = () => {
       const inheritedDomain = parentGoal?.domain || '';
       const inheritedPriority = parentGoal?.priority || 'medium';
       const inheritedTarget = parentGoal?.target || '';
-      
+      const defaultTarget80 = typeof localStorage !== 'undefined' && localStorage.getItem('default_goal_target_80') === 'true';
+      const defaultTarget = defaultTarget80 ? '80%' : '';
+      const target = parentGoal ? (inheritedTarget || defaultTarget) : defaultTarget;
+
       const newFormData: GoalFormData = {
         description: '',
         baseline: '',
-        target: inheritedTarget,
+        target,
         status: 'in-progress',
         domain: inheritedDomain,
         priority: inheritedPriority,

@@ -30,6 +30,7 @@ export const SettingsDialog = ({ open, onClose }: SettingsDialogProps) => {
   const [apiKey, setApiKey] = useState('');
   const [exportOpen, setExportOpen] = useState(false);
   const [userName, setUserName] = useState('');
+  const [defaultGoalTarget80, setDefaultGoalTarget80] = useState(false);
   const [zoomLink, setZoomLink] = useState('');
   const [emailAddress, setEmailAddress] = useState('');
   const [emailPassword, setEmailPassword] = useState('');
@@ -58,6 +59,7 @@ export const SettingsDialog = ({ open, onClose }: SettingsDialogProps) => {
       // Set default
       setUserName('Aaron Pope');
     }
+    setDefaultGoalTarget80(localStorage.getItem('default_goal_target_80') === 'true');
     const savedZoomLink = localStorage.getItem('zoom_link');
     if (savedZoomLink) {
       setZoomLink(savedZoomLink);
@@ -198,6 +200,7 @@ Join instructions
       localStorage.removeItem('gemini_api_key');
     }
     localStorage.setItem('user_name', userName.trim() || 'Aaron Pope');
+    localStorage.setItem('default_goal_target_80', defaultGoalTarget80 ? 'true' : 'false');
     // Don't trim zoom link - preserve newlines and formatting
     localStorage.setItem('zoom_link', zoomLink);
     if (emailAddress.trim()) {
@@ -266,6 +269,19 @@ Join instructions
             helperText="Your name for email signatures"
             margin="normal"
           />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={defaultGoalTarget80}
+                onChange={(e) => setDefaultGoalTarget80(e.target.checked)}
+                color="primary"
+              />
+            }
+            label="Default new goal target to 80%"
+          />
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+            When on, new goals will use 80% as the target by default and the &quot;No target set&quot; prompt will be skipped.
+          </Typography>
           <TextField
             fullWidth
             label="Zoom Link"

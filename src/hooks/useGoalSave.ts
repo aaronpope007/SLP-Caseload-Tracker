@@ -143,15 +143,21 @@ export const useGoalSave = ({
     if (!studentId) return;
 
     const hasNoTarget = !editingGoal && !formData.target?.trim();
+    const defaultTarget80 = typeof localStorage !== 'undefined' && localStorage.getItem('default_goal_target_80') === 'true';
+
     if (hasNoTarget) {
-      confirm({
-        title: 'No Target Set',
-        message: 'Would you like to use 80% as the target?',
-        confirmText: 'Use 80%',
-        cancelText: 'No, save without target',
-        onConfirm: () => performSave('80%'),
-        onCancel: () => performSave(''),
-      });
+      if (defaultTarget80) {
+        performSave('80%');
+      } else {
+        confirm({
+          title: 'No Target Set',
+          message: 'Would you like to use 80% as the target?',
+          confirmText: 'Use 80%',
+          cancelText: 'No, save without target',
+          onConfirm: () => performSave('80%'),
+          onCancel: () => performSave(''),
+        });
+      }
     } else {
       performSave();
     }
