@@ -25,6 +25,7 @@ interface TimeTrackingFilterProps {
   onOpenSavedNotes: () => void;
   onAddIEPActivity?: () => void;
   onAdd3YearReassessment?: () => void;
+  onAddSlpScreening?: () => void;
   onAddDocumentation?: () => void;
   onAddCaseloadPlanning?: () => void;
   hasItems: boolean;
@@ -40,6 +41,7 @@ export const TimeTrackingFilter = ({
   onOpenSavedNotes,
   onAddIEPActivity,
   onAdd3YearReassessment,
+  onAddSlpScreening,
   onAddDocumentation,
   onAddCaseloadPlanning,
   hasItems,
@@ -83,6 +85,18 @@ export const TimeTrackingFilter = ({
                 sx={{ minWidth: 'fit-content' }}
               >
                 Add 3 year reassessment
+              </Button>
+            )}
+            {onAddSlpScreening && (
+              <Button
+                variant="outlined"
+                color="secondary"
+                startIcon={<AssessmentIcon />}
+                onClick={onAddSlpScreening}
+                disabled={!selectedDate}
+                sx={{ minWidth: 'fit-content' }}
+              >
+                Add SLP Screening
               </Button>
             )}
             {onAddCaseloadPlanning && (

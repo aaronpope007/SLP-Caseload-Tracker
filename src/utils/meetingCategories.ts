@@ -1,13 +1,13 @@
 /**
  * Meeting category groups and subcategories for the timesheet.
- * - Direct contact (show in timesheet direct section): Initial Assessment, 3 Year Reassessment
+ * - Direct contact (show in timesheet direct section): Initial Assessment, 3 Year Reassessment, SLP Screening
  * - Planning (indirect, with meeting/updates): IEP planning, Assessment planning, 3 year reassessment planning
  * - IEP (indirect, with meeting/updates/assessment): IEP
  * - Other meeting types: Staff Meeting, Team Meeting, etc.
  */
 
 export const MEETING_CATEGORY_GROUPS = {
-  'Direct Contact': ['Initial Assessment', '3 Year Reassessment', 'Assessment'], // Assessment = legacy, prefer Initial/3 Year
+  'Direct Contact': ['Initial Assessment', '3 Year Reassessment', 'SLP Screening', 'Assessment'], // Assessment = legacy, prefer Initial/3 Year/SLP Screening
   Planning: ['IEP planning', 'Assessment planning', '3 year reassessment planning'],
   Meetings: ['IEP', 'CST Meeting', 'Sped Team meeting', 'Staff Meeting', 'Team Meeting', 'Parent Meeting', 'Professional Development', 'Speech screening'],
   Documentation: ['Initial assessment documentation', '3 year documentation', 'IEP documentation', 'Caseload planning', 'Case Management', 'Due process (progress reports)'],
@@ -23,7 +23,7 @@ export const ALL_MEETING_SUBCATEGORIES = (
 ).flat();
 
 /** Categories that show as direct contact on the timesheet (with studentId). Includes legacy "Assessment" when activitySubtype === 'assessment'. */
-export const DIRECT_CONTACT_CATEGORIES = ['Initial Assessment', '3 Year Reassessment'];
+export const DIRECT_CONTACT_CATEGORIES = ['Initial Assessment', '3 Year Reassessment', 'SLP Screening'];
 
 /** Categories that use activity subtype (meeting / updates; IEP also has assessment) */
 export const CATEGORIES_WITH_ACTIVITY_SUBTYPE = [
