@@ -11,6 +11,7 @@ interface ArticulationScreenerRow {
   date: string;
   disorderedPhonemes: string; // JSON string
   report: string | null;
+  additionalNotes: string | null;
   evaluationId: string | null;
   dateCreated: string;
   dateUpdated: string;
@@ -100,14 +101,15 @@ articulationScreenersRouter.post('/', validateBody(createArticulationScreenerSch
   const disorderedPhonemesJson = JSON.stringify(screener.disorderedPhonemes || []);
   
   db.prepare(`
-    INSERT INTO articulation_screeners (id, studentId, date, disorderedPhonemes, report, evaluationId, dateCreated, dateUpdated)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO articulation_screeners (id, studentId, date, disorderedPhonemes, report, additionalNotes, evaluationId, dateCreated, dateUpdated)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     screenerId,
     screener.studentId,
     screener.date,
     disorderedPhonemesJson,
     screener.report || null,
+    screener.additionalNotes || null,
     screener.evaluationId || null,
     now,
     now
@@ -161,13 +163,14 @@ articulationScreenersRouter.put('/:id', validateBody(updateArticulationScreenerS
   
   db.prepare(`
     UPDATE articulation_screeners 
-    SET studentId = ?, date = ?, disorderedPhonemes = ?, report = ?, evaluationId = ?, dateUpdated = ?
+    SET studentId = ?, date = ?, disorderedPhonemes = ?, report = ?, additionalNotes = ?, evaluationId = ?, dateUpdated = ?
     WHERE id = ?
   `).run(
     updatedScreener.studentId,
     updatedScreener.date,
     disorderedPhonemesJson,
     updatedScreener.report || null,
+    updatedScreener.additionalNotes || null,
     updatedScreener.evaluationId || null,
     updatedScreener.dateUpdated,
     id

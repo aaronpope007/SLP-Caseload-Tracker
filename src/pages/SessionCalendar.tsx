@@ -263,7 +263,8 @@ export const SessionCalendar = () => {
       const cat = meeting?.category;
       const label = cat === 'Initial Assessment' ? 'Initial Assessment'
         : cat === '3 Year Reassessment' ? '3 Year Reassessment'
-        : cat === 'SLP Screening' ? 'SLP Screening'
+        : cat === 'SLP Screener' ? 'SLP Screener'
+        : cat === 'SLP Screening Assessment' ? 'SLP Screening Assessment'
         : meeting?.activitySubtype === 'assessment' ? 'Assessment'
         : cat === 'Initial assessment documentation' ? 'Initial assessment documentation'
         : cat === '3 year documentation' ? '3 year documentation'

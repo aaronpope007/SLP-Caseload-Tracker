@@ -426,6 +426,7 @@ export function initDatabase() {
       date TEXT NOT NULL,
       disorderedPhonemes TEXT NOT NULL,
       report TEXT,
+      additionalNotes TEXT,
       evaluationId TEXT,
       dateCreated TEXT NOT NULL,
       dateUpdated TEXT NOT NULL,
@@ -433,6 +434,17 @@ export function initDatabase() {
       FOREIGN KEY (evaluationId) REFERENCES evaluations(id) ON DELETE SET NULL
     )
   `);
+
+  // Add additionalNotes column to articulation_screeners if missing (for existing databases)
+  try {
+    const screenerTableInfo = db.prepare('PRAGMA table_info(articulation_screeners)').all() as Array<{ name: string }>;
+    const screenerColumnNames = screenerTableInfo.map(col => col.name);
+    if (!screenerColumnNames.includes('additionalNotes')) {
+      db.exec(`ALTER TABLE articulation_screeners ADD COLUMN additionalNotes TEXT`);
+    }
+  } catch (e: any) {
+    console.warn('Could not add additionalNotes column to articulation_screeners table:', e.message);
+  }
 
   // Reassessment Plans table
   db.exec(`

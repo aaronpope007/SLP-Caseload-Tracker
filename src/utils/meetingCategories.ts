@@ -1,16 +1,16 @@
 /**
  * Meeting category groups and subcategories for the timesheet.
- * - Direct contact (show in timesheet direct section): Initial Assessment, 3 Year Reassessment, SLP Screening
+ * - Direct contact (show in timesheet direct section): Initial Assessment, 3 Year Reassessment
  * - Planning (indirect, with meeting/updates): IEP planning, Assessment planning, 3 year reassessment planning
  * - IEP (indirect, with meeting/updates/assessment): IEP
  * - Other meeting types: Staff Meeting, Team Meeting, etc.
  */
 
 export const MEETING_CATEGORY_GROUPS = {
-  'Direct Contact': ['Initial Assessment', '3 Year Reassessment', 'SLP Screening', 'Assessment'], // Assessment = legacy, prefer Initial/3 Year/SLP Screening
+  'Direct Contact': ['Initial Assessment', '3 Year Reassessment', 'SLP Screener', 'Assessment'], // Assessment = legacy, prefer Initial/3 Year
   Planning: ['IEP planning', 'Assessment planning', '3 year reassessment planning'],
   Meetings: ['IEP', 'CST Meeting', 'Sped Team meeting', 'Staff Meeting', 'Team Meeting', 'Parent Meeting', 'Professional Development', 'Speech screening'],
-  Documentation: ['Initial assessment documentation', '3 year documentation', 'IEP documentation', 'Caseload planning', 'Case Management', 'Due process (progress reports)'],
+  Documentation: ['Initial assessment documentation', '3 year documentation', 'IEP documentation', 'SLP Screening Assessment', 'Caseload planning', 'Case Management', 'Due process (progress reports)'],
   Consultation: ['Consultation/screening', 'Consultation/intervention'],
   Other: ['Other'],
 } as const;
@@ -23,7 +23,7 @@ export const ALL_MEETING_SUBCATEGORIES = (
 ).flat();
 
 /** Categories that show as direct contact on the timesheet (with studentId). Includes legacy "Assessment" when activitySubtype === 'assessment'. */
-export const DIRECT_CONTACT_CATEGORIES = ['Initial Assessment', '3 Year Reassessment', 'SLP Screening'];
+export const DIRECT_CONTACT_CATEGORIES = ['Initial Assessment', '3 Year Reassessment', 'SLP Screener'];
 
 /** Categories that use activity subtype (meeting / updates; IEP also has assessment) */
 export const CATEGORIES_WITH_ACTIVITY_SUBTYPE = [
@@ -42,6 +42,7 @@ export const DOCUMENTATION_CATEGORIES = [
   'Initial assessment documentation',
   '3 year documentation',
   'IEP documentation',
+  'SLP Screening Assessment',
   'Caseload planning',
 ] as const;
 

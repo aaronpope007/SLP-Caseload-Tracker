@@ -226,7 +226,7 @@ export const ActiveGoalsTrackingPanel = memo(({
                       </Box>
                     </Box>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                      <Tooltip title="Quick log: + or ← for correct, - or → for incorrect. Use ↑↓ to navigate between goals.">
+                      <Tooltip title="Quick log: + or <- for correct, - or -> for incorrect. Use Up/Down arrows to navigate between goals.">
                         <Box sx={{ display: 'flex', gap: 0.5 }}>
                           <IconButton
                             size="small"
@@ -275,7 +275,7 @@ export const ActiveGoalsTrackingPanel = memo(({
           {focusedGoalId && (
             <Box sx={{ mt: 1.5, p: 1, bgcolor: 'info.light', borderRadius: 1 }}>
               <Typography variant="caption" color="text.secondary">
-                💡 Keyboard shortcuts: ↑↓ to navigate goals, ← for correct (+), → for incorrect (-), or use +, -, 1-5 keys
+                Keyboard shortcuts: Up/Down arrows to navigate goals, &lt;- for correct (+), -&gt; for incorrect (-), or use +, -, 1-5 keys
               </Typography>
             </Box>
           )}

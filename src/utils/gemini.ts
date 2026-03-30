@@ -893,8 +893,11 @@ export const generateArticulationScreeningReport = async (
   studentName: string,
   studentAge: number,
   studentGrade: string,
+  /** Human-readable screening date from the app (local calendar); must appear verbatim in the report */
+  screeningDateDisplay: string,
   disorderedPhonemes: Array<{ phoneme: string; note?: string }>,
-  slpName: string = 'Aaron Pope'
+  slpName: string = 'Aaron Pope',
+  additionalNotes?: string
 ): Promise<string> => {
   if (!apiKey) {
     throw new Error('API key is required');
@@ -924,6 +927,10 @@ export const generateArticulationScreeningReport = async (
     ? phonemesList 
     : 'None identified';
 
+  const additionalNotesText = additionalNotes?.trim()
+    ? `\n\nAdditional Notes / Observations (verbatim productions, examples, context):\n${additionalNotes.trim()}\n`
+    : '';
+
   const prompt = `You are an expert speech-language pathologist creating an articulation screening report. Based on the following screening data, generate a comprehensive, professional screening report:
 
 Student Name: ${studentName}
@@ -931,8 +938,14 @@ Student Age: ${studentAge}
 Grade: ${studentGrade}
 Speech-Language Pathologist: ${slpName}
 
+AUTHORITATIVE SCREENING DATE (mandatory — copy exactly, do not change or invent any other date):
+Date of Screening: ${screeningDateDisplay}
+- Use ONLY "${screeningDateDisplay}" wherever the screening date, session date, or "on [date]" appears in the report (header, demographics, summary, and body).
+- Do NOT use placeholders, training-data dates, or guessed dates.
+
 Disordered Phonemes Identified:
 ${phonemesText}
+${additionalNotesText}
 
 Generate a professional articulation screening report that includes:
 1. **Summary** - Brief overview of the screening findings
@@ -957,7 +970,7 @@ Generate a professional articulation screening report that includes:
    - Suggested goals for therapy (if treatment is recommended)
 8. **Conclusion** - Summary statement about next steps
 
-Format the report in clear sections with professional SLP terminology. Use objective language and base recommendations on evidence-based practice. Be specific about phoneme characteristics and error patterns observed. Include the student's name and your name (${slpName}) as the SLP in the report header or signature section.`;
+Format the report in clear sections with professional SLP terminology. Use objective language and base recommendations on evidence-based practice. Be specific about phoneme characteristics and error patterns observed. Include the student's name, Date of Screening: ${screeningDateDisplay}, and your name (${slpName}) as the SLP in the report header or opening demographics.`;
 
   let lastError: Error | null = null;
 

@@ -145,15 +145,20 @@ export const generateTimesheetNote = ({
     })
     .sort();
 
-  // Direct contact assessments: Initial Assessment, 3 Year Reassessment, SLP Screening (and legacy Assessment + activitySubtype 'assessment')
+  // Direct contact assessments: Initial Assessment, 3 Year Reassessment (and legacy Assessment + activitySubtype 'assessment')
   const initialAssessmentMeetings = meetings.filter(
     m => m.category === 'Initial Assessment' && getMeetingStudentIds(m).length > 0
   );
   const threeYearReassessmentDirectMeetings = meetings.filter(
     m => (m.category === '3 Year Reassessment' || isLegacyDirectAssessment(m)) && getMeetingStudentIds(m).length > 0
   );
-  const slpScreeningDirectMeetings = meetings.filter(
-    m => m.category === 'SLP Screening' && getMeetingStudentIds(m).length > 0
+  const slpScreenerDirectMeetings = meetings.filter(
+    m => m.category === 'SLP Screener' && getMeetingStudentIds(m).length > 0
+  );
+  // SLP Screening Assessment: documentation category (but we still want it to show in timesheet output)
+  // Backward-compat: previously stored as "SLP Screening"
+  const slpScreeningAssessmentMeetings = meetings.filter(
+    m => (m.category === 'SLP Screening Assessment' || m.category === 'SLP Screening') && getMeetingStudentIds(m).length > 0
   );
 
   const shouldUseSpecificTimes = useSpecificTimes || isTeletherapy;
@@ -162,10 +167,10 @@ export const generateTimesheetNote = ({
   const hasSpeechScreeningMeetings = speechScreeningMeetings.length > 0;
   const hasInitialAssessments = initialAssessmentMeetings.length > 0;
   const hasThreeYearReassessmentDirect = threeYearReassessmentDirectMeetings.length > 0;
-  const hasSlpScreeningDirect = slpScreeningDirectMeetings.length > 0;
-  const hasDirectAssessments = hasInitialAssessments || hasThreeYearReassessmentDirect || hasSlpScreeningDirect;
+  const hasSlpScreenerDirect = slpScreenerDirectMeetings.length > 0;
+  const hasDirectAssessments = hasInitialAssessments || hasThreeYearReassessmentDirect;
 
-  if (hasDirectSessions || hasScreeners || hasSpeechScreeningMeetings || hasDirectAssessments) {
+  if (hasDirectSessions || hasScreeners || hasSpeechScreeningMeetings || hasDirectAssessments || hasSlpScreenerDirect) {
     const serviceLabel = isTeletherapy ? 'Offsite Direct Services:' : 'Direct Services:';
     noteParts.push(serviceLabel);
     noteParts.push('');
@@ -292,13 +297,13 @@ export const generateTimesheetNote = ({
       }
     }
 
-    // SLP Screening: direct-contact assessment with optional times
-    if (hasSlpScreeningDirect) {
+    // SLP Screener: direct contact with times
+    if (hasSlpScreenerDirect) {
       if (hasDirectSessions || hasInitialAssessments || hasThreeYearReassessmentDirect) noteParts.push('');
-      noteParts.push('SLP Screening:');
+      noteParts.push('SLP Screener:');
       if (shouldUseSpecificTimes) {
         const entries: Array<{ sortTime: number; initials: string; grade: string; timeRange: string }> = [];
-        slpScreeningDirectMeetings.forEach(meeting => {
+        slpScreenerDirectMeetings.forEach(meeting => {
           getMeetingStudentIds(meeting).forEach(studentId => {
             entries.push({
               sortTime: new Date(meeting.date).getTime(),
@@ -312,7 +317,7 @@ export const generateTimesheetNote = ({
         noteParts.push(entries.map(e => `${e.initials} (${e.grade}) ${e.timeRange}`).join(', '));
       } else {
         const entries: string[] = [];
-        slpScreeningDirectMeetings.forEach(m => {
+        slpScreenerDirectMeetings.forEach(m => {
           getMeetingStudentIds(m).forEach(studentId =>
             entries.push(`${getStudentInitials(studentId)} (${getStudent(studentId)?.grade || ''})`)
           );
@@ -401,7 +406,7 @@ export const generateTimesheetNote = ({
   phoneCallCountByStudent.forEach((count, studentId) => phoneOrTextCountByStudent.set(studentId, (phoneOrTextCountByStudent.get(studentId) ?? 0) + count));
   textMessageCountByStudent.forEach((count, studentId) => phoneOrTextCountByStudent.set(studentId, (phoneOrTextCountByStudent.get(studentId) ?? 0) + count));
 
-  // IEP activity: split by meeting vs updates vs assessment (from meeting activitySubtype; comms → updates)
+  // IEP activity: split by meeting vs updates vs assessment (from meeting activitySubtype; comms -> updates)
   const iepMeetings = meetings.filter(m => m.category === 'IEP');
   const iepMeetingStudentIds = new Set<string>();
   const iepUpdatesStudentIds = new Set<string>();
@@ -410,7 +415,7 @@ export const generateTimesheetNote = ({
   let iepUpdatesWithoutStudent = false;
   let iepAssessmentWithoutStudent = false;
   iepMeetings.forEach(m => {
-    const subtype = m.activitySubtype ?? 'meeting'; // backward compat: missing → meeting
+    const subtype = m.activitySubtype ?? 'meeting'; // backward compat: missing -> meeting
     const ids = getMeetingStudentIds(m);
     if (ids.length > 0) {
       ids.forEach(id => {
@@ -497,14 +502,17 @@ export const generateTimesheetNote = ({
   const initialAssessmentDocMeetings = meetings.filter(m => m.category === 'Initial assessment documentation');
   const threeYearDocMeetings = meetings.filter(m => m.category === '3 year documentation');
   const iepDocMeetings = meetings.filter(m => m.category === 'IEP documentation');
+  const slpScreeningAssessmentDocMeetings = meetings.filter(m => m.category === 'SLP Screening Assessment' || m.category === 'SLP Screening');
   const legacyAssessmentDocMeetings = meetings.filter(m => m.category === LEGACY_ASSESSMENT_DOCUMENTATION);
   const initialAssessmentDocStudentIds = new Set<string>();
   const threeYearDocStudentIds = new Set<string>();
   const iepDocStudentIds = new Set<string>();
+  const slpScreeningAssessmentDocStudentIds = new Set<string>();
   const legacyAssessmentDocStudentIds = new Set<string>();
   let initialAssessmentDocWithoutStudent = false;
   let threeYearDocWithoutStudent = false;
   let iepDocWithoutStudent = false;
+  let slpScreeningAssessmentDocWithoutStudent = false;
   let legacyAssessmentDocWithoutStudent = false;
   initialAssessmentDocMeetings.forEach(m => {
     const ids = getMeetingStudentIds(m);
@@ -520,6 +528,11 @@ export const generateTimesheetNote = ({
     const ids = getMeetingStudentIds(m);
     if (ids.length > 0) ids.forEach(id => iepDocStudentIds.add(id));
     else iepDocWithoutStudent = true;
+  });
+  slpScreeningAssessmentDocMeetings.forEach(m => {
+    const ids = getMeetingStudentIds(m);
+    if (ids.length > 0) ids.forEach(id => slpScreeningAssessmentDocStudentIds.add(id));
+    else slpScreeningAssessmentDocWithoutStudent = true;
   });
   legacyAssessmentDocMeetings.forEach(m => {
     const ids = getMeetingStudentIds(m);
@@ -611,6 +624,7 @@ export const generateTimesheetNote = ({
   const initialAssessmentDocEntries = buildStudentEntries(initialAssessmentDocStudentIds);
   const threeYearDocEntries = buildStudentEntries(threeYearDocStudentIds);
   const iepDocEntries = buildStudentEntries(iepDocStudentIds);
+  const slpScreeningAssessmentDocEntries = buildStudentEntries(slpScreeningAssessmentDocStudentIds);
   const legacyAssessmentDocEntries = buildStudentEntries(legacyAssessmentDocStudentIds);
   const caseloadPlanningEntries = buildStudentEntries(caseloadPlanningStudentIds);
   const hasCaseloadPlanning = caseloadPlanningEntries.length > 0 || caseloadPlanningMeetingsWithoutStudents.length > 0;
@@ -680,6 +694,16 @@ export const generateTimesheetNote = ({
     noteParts.push('Indirect services, evaluation documentation:');
     const lineParts: string[] = [...new Set(evaluationDocEntries)];
     if (threeYearDocWithoutStudent || initialAssessmentDocWithoutStudent || legacyAssessmentDocWithoutStudent) lineParts.push('Indirect services, evaluation documentation');
+    noteParts.push(lineParts.sort().join(', '));
+  }
+
+  // SLP Screening Assessment documentation/reporting (separate line for billing text)
+  const hasSlpScreeningAssessmentDoc =
+    slpScreeningAssessmentDocEntries.length > 0 || slpScreeningAssessmentDocWithoutStudent;
+  if (hasSlpScreeningAssessmentDoc) {
+    noteParts.push('SLP Screening Assessment Interpretation, Documentation and Reporting:');
+    const lineParts: string[] = [...new Set(slpScreeningAssessmentDocEntries)];
+    if (slpScreeningAssessmentDocWithoutStudent) lineParts.push('SLP Screening Assessment Interpretation, Documentation and Reporting');
     noteParts.push(lineParts.sort().join(', '));
   }
   // Caseload planning (Indirect services per MN DOE)
@@ -919,17 +943,20 @@ export const generateProspectiveTimesheetNote = ({
   const threeYearReassessmentDirectProspective = meetings.filter(
     m => (m.category === '3 Year Reassessment' || isLegacyDirectAssessment(m)) && getMeetingStudentIds(m).length > 0
   );
-  const slpScreeningDirectProspective = meetings.filter(
-    m => m.category === 'SLP Screening' && getMeetingStudentIds(m).length > 0
+  const slpScreenerDirectProspective = meetings.filter(
+    m => m.category === 'SLP Screener' && getMeetingStudentIds(m).length > 0
+  );
+  const slpScreeningAssessmentProspective = meetings.filter(
+    m => (m.category === 'SLP Screening Assessment' || m.category === 'SLP Screening') && getMeetingStudentIds(m).length > 0
   );
   const hasDirectSessionsProspective = uniqueDirectServices.length > 0;
   const hasSpeechScreeningProspective = speechScreeningMeetingsProspective.length > 0;
   const hasDirectAssessmentsProspective =
     initialAssessmentMeetingsProspective.length > 0 ||
-    threeYearReassessmentDirectProspective.length > 0 ||
-    slpScreeningDirectProspective.length > 0;
+    threeYearReassessmentDirectProspective.length > 0;
+  const hasSlpScreenerDirectProspective = slpScreenerDirectProspective.length > 0;
 
-  if (hasDirectSessionsProspective || hasSpeechScreeningProspective || hasDirectAssessmentsProspective) {
+  if (hasDirectSessionsProspective || hasSpeechScreeningProspective || hasDirectAssessmentsProspective || hasSlpScreenerDirectProspective) {
     const serviceLabel = isTeletherapy ? 'Offsite Direct Services:' : 'Direct Services:';
     noteParts.push(serviceLabel);
     noteParts.push('');
@@ -1030,13 +1057,13 @@ export const generateProspectiveTimesheetNote = ({
       }
     }
 
-    if (slpScreeningDirectProspective.length > 0) {
+    if (slpScreenerDirectProspective.length > 0) {
       if (hasDirectSessionsProspective || initialAssessmentMeetingsProspective.length > 0 || threeYearReassessmentDirectProspective.length > 0) noteParts.push('');
-      noteParts.push('SLP Screening:');
+      noteParts.push('SLP Screener:');
       const shouldUseSpecificTimesProspective = useSpecificTimes || isTeletherapy;
       if (shouldUseSpecificTimesProspective) {
         const entries: Array<{ sortTime: number; initials: string; grade: string; timeRange: string }> = [];
-        slpScreeningDirectProspective.forEach(m => {
+        slpScreenerDirectProspective.forEach(m => {
           getMeetingStudentIds(m).forEach(studentId => {
             entries.push({
               sortTime: new Date(m.date).getTime(),
@@ -1050,7 +1077,7 @@ export const generateProspectiveTimesheetNote = ({
         noteParts.push(entries.map(e => `${e.initials} (${e.grade}) ${e.timeRange}`).join(', '));
       } else {
         const entries: string[] = [];
-        slpScreeningDirectProspective.forEach(m => {
+        slpScreenerDirectProspective.forEach(m => {
           getMeetingStudentIds(m).forEach(studentId =>
             entries.push(`${getStudentInitials(studentId)} (${getStudent(studentId)?.grade || ''})`)
           );
@@ -1059,6 +1086,8 @@ export const generateProspectiveTimesheetNote = ({
         noteParts.push(entries.join(', '));
       }
     }
+
+    // SLP Screening Assessment is documentation/reporting — not direct services
 
     if (hasSpeechScreeningProspective) {
       noteParts.push('Speech screening:');
@@ -1128,6 +1157,7 @@ export const generateProspectiveTimesheetNote = ({
   const initialAssessmentDocProspective = meetings.filter(m => m.category === 'Initial assessment documentation');
   const threeYearDocProspective = meetings.filter(m => m.category === '3 year documentation');
   const iepDocProspective = meetings.filter(m => m.category === 'IEP documentation');
+  const slpScreeningAssessmentDocProspective = meetings.filter(m => m.category === 'SLP Screening Assessment' || m.category === 'SLP Screening');
   const legacyAssessmentDocProspective = meetings.filter(m => m.category === LEGACY_ASSESSMENT_DOCUMENTATION);
   const caseloadPlanningProspective = meetings.filter(m => m.category === 'Caseload planning');
   const buildDocEntries = (meetingList: Meeting[]) => {
@@ -1145,6 +1175,7 @@ export const generateProspectiveTimesheetNote = ({
   const initialAssessmentDocEntriesProspective = buildDocEntries(initialAssessmentDocProspective);
   const threeYearDocEntriesProspective = buildDocEntries(threeYearDocProspective);
   const iepDocEntriesProspective = buildDocEntries(iepDocProspective);
+  const slpScreeningAssessmentDocEntriesProspective = buildDocEntries(slpScreeningAssessmentDocProspective);
   const legacyAssessmentDocEntriesProspective = buildDocEntries(legacyAssessmentDocProspective);
   const caseloadPlanningEntriesProspective = buildDocEntries(caseloadPlanningProspective);
   const hasCaseloadPlanningProspective =
@@ -1204,6 +1235,16 @@ export const generateProspectiveTimesheetNote = ({
       hasMeetingWithoutStudents(legacyAssessmentDocProspective)
     )
       lineParts.push('Indirect services, evaluation documentation');
+    noteParts.push(lineParts.sort().join(', '));
+  }
+
+  // SLP Screening Assessment Interpretation, Documentation and Reporting (prospective)
+  const hasSlpScreeningAssessmentProspective =
+    slpScreeningAssessmentDocEntriesProspective.length > 0 || hasMeetingWithoutStudents(slpScreeningAssessmentDocProspective);
+  if (hasSlpScreeningAssessmentProspective) {
+    noteParts.push('SLP Screening Assessment Interpretation, Documentation and Reporting:');
+    const lineParts: string[] = [...new Set(slpScreeningAssessmentDocEntriesProspective)];
+    if (hasMeetingWithoutStudents(slpScreeningAssessmentDocProspective)) lineParts.push('SLP Screening Assessment Interpretation, Documentation and Reporting');
     noteParts.push(lineParts.sort().join(', '));
   }
   if (hasCaseloadPlanningProspective) {

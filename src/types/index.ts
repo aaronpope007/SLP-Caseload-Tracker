@@ -224,6 +224,8 @@ export interface ArticulationScreener {
   date: string; // Date the screening was performed
   disorderedPhonemes: DisorderedPhoneme[]; // Array of disordered phonemes with optional notes
   report?: string; // Generated screening report
+  /** Free-text notes about productions (e.g., "fox -> fawsss") for AI analysis */
+  additionalNotes?: string;
   evaluationId?: string; // Optional link to an evaluation
   dateCreated: string;
   dateUpdated: string;

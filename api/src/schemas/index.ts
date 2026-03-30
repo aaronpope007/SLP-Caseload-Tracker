@@ -273,6 +273,7 @@ export const articulationScreenerSchema = z.object({
   date: isoDateString,
   disorderedPhonemes: z.array(disorderedPhonemeSchema).min(0, 'Disordered phonemes array is required'),
   report: optionalString,
+  additionalNotes: z.string().max(20000).optional().or(z.literal('')).transform((s) => s?.trim() || undefined),
   evaluationId: optionalString,
 });
 

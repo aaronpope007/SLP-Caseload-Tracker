@@ -100,7 +100,7 @@ export const CopySubtreeDialog: React.FC<CopySubtreeDialogProps> = ({
               sx={{ flex: 1 }}
             />
             <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              →
+              -&gt;
             </Typography>
             <TextField
               label="Replace with"

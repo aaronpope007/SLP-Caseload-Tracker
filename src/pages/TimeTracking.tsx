@@ -69,7 +69,7 @@ export const TimeTracking = () => {
   const savedNotesDialog = useDialog();
   const meetingDialog = useDialog();
   const [editingMeeting, setEditingMeeting] = useState<Meeting | null>(null);
-  const [meetingDefaultCategory, setMeetingDefaultCategory] = useState<'IEP' | '3 Year Reassessment' | 'SLP Screening' | 'Initial assessment documentation' | 'Caseload planning' | null>(null);
+  const [meetingDefaultCategory, setMeetingDefaultCategory] = useState<'IEP' | '3 Year Reassessment' | 'SLP Screening Assessment' | 'SLP Screener' | 'Initial assessment documentation' | 'Caseload planning' | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [screeners, setScreeners] = useState<ArticulationScreener[]>([]);
@@ -467,7 +467,13 @@ export const TimeTracking = () => {
 
   const handleAddSlpScreening = () => {
     setEditingMeeting(null);
-    setMeetingDefaultCategory('SLP Screening');
+    setMeetingDefaultCategory('SLP Screening Assessment');
+    meetingDialog.openDialog();
+  };
+
+  const handleAddSlpScreener = () => {
+    setEditingMeeting(null);
+    setMeetingDefaultCategory('SLP Screener');
     meetingDialog.openDialog();
   };
 
@@ -550,6 +556,7 @@ export const TimeTracking = () => {
         onAddIEPActivity={handleAddIEPActivity}
         onAdd3YearReassessment={handleAdd3YearReassessment}
         onAddSlpScreening={handleAddSlpScreening}
+        onAddSlpScreener={handleAddSlpScreener}
         onAddDocumentation={handleAddDocumentation}
         onAddCaseloadPlanning={handleAddCaseloadPlanning}
         hasItems={filteredItems.length > 0}

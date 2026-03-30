@@ -26,6 +26,7 @@ interface TimeTrackingFilterProps {
   onAddIEPActivity?: () => void;
   onAdd3YearReassessment?: () => void;
   onAddSlpScreening?: () => void;
+  onAddSlpScreener?: () => void;
   onAddDocumentation?: () => void;
   onAddCaseloadPlanning?: () => void;
   hasItems: boolean;
@@ -42,6 +43,7 @@ export const TimeTrackingFilter = ({
   onAddIEPActivity,
   onAdd3YearReassessment,
   onAddSlpScreening,
+  onAddSlpScreener,
   onAddDocumentation,
   onAddCaseloadPlanning,
   hasItems,
@@ -96,7 +98,19 @@ export const TimeTrackingFilter = ({
                 disabled={!selectedDate}
                 sx={{ minWidth: 'fit-content' }}
               >
-                Add SLP Screening
+                Add SLP Screening Assessment
+              </Button>
+            )}
+            {onAddSlpScreener && (
+              <Button
+                variant="outlined"
+                color="secondary"
+                startIcon={<AssessmentIcon />}
+                onClick={onAddSlpScreener}
+                disabled={!selectedDate}
+                sx={{ minWidth: 'fit-content' }}
+              >
+                Add SLP Screener
               </Button>
             )}
             {onAddCaseloadPlanning && (

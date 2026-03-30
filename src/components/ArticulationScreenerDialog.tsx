@@ -33,7 +33,14 @@ import {
   addArticulationScreener,
   updateArticulationScreener,
 } from '../utils/storage-api';
-import { formatDate, generateId } from '../utils/helpers';
+import {
+  formatDate,
+  formatDateOnly,
+  generateId,
+  getTodayLocalDateString,
+  fromLocalDateString,
+  toLocalDateTimeString,
+} from '../utils/helpers';
 import { useAIGeneration } from '../hooks/useAIGeneration';
 import { useSnackbar } from '../hooks/useSnackbar';
 import { logError } from '../utils/logger';
@@ -95,11 +102,12 @@ export const ArticulationScreenerDialog = ({
   const [activeTab, setActiveTab] = useState(0);
   const [disorderedPhonemes, setDisorderedPhonemes] = useState<DisorderedPhoneme[]>([]);
   const [phonemeNotes, setPhonemeNotes] = useState<Record<string, string>>({});
+  const [additionalNotes, setAdditionalNotes] = useState<string>('');
   const [report, setReport] = useState<string>('');
   const [generatingReport, setGeneratingReport] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingScreener, setEditingScreener] = useState<ArticulationScreener | null>(null);
-  const [screeningDate, setScreeningDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [screeningDate, setScreeningDate] = useState<string>(getTodayLocalDateString());
   const [error, setError] = useState<string | null>(null);
   const isMountedRef = useRef(true);
   
@@ -121,7 +129,8 @@ export const ArticulationScreenerDialog = ({
       if (screenerToEdit) {
         setDisorderedPhonemes(screenerToEdit.disorderedPhonemes || []);
         setReport(screenerToEdit.report || '');
-        setScreeningDate(screenerToEdit.date.split('T')[0]);
+        setAdditionalNotes(screenerToEdit.additionalNotes || '');
+        setScreeningDate(toLocalDateTimeString(screenerToEdit.date).split('T')[0]);
         setEditingScreener(screenerToEdit);
         // Initialize phoneme notes
         const notesMap: Record<string, string> = {};
@@ -134,8 +143,9 @@ export const ArticulationScreenerDialog = ({
       } else {
         setDisorderedPhonemes([]);
         setPhonemeNotes({});
+        setAdditionalNotes('');
         setReport('');
-        setScreeningDate(new Date().toISOString().split('T')[0]);
+        setScreeningDate(getTodayLocalDateString());
         setEditingScreener(null);
       }
     }
@@ -199,8 +209,10 @@ export const ArticulationScreenerDialog = ({
         student.name,
         student.age,
         student.grade,
+        formatDateOnly(screeningDate),
         phonemesWithNotes,
-        slpName
+        slpName,
+        additionalNotes || undefined
       );
 
       if (!isMountedRef.current) return;
@@ -240,9 +252,10 @@ export const ArticulationScreenerDialog = ({
       const screenerData: ArticulationScreener = {
         id: editingScreener?.id || generateId(),
         studentId: student.id,
-        date: new Date(screeningDate).toISOString(),
+        date: fromLocalDateString(screeningDate),
         disorderedPhonemes: phonemesWithNotes,
         report: report || undefined,
+        additionalNotes: additionalNotes.trim() || undefined,
         evaluationId: evaluation?.id,
         dateCreated: editingScreener?.dateCreated || new Date().toISOString(),
         dateUpdated: new Date().toISOString(),
@@ -506,6 +519,16 @@ export const ArticulationScreenerDialog = ({
             {activeTab === 0 && (
               <Box>
                 {renderPhonemeChart()}
+                <TextField
+                  label="Additional Notes for AI Analysis"
+                  helperText={'Optional: include any word-level productions or observations (e.g., "fox -> fawsss").'}
+                  fullWidth
+                  multiline
+                  minRows={3}
+                  value={additionalNotes}
+                  onChange={(e) => setAdditionalNotes(e.target.value)}
+                  sx={{ mt: 2 }}
+                />
                 <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
                   <Button
                     variant="contained"
