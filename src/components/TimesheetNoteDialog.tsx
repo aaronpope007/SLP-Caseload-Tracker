@@ -9,6 +9,7 @@ import {
   Box,
 } from '@mui/material';
 import { Save as SaveIcon } from '@mui/icons-material';
+import { timesheetNoteToSingleLine } from '../utils/timesheetNoteSingleLine';
 
 const BOLD_HEADERS = new Set([
   'Offsite Direct Services:',
@@ -62,13 +63,21 @@ export const TimesheetNoteDialog = ({
           sx={{ mt: 1 }}
         />
       </DialogContent>
-      <DialogActions>
+      <DialogActions sx={{ flexWrap: 'wrap', gap: 1 }}>
         <Button
           onClick={() => {
             navigator.clipboard.writeText(note);
           }}
         >
           Copy to Clipboard
+        </Button>
+        <Button
+          onClick={() => {
+            navigator.clipboard.writeText(timesheetNoteToSingleLine(note));
+          }}
+          variant="outlined"
+        >
+          Copy as one line
         </Button>
         <Button onClick={onSave} startIcon={<SaveIcon />} variant="outlined">
           Save Note

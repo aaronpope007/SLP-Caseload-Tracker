@@ -385,26 +385,39 @@ export const generateTimesheetNote = ({
     documentationStudentIds.add(screener.studentId);
   });
   
-  // Count communications per student by method — email, phone, and text reported separately
+  // Count communications per student.
   // Per SSG rules: Filter out IEP/Evaluation (they're coded separately as IEP/Evaluation, not indirect services)
+  const shouldExcludeForIndirectServices = (comm: Communication): boolean => {
+    if (!comm.relatedTo) return false;
+    const relatedToLower = comm.relatedTo.toLowerCase();
+    return relatedToLower.includes('iep') || relatedToLower.includes('evaluation') || relatedToLower.includes('eval');
+  };
+
   const countByMethod = (method: 'email' | 'phone' | 'text') => {
     const countByStudent = new Map<string, number>();
     communications.forEach(comm => {
       if (comm.method !== method || !comm.studentId) return;
-      if (comm.relatedTo) {
-        const relatedToLower = comm.relatedTo.toLowerCase();
-        if (relatedToLower.includes('iep') || relatedToLower.includes('evaluation') || relatedToLower.includes('eval')) return;
-      }
+      if (comm.contactType === 'parent') return; // parent comms are reported in a combined "Parent Communication" line
+      if (shouldExcludeForIndirectServices(comm)) return;
       countByStudent.set(comm.studentId, (countByStudent.get(comm.studentId) ?? 0) + 1);
     });
     return countByStudent;
   };
+
+  const countParentCommunicationByStudent = () => {
+    const countByStudent = new Map<string, number>();
+    communications.forEach(comm => {
+      if (comm.contactType !== 'parent' || !comm.studentId) return;
+      if (shouldExcludeForIndirectServices(comm)) return;
+      countByStudent.set(comm.studentId, (countByStudent.get(comm.studentId) ?? 0) + 1);
+    });
+    return countByStudent;
+  };
+
+  const parentCommunicationCountByStudent = countParentCommunicationByStudent();
   const emailCorrespondenceCountByStudent = countByMethod('email');
   const phoneCallCountByStudent = countByMethod('phone');
   const textMessageCountByStudent = countByMethod('text');
-  const phoneOrTextCountByStudent = new Map<string, number>();
-  phoneCallCountByStudent.forEach((count, studentId) => phoneOrTextCountByStudent.set(studentId, (phoneOrTextCountByStudent.get(studentId) ?? 0) + count));
-  textMessageCountByStudent.forEach((count, studentId) => phoneOrTextCountByStudent.set(studentId, (phoneOrTextCountByStudent.get(studentId) ?? 0) + count));
 
   // IEP activity: split by meeting vs updates vs assessment (from meeting activitySubtype; comms -> updates)
   const iepMeetings = meetings.filter(m => m.category === 'IEP');
@@ -609,8 +622,10 @@ export const generateTimesheetNote = ({
   };
 
   const documentationEntries = buildStudentEntries(documentationStudentIds);
+  const parentCommunicationEntries = buildEmailCorrespondenceEntries(parentCommunicationCountByStudent);
   const emailCorrespondenceEntries = buildEmailCorrespondenceEntries(emailCorrespondenceCountByStudent);
-  const phoneOrTextEntries = buildEmailCorrespondenceEntries(phoneOrTextCountByStudent);
+  const phoneCallEntries = buildEmailCorrespondenceEntries(phoneCallCountByStudent);
+  const textMessageEntries = buildEmailCorrespondenceEntries(textMessageCountByStudent);
   const lessonPlanningEntries = buildStudentEntries(lessonPlanningStudentIds);
   const iepMeetingEntries = buildStudentEntries(iepMeetingStudentIds);
   const iepUpdatesEntries = buildStudentEntries(iepUpdatesStudentIds);
@@ -657,10 +672,20 @@ export const generateTimesheetNote = ({
     noteParts.push(emailCorrespondenceEntries.join(', '));
   }
 
-  // Phone calls or texts — reported separately from email
-  if (phoneOrTextEntries.length > 0) {
-    noteParts.push('Phone calls or texts:');
-    noteParts.push(phoneOrTextEntries.join(', '));
+  // Phone calls and texts — reported separately for time reporting
+  if (phoneCallEntries.length > 0) {
+    noteParts.push('Phone calls:');
+    noteParts.push(phoneCallEntries.join(', '));
+  }
+  if (textMessageEntries.length > 0) {
+    noteParts.push('Text messages:');
+    noteParts.push(textMessageEntries.join(', '));
+  }
+
+  // Parent communication: combine all methods (email, phone, text, etc) for time reporting
+  if (parentCommunicationEntries.length > 0) {
+    noteParts.push('Parent Communication:');
+    noteParts.push(parentCommunicationEntries.join(', '));
   }
 
   // Speech Screening Write-Up and Staff Collaboration (indirect) - screeners + speech screening meetings
