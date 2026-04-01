@@ -45,6 +45,8 @@ import {
   Delete as DeleteIcon,
   ContentCopy as CopyIcon,
   Visibility as ViewIcon,
+  Print as PrintIcon,
+  PictureAsPdf as PdfIcon,
 } from '@mui/icons-material';
 import { getStudents, getGoals, getSessions, getCombinedProgressNotes, addCombinedProgressNote, updateCombinedProgressNote, deleteCombinedProgressNote } from '../utils/storage-api';
 import { formatDate, generateId, convertMarkupToHtml } from '../utils/helpers';
@@ -579,6 +581,54 @@ export const Progress = () => {
     }
   };
 
+  const handlePrintFormatted = () => {
+    if (!selectedStudent) return;
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const title = `Combined Progress Note - ${selectedStudent.name}`;
+    const formattedHtml = convertMarkupToHtml(formattedDialogContent || '');
+
+    const reportContent = `
+      <html>
+        <head>
+          <title>${title}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; color: #111; }
+            h1 { margin: 0 0 12px; }
+            .student-info { margin-bottom: 16px; color: #333; }
+            .note-content { line-height: 1.6; }
+            .note-content h1 { font-size: 1.25rem; margin-top: 16px; margin-bottom: 6px; }
+            .note-content h2 { font-size: 1.1rem; margin-top: 14px; margin-bottom: 6px; }
+            .note-content h3 { font-size: 1rem; margin-top: 12px; margin-bottom: 6px; }
+            .note-content ul, .note-content ol { padding-left: 22px; margin: 6px 0; }
+            .note-content li { margin: 4px 0; }
+            .note-content p { margin: 6px 0; }
+            .note-content strong { font-weight: 700; }
+          </style>
+        </head>
+        <body>
+          <h1>Combined Progress Note</h1>
+          <div class="student-info">
+            <div><strong>Student:</strong> ${selectedStudent.name}</div>
+            <div><strong>Printed:</strong> ${formatDate(new Date().toISOString())}</div>
+          </div>
+          <div class="note-content">${formattedHtml || '<p>No note content.</p>'}</div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(reportContent);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
+  const handleExportFormattedPdf = () => {
+    // Simple PDF export using browser print-to-PDF
+    handlePrintFormatted();
+  };
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
@@ -1038,9 +1088,17 @@ export const Progress = () => {
       <Dialog open={formattedDialogOpen} onClose={() => setFormattedDialogOpen(false)} maxWidth="md" fullWidth PaperProps={{ sx: { bgcolor: '#fff' } }}>
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', bgcolor: '#fff' }}>
           <span>Formatted Combined Progress Note</span>
-          <Button variant="contained" size="small" startIcon={<CopyIcon />} onClick={handleCopyFormatted}>
-            Copy formatted
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            <Button variant="outlined" size="small" startIcon={<PrintIcon />} onClick={handlePrintFormatted}>
+              Print
+            </Button>
+            <Button variant="outlined" size="small" startIcon={<PdfIcon />} onClick={handleExportFormattedPdf}>
+              Export PDF
+            </Button>
+            <Button variant="contained" size="small" startIcon={<CopyIcon />} onClick={handleCopyFormatted}>
+              Copy formatted
+            </Button>
+          </Box>
         </DialogTitle>
         <DialogContent sx={{ bgcolor: '#fff' }}>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -1069,6 +1127,12 @@ export const Progress = () => {
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrintFormatted}>
+            Print
+          </Button>
+          <Button variant="outlined" startIcon={<PdfIcon />} onClick={handleExportFormattedPdf}>
+            Export PDF
+          </Button>
           <Button variant="contained" startIcon={<CopyIcon />} onClick={handleCopyFormatted}>
             Copy formatted
           </Button>
