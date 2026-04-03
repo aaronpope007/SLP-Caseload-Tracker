@@ -15,12 +15,15 @@ import {
   Assessment as AssessmentIcon,
   NoteAdd as NoteAddIcon,
   ViewList as ViewListIcon,
+  Business as BusinessIcon,
 } from '@mui/icons-material';
 
 interface TimeTrackingFilterProps {
   selectedDate: string;
   onDateChange: (date: string) => void;
   onGenerateTimesheet: () => void;
+  /** Condensed employer time report (Stepping Stones) — same data as timesheet, fewer sections. */
+  onGenerateSteppingStonesTimesheet?: () => void;
   onGenerateProspectiveNote: () => void;
   onOpenSavedNotes: () => void;
   onAddIEPActivity?: () => void;
@@ -38,6 +41,7 @@ export const TimeTrackingFilter = ({
   selectedDate,
   onDateChange,
   onGenerateTimesheet,
+  onGenerateSteppingStonesTimesheet,
   onGenerateProspectiveNote,
   onOpenSavedNotes,
   onAddIEPActivity,
@@ -146,6 +150,17 @@ export const TimeTrackingFilter = ({
             >
               Generate Timesheet Note
             </Button>
+            {onGenerateSteppingStonesTimesheet && (
+              <Button
+                variant="outlined"
+                startIcon={<BusinessIcon />}
+                onClick={onGenerateSteppingStonesTimesheet}
+                disabled={!hasItems}
+                sx={{ flex: 1, minWidth: 'fit-content' }}
+              >
+                Stepping Stones time report
+              </Button>
+            )}
             <Button
               variant="contained"
               color="secondary"

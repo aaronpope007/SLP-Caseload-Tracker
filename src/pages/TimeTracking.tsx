@@ -391,8 +391,35 @@ export const TimeTracking = () => {
       useSpecificTimes,
       formatTime12Hour,
       formatTimeRange,
+      outputFormat: 'detailed',
     });
     
+    setTimesheetNote(note);
+    timesheetDialog.openDialog();
+  };
+
+  const handleGenerateSteppingStonesTimesheetNote = async () => {
+    const school = await getSchoolByName(selectedSchool);
+    const isTeletherapy = school?.teletherapy || false;
+    type TimesheetNoteItems = Parameters<typeof generateTimesheetNote>[0]['filteredItems'];
+    const note = generateTimesheetNote({
+      filteredItems: filteredItems as TimesheetNoteItems,
+      sessions,
+      communications: filteredCommunications,
+      meetings: filteredMeetings,
+      getStudent,
+      getStudentInitials,
+      getGroupSessions,
+      isTeletherapy,
+      useSpecificTimes,
+      formatTime12Hour,
+      formatTimeRange,
+      outputFormat: 'steppingStones',
+      scheduledSessions,
+      scheduledSessionsDate: selectedDate || '',
+      schoolName: selectedSchool,
+    });
+
     setTimesheetNote(note);
     timesheetDialog.openDialog();
   };
@@ -551,6 +578,7 @@ export const TimeTracking = () => {
         selectedDate={selectedDate}
         onDateChange={setSelectedDate}
         onGenerateTimesheet={handleGenerateTimesheetNote}
+        onGenerateSteppingStonesTimesheet={handleGenerateSteppingStonesTimesheetNote}
         onGenerateProspectiveNote={handleGenerateProspectiveNote}
         onOpenSavedNotes={() => savedNotesDialog.openDialog()}
         onAddIEPActivity={handleAddIEPActivity}

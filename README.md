@@ -158,7 +158,8 @@ A comprehensive web application designed to help Speech-Language Pathologists (S
 - **Time Tracking Dashboard**: 
   - View all sessions and evaluations in a unified timeline
   - Filter by date range, school, and service type
-  - Generate timesheet notes for billing
+  - Generate timesheet notes for billing (full MN DOE-style note)
+  - **Stepping Stones time report**: **1) Prep shift** — *Offsite Indirect Services:* lists every student on the **schedule** for the filtered date (initials and grade) for activity/goal prep; **2) Work shift** — *Direct / Indirect Services* as comma-separated initials (grade): **direct** includes attended direct sessions, screening, initial/3-year/SLP assessment contacts, SLP screening assessment meetings, IEP meetings and IEP assessments, and evaluation logs; **indirect** includes indirect/missed-session documentation, lesson planning, all communications, all meetings, and evaluations (for notes/data)
   - Track direct and indirect service time
   - Save and reuse timesheet notes
 

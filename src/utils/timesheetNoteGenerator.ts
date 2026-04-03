@@ -6,12 +6,101 @@ import {
   LEGACY_ASSESSMENT_DOCUMENTATION,
 } from './meetingCategories';
 
+/** Student IDs with any recurring/one-off session on `targetDate`, limited to `schoolName` when set. */
+function collectScheduledStudentIdsForSchoolDate({
+  scheduledSessions,
+  targetDate,
+  schoolName,
+  getStudent,
+}: {
+  scheduledSessions: ScheduledSession[];
+  targetDate: string;
+  schoolName: string;
+  getStudent: (studentId: string) => Student | undefined;
+}): Set<string> {
+  if (!targetDate.trim()) {
+    return new Set();
+  }
+  const targetDateObj = parse(targetDate, 'yyyy-MM-dd', new Date());
+  const targetDateStr = format(targetDateObj, 'yyyy-MM-dd');
+
+  const parseDateString = (dateStr: string): Date => {
+    if (dateStr.includes('T')) {
+      const datePart = dateStr.split('T')[0];
+      return parse(datePart, 'yyyy-MM-dd', new Date());
+    }
+    return parse(dateStr, 'yyyy-MM-dd', new Date());
+  };
+
+  const schoolOk = (studentId: string): boolean => {
+    const st = getStudent(studentId);
+    if (!st) {
+      return false;
+    }
+    if (!schoolName.trim()) {
+      return true;
+    }
+    return (st.school || '').trim() === schoolName.trim();
+  };
+
+  const ids = new Set<string>();
+
+  scheduledSessions.forEach(scheduled => {
+    if (scheduled.active === false) {
+      return;
+    }
+
+    if (scheduled.cancelledDates?.some(d => (d.includes('T') ? d.split('T')[0] : d) === targetDateStr)) {
+      return;
+    }
+
+    const start = parseDateString(scheduled.startDate);
+    const end = scheduled.endDate ? parseDateString(scheduled.endDate) : null;
+
+    if (isBefore(targetDateObj, start) && !isSameDay(targetDateObj, start)) {
+      return;
+    }
+    if (end && isAfter(targetDateObj, end) && !isSameDay(targetDateObj, end)) {
+      return;
+    }
+
+    let matchesPattern = false;
+    if (scheduled.recurrencePattern === 'weekly' && scheduled.dayOfWeek) {
+      const dayOfWeek = targetDateObj.getDay();
+      matchesPattern = scheduled.dayOfWeek.includes(dayOfWeek);
+    } else if (scheduled.recurrencePattern === 'specific-dates' && scheduled.specificDates) {
+      matchesPattern = scheduled.specificDates.some(date => {
+        const datePart = date.includes('T') ? date.split('T')[0] : date;
+        return datePart === targetDateStr;
+      });
+    } else if (scheduled.recurrencePattern === 'daily') {
+      matchesPattern = true;
+    } else if (scheduled.recurrencePattern === 'none') {
+      matchesPattern = isSameDay(targetDateObj, start);
+    }
+
+    if (!matchesPattern) {
+      return;
+    }
+
+    scheduled.studentIds.forEach(studentId => {
+      if (schoolOk(studentId)) {
+        ids.add(studentId);
+      }
+    });
+  });
+
+  return ids;
+}
+
 interface TimeTrackingItem {
   id: string;
   type: 'session' | 'evaluation' | 'screener' | 'meeting' | 'communication';
   date: string;
   data: Session | Evaluation | ArticulationScreener | Meeting | Communication;
 }
+
+export type TimesheetNoteOutputFormat = 'detailed' | 'steppingStones';
 
 interface GenerateTimesheetNoteParams {
   filteredItems: TimeTrackingItem[];
@@ -25,6 +114,14 @@ interface GenerateTimesheetNoteParams {
   useSpecificTimes: boolean;
   formatTime12Hour: (dateString: string) => string;
   formatTimeRange: (startDate: string, endDate?: string) => string;
+  /** Detailed MN DOE-style note (default), or condensed employer (Stepping Stones) format. */
+  outputFormat?: TimesheetNoteOutputFormat;
+  /** For Stepping Stones prep shift: sessions loaded for the current school. */
+  scheduledSessions?: ScheduledSession[];
+  /** YYYY-MM-DD; date of the note (matches Time Tracking filter). */
+  scheduledSessionsDate?: string;
+  /** Current school name; filters scheduled roster to this school’s students. */
+  schoolName?: string;
 }
 
 export const generateTimesheetNote = ({
@@ -39,6 +136,10 @@ export const generateTimesheetNote = ({
   useSpecificTimes,
   formatTime12Hour: _formatTime12Hour,
   formatTimeRange,
+  outputFormat = 'detailed',
+  scheduledSessions = [],
+  scheduledSessionsDate = '',
+  schoolName = '',
 }: GenerateTimesheetNoteParams): string => {
   const noteParts: string[] = [];
 
@@ -610,6 +711,79 @@ export const generateTimesheetNote = ({
     }).sort();
   };
 
+  if (outputFormat === 'steppingStones') {
+    const workDirectIds = new Set<string>();
+    directServices.forEach(s => workDirectIds.add(s.studentId));
+    speechScreeningDocStudentIds.forEach(id => workDirectIds.add(id));
+    initialAssessmentMeetings.forEach(m => getMeetingStudentIds(m).forEach(id => workDirectIds.add(id)));
+    threeYearReassessmentDirectMeetings.forEach(m => getMeetingStudentIds(m).forEach(id => workDirectIds.add(id)));
+    slpScreenerDirectMeetings.forEach(m => getMeetingStudentIds(m).forEach(id => workDirectIds.add(id)));
+    slpScreeningAssessmentMeetings.forEach(m => getMeetingStudentIds(m).forEach(id => workDirectIds.add(id)));
+    iepMeetingStudentIds.forEach(id => workDirectIds.add(id));
+    iepAssessmentStudentIds.forEach(id => workDirectIds.add(id));
+    filteredItems.forEach(item => {
+      if (item.type === 'evaluation') {
+        workDirectIds.add((item.data as Evaluation).studentId);
+      }
+    });
+
+    const workIndirectIds = new Set<string>();
+    indirectServices.forEach(s => workIndirectIds.add(s.studentId));
+    documentationStudentIds.forEach(id => workIndirectIds.add(id));
+    lessonPlanningStudentIds.forEach(id => workIndirectIds.add(id));
+    communications.forEach(c => {
+      if (c.studentId) {
+        workIndirectIds.add(c.studentId);
+      }
+    });
+    meetings.forEach(m => getMeetingStudentIds(m).forEach(id => workIndirectIds.add(id)));
+    filteredItems.forEach(item => {
+      if (item.type === 'evaluation') {
+        workIndirectIds.add((item.data as Evaluation).studentId);
+      }
+    });
+
+    const scheduledIds = collectScheduledStudentIdsForSchoolDate({
+      scheduledSessions,
+      targetDate: scheduledSessionsDate,
+      schoolName,
+      getStudent,
+    });
+    const rosterEntries = buildStudentEntries(scheduledIds);
+    const directLabel = isTeletherapy ? 'Offsite Direct Services:' : 'Direct Services:';
+    const indirectLabel = isTeletherapy ? 'Offsite Indirect Services:' : 'Indirect Services:';
+    const directEntries = buildStudentEntries(workDirectIds);
+    const indirectEntries = buildStudentEntries(workIndirectIds);
+
+    const prepSection = [
+      '1) Prep shift:',
+      '',
+      'Offsite Indirect Services:',
+      '',
+      rosterEntries.length > 0
+        ? rosterEntries.join(', ')
+        : '(No students on the schedule for this date.)',
+    ].join('\n');
+
+    const workSection = [
+      '2) Work shift:',
+      '',
+      directLabel,
+      '',
+      directEntries.length > 0
+        ? directEntries.join(', ')
+        : '(No direct services logged for this date.)',
+      '',
+      indirectLabel,
+      '',
+      indirectEntries.length > 0
+        ? indirectEntries.join(', ')
+        : '(No indirect or related activity logged for this date.)',
+    ].join('\n');
+
+    return [prepSection, '', workSection].join('\n');
+  }
+
   // Build email correspondence entries with counts: "RH(3) x2", "TV(1) x4", "CV(5)" (no x1 when count is 1)
   const buildEmailCorrespondenceEntries = (countByStudent: Map<string, number>): string[] => {
     return Array.from(countByStudent.entries()).map(([studentId, count]) => {
@@ -822,6 +996,9 @@ interface GenerateProspectiveTimesheetNoteParams {
   isTeletherapy: boolean;
   useSpecificTimes: boolean;
   formatTimeRange: (startDate: string, endDate?: string) => string;
+  outputFormat?: TimesheetNoteOutputFormat;
+  /** For Stepping Stones morning roster; filters scheduled students to this school. */
+  schoolName?: string;
 }
 
 export const generateProspectiveTimesheetNote = ({
@@ -833,6 +1010,8 @@ export const generateProspectiveTimesheetNote = ({
   isTeletherapy,
   useSpecificTimes,
   formatTimeRange,
+  outputFormat = 'detailed',
+  schoolName = '',
 }: GenerateProspectiveTimesheetNoteParams): string => {
   const noteParts: string[] = [];
 
@@ -1161,6 +1340,81 @@ export const generateProspectiveTimesheetNote = ({
       return `${initials} (${grade})`;
     }).sort();
   };
+
+  if (outputFormat === 'steppingStones') {
+    const workDirectIds = new Set<string>();
+    uniqueDirectServices.forEach(s => workDirectIds.add(s.studentId));
+    initialAssessmentMeetingsProspective.forEach(m =>
+      getMeetingStudentIds(m).forEach(id => workDirectIds.add(id))
+    );
+    threeYearReassessmentDirectProspective.forEach(m =>
+      getMeetingStudentIds(m).forEach(id => workDirectIds.add(id))
+    );
+    slpScreenerDirectProspective.forEach(m =>
+      getMeetingStudentIds(m).forEach(id => workDirectIds.add(id))
+    );
+    speechScreeningMeetingsProspective.forEach(m =>
+      getMeetingStudentIds(m).forEach(id => workDirectIds.add(id))
+    );
+    meetings
+      .filter(m => m.category === 'SLP Screening Assessment' || m.category === 'SLP Screening')
+      .forEach(m => getMeetingStudentIds(m).forEach(id => workDirectIds.add(id)));
+    meetings
+      .filter(m => m.category === 'IEP')
+      .forEach(m => {
+        const subtype = m.activitySubtype ?? 'meeting';
+        if (subtype === 'updates') {
+          return;
+        }
+        getMeetingStudentIds(m).forEach(id => workDirectIds.add(id));
+      });
+
+    const workIndirectIds = new Set<string>();
+    uniqueIndirectServices.forEach(s => workIndirectIds.add(s.studentId));
+    documentationStudentIds.forEach(id => workIndirectIds.add(id));
+    lessonPlanningStudentIds.forEach(id => workIndirectIds.add(id));
+    meetings.forEach(m => getMeetingStudentIds(m).forEach(id => workIndirectIds.add(id)));
+
+    const scheduledIds = collectScheduledStudentIdsForSchoolDate({
+      scheduledSessions,
+      targetDate,
+      schoolName,
+      getStudent,
+    });
+    const rosterEntries = buildStudentEntries(scheduledIds);
+    const directLabel = isTeletherapy ? 'Offsite Direct Services:' : 'Direct Services:';
+    const indirectLabel = isTeletherapy ? 'Offsite Indirect Services:' : 'Indirect Services:';
+    const directEntries = buildStudentEntries(workDirectIds);
+    const indirectEntries = buildStudentEntries(workIndirectIds);
+
+    const prepSection = [
+      '1) Prep shift:',
+      '',
+      'Offsite Indirect Services:',
+      '',
+      rosterEntries.length > 0
+        ? rosterEntries.join(', ')
+        : '(No students on the schedule for this date.)',
+    ].join('\n');
+
+    const workSection = [
+      '2) Work shift:',
+      '',
+      directLabel,
+      '',
+      directEntries.length > 0
+        ? directEntries.join(', ')
+        : '(No scheduled or meeting-based direct services for this date.)',
+      '',
+      indirectLabel,
+      '',
+      indirectEntries.length > 0
+        ? indirectEntries.join(', ')
+        : '(No indirect or related activity for this date.)',
+    ].join('\n');
+
+    return [prepSection, '', workSection].join('\n');
+  }
 
   const documentationEntries = buildStudentEntries(documentationStudentIds);
   const lessonPlanningEntries = buildStudentEntries(lessonPlanningStudentIds);
