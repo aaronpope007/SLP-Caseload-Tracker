@@ -391,6 +391,7 @@ export const TimeTracking = () => {
       useSpecificTimes,
       formatTime12Hour,
       formatTimeRange,
+      noteDate: selectedDate || '',
       outputFormat: 'detailed',
     });
     

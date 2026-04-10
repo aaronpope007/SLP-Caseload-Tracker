@@ -114,6 +114,8 @@ interface GenerateTimesheetNoteParams {
   useSpecificTimes: boolean;
   formatTime12Hour: (dateString: string) => string;
   formatTimeRange: (startDate: string, endDate?: string) => string;
+  /** YYYY-MM-DD; displayed at the top for detailed notes only. */
+  noteDate?: string;
   /** Detailed MN DOE-style note (default), or condensed employer (Stepping Stones) format. */
   outputFormat?: TimesheetNoteOutputFormat;
   /** For Stepping Stones prep shift: sessions loaded for the current school. */
@@ -136,12 +138,34 @@ export const generateTimesheetNote = ({
   useSpecificTimes,
   formatTime12Hour: _formatTime12Hour,
   formatTimeRange,
+  noteDate = '',
   outputFormat = 'detailed',
   scheduledSessions = [],
   scheduledSessionsDate = '',
   schoolName = '',
 }: GenerateTimesheetNoteParams): string => {
   const noteParts: string[] = [];
+
+  const formatNoteDateForHeader = (dateStr: string): string => {
+    const trimmed = dateStr.trim();
+    if (!trimmed) return '';
+    try {
+      const d = parse(trimmed, 'yyyy-MM-dd', new Date());
+      // If parsing fails, date-fns returns Invalid Date.
+      if (Number.isNaN(d.getTime())) return trimmed;
+      return format(d, 'M/d/yyyy');
+    } catch {
+      return trimmed;
+    }
+  };
+
+  if (outputFormat === 'detailed') {
+    const formattedDate = formatNoteDateForHeader(noteDate);
+    if (formattedDate) {
+      noteParts.push(`Date: ${formattedDate}`);
+      noteParts.push('');
+    }
+  }
 
   const getMeetingStudentIds = (m: Meeting): string[] =>
     (m.studentIds?.length ? m.studentIds : m.studentId ? [m.studentId] : []);
@@ -824,11 +848,30 @@ export const generateTimesheetNote = ({
   noteParts.push(indirectServiceLabel);
   noteParts.push('');
 
+  let hasIndirectSubsection = false;
+  const addIndirectSubsection = (title: string, contentLine: string) => {
+    if (!contentLine.trim()) return;
+    if (hasIndirectSubsection) {
+      noteParts.push('');
+    }
+    noteParts.push(title);
+    noteParts.push(contentLine);
+    hasIndirectSubsection = true;
+  };
+
+  const addIndirectStandaloneLine = (line: string) => {
+    if (!line.trim()) return;
+    if (hasIndirectSubsection) {
+      noteParts.push('');
+    }
+    noteParts.push(line);
+    hasIndirectSubsection = true;
+  };
+
   // Indirect services, therapy session planning: Session documentation + Lesson planning (per MN DOE)
   const therapySessionPlanningEntries = [...new Set([...documentationEntries, ...lessonPlanningEntries])].sort();
   if (therapySessionPlanningEntries.length > 0) {
-    noteParts.push('Indirect services, therapy session planning:');
-    noteParts.push(therapySessionPlanningEntries.join(', '));
+    addIndirectSubsection('Indirect services, therapy session planning:', therapySessionPlanningEntries.join(', '));
   }
 
   // Indirect services, data collection and session documentation: All students who received direct instruction
@@ -836,106 +879,93 @@ export const generateTimesheetNote = ({
   directServices.forEach(session => dataCollectionDocStudentIds.add(session.studentId));
   const dataCollectionDocEntries = buildStudentEntries(dataCollectionDocStudentIds);
   if (dataCollectionDocEntries.length > 0) {
-    noteParts.push('Indirect services, data collection and session documentation:');
-    noteParts.push(dataCollectionDocEntries.join(', '));
+    addIndirectSubsection('Indirect services, data collection and session documentation:', dataCollectionDocEntries.join(', '));
   }
 
   // Email correspondence (lowercase 'c' per MN DOE)
   if (emailCorrespondenceEntries.length > 0) {
-    noteParts.push('Email correspondence:');
-    noteParts.push(emailCorrespondenceEntries.join(', '));
+    addIndirectSubsection('Email correspondence:', emailCorrespondenceEntries.join(', '));
   }
 
   // Phone calls and texts — reported separately for time reporting
   if (phoneCallEntries.length > 0) {
-    noteParts.push('Phone calls:');
-    noteParts.push(phoneCallEntries.join(', '));
+    addIndirectSubsection('Phone calls:', phoneCallEntries.join(', '));
   }
   if (textMessageEntries.length > 0) {
-    noteParts.push('Text messages:');
-    noteParts.push(textMessageEntries.join(', '));
+    addIndirectSubsection('Text messages:', textMessageEntries.join(', '));
   }
 
   // Parent communication: combine all methods (email, phone, text, etc) for time reporting
   if (parentCommunicationEntries.length > 0) {
-    noteParts.push('Parent Communication:');
-    noteParts.push(parentCommunicationEntries.join(', '));
+    addIndirectSubsection('Parent Communication:', parentCommunicationEntries.join(', '));
   }
 
   // Speech Screening Write-Up and Staff Collaboration (indirect) - screeners + speech screening meetings
   if (speechScreeningDocEntries.length > 0) {
-    noteParts.push('Speech Screening Write-Up and Staff Collaboration:');
-    noteParts.push(speechScreeningDocEntries.join(', '));
+    addIndirectSubsection('Speech Screening Write-Up and Staff Collaboration:', speechScreeningDocEntries.join(', '));
   }
 
   // Due process (IEP) - all IEP activities per MN DOE
   const dueProcessIEPEntries = [...iepMeetingEntries, ...iepUpdatesEntries, ...iepAssessmentEntries, ...iepPlanningMeetingEntries, ...iepPlanningUpdatesEntries, ...iepDocEntries];
   const hasDueProcessIEP = dueProcessIEPEntries.length > 0 || iepMeetingWithoutStudent || iepUpdatesWithoutStudent || iepAssessmentWithoutStudent || iepPlanningMeetingWithoutStudent || iepPlanningUpdatesWithoutStudent || iepDocWithoutStudent;
   if (hasDueProcessIEP) {
-    noteParts.push('Due process (IEP):');
     const lineParts: string[] = [...new Set(dueProcessIEPEntries)];
     if (iepMeetingWithoutStudent || iepUpdatesWithoutStudent || iepAssessmentWithoutStudent || iepPlanningMeetingWithoutStudent || iepPlanningUpdatesWithoutStudent || iepDocWithoutStudent) lineParts.push('Due process (IEP)');
-    noteParts.push(lineParts.sort().join(', '));
+    addIndirectSubsection('Due process (IEP):', lineParts.sort().join(', '));
   }
   // Due process (Eval PWN) - assessment planning, 3 year planning (PWN only; excludes evaluation documentation)
   const dueProcessEvalPWNEntries = [...assessmentPlanningMeetingEntries, ...assessmentPlanningUpdatesEntries, ...threeYearPlanningMeetingEntries, ...threeYearPlanningUpdatesEntries];
   const hasDueProcessEvalPWN = dueProcessEvalPWNEntries.length > 0 || assessmentPlanningMeetingWithoutStudent || assessmentPlanningUpdatesWithoutStudent || threeYearPlanningMeetingWithoutStudent || threeYearPlanningUpdatesWithoutStudent;
   if (hasDueProcessEvalPWN) {
-    noteParts.push('Due process (Eval PWN):');
     const lineParts: string[] = [...new Set(dueProcessEvalPWNEntries)];
     if (assessmentPlanningMeetingWithoutStudent || assessmentPlanningUpdatesWithoutStudent || threeYearPlanningMeetingWithoutStudent || threeYearPlanningUpdatesWithoutStudent) lineParts.push('Due process (Eval PWN)');
-    noteParts.push(lineParts.sort().join(', '));
+    addIndirectSubsection('Due process (Eval PWN):', lineParts.sort().join(', '));
   }
   // Indirect services, evaluation documentation - 3 year, initial assessment, legacy assessment report writing (not PWN)
   const evaluationDocEntries = [...threeYearDocEntries, ...initialAssessmentDocEntries, ...legacyAssessmentDocEntries];
   const hasEvaluationDoc = evaluationDocEntries.length > 0 || threeYearDocWithoutStudent || initialAssessmentDocWithoutStudent || legacyAssessmentDocWithoutStudent;
   if (hasEvaluationDoc) {
-    noteParts.push('Indirect services, evaluation documentation:');
     const lineParts: string[] = [...new Set(evaluationDocEntries)];
     if (threeYearDocWithoutStudent || initialAssessmentDocWithoutStudent || legacyAssessmentDocWithoutStudent) lineParts.push('Indirect services, evaluation documentation');
-    noteParts.push(lineParts.sort().join(', '));
+    addIndirectSubsection('Indirect services, evaluation documentation:', lineParts.sort().join(', '));
   }
 
   // SLP Screening Assessment documentation/reporting (separate line for billing text)
   const hasSlpScreeningAssessmentDoc =
     slpScreeningAssessmentDocEntries.length > 0 || slpScreeningAssessmentDocWithoutStudent;
   if (hasSlpScreeningAssessmentDoc) {
-    noteParts.push('SLP Screening Assessment Interpretation, Documentation and Reporting:');
     const lineParts: string[] = [...new Set(slpScreeningAssessmentDocEntries)];
     if (slpScreeningAssessmentDocWithoutStudent) lineParts.push('SLP Screening Assessment Interpretation, Documentation and Reporting');
-    noteParts.push(lineParts.sort().join(', '));
+    addIndirectSubsection('SLP Screening Assessment Interpretation, Documentation and Reporting:', lineParts.sort().join(', '));
   }
   // Caseload planning (Indirect services per MN DOE)
   if (hasCaseloadPlanning) {
-    noteParts.push('Indirect services, caseload planning:');
     const lineParts: string[] = [...caseloadPlanningEntries];
     caseloadPlanningMeetingsWithoutStudents.forEach(m => {
       const label = m.title?.trim() || 'Caseload planning';
       const timeStr = formatTimeRange(m.date, m.endTime);
       lineParts.push(`${label} (${timeStr})`);
     });
-    noteParts.push(lineParts.join(', '));
+    addIndirectSubsection('Indirect services, caseload planning:', lineParts.join(', '));
   }
 
   // Indirect services staff meeting (per MN DOE - with associated students)
   if (staffMeetingEntries.length > 0) {
-    noteParts.push('Indirect services, staff meeting:');
-    noteParts.push(staffMeetingEntries.join(', '));
+    addIndirectSubsection('Indirect services, staff meeting:', staffMeetingEntries.join(', '));
   }
 
   // CST Meeting, Sped Team meeting (per MN DOE - no student initials)
   if (cstMeetings.length > 0) {
-    noteParts.push('CST Meeting');
+    addIndirectStandaloneLine('CST Meeting');
   }
   if (spedTeamMeetings.length > 0) {
-    noteParts.push('Sped Team Meetings');
+    addIndirectStandaloneLine('Sped Team Meetings');
   }
 
   // Case Management per MN DOE
   const caseManagementEntries = buildStudentEntries(caseManagementStudentIds);
   if (caseManagementEntries.length > 0) {
-    noteParts.push('Case Management:');
-    noteParts.push(caseManagementEntries.join(', '));
+    addIndirectSubsection('Case Management:', caseManagementEntries.join(', '));
   }
 
   // Consultation/screening, Consultation/intervention (duration required per MN DOE)
@@ -951,7 +981,7 @@ export const generateTimesheetNote = ({
     const duration = getMeetingDurationMins(m);
     const durationStr = duration > 0 ? ` (${duration} mins)` : '';
     const line = entries.length > 0 ? `Consultation/screening: ${entries.join(', ')}${durationStr}` : `Consultation/screening${durationStr}`;
-    noteParts.push(line);
+    addIndirectStandaloneLine(line);
   });
   consultationInterventionMeetings.forEach(m => {
     const ids = getMeetingStudentIds(m);
@@ -959,14 +989,13 @@ export const generateTimesheetNote = ({
     const duration = getMeetingDurationMins(m);
     const durationStr = duration > 0 ? ` (${duration} mins)` : '';
     const line = entries.length > 0 ? `Consultation/intervention: ${entries.join(', ')}${durationStr}` : `Consultation/intervention${durationStr}`;
-    noteParts.push(line);
+    addIndirectStandaloneLine(line);
   });
 
   // Due process (progress reports) per MN DOE
   const progressReportsEntries = buildStudentEntries(progressReportsStudentIds);
   if (progressReportsEntries.length > 0) {
-    noteParts.push('Due process (progress reports):');
-    noteParts.push(progressReportsEntries.join(', '));
+    addIndirectSubsection('Due process (progress reports):', progressReportsEntries.join(', '));
   }
 
   noteParts.push(''); // Empty line after service
