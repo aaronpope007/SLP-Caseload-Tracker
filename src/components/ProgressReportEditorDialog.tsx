@@ -38,6 +38,12 @@ import {
   updateProgressReport,
 } from '../utils/storage-api';
 import { logError } from '../utils/logger';
+import {
+  ANTHROPIC_API_KEY_STORAGE_KEY,
+  generateTextWithClaude,
+  getHttpStatusFromError,
+  isGeminiRetryableOrOverloadError,
+} from '../utils/anthropic';
 
 interface ProgressReportEditorDialogProps {
   open: boolean;
@@ -286,18 +292,31 @@ Generate concise, professional, clinically appropriate content for this section.
           break; // Success, exit loop
         } catch (error: unknown) {
           const errorMessage = error instanceof Error ? error.message : String(error);
-          const errorStatus = (error as { status?: number })?.status;
+          const errorStatus = getHttpStatusFromError(error);
           lastError = error instanceof Error ? error : new Error(errorMessage);
-          
-          // If it's a 404, try the next model
+
           if (errorStatus === 404 || errorMessage?.includes('404') || errorMessage?.includes('not found')) {
             continue;
           }
-          // For other errors, stop trying
+          if (errorStatus === 429 || errorStatus === 502 || errorStatus === 503 || errorStatus === 504) {
+            continue;
+          }
           break;
         }
       }
-      
+
+      if (!generatedText && lastError && isGeminiRetryableOrOverloadError(lastError)) {
+        const claudeKey = localStorage.getItem(ANTHROPIC_API_KEY_STORAGE_KEY)?.trim();
+        if (claudeKey) {
+          try {
+            generatedText = await generateTextWithClaude(prompt, claudeKey);
+          } catch (claudeErr) {
+            logError('Claude fallback after Gemini failure', claudeErr);
+            throw lastError;
+          }
+        }
+      }
+
       if (!generatedText) {
         throw lastError || new Error('Failed to generate content with any available model');
       }

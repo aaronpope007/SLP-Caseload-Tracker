@@ -28,6 +28,7 @@ interface SettingsDialogProps {
 
 export const SettingsDialog = ({ open, onClose }: SettingsDialogProps) => {
   const [apiKey, setApiKey] = useState('');
+  const [anthropicApiKey, setAnthropicApiKey] = useState('');
   const [exportOpen, setExportOpen] = useState(false);
   const [userName, setUserName] = useState('');
   const [defaultGoalTarget80, setDefaultGoalTarget80] = useState(false);
@@ -51,6 +52,10 @@ export const SettingsDialog = ({ open, onClose }: SettingsDialogProps) => {
     const saved = localStorage.getItem('gemini_api_key');
     if (saved) {
       setApiKey(saved);
+    }
+    const savedAnthropic = localStorage.getItem('anthropic_api_key');
+    if (savedAnthropic) {
+      setAnthropicApiKey(savedAnthropic);
     }
     const savedUserName = localStorage.getItem('user_name');
     if (savedUserName) {
@@ -199,6 +204,11 @@ Join instructions
     } else {
       localStorage.removeItem('gemini_api_key');
     }
+    if (anthropicApiKey.trim()) {
+      localStorage.setItem('anthropic_api_key', anthropicApiKey.trim());
+    } else {
+      localStorage.removeItem('anthropic_api_key');
+    }
     localStorage.setItem('user_name', userName.trim() || 'Aaron Pope');
     localStorage.setItem('default_goal_target_80', defaultGoalTarget80 ? 'true' : 'false');
     // Don't trim zoom link - preserve newlines and formatting
@@ -254,6 +264,24 @@ Join instructions
           />
           <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
             Your API key is stored locally and never sent to any server except Google's Gemini API.
+          </Typography>
+        </Box>
+        <Divider sx={{ my: 2 }} />
+        <Box sx={{ mt: 1 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            Anthropic API key (optional — Claude fallback)
+          </Typography>
+          <TextField
+            fullWidth
+            type="password"
+            label="Anthropic API Key"
+            value={anthropicApiKey}
+            onChange={(e) => setAnthropicApiKey(e.target.value)}
+            helperText="If Gemini is overloaded (503) or rate-limited, progress notes and progress-report AI can use Claude instead. Get a key from console.anthropic.com (separate from a claude.ai subscription)."
+            margin="normal"
+          />
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+            Stored only in this browser; sent directly to Anthropic when used as a fallback.
           </Typography>
         </Box>
         <Divider sx={{ my: 2 }} />

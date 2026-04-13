@@ -51,6 +51,8 @@ async function getAvailableModels(apiKey: string): Promise<string[]> {
       return data.models
         .filter((m) => m.supportedGenerationMethods?.includes('generateContent'))
         .map((m) => m.name.replace('models/', ''))
+        // Exclude models that don't support TEXT responses (e.g. audio-only TTS models)
+        .filter((m) => !m.toLowerCase().includes('tts'))
         // Filter out deprecated -latest aliases that will be updated to Gemini 3
         .filter((m) => !m.includes('gemini-pro-latest') && !m.includes('gemini-flash-latest'));
     }

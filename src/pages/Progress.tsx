@@ -940,7 +940,7 @@ export const Progress = () => {
                   maxRows={4}
                   label="Additional context for the AI (optional)"
                   placeholder="e.g. I only saw this student for four sessions, so the data is limited."
-                  helperText="Give Gemini extra context (e.g. limited sessions, partial data) so it can write a more nuanced note."
+                  helperText="Give the AI extra context (e.g. limited sessions, partial data) so it can write a more nuanced note. If Gemini is overloaded, add an Anthropic API key in Settings to use Claude as a fallback."
                   sx={{ mb: 2 }}
                 />
 

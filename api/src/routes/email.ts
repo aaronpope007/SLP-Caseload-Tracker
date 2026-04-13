@@ -45,6 +45,27 @@ router.post('/send', validateBody(emailSchema), asyncHandler(async (req, res) =>
     ? fromName.substring(0, MAX_FROM_NAME_LENGTH - 3) + '...'
     : fromName;
 
+  // Gmail (and RFC 5321) enforces a max line length (1000 incl CRLF).
+  // If the user pastes a long unbroken line (URLs, copied tables, AI output),
+  // Gmail may reject the message with "555-5.5.2 ... command line too long".
+  const wrapLongLines = (text: string, maxLen = 900): string => {
+    const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const lines = normalized.split('\n');
+    const wrapped: string[] = [];
+    for (const line of lines) {
+      if (line.length <= maxLen) {
+        wrapped.push(line);
+        continue;
+      }
+      for (let i = 0; i < line.length; i += maxLen) {
+        wrapped.push(line.slice(i, i + maxLen));
+      }
+    }
+    return wrapped.join('\n');
+  };
+
+  const safeBody = wrapLongLines(body);
+
   // Create transporter
   const transporter = nodemailer.createTransport({
     host: smtpHost,
@@ -71,7 +92,7 @@ router.post('/send', validateBody(emailSchema), asyncHandler(async (req, res) =>
     from: truncatedFromName && fromEmail ? `"${truncatedFromName}" <${fromEmail}>` : fromEmail || smtpUser,
     to,
     subject: truncatedSubject,
-    text: body,
+    text: safeBody,
   };
 
   // Add CC if provided

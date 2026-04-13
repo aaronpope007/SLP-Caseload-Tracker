@@ -1,4 +1,10 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import {
+  ANTHROPIC_API_KEY_STORAGE_KEY,
+  generateTextWithClaude,
+  getHttpStatusFromError,
+  isGeminiRetryableOrOverloadError,
+} from './anthropic';
 import { logError, logInfo } from './logger';
 
 // Helper function to get available models
@@ -12,6 +18,8 @@ async function getAvailableModels(apiKey: string): Promise<string[]> {
       return data.models
         .filter((m) => m.supportedGenerationMethods?.includes('generateContent'))
         .map((m) => m.name.replace('models/', ''))
+        // Exclude models that don't support TEXT responses (e.g. audio-only TTS models)
+        .filter((m) => !m.toLowerCase().includes('tts'))
         // Filter out deprecated -latest aliases that will be updated to Gemini 3
         .filter((m) => !m.includes('gemini-pro-latest') && !m.includes('gemini-flash-latest'));
     }
@@ -140,7 +148,8 @@ export const generateProgressNote = async (
   studentName: string,
   goals: GoalProgressData[],
   apiKey: string,
-  additionalContext?: string
+  additionalContext?: string,
+  anthropicApiKey?: string | null
 ): Promise<string> => {
   if (!apiKey) {
     throw new Error('API key is required');
@@ -225,17 +234,38 @@ Format the note in clear paragraphs. If multiple goals are provided, organize th
       return replacedText;
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      const errorStatus = (error as { status?: number })?.status;
+      const errorStatus = getHttpStatusFromError(error);
       lastError = error instanceof Error ? error : new Error(errorMessage);
       if (errorStatus === 404 || errorMessage?.includes('404') || errorMessage?.includes('not found')) {
+        continue;
+      }
+      if (errorStatus === 429 || errorStatus === 502 || errorStatus === 503 || errorStatus === 504) {
         continue;
       }
       break;
     }
   }
 
+  const claudeKey =
+    anthropicApiKey?.trim() ||
+    (typeof localStorage !== 'undefined'
+      ? localStorage.getItem(ANTHROPIC_API_KEY_STORAGE_KEY)?.trim() || ''
+      : '');
+  if (claudeKey && lastError && isGeminiRetryableOrOverloadError(lastError)) {
+    try {
+      const generatedText = await generateTextWithClaude(prompt, claudeKey);
+      return generatedText.replace(/\bstudent\b/gi, studentName);
+    } catch (claudeErr: unknown) {
+      const geminiMsg = lastError.message;
+      const claudeMsg = claudeErr instanceof Error ? claudeErr.message : String(claudeErr);
+      throw new Error(
+        `Failed to generate progress note. Gemini: ${geminiMsg}. Claude fallback: ${claudeMsg}`
+      );
+    }
+  }
+
   const errorMessage = lastError?.message || 'Unknown error';
-  const errorStatus = (lastError as { status?: number })?.status;
+  const errorStatus = getHttpStatusFromError(lastError);
   if (errorStatus === 404 || errorMessage?.includes('404') || errorMessage?.includes('not found')) {
     throw new Error('No available Gemini models found. Please check your API key permissions in Google AI Studio or try regenerating your API key.');
   } else if (errorStatus === 401 || errorMessage?.includes('401')) {
