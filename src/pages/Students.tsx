@@ -54,6 +54,10 @@ import { getErrorMessage } from '../utils/validators';
 export const Students = () => {
   const navigate = useNavigate();
   const { selectedSchool, availableSchools } = useSchool();
+
+  const handleCreateProgressReportFromStudentsTab = (student: Student) => {
+    navigate(`/progress-reports?createFor=${encodeURIComponent(student.id)}`);
+  };
   
   // React Query hooks for data fetching - automatic caching, deduplication, and refetching
   const { data: students = [], isLoading: isLoadingStudents } = useStudents(selectedSchool);
@@ -526,6 +530,7 @@ export const Students = () => {
                 onDelete={handleDelete}
                 onArchive={handleArchive}
                 onViewDetails={handleViewDetails}
+                onCreateProgressReport={handleCreateProgressReportFromStudentsTab}
                 hasNoGoals={studentsWithNoGoals.has(student.id)}
               />
             </Grid>

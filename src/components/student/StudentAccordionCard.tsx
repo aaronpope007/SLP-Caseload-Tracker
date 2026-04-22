@@ -22,6 +22,7 @@ import {
   Male as MaleIcon,
   Female as FemaleIcon,
   Email as EmailIcon,
+  AssignmentTurnedIn as AssignmentTurnedInIcon,
 } from '@mui/icons-material';
 import type { Student, Teacher, CaseManager } from '../../types';
 import { EmailTeacherModal } from './EmailTeacherModal';
@@ -92,6 +93,8 @@ interface StudentAccordionCardProps {
   onDelete: (id: string) => void;
   onArchive: (id: string, archive: boolean) => void;
   onViewDetails: (id: string) => void;
+  /** When set, shows actions to start a new progress report for this student (active, not archived). */
+  onCreateProgressReport?: (student: Student) => void;
   hasNoGoals?: boolean;
 }
 
@@ -105,6 +108,7 @@ export const StudentAccordionCard = ({
   onDelete,
   onArchive,
   onViewDetails,
+  onCreateProgressReport,
   hasNoGoals = false,
 }: StudentAccordionCardProps) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -143,6 +147,14 @@ export const StudentAccordionCard = ({
     handleMenuClose();
     onViewDetails(student.id);
   };
+
+  const handleCreateProgressReport = () => {
+    handleMenuClose();
+    onCreateProgressReport?.(student);
+  };
+
+  const canStartProgressReport =
+    Boolean(onCreateProgressReport) && student.status === 'active' && !student.archived;
 
   const accordion = (
     <Accordion 
@@ -270,16 +282,28 @@ export const StudentAccordionCard = ({
                 </Box>
               </Box>
             )}
-            {teacher && (
-              <Box sx={{ mt: 2 }}>
-                <Button
-                  variant="outlined"
-                  startIcon={<EmailIcon />}
-                  onClick={() => setEmailModalOpen(true)}
-                  size="small"
-                >
-                  Email Teacher
-                </Button>
+            {(canStartProgressReport || teacher) && (
+              <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                {canStartProgressReport && (
+                  <Button
+                    variant="outlined"
+                    startIcon={<AssignmentTurnedInIcon />}
+                    onClick={() => onCreateProgressReport?.(student)}
+                    size="small"
+                  >
+                    Progress report
+                  </Button>
+                )}
+                {teacher && (
+                  <Button
+                    variant="outlined"
+                    startIcon={<EmailIcon />}
+                    onClick={() => setEmailModalOpen(true)}
+                    size="small"
+                  >
+                    Email Teacher
+                  </Button>
+                )}
               </Box>
             )}
           </Box>
@@ -310,6 +334,11 @@ export const StudentAccordionCard = ({
         <MenuItem onClick={handleViewDetails}>
           <EditIcon sx={{ mr: 1 }} /> View and Edit Goals
         </MenuItem>
+        {canStartProgressReport && (
+          <MenuItem onClick={handleCreateProgressReport}>
+            <AssignmentTurnedInIcon sx={{ mr: 1 }} /> Progress report
+          </MenuItem>
+        )}
         <MenuItem onClick={handleEdit}>
           <EditIcon sx={{ mr: 1 }} /> Edit
         </MenuItem>

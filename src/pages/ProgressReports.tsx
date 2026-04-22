@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -71,12 +71,13 @@ const getStatusColor = (status: ProgressReport['status']) => {
 
 export const ProgressReports = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { selectedSchool } = useSchool();
   const { confirm, ConfirmDialog } = useConfirm();
   const [reports, setReports] = useState<ProgressReport[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const { showSnackbar, SnackbarComponent } = useSnackbar();
-  const reportDialog = useDialog();
+  const createReportDialog = useDialog();
   const [loading, setLoading] = useState(false);
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
   
@@ -171,6 +172,48 @@ export const ProgressReports = () => {
     loadData();
   }, [loadData]);
 
+  /** Open “new report” dialog when linked from Students tab (`?createFor=<studentId>`). */
+  useEffect(() => {
+    const createFor = searchParams.get('createFor');
+    if (!createFor || loading) return;
+
+    const clearCreateForParam = () => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete('createFor');
+          return next;
+        },
+        { replace: true }
+      );
+    };
+
+    const student = students.find((s) => s.id === createFor);
+    if (!student) {
+      showSnackbar('Student not found in the current school.', 'error');
+      clearCreateForParam();
+      return;
+    }
+    if (student.archived) {
+      showSnackbar('Unarchive this student before creating a progress report.', 'warning');
+      clearCreateForParam();
+      return;
+    }
+
+    setFormData({
+      studentId: student.id,
+      reportType: 'quarterly',
+      periodStart: '',
+      periodEnd: '',
+      dueDate: '',
+    });
+    const display = `${student.name}${student.grade ? ` (${student.grade})` : ''}`;
+    setStudentInputValue(display);
+    studentInputRef.current = display;
+    createReportDialog.openDialog();
+    clearCreateForParam();
+  }, [searchParams, loading, students, setSearchParams, showSnackbar, createReportDialog.openDialog]);
+
   // Clear selection when reports change
   useEffect(() => {
     setSelectedRows([]);
@@ -207,11 +250,11 @@ export const ProgressReports = () => {
     });
     setStudentInputValue(prefillStudent ? `${prefillStudent.name}${prefillStudent.grade ? ` (${prefillStudent.grade})` : ''}` : '');
     studentInputRef.current = prefillStudent ? `${prefillStudent.name}${prefillStudent.grade ? ` (${prefillStudent.grade})` : ''}` : '';
-    reportDialog.openDialog();
+    createReportDialog.openDialog();
   };
 
   const handleCloseDialog = () => {
-    reportDialog.closeDialog();
+    createReportDialog.closeDialog();
     setFormData({
       studentId: '',
       reportType: 'quarterly',
@@ -752,7 +795,7 @@ export const ProgressReports = () => {
         />
       </Box>
 
-      <Dialog open={reportDialog.open} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+      <Dialog open={createReportDialog.open} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>Add New Progress Report</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
