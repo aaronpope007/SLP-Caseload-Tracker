@@ -704,7 +704,9 @@ export const generateIEPCommentUpdate = async (
     ? goalsData.map((goal, idx) => {
         let info = `Goal ${idx + 1}: ${goal.goalDescription}\n`;
         info += `  Baseline: ${goal.baseline}%\n`;
-        info += `  Current: ${goal.current.toFixed(1)}%\n`;
+        // "Current" is computed as an average of the last ~3 sessions in the UI.
+        // This is intended as a short snapshot for IEP progress notes.
+        info += `  Current snapshot (avg last 3 sessions): ${goal.current.toFixed(1)}%\n`;
         info += `  Target: ${goal.target}%\n`;
         info += `  Status: ${goal.status}\n`;
         info += `  Sessions: ${goal.sessions}`;
@@ -726,11 +728,20 @@ export const generateIEPCommentUpdate = async (
     ? `\n\nRecent Session Summary (use this for performance and cuing in the summary):\n${recentSessionsSummary}`
     : '';
 
-  const outputInstruction = `Generate the following, in order, with clear section headers (e.g. "## Current Summary", "## Suggested Goals") so the user can copy each part:
+  const outputInstruction = `Write a BRIEF IEP progress note for SpedForms that can be copied and pasted as plain text.
 
-1. CURRENT SUMMARY (Updated Present Levels): Write NEW, updated present levels of academic achievement and functional performance. Base this on the recent speech session data (performance, accuracy, cuing levels). Do NOT copy or paraphrase the previous IEP notes—that text is OLD. Your output must reflect current progress and current cuing (independent, verbal, visual, tactile, physical) from the session data. Use "Student" as the placeholder for the child's name.
+Output format (NO markdown, no headings like ##, no tables):
+- Start with 2–5 sentences summarizing overall progress based on the LAST 8 sessions and the current goal snapshot (avg last 3 sessions).
+- Then add a short \"Goal Status / Recommendations\" block with 1–2 lines per goal:
+  - Mark each goal as: Met / Continue / Modify
+  - If performance suggests new needs, add \"New goal suggestion:\" lines (short, measurable).
 
-2. SUGGESTED GOALS: Based on the previous IEP goals (pasted by the user) and the recent session performance data, suggest updated or new goals—e.g., revised targets, new baselines, or modified goal language. Be concrete and reference the progress and cuing data.`;
+Content requirements:
+- Use professional SLP language.
+- Use whole-number percentages only.
+- Refer to the student as \"Student\" (placeholder).
+- If data are limited/inconsistent, say so briefly.
+- Do not repeat or paraphrase the previous IEP note text; it is OLD context only.`;
 
   let contextBlocks = '';
   if (hasPreviousNote) {
@@ -772,8 +783,8 @@ ${hasPreviousNote ? '- Previous IEP notes (Communication/present levels)—this 
 Instructions:
 - Use "Student" as the placeholder for the child's name throughout.
 - Use whole-number percentages only (e.g., 69% or 57%, never 69.0% or 57.0%).
-- Your output must be NEW/updated language. The previous IEP notes and goals are OLD—do not repeat or paraphrase them. Write updated present levels that reflect current progress and cuing from the session data.
-- For SUGGESTED GOALS: Compare the previous goals to recent session performance and suggest specific, measurable changes (revised targets, baselines, or new goal ideas) with clear rationale.
+- Your output must be NEW/updated language. The previous IEP notes and goals are OLD—do not repeat or paraphrase them. Base the progress note on the last 8 sessions and the current goal snapshot (avg last 3 sessions).
+- For recommendations: use the current snapshot + recent performance trends + cuing information to decide whether goals appear met, should continue, or should be modified; add new goal suggestions when warranted.
 
 ${outputInstruction}
 ${contextBlocks}`;

@@ -333,7 +333,7 @@ export const IEPNotes = () => {
         IEP Communication Notes
       </Typography>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-        Paste the <strong>previous</strong> IEP notes and goals (the old data) below. Add any extra context in Additional notes. The AI uses the last {SESSIONS_FOR_IEP_NOTES} sessions for this student to generate an <strong>updated</strong> present levels of academic achievement and functional performance (reflecting current progress and cuing) and suggested goals. The returned text is new—it does not repeat the previous notes.
+        Paste the <strong>previous</strong> IEP notes and goals (the old data) below. Add any extra context in Additional notes. The AI uses the last {SESSIONS_FOR_IEP_NOTES} sessions for this student, plus a <strong>current goal snapshot</strong> (average of the last 3 sessions per goal), to generate a brief SpedForms-ready IEP progress note and goal recommendations. The returned text is new—it does not repeat the previous notes.
       </Typography>
 
       <Card sx={{ mb: 3 }}>
