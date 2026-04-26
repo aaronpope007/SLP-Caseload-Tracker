@@ -1044,12 +1044,32 @@ export const generateProspectiveTimesheetNote = ({
 }: GenerateProspectiveTimesheetNoteParams): string => {
   const noteParts: string[] = [];
 
+  const formatNoteDateForHeader = (dateStr: string): string => {
+    const trimmed = dateStr.trim();
+    if (!trimmed) return '';
+    try {
+      const d = parse(trimmed, 'yyyy-MM-dd', new Date());
+      if (Number.isNaN(d.getTime())) return trimmed;
+      return format(d, 'M/d/yyyy');
+    } catch {
+      return trimmed;
+    }
+  };
+
   const getMeetingStudentIds = (m: Meeting): string[] =>
     (m.studentIds?.length ? m.studentIds : m.studentId ? [m.studentId] : []);
 
   // Parse target date
   const targetDateObj = parse(targetDate, 'yyyy-MM-dd', new Date());
   const targetDateStr = format(targetDateObj, 'yyyy-MM-dd');
+
+  if (outputFormat === 'detailed') {
+    const formattedDate = formatNoteDateForHeader(targetDate);
+    if (formattedDate) {
+      noteParts.push(`Date: ${formattedDate}`);
+      noteParts.push('');
+    }
+  }
 
   // Helper to parse date strings
   const parseDateString = (dateStr: string): Date => {
@@ -1148,6 +1168,9 @@ export const generateProspectiveTimesheetNote = ({
   const processedDirectStudents = new Set<string>();
   const processedIndirectStudents = new Set<string>();
 
+  const scheduledSessionStudentCount = new Map<string, number>();
+  scheduledSessions.forEach(s => scheduledSessionStudentCount.set(s.id, s.studentIds.length));
+
   // Deduplicate by student (for group sessions)
   const uniqueDirectServices: ProspectiveSessionData[] = [];
   const uniqueIndirectServices: ProspectiveSessionData[] = [];
@@ -1195,7 +1218,6 @@ export const generateProspectiveTimesheetNote = ({
     noteParts.push('');
 
     if (hasDirectSessionsProspective) {
-      noteParts.push('1:1 Direct Instruction:');
       const shouldUseSpecificTimesProspective = useSpecificTimes || isTeletherapy;
       if (shouldUseSpecificTimesProspective) {
         const timeRangeMap = new Map<string, Array<{ session: ProspectiveSessionData; timeRange: string }>>();
@@ -1209,25 +1231,54 @@ export const generateProspectiveTimesheetNote = ({
           const timeB = b[1][0].session.date.getTime();
           return timeA - timeB;
         });
-        const therapyEntries: string[] = [];
+        const oneToOneEntries: string[] = [];
+        const groupEntries: string[] = [];
         sortedTimeRanges.forEach(([, sessionData]) => {
-          sessionData.forEach(({ session, timeRange }) => {
-            const initials = getStudentInitials(session.studentId);
+          const studentsInSlot = sessionData.map(({ session }) => {
             const student = getStudent(session.studentId);
+            const initials = getStudentInitials(session.studentId);
             const grade = student?.grade || '';
-            therapyEntries.push(`${initials} (${grade}) ${timeRange}`);
+            return `${initials} (${grade})`;
           });
+          const scheduledCount = scheduledSessionStudentCount.get(sessionData[0].session.scheduledSessionId) ?? 1;
+          const isGroup = sessionData.length > 1 || scheduledCount > 1;
+          const studentList = studentsInSlot.join(', ');
+          const timeRange = sessionData[0].timeRange;
+          const entry = `${studentList} ${timeRange}`;
+          if (isGroup) groupEntries.push(entry);
+          else oneToOneEntries.push(entry);
         });
-        noteParts.push(therapyEntries.join(', '));
+        if (oneToOneEntries.length > 0) {
+          noteParts.push('1:1 Direct Instruction:');
+          noteParts.push(oneToOneEntries.join(', '));
+        }
+        if (groupEntries.length > 0) {
+          if (oneToOneEntries.length > 0) noteParts.push('');
+          noteParts.push('Group Direct Instruction:');
+          noteParts.push(groupEntries.join(', '));
+        }
       } else {
-        const therapyEntries = uniqueDirectServices.map(session => {
+        const oneToOne: string[] = [];
+        const group: string[] = [];
+        uniqueDirectServices.forEach(session => {
           const initials = getStudentInitials(session.studentId);
           const student = getStudent(session.studentId);
           const grade = student?.grade || '';
-          return `${initials} (${grade})`;
+          const entry = `${initials} (${grade})`;
+          const scheduledCount = scheduledSessionStudentCount.get(session.scheduledSessionId) ?? 1;
+          const isGroup = scheduledCount > 1;
+          if (isGroup) group.push(entry);
+          else oneToOne.push(entry);
         });
-        therapyEntries.sort();
-        noteParts.push(therapyEntries.join(', '));
+        if (oneToOne.length > 0) {
+          noteParts.push('1:1 Direct Instruction:');
+          noteParts.push([...new Set(oneToOne)].sort().join(', '));
+        }
+        if (group.length > 0) {
+          if (oneToOne.length > 0) noteParts.push('');
+          noteParts.push('Group Direct Instruction:');
+          noteParts.push([...new Set(group)].sort().join(', '));
+        }
       }
     }
 
@@ -1482,7 +1533,6 @@ export const generateProspectiveTimesheetNote = ({
     meetingList.some(m => getMeetingStudentIds(m).length === 0);
   const initialAssessmentDocEntriesProspective = buildDocEntries(initialAssessmentDocProspective);
   const threeYearDocEntriesProspective = buildDocEntries(threeYearDocProspective);
-  const iepDocEntriesProspective = buildDocEntries(iepDocProspective);
   const slpScreeningAssessmentDocEntriesProspective = buildDocEntries(slpScreeningAssessmentDocProspective);
   const legacyAssessmentDocEntriesProspective = buildDocEntries(legacyAssessmentDocProspective);
   const caseloadPlanningEntriesProspective = buildDocEntries(caseloadPlanningProspective);
@@ -1496,35 +1546,117 @@ export const generateProspectiveTimesheetNote = ({
   noteParts.push(indirectServiceLabel);
   noteParts.push('');
 
+  let hasIndirectSubsection = false;
+  const addIndirectSubsection = (title: string, contentLine: string) => {
+    if (!contentLine.trim()) return;
+    if (hasIndirectSubsection) {
+      noteParts.push('');
+    }
+    noteParts.push(title);
+    noteParts.push(contentLine);
+    hasIndirectSubsection = true;
+  };
+
   // Indirect services, therapy session planning: Session documentation + Lesson planning (per MN DOE)
   const therapySessionPlanningEntriesProspective = [...new Set([...documentationEntries, ...lessonPlanningEntries])].sort();
   if (therapySessionPlanningEntriesProspective.length > 0) {
-    noteParts.push('Indirect services, therapy session planning:');
-    noteParts.push(therapySessionPlanningEntriesProspective.join(', '));
+    addIndirectSubsection('Indirect services, therapy session planning:', therapySessionPlanningEntriesProspective.join(', '));
   }
 
   // Indirect services, data collection and session documentation: All students who received direct instruction
-  const dataCollectionDocProspective = buildStudentEntries(
-    new Set(uniqueDirectServices.map(s => s.studentId))
-  );
+  const dataCollectionDocProspective = buildStudentEntries(new Set(uniqueDirectServices.map(s => s.studentId)));
   if (dataCollectionDocProspective.length > 0) {
-    noteParts.push('Indirect services, data collection and session documentation:');
-    noteParts.push(dataCollectionDocProspective.join(', '));
+    addIndirectSubsection('Indirect services, data collection and session documentation:', dataCollectionDocProspective.join(', '));
   }
 
   // Speech Screening Write-Up and Staff Collaboration (indirect only)
   if (speechScreeningStudentEntries.length > 0) {
-    noteParts.push('Speech Screening Write-Up and Staff Collaboration:');
-    noteParts.push(speechScreeningStudentEntries.join(', '));
+    addIndirectSubsection('Speech Screening Write-Up and Staff Collaboration:', speechScreeningStudentEntries.join(', '));
   }
 
-  // Due process (IEP) per MN DOE
-  const dueProcessIEPProspective = [...iepDocEntriesProspective];
-  if (dueProcessIEPProspective.length > 0 || hasMeetingWithoutStudents(iepDocProspective)) {
-    noteParts.push('Due process (IEP):');
-    const lineParts: string[] = [...dueProcessIEPProspective];
-    if (hasMeetingWithoutStudents(iepDocProspective)) lineParts.push('Due process (IEP)');
-    noteParts.push(lineParts.sort().join(', '));
+  // Due process (IEP) - match normal timesheet behavior (meetings + planning + documentation)
+  const iepMeetingsProspective = meetings.filter(m => m.category === 'IEP');
+  const iepPlanningMeetingsProspective = meetings.filter(m => m.category === 'IEP planning');
+  const iepDocMeetingsProspective = meetings.filter(m => m.category === 'IEP documentation');
+
+  const iepMeetingStudentIdsProspective = new Set<string>();
+  const iepUpdatesStudentIdsProspective = new Set<string>();
+  const iepAssessmentStudentIdsProspective = new Set<string>();
+  let iepMeetingWithoutStudentProspective = false;
+  let iepUpdatesWithoutStudentProspective = false;
+  let iepAssessmentWithoutStudentProspective = false;
+
+  iepMeetingsProspective.forEach(m => {
+    const subtype = m.activitySubtype ?? 'meeting';
+    const ids = getMeetingStudentIds(m);
+    if (ids.length > 0) {
+      ids.forEach(id => {
+        if (subtype === 'updates') iepUpdatesStudentIdsProspective.add(id);
+        else if (subtype === 'assessment') iepAssessmentStudentIdsProspective.add(id);
+        else iepMeetingStudentIdsProspective.add(id);
+      });
+    } else {
+      if (subtype === 'updates') iepUpdatesWithoutStudentProspective = true;
+      else if (subtype === 'assessment') iepAssessmentWithoutStudentProspective = true;
+      else iepMeetingWithoutStudentProspective = true;
+    }
+  });
+
+  const iepPlanningMeetingStudentIdsProspective = new Set<string>();
+  const iepPlanningUpdatesStudentIdsProspective = new Set<string>();
+  let iepPlanningMeetingWithoutStudentProspective = false;
+  let iepPlanningUpdatesWithoutStudentProspective = false;
+  iepPlanningMeetingsProspective.forEach(m => {
+    const subtype = m.activitySubtype ?? 'meeting';
+    const ids = getMeetingStudentIds(m);
+    if (ids.length > 0) {
+      ids.forEach(id => {
+        if (subtype === 'updates') iepPlanningUpdatesStudentIdsProspective.add(id);
+        else iepPlanningMeetingStudentIdsProspective.add(id);
+      });
+    } else {
+      if (subtype === 'updates') iepPlanningUpdatesWithoutStudentProspective = true;
+      else iepPlanningMeetingWithoutStudentProspective = true;
+    }
+  });
+
+  const iepMeetingEntriesProspective = buildStudentEntries(iepMeetingStudentIdsProspective);
+  const iepUpdatesEntriesProspective = buildStudentEntries(iepUpdatesStudentIdsProspective);
+  const iepAssessmentEntriesProspective = buildStudentEntries(iepAssessmentStudentIdsProspective);
+  const iepPlanningMeetingEntriesProspective = buildStudentEntries(iepPlanningMeetingStudentIdsProspective);
+  const iepPlanningUpdatesEntriesProspective = buildStudentEntries(iepPlanningUpdatesStudentIdsProspective);
+  const iepDocEntriesAllProspective = buildDocEntries(iepDocMeetingsProspective);
+  const iepDocWithoutStudentProspective = hasMeetingWithoutStudents(iepDocMeetingsProspective);
+
+  const dueProcessIEPEntriesProspective = [
+    ...iepMeetingEntriesProspective,
+    ...iepUpdatesEntriesProspective,
+    ...iepAssessmentEntriesProspective,
+    ...iepPlanningMeetingEntriesProspective,
+    ...iepPlanningUpdatesEntriesProspective,
+    ...iepDocEntriesAllProspective,
+  ];
+  const hasDueProcessIEPProspective =
+    dueProcessIEPEntriesProspective.length > 0 ||
+    iepMeetingWithoutStudentProspective ||
+    iepUpdatesWithoutStudentProspective ||
+    iepAssessmentWithoutStudentProspective ||
+    iepPlanningMeetingWithoutStudentProspective ||
+    iepPlanningUpdatesWithoutStudentProspective ||
+    iepDocWithoutStudentProspective;
+  if (hasDueProcessIEPProspective) {
+    const lineParts: string[] = [...new Set(dueProcessIEPEntriesProspective)];
+    if (
+      iepMeetingWithoutStudentProspective ||
+      iepUpdatesWithoutStudentProspective ||
+      iepAssessmentWithoutStudentProspective ||
+      iepPlanningMeetingWithoutStudentProspective ||
+      iepPlanningUpdatesWithoutStudentProspective ||
+      iepDocWithoutStudentProspective
+    ) {
+      lineParts.push('Due process (IEP)');
+    }
+    addIndirectSubsection('Due process (IEP):', lineParts.sort().join(', '));
   }
   // Due process (Eval PWN) - planning only; prospective doesn't include planning meetings in this flow
   // Indirect services, evaluation documentation - 3 year, initial assessment, legacy assessment report writing (not PWN)
@@ -1535,7 +1667,6 @@ export const generateProspectiveTimesheetNote = ({
     hasMeetingWithoutStudents(threeYearDocProspective) ||
     hasMeetingWithoutStudents(legacyAssessmentDocProspective);
   if (hasEvaluationDocProspective) {
-    noteParts.push('Indirect services, evaluation documentation:');
     const lineParts: string[] = [...new Set(evaluationDocEntriesProspective)];
     if (
       hasMeetingWithoutStudents(initialAssessmentDocProspective) ||
@@ -1543,20 +1674,18 @@ export const generateProspectiveTimesheetNote = ({
       hasMeetingWithoutStudents(legacyAssessmentDocProspective)
     )
       lineParts.push('Indirect services, evaluation documentation');
-    noteParts.push(lineParts.sort().join(', '));
+    addIndirectSubsection('Indirect services, evaluation documentation:', lineParts.sort().join(', '));
   }
 
   // SLP Screening Assessment Interpretation, Documentation and Reporting (prospective)
   const hasSlpScreeningAssessmentProspective =
     slpScreeningAssessmentDocEntriesProspective.length > 0 || hasMeetingWithoutStudents(slpScreeningAssessmentDocProspective);
   if (hasSlpScreeningAssessmentProspective) {
-    noteParts.push('SLP Screening Assessment Interpretation, Documentation and Reporting:');
     const lineParts: string[] = [...new Set(slpScreeningAssessmentDocEntriesProspective)];
     if (hasMeetingWithoutStudents(slpScreeningAssessmentDocProspective)) lineParts.push('SLP Screening Assessment Interpretation, Documentation and Reporting');
-    noteParts.push(lineParts.sort().join(', '));
+    addIndirectSubsection('SLP Screening Assessment Interpretation, Documentation and Reporting:', lineParts.sort().join(', '));
   }
   if (hasCaseloadPlanningProspective) {
-    noteParts.push('Indirect services, caseload planning:');
     const lineParts: string[] = [...caseloadPlanningEntriesProspective];
     caseloadPlanningProspective
       .filter(m => getMeetingStudentIds(m).length === 0)
@@ -1565,11 +1694,10 @@ export const generateProspectiveTimesheetNote = ({
         const timeStr = formatTimeRange(m.date, m.endTime);
         lineParts.push(`${label} (${timeStr})`);
       });
-    noteParts.push(lineParts.join(', '));
+    addIndirectSubsection('Indirect services, caseload planning:', lineParts.join(', '));
   }
   if (staffMeetingEntriesProspective.length > 0) {
-    noteParts.push('Indirect services, staff meeting:');
-    noteParts.push(staffMeetingEntriesProspective.join(', '));
+    addIndirectSubsection('Indirect services, staff meeting:', staffMeetingEntriesProspective.join(', '));
   }
 
   noteParts.push(''); // Empty line after service
