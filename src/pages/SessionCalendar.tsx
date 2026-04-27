@@ -1610,6 +1610,98 @@ export const SessionCalendar = () => {
     }
 
     try {
+      const cancelOriginalScheduledOccurrenceIfMoved = async (args: {
+        scheduledSessionId?: string | null;
+        originalDateIso?: string | null;
+        newDateIso?: string | null;
+      }) => {
+        const scheduledSessionId = args.scheduledSessionId || '';
+        const originalDateIso = args.originalDateIso || '';
+        const newDateIso = args.newDateIso || '';
+        if (!scheduledSessionId || !originalDateIso || !newDateIso) return;
+        if (!Array.isArray(scheduledSessions)) return;
+
+        const originalDay = format(startOfDay(new Date(originalDateIso)), 'yyyy-MM-dd');
+        const newDay = format(startOfDay(new Date(newDateIso)), 'yyyy-MM-dd');
+        if (originalDay === newDay) return;
+
+        const scheduled = scheduledSessions.find(s => s.id === scheduledSessionId);
+        if (!scheduled) return;
+
+        const cancelledDates = scheduled.cancelledDates || [];
+        if (cancelledDates.includes(originalDay)) return;
+
+        await updateScheduledSession(scheduled.id, {
+          cancelledDates: [...cancelledDates, originalDay],
+        });
+      };
+
+      // If this is a FUTURE (unlogged) scheduled session, edits should MOVE the scheduled occurrence
+      // rather than creating a logged session record.
+      if (currentEvent && !currentEvent.isLogged && currentEvent.scheduledSessionId) {
+        if (!Array.isArray(scheduledSessions)) return;
+        const scheduled = scheduledSessions.find(s => s.id === currentEvent.scheduledSessionId);
+        if (!scheduled) return;
+
+        const originalDay = format(startOfDay(currentEvent.date), 'yyyy-MM-dd');
+        const newStartIso = fromLocalDateTimeString(sessionFormData.date);
+        const newStartDate = new Date(newStartIso);
+        const newDay = format(startOfDay(newStartDate), 'yyyy-MM-dd');
+
+        const newStartTime = format(newStartDate, 'HH:mm');
+        const newEndIso = sessionFormData.endTime ? fromLocalDateTimeString(sessionFormData.endTime) : '';
+        const newEndTime = newEndIso ? format(new Date(newEndIso), 'HH:mm') : undefined;
+
+        // Cancel the original scheduled occurrence (so it disappears from the old day)
+        const cancelledDates = scheduled.cancelledDates || [];
+        if (!cancelledDates.includes(originalDay)) {
+          await updateScheduledSession(scheduled.id, {
+            cancelledDates: [...cancelledDates, originalDay],
+          });
+          if (!isMountedRef.current) return;
+        }
+
+        // Create a new one-time scheduled session at the new date/time (so it stays "scheduled", not "completed")
+        const duration = ((): number | undefined => {
+          if (!newEndTime) return scheduled.duration;
+          const [sh, sm] = newStartTime.split(':').map(Number);
+          const [eh, em] = newEndTime.split(':').map(Number);
+          const startMins = sh * 60 + sm;
+          const endMins = eh * 60 + em;
+          const diff = endMins - startMins;
+          return diff > 0 ? diff : undefined;
+        })();
+
+        const nowIso = new Date().toISOString();
+        const newScheduledSession: ScheduledSession = {
+          id: generateId(),
+          studentIds: sessionFormData.studentIds,
+          startTime: newStartTime,
+          endTime: newEndTime,
+          duration,
+          dayOfWeek: undefined,
+          specificDates: undefined,
+          recurrencePattern: 'none',
+          startDate: newDay,
+          endDate: undefined,
+          goalsTargeted: sessionFormData.goalsTargeted || [],
+          notes: sessionFormData.notes || '',
+          isDirectServices: sessionFormData.isDirectServices !== false,
+          dateCreated: scheduled.dateCreated || nowIso,
+          dateUpdated: nowIso,
+          active: true,
+          cancelledDates: [],
+        };
+
+        await addScheduledSession(newScheduledSession);
+        if (!isMountedRef.current) return;
+
+        await loadData();
+        if (!isMountedRef.current) return;
+        handleCloseSessionDialog(true);
+        return;
+      }
+
       // Check if we're editing existing session(s)
       if (editingSession) {
         // Editing a single session
@@ -1641,6 +1733,11 @@ export const SessionCalendar = () => {
           plan: sessionFormData.plan.trim() || undefined,
         };
 
+        await cancelOriginalScheduledOccurrenceIfMoved({
+          scheduledSessionId: editingSession.scheduledSessionId,
+          originalDateIso: editingSession.date,
+          newDateIso: updates.date ?? null,
+        });
         await updateSession(editingSession.id, updates);
         if (!isMountedRef.current) return;
       } else if (editingGroupSessionId) {
@@ -1688,6 +1785,11 @@ export const SessionCalendar = () => {
               customSubjective: sessionFormData.customSubjective.trim() || undefined,
               plan: sessionFormData.plan.trim() || undefined,
             };
+            await cancelOriginalScheduledOccurrenceIfMoved({
+              scheduledSessionId: existingSession.scheduledSessionId,
+              originalDateIso: existingSession.date,
+              newDateIso: updates.date ?? null,
+            });
             await updateSession(existingSession.id, updates);
           } else {
             // New student added to the group - create session
