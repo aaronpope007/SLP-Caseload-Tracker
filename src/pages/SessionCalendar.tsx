@@ -1639,6 +1639,27 @@ export const SessionCalendar = () => {
       // If this is a FUTURE (unlogged) scheduled session, edits should MOVE the scheduled occurrence
       // rather than creating a logged session record.
       if (currentEvent && !currentEvent.isLogged && currentEvent.scheduledSessionId) {
+        // Only treat this as a "move scheduled occurrence" when the ONLY changes are date/endTime.
+        // If the user changed any other fields, they are logging data and we should create Session records.
+        const initial = initialSessionFormDataRef.current;
+        const onlyDateTimeChanged = !!initial && (
+          JSON.stringify(sessionFormData.studentIds) === JSON.stringify(initial.studentIds) &&
+          JSON.stringify(sessionFormData.goalsTargeted) === JSON.stringify(initial.goalsTargeted) &&
+          JSON.stringify(sessionFormData.activitiesUsed) === JSON.stringify(initial.activitiesUsed) &&
+          JSON.stringify(sessionFormData.performanceData) === JSON.stringify(initial.performanceData) &&
+          sessionFormData.notes === initial.notes &&
+          sessionFormData.isDirectServices === initial.isDirectServices &&
+          sessionFormData.indirectServicesNotes === initial.indirectServicesNotes &&
+          sessionFormData.missedSession === initial.missedSession &&
+          JSON.stringify(sessionFormData.selectedSubjectiveStatements) === JSON.stringify(initial.selectedSubjectiveStatements) &&
+          sessionFormData.customSubjective === initial.customSubjective &&
+          (sessionFormData.plan || '') === (initial.plan || '') &&
+          (sessionFormData.date !== initial.date || sessionFormData.endTime !== initial.endTime)
+        );
+
+        if (!onlyDateTimeChanged) {
+          // Fall through to normal save (logging a session).
+        } else {
         if (!Array.isArray(scheduledSessions)) return;
         const scheduled = scheduledSessions.find(s => s.id === currentEvent.scheduledSessionId);
         if (!scheduled) return;
@@ -1700,6 +1721,7 @@ export const SessionCalendar = () => {
         if (!isMountedRef.current) return;
         handleCloseSessionDialog(true);
         return;
+        }
       }
 
       // Check if we're editing existing session(s)
