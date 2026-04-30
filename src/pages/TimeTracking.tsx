@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { logError } from '../utils/logger';
 import {
   Box,
@@ -105,7 +105,7 @@ export const TimeTracking = () => {
     checkTeletherapy();
   }, [selectedSchool]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     // Load all sessions, evaluations, and screeners (will be filtered by selectedSchool)
     const allSessions = await getSessions();
     const allEvaluations = await getEvaluations();
@@ -143,7 +143,7 @@ export const TimeTracking = () => {
       logError('Failed to fetch scheduled sessions', error);
       setScheduledSessions([]);
     }
-  };
+  }, [selectedSchool]);
 
   useEffect(() => {
     loadData();
@@ -168,7 +168,22 @@ export const TimeTracking = () => {
     };
     
     initializeNotes();
-  }, [selectedSchool]);
+  }, [selectedSchool, loadData]);
+
+  // Keep this tab up-to-date when returning from another browser tab.
+  useEffect(() => {
+    const refreshIfVisible = () => {
+      if (document.visibilityState === 'visible') {
+        void loadData();
+      }
+    };
+    window.addEventListener('focus', refreshIfVisible);
+    document.addEventListener('visibilitychange', refreshIfVisible);
+    return () => {
+      window.removeEventListener('focus', refreshIfVisible);
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+    };
+  }, [loadData]);
 
 
   const loadSavedNotes = async () => {
@@ -376,14 +391,135 @@ export const TimeTracking = () => {
   };
 
   const handleGenerateTimesheetNote = async () => {
+    // Always pull freshest data at generation time (handles multi-tab usage without manual refresh).
+    const [
+      latestSessions,
+      latestEvaluations,
+      latestScreeners,
+      latestStudents,
+      latestMeetings,
+      latestCommunications,
+      latestScheduledSessions,
+    ] = await Promise.all([
+      getSessions(),
+      getEvaluations(),
+      getArticulationScreeners(),
+      getStudents(),
+      getMeetings(undefined, selectedSchool),
+      api.communications.getAll(undefined, undefined, selectedSchool).catch(() => [] as Communication[]),
+      getScheduledSessions(selectedSchool).catch(() => [] as ScheduledSession[]),
+    ]);
+
+    // Update state so the UI reflects what we generated from.
+    setSessions(latestSessions);
+    setEvaluations(latestEvaluations);
+    setScreeners(latestScreeners);
+    setStudents(latestStudents);
+    setMeetings(latestMeetings);
+    setCommunications(latestCommunications);
+    setScheduledSessions(latestScheduledSessions);
+
+    // Build items using the same logic as `allItems`, but from the latest data.
+    const getSchoolForItemLocal = (studentId: string): string | undefined => {
+      const student = latestStudents.find(s => s.id === studentId);
+      return student?.school;
+    };
+
+    const processedGroupIds = new Set<string>();
+    const latestAllItems: TimeTrackingItem[] = [];
+
+    latestSessions.forEach(session => {
+      const sessionSchool = getSchoolForItemLocal(session.studentId);
+      if (sessionSchool !== selectedSchool) return;
+
+      if (session.groupSessionId) {
+        if (!processedGroupIds.has(session.groupSessionId)) {
+          processedGroupIds.add(session.groupSessionId);
+          latestAllItems.push({
+            id: session.groupSessionId,
+            type: 'session',
+            date: session.date,
+            data: session,
+          });
+        }
+      } else {
+        latestAllItems.push({
+          id: session.id,
+          type: 'session',
+          date: session.date,
+          data: session,
+        });
+      }
+    });
+
+    latestEvaluations.forEach(evaluation => {
+      const evalSchool = getSchoolForItemLocal(evaluation.studentId);
+      if (evalSchool !== selectedSchool) return;
+      latestAllItems.push({
+        id: evaluation.id,
+        type: 'evaluation',
+        date: evaluation.date,
+        data: evaluation,
+      });
+    });
+
+    latestScreeners.forEach(screener => {
+      const screenerSchool = getSchoolForItemLocal(screener.studentId);
+      if (screenerSchool !== selectedSchool) return;
+      latestAllItems.push({
+        id: screener.id,
+        type: 'screener',
+        date: screener.date,
+        data: screener,
+      });
+    });
+
+    // Meetings/communications are already loaded filtered by selectedSchool from the API calls above.
+    latestMeetings.forEach(meeting => {
+      latestAllItems.push({
+        id: meeting.id,
+        type: 'meeting',
+        date: meeting.date,
+        data: meeting,
+      });
+    });
+
+    latestCommunications.forEach(comm => {
+      if (!comm.date) return;
+      latestAllItems.push({
+        id: comm.id,
+        type: 'communication',
+        date: comm.date,
+        data: comm,
+      });
+    });
+
+    // Sort most recent first (same as `allItems`)
+    latestAllItems.sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      if (isNaN(dateA) || isNaN(dateB)) return 0;
+      return dateB - dateA;
+    });
+
+    const latestFilteredItems = selectedDate
+      ? latestAllItems.filter(item => getItemCalendarDate(item.date) === selectedDate)
+      : latestAllItems;
+    const latestFilteredCommunications = selectedDate
+      ? latestCommunications.filter(comm => comm.date ? getItemCalendarDate(comm.date) === selectedDate : false)
+      : latestCommunications;
+    const latestFilteredMeetings = selectedDate
+      ? latestMeetings.filter(meeting => getItemCalendarDate(meeting.date) === selectedDate)
+      : latestMeetings;
+
     const school = await getSchoolByName(selectedSchool);
     const isTeletherapy = school?.teletherapy || false;
     type TimesheetNoteItems = Parameters<typeof generateTimesheetNote>[0]['filteredItems'];
     const note = generateTimesheetNote({
-      filteredItems: filteredItems as TimesheetNoteItems,
-      sessions,
-      communications: filteredCommunications,
-      meetings: filteredMeetings,
+      filteredItems: latestFilteredItems as TimesheetNoteItems,
+      sessions: latestSessions,
+      communications: latestFilteredCommunications,
+      meetings: latestFilteredMeetings,
       getStudent,
       getStudentInitials,
       getGroupSessions,
@@ -393,6 +529,7 @@ export const TimeTracking = () => {
       formatTimeRange,
       noteDate: selectedDate || '',
       outputFormat: 'detailed',
+      scheduledSessions: latestScheduledSessions,
     });
     
     setTimesheetNote(note);
@@ -400,14 +537,130 @@ export const TimeTracking = () => {
   };
 
   const handleGenerateSteppingStonesTimesheetNote = async () => {
+    const [
+      latestSessions,
+      latestEvaluations,
+      latestScreeners,
+      latestStudents,
+      latestMeetings,
+      latestCommunications,
+      latestScheduledSessions,
+    ] = await Promise.all([
+      getSessions(),
+      getEvaluations(),
+      getArticulationScreeners(),
+      getStudents(),
+      getMeetings(undefined, selectedSchool),
+      api.communications.getAll(undefined, undefined, selectedSchool).catch(() => [] as Communication[]),
+      getScheduledSessions(selectedSchool).catch(() => [] as ScheduledSession[]),
+    ]);
+
+    setSessions(latestSessions);
+    setEvaluations(latestEvaluations);
+    setScreeners(latestScreeners);
+    setStudents(latestStudents);
+    setMeetings(latestMeetings);
+    setCommunications(latestCommunications);
+    setScheduledSessions(latestScheduledSessions);
+
+    const getSchoolForItemLocal = (studentId: string): string | undefined => {
+      const student = latestStudents.find(s => s.id === studentId);
+      return student?.school;
+    };
+
+    const processedGroupIds = new Set<string>();
+    const latestAllItems: TimeTrackingItem[] = [];
+
+    latestSessions.forEach(session => {
+      const sessionSchool = getSchoolForItemLocal(session.studentId);
+      if (sessionSchool !== selectedSchool) return;
+
+      if (session.groupSessionId) {
+        if (!processedGroupIds.has(session.groupSessionId)) {
+          processedGroupIds.add(session.groupSessionId);
+          latestAllItems.push({
+            id: session.groupSessionId,
+            type: 'session',
+            date: session.date,
+            data: session,
+          });
+        }
+      } else {
+        latestAllItems.push({
+          id: session.id,
+          type: 'session',
+          date: session.date,
+          data: session,
+        });
+      }
+    });
+
+    latestEvaluations.forEach(evaluation => {
+      const evalSchool = getSchoolForItemLocal(evaluation.studentId);
+      if (evalSchool !== selectedSchool) return;
+      latestAllItems.push({
+        id: evaluation.id,
+        type: 'evaluation',
+        date: evaluation.date,
+        data: evaluation,
+      });
+    });
+
+    latestScreeners.forEach(screener => {
+      const screenerSchool = getSchoolForItemLocal(screener.studentId);
+      if (screenerSchool !== selectedSchool) return;
+      latestAllItems.push({
+        id: screener.id,
+        type: 'screener',
+        date: screener.date,
+        data: screener,
+      });
+    });
+
+    latestMeetings.forEach(meeting => {
+      latestAllItems.push({
+        id: meeting.id,
+        type: 'meeting',
+        date: meeting.date,
+        data: meeting,
+      });
+    });
+
+    latestCommunications.forEach(comm => {
+      if (!comm.date) return;
+      latestAllItems.push({
+        id: comm.id,
+        type: 'communication',
+        date: comm.date,
+        data: comm,
+      });
+    });
+
+    latestAllItems.sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      if (isNaN(dateA) || isNaN(dateB)) return 0;
+      return dateB - dateA;
+    });
+
+    const latestFilteredItems = selectedDate
+      ? latestAllItems.filter(item => getItemCalendarDate(item.date) === selectedDate)
+      : latestAllItems;
+    const latestFilteredCommunications = selectedDate
+      ? latestCommunications.filter(comm => comm.date ? getItemCalendarDate(comm.date) === selectedDate : false)
+      : latestCommunications;
+    const latestFilteredMeetings = selectedDate
+      ? latestMeetings.filter(meeting => getItemCalendarDate(meeting.date) === selectedDate)
+      : latestMeetings;
+
     const school = await getSchoolByName(selectedSchool);
     const isTeletherapy = school?.teletherapy || false;
     type TimesheetNoteItems = Parameters<typeof generateTimesheetNote>[0]['filteredItems'];
     const note = generateTimesheetNote({
-      filteredItems: filteredItems as TimesheetNoteItems,
-      sessions,
-      communications: filteredCommunications,
-      meetings: filteredMeetings,
+      filteredItems: latestFilteredItems as TimesheetNoteItems,
+      sessions: latestSessions,
+      communications: latestFilteredCommunications,
+      meetings: latestFilteredMeetings,
       getStudent,
       getStudentInitials,
       getGroupSessions,
@@ -416,7 +669,7 @@ export const TimeTracking = () => {
       formatTime12Hour,
       formatTimeRange,
       outputFormat: 'steppingStones',
-      scheduledSessions,
+      scheduledSessions: latestScheduledSessions,
       scheduledSessionsDate: selectedDate || '',
       schoolName: selectedSchool,
     });
@@ -434,10 +687,18 @@ export const TimeTracking = () => {
     const school = await getSchoolByName(selectedSchool);
     const isTeletherapy = school?.teletherapy || false;
     
+    // Pull freshest data at generation time for multi-tab usage.
+    const latestScheduledSessions = await getScheduledSessions(selectedSchool).catch(() => [] as ScheduledSession[]);
+    const latestMeetings = await getMeetings(undefined, selectedSchool).catch(() => [] as Meeting[]);
+    setScheduledSessions(latestScheduledSessions);
+    setMeetings(latestMeetings);
+
     const note = generateProspectiveTimesheetNote({
-      scheduledSessions,
+      scheduledSessions: latestScheduledSessions,
       targetDate: selectedDate,
-      meetings: filteredMeetings,
+      meetings: selectedDate
+        ? latestMeetings.filter(meeting => getItemCalendarDate(meeting.date) === selectedDate)
+        : latestMeetings,
       getStudent,
       getStudentInitials,
       isTeletherapy,
