@@ -126,6 +126,12 @@ export const Progress = () => {
   const isMountedRef = useRef(true);
   const [searchParams] = useSearchParams();
 
+  const isTreatmentSession = useCallback((s: Session) => {
+    // Treatment sessions are direct-service sessions that were not marked missed.
+    // This excludes indirect-only entries and missed sessions from AI progress reporting.
+    return s.isDirectServices !== false && s.missedSession !== true;
+  }, []);
+
   useEffect(() => {
     const loadStudents = async () => {
       try {
@@ -169,6 +175,7 @@ export const Progress = () => {
     try {
       const sessions = (await getSessions())
         .filter((s) => s.studentId === selectedStudentId)
+        .filter(isTreatmentSession)
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
       const goals = (await getGoals()).filter((g) => g.studentId === selectedStudentId);
@@ -284,6 +291,7 @@ export const Progress = () => {
       // Re-fetch the latest data to ensure we have up-to-date goal results
       const sessions = (await getSessions())
         .filter((s) => s.studentId === selectedStudentId)
+        .filter(isTreatmentSession)
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
       
       const goals = (await getGoals()).filter((g) => g.studentId === selectedStudentId);
@@ -376,6 +384,7 @@ export const Progress = () => {
       // Refresh data to ensure we have the latest goal results
       const sessions = (await getSessions())
         .filter((s) => s.studentId === selectedStudentId)
+        .filter(isTreatmentSession)
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
       
       const goals = (await getGoals()).filter((g) => g.studentId === selectedStudentId);
