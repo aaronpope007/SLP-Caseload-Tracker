@@ -48,6 +48,7 @@ interface GoalHierarchyProps {
   performanceData: PerformanceDataItem[];
   isCompact?: boolean;
   getRecentPerformance: (goalId: string, studentId: string) => number | null;
+  getRecentPerformanceFull?: (goalId: string, studentId: string) => { recentSessions: unknown[]; average: number | null };
   onGoalToggle: (goalId: string, studentId: string) => void;
   onTrialUpdate: (goalId: string, studentId: string, isCorrect: boolean) => void;
   onPerformanceUpdate: (goalId: string, studentId: string, field: 'accuracy' | 'notes', value: string) => void;
@@ -65,6 +66,7 @@ export const GoalHierarchy = memo(({
   performanceData,
   isCompact = false,
   getRecentPerformance,
+  getRecentPerformanceFull,
   onGoalToggle,
   onTrialUpdate,
   onPerformanceUpdate,
@@ -80,7 +82,9 @@ export const GoalHierarchy = memo(({
   const renderGoalWithChildren = (goal: Goal, depth: number = 0): JSX.Element => {
     const subGoals = subGoalsByParent.get(goal.id) || [];
     const hasSubGoals = subGoals.length > 0;
-    const recentAvg = getRecentPerformance(goal.id, studentId);
+    const recent = getRecentPerformanceFull?.(goal.id, studentId);
+    const recentAvg = recent?.average ?? getRecentPerformance(goal.id, studentId);
+    const evidenceCount = recent ? (Array.isArray(recent.recentSessions) ? recent.recentSessions.length : undefined) : undefined;
     
     // Calculate indentation based on depth (each level adds 2 units of padding)
     const paddingLeft = depth * 2;
@@ -110,7 +114,7 @@ export const GoalHierarchy = memo(({
                   label={
                     <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                       <Box component="span" sx={{ fontSize: isCompact ? '0.875rem' : '1rem' }}>{goal.description}</Box>
-                      <GoalProgressChip average={recentAvg} target={goal.target} />
+                      <GoalProgressChip average={recentAvg} target={goal.target} evidenceCount={evidenceCount} />
                       {(!goal.target || goal.target.trim() === '') && (
                         <Chip
                           label="No target set"
@@ -176,7 +180,7 @@ export const GoalHierarchy = memo(({
               label={
                 <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                   <Box component="span" sx={{ fontSize: isCompact ? '0.875rem' : '1rem' }}>{goal.description}</Box>
-                  <GoalProgressChip average={recentAvg} target={goal.target} />
+                  <GoalProgressChip average={recentAvg} target={goal.target} evidenceCount={evidenceCount} />
                   {(!goal.target || goal.target.trim() === '') && (
                     <Chip
                       label="No target set"

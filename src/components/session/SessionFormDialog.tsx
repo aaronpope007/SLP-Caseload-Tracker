@@ -88,6 +88,7 @@ interface SessionFormDialogProps {
   onCuingLevelToggle: (goalId: string, studentId: string, cuingLevel: 'independent' | 'verbal' | 'visual' | 'tactile' | 'physical') => void;
   onTrialUpdate: (goalId: string, studentId: string, isCorrect: boolean) => void;
   getRecentPerformance: (goalId: string, studentId: string) => number | null;
+  getRecentPerformanceFull?: (goalId: string, studentId: string) => { recentSessions: unknown[]; average: number | null };
   isGoalAchieved: (goal: Goal) => boolean;
   onMarkGoalMet?: (goal: Goal) => void | Promise<void>;
 }
@@ -113,6 +114,7 @@ export const SessionFormDialog = ({
   onCuingLevelToggle,
   onTrialUpdate,
   getRecentPerformance,
+  getRecentPerformanceFull,
   isGoalAchieved,
   onMarkGoalMet,
 }: SessionFormDialogProps) => {
@@ -998,6 +1000,7 @@ export const SessionFormDialog = ({
                       selectedStudentIds={studentIds}
                       goalsTargeted={goalsTargeted}
                       getRecentPerformance={getRecentPerformance}
+                      getRecentPerformanceFull={getRecentPerformanceFull}
                       onGoalToggle={onGoalToggle}
                       isDirectServices={formData.isDirectServices}
                     />
@@ -1084,6 +1087,7 @@ export const SessionFormDialog = ({
                       performanceData={performanceData}
                       focusedGoalId={focusedGoalId}
                       getRecentPerformance={getRecentPerformance}
+                      getRecentPerformanceFull={getRecentPerformanceFull}
                       onGoalFocus={setFocusedGoalId}
                       onGoalToggle={onGoalToggle}
                       onTrialUpdate={onTrialUpdate}
@@ -1103,6 +1107,7 @@ export const SessionFormDialog = ({
                     onPinToggle={togglePin}
                     onClearPinned={clearPinned}
                     getRecentPerformance={getRecentPerformance}
+                    getRecentPerformanceFull={getRecentPerformanceFull}
                     onGoalFocus={setFocusedGoalId}
                   />
 
@@ -1115,6 +1120,7 @@ export const SessionFormDialog = ({
                         goalsTargeted={deferredGoalsTargeted}
                         performanceData={deferredPerformanceData}
                         getRecentPerformance={getRecentPerformance}
+                        getRecentPerformanceFull={getRecentPerformanceFull}
                         onGoalToggle={onGoalToggle}
                         onTrialUpdate={onTrialUpdate}
                         onPerformanceUpdate={onPerformanceUpdate}
@@ -1156,6 +1162,7 @@ export const SessionFormDialog = ({
                                 performanceData={deferredPerformanceData}
                                 isCompact={false}
                                 getRecentPerformance={getRecentPerformance}
+                                getRecentPerformanceFull={getRecentPerformanceFull}
                                 onGoalToggle={onGoalToggle}
                                 onTrialUpdate={onTrialUpdate}
                                 onPerformanceUpdate={onPerformanceUpdate}
@@ -1247,6 +1254,7 @@ export const SessionFormDialog = ({
                                 performanceData={deferredPerformanceData}
                                 isCompact={true}
                                 getRecentPerformance={getRecentPerformance}
+                                getRecentPerformanceFull={getRecentPerformanceFull}
                                 onGoalToggle={onGoalToggle}
                                 onTrialUpdate={onTrialUpdate}
                                 onPerformanceUpdate={onPerformanceUpdate}

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Accordion,
@@ -23,6 +24,7 @@ import {
   Female as FemaleIcon,
   Email as EmailIcon,
   AssignmentTurnedIn as AssignmentTurnedInIcon,
+  Timeline as TimelineIcon,
 } from '@mui/icons-material';
 import type { Student, Teacher, CaseManager } from '../../types';
 import { EmailTeacherModal } from './EmailTeacherModal';
@@ -113,6 +115,7 @@ export const StudentAccordionCard = ({
 }: StudentAccordionCardProps) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const navigate = useNavigate();
   
   // Get teacher name if student has a teacher assigned
   const teacher = student.teacherId ? teachers.find(t => t.id === student.teacherId) : null;
@@ -153,8 +156,14 @@ export const StudentAccordionCard = ({
     onCreateProgressReport?.(student);
   };
 
+  const handleViewProgressTracking = () => {
+    handleMenuClose();
+    navigate(`/progress?studentId=${encodeURIComponent(student.id)}`);
+  };
+
   const canStartProgressReport =
     Boolean(onCreateProgressReport) && student.status === 'active' && !student.archived;
+  const canViewProgressTracking = student.status === 'active' && !student.archived;
 
   const accordion = (
     <Accordion 
@@ -282,8 +291,18 @@ export const StudentAccordionCard = ({
                 </Box>
               </Box>
             )}
-            {(canStartProgressReport || teacher) && (
+            {(canViewProgressTracking || canStartProgressReport || teacher) && (
               <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                {canViewProgressTracking && (
+                  <Button
+                    variant="outlined"
+                    startIcon={<TimelineIcon />}
+                    onClick={handleViewProgressTracking}
+                    size="small"
+                  >
+                    Progress
+                  </Button>
+                )}
                 {canStartProgressReport && (
                   <Button
                     variant="outlined"
@@ -334,6 +353,11 @@ export const StudentAccordionCard = ({
         <MenuItem onClick={handleViewDetails}>
           <EditIcon sx={{ mr: 1 }} /> View and Edit Goals
         </MenuItem>
+        {canViewProgressTracking && (
+          <MenuItem onClick={handleViewProgressTracking}>
+            <TimelineIcon sx={{ mr: 1 }} /> Progress
+          </MenuItem>
+        )}
         {canStartProgressReport && (
           <MenuItem onClick={handleCreateProgressReport}>
             <AssignmentTurnedInIcon sx={{ mr: 1 }} /> Progress report

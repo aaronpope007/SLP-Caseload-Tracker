@@ -93,7 +93,8 @@ export const calculateProgress = (baseline: string, current: number, target: str
  */
 export const getGoalProgressChipProps = (
   current: number | null,
-  target: string
+  target: string,
+  evidenceCount?: number
 ): { color: 'success' | 'warning' | 'error' | 'primary' | 'default'; variant: 'filled' | 'outlined' } => {
   if (current === null || isNaN(current) || !isFinite(current)) {
     // Not started or invalid value: blue with outlined variant
@@ -104,7 +105,10 @@ export const getGoalProgressChipProps = (
   const progressPercentOfGoal = (current / targetNum) * 100;
   
   if (progressPercentOfGoal >= 100) {
-    // Met or exceeded goal: green
+    // Met or exceeded goal. If we have evidenceCount, require 3 sessions to call it "met".
+    if (typeof evidenceCount === 'number' && evidenceCount < 3) {
+      return { color: 'warning', variant: 'filled' };
+    }
     return { color: 'success', variant: 'filled' };
   } else if (progressPercentOfGoal >= 60) {
     // 60-100% of goal: yellow

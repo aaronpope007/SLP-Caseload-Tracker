@@ -1168,6 +1168,23 @@ export const SessionCalendar = () => {
     return average;
   }, [sessionsByStudentAndGoal]);
 
+  const getRecentPerformanceFull = useCallback((goalId: string, studentId: string) => {
+    const key = `${studentId}:${goalId}`;
+    const goalSessions = sessionsByStudentAndGoal.get(key) || [];
+    const recentSessions = goalSessions.slice(0, 3);
+
+    const recentData = recentSessions.map(s => {
+      const perf = s.performanceData.find(p => p.goalId === goalId);
+      return perf?.accuracy;
+    }).filter((a): a is number => a !== undefined);
+
+    const average = recentData.length > 0
+      ? recentData.reduce((sum, a) => sum + a, 0) / recentData.length
+      : null;
+
+    return { recentSessions, average };
+  }, [sessionsByStudentAndGoal]);
+
   const handleMarkGoalMet = useCallback(async (goal: Goal) => {
     try {
       await updateGoal(goal.id, {
@@ -3500,6 +3517,7 @@ export const SessionCalendar = () => {
         onCuingLevelToggle={handleCuingLevelToggle}
         onTrialUpdate={handleTrialUpdate}
         getRecentPerformance={getRecentPerformance}
+        getRecentPerformanceFull={getRecentPerformanceFull}
         isGoalAchieved={isGoalAchieved}
         onMarkGoalMet={handleMarkGoalMet}
       />

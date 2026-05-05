@@ -34,6 +34,7 @@ interface ActiveGoalsTrackingPanelProps {
   performanceData: PerformanceDataItem[];
   focusedGoalId: string | null;
   getRecentPerformance: (goalId: string, studentId: string) => number | null;
+  getRecentPerformanceFull?: (goalId: string, studentId: string) => { recentSessions: unknown[]; average: number | null };
   onGoalFocus: (goalId: string | null) => void;
   onGoalToggle: (goalId: string, studentId: string) => void;
   onTrialUpdate: (goalId: string, studentId: string, isCorrect: boolean) => void;
@@ -48,6 +49,7 @@ export const ActiveGoalsTrackingPanel = memo(({
   performanceData,
   focusedGoalId,
   getRecentPerformance,
+  getRecentPerformanceFull,
   onGoalFocus,
   onGoalToggle,
   onTrialUpdate,
@@ -56,16 +58,21 @@ export const ActiveGoalsTrackingPanel = memo(({
 }: ActiveGoalsTrackingPanelProps) => {
   // Memoize recent performance results to avoid calling getRecentPerformance repeatedly
   const recentPerformanceCache = useMemo(() => {
-    const cache = new Map<string, number | null>();
+    const cache = new Map<string, { average: number | null; evidenceCount?: number }>();
     goalsTargeted.forEach(goalId => {
       const goal = goals.find(g => g.id === goalId);
       if (goal) {
         const key = `${goalId}:${goal.studentId}`;
-        cache.set(key, getRecentPerformance(goalId, goal.studentId));
+        if (getRecentPerformanceFull) {
+          const full = getRecentPerformanceFull(goalId, goal.studentId);
+          cache.set(key, { average: full.average, evidenceCount: Array.isArray(full.recentSessions) ? full.recentSessions.length : undefined });
+        } else {
+          cache.set(key, { average: getRecentPerformance(goalId, goal.studentId) });
+        }
       }
     });
     return cache;
-  }, [goals, goalsTargeted, getRecentPerformance]);
+  }, [goals, goalsTargeted, getRecentPerformance, getRecentPerformanceFull]);
   
   // Get all active goals with their data
   const activeGoals = useMemo(() => {
@@ -76,13 +83,15 @@ export const ActiveGoalsTrackingPanel = memo(({
       const student = students.find(s => s.id === goal.studentId);
       const perfData = performanceData.find(p => p.goalId === goalId && p.studentId === goal.studentId);
       const key = `${goalId}:${goal.studentId}`;
-      const recentAvg = recentPerformanceCache.get(key) ?? null;
+      const cached = recentPerformanceCache.get(key);
+      const recentAvg = cached?.average ?? null;
       
       return {
         goal,
         student: student || null,
         perfData: perfData || { goalId, studentId: goal.studentId, correctTrials: 0, incorrectTrials: 0 },
         recentAvg,
+        evidenceCount: cached?.evidenceCount,
         path: getGoalPath(goal, goals),
       };
     }).filter((item): item is NonNullable<typeof item> => item !== null);
@@ -156,7 +165,7 @@ export const ActiveGoalsTrackingPanel = memo(({
       {!collapsed && (
         <Box sx={{ p: 1.5 }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {activeGoals.map(({ goal, student, perfData, recentAvg, path }) => {
+            {activeGoals.map(({ goal, student, perfData, recentAvg, evidenceCount, path }) => {
               const isFocused = focusedGoalId === goal.id;
               const correctTrials = perfData.correctTrials || 0;
               const incorrectTrials = perfData.incorrectTrials || 0;
@@ -222,7 +231,7 @@ export const ActiveGoalsTrackingPanel = memo(({
                             variant="outlined"
                           />
                         )}
-                        <GoalProgressChip average={recentAvg} target={goal.target} />
+                        <GoalProgressChip average={recentAvg} target={goal.target} evidenceCount={evidenceCount} />
                       </Box>
                     </Box>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>

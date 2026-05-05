@@ -43,6 +43,7 @@ interface GoalMatrixViewProps {
   goalsTargeted: string[];
   performanceData: PerformanceDataItem[];
   getRecentPerformance: (goalId: string, studentId: string) => number | null;
+  getRecentPerformanceFull?: (goalId: string, studentId: string) => { recentSessions: unknown[]; average: number | null };
   onGoalToggle: (goalId: string, studentId: string) => void;
   onTrialUpdate: (goalId: string, studentId: string, isCorrect: boolean) => void;
   onPerformanceUpdate: (goalId: string, studentId: string, field: 'accuracy' | 'notes', value: string) => void;
@@ -63,6 +64,7 @@ export const GoalMatrixView = memo(({
   goalsTargeted,
   performanceData,
   getRecentPerformance,
+  getRecentPerformanceFull,
   onGoalToggle,
   onTrialUpdate,
   onPerformanceUpdate,
@@ -180,7 +182,9 @@ export const GoalMatrixView = memo(({
     }
 
     const isSelected = goalsTargeted.includes(goal.id);
-    const recentAvg = getRecentPerformance(goal.id, studentId);
+    const recent = getRecentPerformanceFull?.(goal.id, studentId);
+    const recentAvg = recent?.average ?? getRecentPerformance(goal.id, studentId);
+    const evidenceCount = recent ? (Array.isArray(recent.recentSessions) ? recent.recentSessions.length : undefined) : undefined;
     const path = getGoalPath(goal, goals);
 
     return (
@@ -200,7 +204,7 @@ export const GoalMatrixView = memo(({
                   <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
                     {goal.description}
                   </Typography>
-                  <GoalProgressChip average={recentAvg} target={goal.target} />
+                  <GoalProgressChip average={recentAvg} target={goal.target} evidenceCount={evidenceCount} />
                 </Box>
                 {path !== goal.description && (
                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>

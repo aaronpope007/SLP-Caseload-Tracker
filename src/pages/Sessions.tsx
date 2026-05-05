@@ -406,6 +406,7 @@ export const Sessions = () => {
         onCuingLevelToggle={formHandlers.handleCuingLevelToggle}
         onTrialUpdate={formHandlers.handleTrialUpdate}
         getRecentPerformance={getRecentPerformance}
+        getRecentPerformanceFull={getRecentPerformanceFull}
         isGoalAchieved={isGoalAchieved}
         onMarkGoalMet={handleMarkGoalMet}
       />

@@ -10,6 +10,7 @@ import {
   Add as AddIcon,
 } from '@mui/icons-material';
 import type { Student, Goal, Session } from '../../types';
+import { GoalProgressChip } from '../goal/GoalProgressChip';
 
 interface PreviousSessionGoalsProps {
   students: Student[];
@@ -18,6 +19,7 @@ interface PreviousSessionGoalsProps {
   selectedStudentIds: string[];
   goalsTargeted: string[];
   getRecentPerformance: (goalId: string, studentId: string) => number | null;
+  getRecentPerformanceFull?: (goalId: string, studentId: string) => { recentSessions: unknown[]; average: number | null };
   onGoalToggle: (goalId: string, studentId: string) => void;
   isDirectServices?: boolean;
 }
@@ -27,6 +29,7 @@ interface PreviousGoalData {
   student: Student;
   previousSessionPerformance: number | null;
   averagePerformance: number | null;
+  evidenceCount?: number;
 }
 
 export const PreviousSessionGoals = ({
@@ -36,6 +39,7 @@ export const PreviousSessionGoals = ({
   selectedStudentIds,
   goalsTargeted,
   getRecentPerformance,
+  getRecentPerformanceFull,
   onGoalToggle,
   isDirectServices = true,
 }: PreviousSessionGoalsProps) => {
@@ -133,8 +137,9 @@ export const PreviousSessionGoals = ({
           }
         }
         
-        // Get average performance from last 3 times
-        const averagePerformance = getRecentPerformance(goalId, goal.studentId);
+        const recent = getRecentPerformanceFull?.(goalId, goal.studentId);
+        const averagePerformance = recent?.average ?? getRecentPerformance(goalId, goal.studentId);
+        const evidenceCount = recent ? (Array.isArray(recent.recentSessions) ? recent.recentSessions.length : undefined) : undefined;
         
         // Use goalId as key to avoid duplicates
         if (!goalMap.has(goalId)) {
@@ -143,6 +148,7 @@ export const PreviousSessionGoals = ({
             student,
             previousSessionPerformance,
             averagePerformance,
+            evidenceCount,
           });
         }
       });
@@ -167,7 +173,7 @@ export const PreviousSessionGoals = ({
         </Typography>
       </Box>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-        {previousSessionGoals.map(({ goal, student, previousSessionPerformance, averagePerformance }) => {
+        {previousSessionGoals.map(({ goal, student, previousSessionPerformance, averagePerformance, evidenceCount }) => {
           const chipLabel = (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'nowrap' }}>
               <Typography variant="body2" sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
@@ -190,11 +196,12 @@ export const PreviousSessionGoals = ({
                   ({previousSessionPerformance}%)
                 </Typography>
               )}
-              {averagePerformance !== null && (
-                <Typography variant="body2" sx={{ ml: 0.5, opacity: 0.9, whiteSpace: 'nowrap' }}>
-                  [Avg: {averagePerformance}%]
-                </Typography>
-              )}
+              <GoalProgressChip
+                average={averagePerformance}
+                target={goal.target}
+                evidenceCount={evidenceCount}
+                size="small"
+              />
             </Box>
           );
 

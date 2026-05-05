@@ -14,6 +14,7 @@ import {
 } from '@mui/icons-material';
 import type { Goal, Student } from '../../types';
 import { getGoalPath } from '../../utils/goalPaths';
+import { GoalProgressChip } from './GoalProgressChip';
 
 interface QuickAccessGoalsBarProps {
   goals: Goal[];
@@ -25,6 +26,7 @@ interface QuickAccessGoalsBarProps {
   onPinToggle: (goalId: string) => void;
   onClearPinned: () => void;
   getRecentPerformance: (goalId: string, studentId: string) => number | null;
+  getRecentPerformanceFull?: (goalId: string, studentId: string) => { recentSessions: unknown[]; average: number | null };
   onGoalFocus?: (goalId: string | null) => void;
 }
 
@@ -38,6 +40,7 @@ export const QuickAccessGoalsBar = memo(({
   onPinToggle,
   onClearPinned,
   getRecentPerformance,
+  getRecentPerformanceFull,
   onGoalFocus,
 }: QuickAccessGoalsBarProps) => {
   // Get pinned goals for selected students
@@ -104,7 +107,9 @@ export const QuickAccessGoalsBar = memo(({
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
               {pinnedGoals.map(({ goal, studentId, studentName }) => {
                 const isSelected = goalsTargeted.includes(goal.id);
-                const recentAvg = getRecentPerformance(goal.id, studentId);
+                const recent = getRecentPerformanceFull?.(goal.id, studentId);
+                const recentAvg = recent?.average ?? getRecentPerformance(goal.id, studentId);
+                const evidenceCount = recent ? (Array.isArray(recent.recentSessions) ? recent.recentSessions.length : undefined) : undefined;
                 return (
                   <Chip
                     key={`${studentId}-${goal.id}`}
@@ -114,11 +119,7 @@ export const QuickAccessGoalsBar = memo(({
                         <Typography variant="caption" sx={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {studentName}: {goal.description}
                         </Typography>
-                        {recentAvg !== null && (
-                          <Typography variant="caption" color="text.secondary">
-                            ({recentAvg}%)
-                          </Typography>
-                        )}
+                        <GoalProgressChip average={recentAvg} target={goal.target} evidenceCount={evidenceCount} size="small" />
                       </Box>
                     }
                     onClick={() => {
@@ -151,7 +152,9 @@ export const QuickAccessGoalsBar = memo(({
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
               {recentGoals.map(({ goal, studentId, studentName }) => {
                 const isSelected = goalsTargeted.includes(goal.id);
-                const recentAvg = getRecentPerformance(goal.id, studentId);
+                const recent = getRecentPerformanceFull?.(goal.id, studentId);
+                const recentAvg = recent?.average ?? getRecentPerformance(goal.id, studentId);
+                const evidenceCount = recent ? (Array.isArray(recent.recentSessions) ? recent.recentSessions.length : undefined) : undefined;
                 return (
                   <Chip
                     key={`${studentId}-${goal.id}`}
@@ -160,11 +163,7 @@ export const QuickAccessGoalsBar = memo(({
                         <Typography variant="caption" sx={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {studentName}: {goal.description}
                         </Typography>
-                        {recentAvg !== null && (
-                          <Typography variant="caption" color="text.secondary">
-                            ({recentAvg}%)
-                          </Typography>
-                        )}
+                        <GoalProgressChip average={recentAvg} target={goal.target} evidenceCount={evidenceCount} size="small" />
                       </Box>
                     }
                     onClick={() => {
