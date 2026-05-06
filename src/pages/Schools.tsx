@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { logError, logWarn } from '../utils/logger';
 import {
   Box,
@@ -26,9 +27,6 @@ import {
   Delete as DeleteIcon,
   Search as SearchIcon,
   Clear as ClearIcon,
-  School as SchoolIcon,
-  LocationOn as LocationOnIcon,
-  Videocam as VideocamIcon,
 } from '@mui/icons-material';
 import type { School } from '../types';
 import {
@@ -102,7 +100,8 @@ const US_STATES = [
 ];
 
 export const Schools = () => {
-  const { } = useSchool();
+  const navigate = useNavigate();
+  const { setSelectedSchool } = useSchool();
   const [schools, setSchools] = useState<School[]>([]);
   const [filteredSchools, setFilteredSchools] = useState<School[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -113,7 +112,7 @@ export const Schools = () => {
   const schoolDialog = useDialog();
   const { showSnackbar, SnackbarComponent } = useSnackbar();
   const { confirm, ConfirmDialog } = useConfirm();
-  const { fieldErrors, hasError, getError, clearError, handleApiError, clearAllErrors } = useFormValidation();
+  const { fieldErrors, clearError, handleApiError, clearAllErrors } = useFormValidation();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -134,7 +133,6 @@ export const Schools = () => {
     try {
       // Get all existing schools first
       let allSchoolObjects = await getSchools();
-      const schoolNames = new Set(allSchoolObjects.map(s => s.name.toLowerCase()));
       
       // Also check for schools that exist in students but not as School objects
       // and create School objects for them (but check for duplicates case-insensitively)
@@ -360,6 +358,100 @@ export const Schools = () => {
     return state ? state.label : stateCode;
   };
 
+  const escapeHtml = (value: string): string =>
+    value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+
+  const buildStudentRosterHtml = (schoolName: string, students: Array<{ name: string; grade?: string }>) => {
+    const today = new Date().toLocaleDateString();
+    const rows = students
+      .map((s, idx) => {
+        const grade = (s.grade || '').trim();
+        return `
+          <tr>
+            <td>${idx + 1}</td>
+            <td>${escapeHtml(s.name || '')}</td>
+            <td>${escapeHtml(grade)}</td>
+          </tr>
+        `;
+      })
+      .join('');
+
+    return `
+      <html>
+        <head>
+          <title>Student List - ${escapeHtml(schoolName)}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; color: #111; }
+            h1 { margin: 0 0 6px 0; font-size: 20px; }
+            .meta { margin: 0 0 16px 0; color: #444; font-size: 12px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; }
+            th { background: #f3f3f3; font-weight: 700; }
+            td:first-child, th:first-child { width: 44px; text-align: center; }
+            td:last-child, th:last-child { width: 120px; }
+            @media print {
+              body { padding: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>Student List</h1>
+          <p class="meta">
+            <strong>School:</strong> ${escapeHtml(schoolName)} &nbsp;|&nbsp;
+            <strong>Date:</strong> ${escapeHtml(today)} &nbsp;|&nbsp;
+            <strong>Total:</strong> ${students.length}
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Student</th>
+                <th>Grade</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows || `<tr><td colspan="3">No students found for this school.</td></tr>`}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+  };
+
+  const handleViewStudents = (school: School) => {
+    setSelectedSchool(school.name);
+    navigate('/students');
+  };
+
+  const handlePrintStudents = async (school: School) => {
+    try {
+      const all = await getStudents(school.name);
+      const roster = all
+        .filter((s) => s.status === 'active' && !s.archived)
+        .sort((a, b) => {
+          const aFirst = (a.name || '').split(' ')[0].toLowerCase();
+          const bFirst = (b.name || '').split(' ')[0].toLowerCase();
+          return aFirst.localeCompare(bFirst);
+        })
+        .map((s) => ({ name: s.name, grade: s.grade }));
+
+      const html = buildStudentRosterHtml(school.name, roster);
+      const w = window.open('', '_blank');
+      if (!w) return;
+      w.document.write(html);
+      w.document.close();
+      w.print();
+    } catch (error) {
+      logError('Failed to print student roster', error);
+      showSnackbar('Failed to generate student list for printing', 'error');
+    }
+  };
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
@@ -403,6 +495,8 @@ export const Schools = () => {
                 getStateLabel={getStateLabel}
                 onEdit={handleOpenDialog}
                 onDelete={handleDelete}
+                onViewStudents={handleViewStudents}
+                onPrintStudents={handlePrintStudents}
               />
             </Grid>
           ))

@@ -2,6 +2,8 @@ import {
   Box,
   Card,
   CardContent,
+  CardActions,
+  Button,
   Chip,
   IconButton,
   Typography,
@@ -12,6 +14,8 @@ import {
   School as SchoolIcon,
   LocationOn as LocationOnIcon,
   Videocam as VideocamIcon,
+  People as PeopleIcon,
+  Print as PrintIcon,
 } from '@mui/icons-material';
 import type { School } from '../types';
 
@@ -20,6 +24,8 @@ interface SchoolCardProps {
   getStateLabel: (stateCode: string) => string;
   onEdit: (school: School) => void;
   onDelete: (id: string) => void;
+  onViewStudents: (school: School) => void;
+  onPrintStudents: (school: School) => void;
 }
 
 export const SchoolCard = ({
@@ -27,6 +33,8 @@ export const SchoolCard = ({
   getStateLabel,
   onEdit,
   onDelete,
+  onViewStudents,
+  onPrintStudents,
 }: SchoolCardProps) => {
   return (
     <Card>
@@ -87,6 +95,23 @@ export const SchoolCard = ({
           )}
         </Box>
       </CardContent>
+      <CardActions sx={{ px: 2, pb: 2, pt: 0, display: 'flex', justifyContent: 'space-between' }}>
+        <Button
+          size="small"
+          startIcon={<PeopleIcon />}
+          onClick={() => onViewStudents(school)}
+        >
+          View Students
+        </Button>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<PrintIcon />}
+          onClick={() => onPrintStudents(school)}
+        >
+          Print List
+        </Button>
+      </CardActions>
     </Card>
   );
 };
