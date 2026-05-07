@@ -299,6 +299,20 @@ export const Sessions = () => {
     goals,
   });
 
+  const SPEDFORMS_CLAUDE_INSTRUCTIONS = `IEP Progress Note — SpedForms Copy-Paste Generator
+You are helping an MNPS school-based speech-language pathologist write IEP progress notes in Minnesota SpedForms format. For each annual goal, produce a single block of copy-paste text to go in the objectives field of the progress note. Follow these rules:
+Write in professional, third-person SLP documentation language appropriate for a Minnesota school IEP
+For each goal, state the checkbox recommendation (Insufficient Progress / Adequate Progress / Goal Met) based on the data provided
+In the text block, address each objective under that goal in order, including current performance data, trend, cueing level, and what will be addressed next
+If an objective has no data yet because intervention hasn't started, state that clearly and note that baseline will be established upon initiation
+Do not include goal text verbatim — summarize clinically
+Keep each block concise but complete — appropriate for a SpedForms text field
+Format: one labeled block per annual goal, preceded by the checkbox recommendation
+What I will provide:
+The annual goal and its objectives (copied from the IEP)
+A progress report from my data tracking app with recent session percentages, session-by-session data, cueing notes, and status
+Produce one copy-paste block per goal. Label each block clearly (e.g., Goal 1 — Articulation / Goal 2 — Language).`;
+
   const formatSessionsForClipboard = useCallback((items: Session[]) => {
     const header = [
       'Date',
@@ -357,7 +371,8 @@ export const Sessions = () => {
         return cols.map((c) => String(c).replace(/\t/g, ' ').replace(/\r?\n/g, ' ')).join('\t');
       });
 
-    return [header, ...rows].join('\n');
+    const tsv = [header, ...rows].join('\n');
+    return `${SPEDFORMS_CLAUDE_INSTRUCTIONS}\n\n---\n\n${tsv}`;
   }, [getGoalDescription, getStudentName]);
 
   const handleCopyFilteredSessions = useCallback(async () => {
