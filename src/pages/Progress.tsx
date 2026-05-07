@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { logError } from '../utils/logger';
+import { startOfDay, subMonths } from 'date-fns';
 import {
   Box,
   Card,
@@ -27,6 +28,8 @@ import {
   Link,
   Alert,
 } from '@mui/material';
+import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import {
   LineChart,
   Line,
@@ -119,6 +122,9 @@ export const Progress = () => {
   const [savingNote, setSavingNote] = useState<boolean>(false);
   const [loadingSavedNotes, setLoadingSavedNotes] = useState<boolean>(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [includeArchivedGoals, setIncludeArchivedGoals] = useState<boolean>(false);
+  const [limitSessionsByStartDate, setLimitSessionsByStartDate] = useState<boolean>(false);
+  const [sessionsStartDate, setSessionsStartDate] = useState<Date | null>(null);
   const additionalContextRef = useRef<string>('');
   const [formattedDialogOpen, setFormattedDialogOpen] = useState(false);
   const [formattedDialogContent, setFormattedDialogContent] = useState('');
@@ -161,7 +167,7 @@ export const Progress = () => {
       loadSavedNotes();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedStudentId]);
+  }, [selectedStudentId, includeArchivedGoals, limitSessionsByStartDate, sessionsStartDate]);
 
   // Memory leak prevention
   useEffect(() => {
@@ -173,12 +179,18 @@ export const Progress = () => {
 
   const loadProgressData = async () => {
     try {
+      const startCutoffMs =
+        limitSessionsByStartDate && sessionsStartDate ? startOfDay(sessionsStartDate).getTime() : null;
+
       const sessions = (await getSessions())
         .filter((s) => s.studentId === selectedStudentId)
         .filter(isTreatmentSession)
+        .filter((s) => (startCutoffMs == null ? true : new Date(s.date).getTime() >= startCutoffMs))
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-      const goals = (await getGoals()).filter((g) => g.studentId === selectedStudentId);
+      const goals = (await getGoals(includeArchivedGoals)).filter((g) =>
+        g.studentId === selectedStudentId && (includeArchivedGoals ? true : g.archived !== true),
+      );
 
     // Prepare session timeline data
     const timelineData = sessions.map((session) => ({
@@ -289,12 +301,18 @@ export const Progress = () => {
 
     try {
       // Re-fetch the latest data to ensure we have up-to-date goal results
+      const startCutoffMs =
+        limitSessionsByStartDate && sessionsStartDate ? startOfDay(sessionsStartDate).getTime() : null;
+
       const sessions = (await getSessions())
         .filter((s) => s.studentId === selectedStudentId)
         .filter(isTreatmentSession)
+        .filter((s) => (startCutoffMs == null ? true : new Date(s.date).getTime() >= startCutoffMs))
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
       
-      const goals = (await getGoals()).filter((g) => g.studentId === selectedStudentId);
+      const goals = (await getGoals(includeArchivedGoals)).filter((g) =>
+        g.studentId === selectedStudentId && (includeArchivedGoals ? true : g.archived !== true),
+      );
       const targetGoal = goals.find((g) => g.id === goal.goalId);
       
       if (!targetGoal) {
@@ -382,12 +400,18 @@ export const Progress = () => {
 
     try {
       // Refresh data to ensure we have the latest goal results
+      const startCutoffMs =
+        limitSessionsByStartDate && sessionsStartDate ? startOfDay(sessionsStartDate).getTime() : null;
+
       const sessions = (await getSessions())
         .filter((s) => s.studentId === selectedStudentId)
         .filter(isTreatmentSession)
+        .filter((s) => (startCutoffMs == null ? true : new Date(s.date).getTime() >= startCutoffMs))
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
       
-      const goals = (await getGoals()).filter((g) => g.studentId === selectedStudentId);
+      const goals = (await getGoals(includeArchivedGoals)).filter((g) =>
+        g.studentId === selectedStudentId && (includeArchivedGoals ? true : g.archived !== true),
+      );
       
       // Calculate fresh goal progress data for all goals
       const allGoalData = goals.map((goal) => {
@@ -904,6 +928,48 @@ export const Progress = () => {
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                   Select specific goals to include, or leave all unchecked to include all goals.
                 </Typography>
+
+                <Box sx={{ mb: 2 }}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={includeArchivedGoals}
+                        onChange={(_, checked) => setIncludeArchivedGoals(checked)}
+                      />
+                    }
+                    label="Include archived goals"
+                  />
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={limitSessionsByStartDate}
+                        onChange={(_, checked) => {
+                          setLimitSessionsByStartDate(checked);
+                          if (checked) {
+                            setSessionsStartDate((prev) => prev ?? subMonths(new Date(), 6));
+                          }
+                        }}
+                      />
+                    }
+                    label="Limit sessions by start date"
+                  />
+                  {limitSessionsByStartDate && (
+                    <LocalizationProvider dateAdapter={AdapterDateFns}>
+                      <DatePicker
+                        label="Include sessions back to"
+                        value={sessionsStartDate}
+                        onChange={(newValue) => setSessionsStartDate(newValue)}
+                        slotProps={{
+                          textField: {
+                            size: 'small',
+                            sx: { mt: 1, maxWidth: 320 },
+                            helperText: 'Only sessions on/after this date are used when generating the report.',
+                          },
+                        }}
+                      />
+                    </LocalizationProvider>
+                  )}
+                </Box>
                 
                 <Box sx={{ mb: 2 }}>
                   <FormControlLabel
