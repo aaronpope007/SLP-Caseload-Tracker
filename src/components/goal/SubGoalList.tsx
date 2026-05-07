@@ -78,7 +78,12 @@ const NestedGoalItem: React.FC<{
     <>
       <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
         <StatusChip status={goal.status} />
-        <GoalProgressChip average={recent.average} target={goal.target} evidenceCount={recent.recentSessions.length} />
+        <GoalProgressChip
+          average={recent.average}
+          target={goal.target}
+          evidenceCount={recent.recentSessions.length}
+          lastTargetedDate={recent.recentSessions?.[0]?.date}
+        />
         {(!goal.target || goal.target.trim() === '') && (
           <Chip
             label="No target set"

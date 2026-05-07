@@ -30,6 +30,7 @@ interface PreviousGoalData {
   previousSessionPerformance: number | null;
   averagePerformance: number | null;
   evidenceCount?: number;
+  lastTargetedDate?: string;
 }
 
 export const PreviousSessionGoals = ({
@@ -140,6 +141,7 @@ export const PreviousSessionGoals = ({
         const recent = getRecentPerformanceFull?.(goalId, goal.studentId);
         const averagePerformance = recent?.average ?? getRecentPerformance(goalId, goal.studentId);
         const evidenceCount = recent ? (Array.isArray(recent.recentSessions) ? recent.recentSessions.length : undefined) : undefined;
+        const lastTargetedDate = recent && Array.isArray(recent.recentSessions) ? (recent.recentSessions as any[])?.[0]?.date : undefined;
         
         // Use goalId as key to avoid duplicates
         if (!goalMap.has(goalId)) {
@@ -149,6 +151,7 @@ export const PreviousSessionGoals = ({
             previousSessionPerformance,
             averagePerformance,
             evidenceCount,
+            lastTargetedDate,
           });
         }
       });
@@ -173,7 +176,7 @@ export const PreviousSessionGoals = ({
         </Typography>
       </Box>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-        {previousSessionGoals.map(({ goal, student, previousSessionPerformance, averagePerformance, evidenceCount }) => {
+        {previousSessionGoals.map(({ goal, student, previousSessionPerformance, averagePerformance, evidenceCount, lastTargetedDate }) => {
           const chipLabel = (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'nowrap' }}>
               <Typography variant="body2" sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
@@ -200,6 +203,7 @@ export const PreviousSessionGoals = ({
                 average={averagePerformance}
                 target={goal.target}
                 evidenceCount={evidenceCount}
+                lastTargetedDate={lastTargetedDate}
                 size="small"
               />
             </Box>

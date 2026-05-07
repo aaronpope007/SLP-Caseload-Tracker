@@ -85,6 +85,7 @@ export const GoalHierarchy = memo(({
     const recent = getRecentPerformanceFull?.(goal.id, studentId);
     const recentAvg = recent?.average ?? getRecentPerformance(goal.id, studentId);
     const evidenceCount = recent ? (Array.isArray(recent.recentSessions) ? recent.recentSessions.length : undefined) : undefined;
+    const lastTargetedDate = recent && Array.isArray(recent.recentSessions) ? (recent.recentSessions as any[])?.[0]?.date : undefined;
     
     // Calculate indentation based on depth (each level adds 2 units of padding)
     const paddingLeft = depth * 2;
@@ -114,7 +115,12 @@ export const GoalHierarchy = memo(({
                   label={
                     <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                       <Box component="span" sx={{ fontSize: isCompact ? '0.875rem' : '1rem' }}>{goal.description}</Box>
-                      <GoalProgressChip average={recentAvg} target={goal.target} evidenceCount={evidenceCount} />
+                      <GoalProgressChip
+                        average={recentAvg}
+                        target={goal.target}
+                        evidenceCount={evidenceCount}
+                        lastTargetedDate={lastTargetedDate}
+                      />
                       {(!goal.target || goal.target.trim() === '') && (
                         <Chip
                           label="No target set"
@@ -180,7 +186,12 @@ export const GoalHierarchy = memo(({
               label={
                 <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                   <Box component="span" sx={{ fontSize: isCompact ? '0.875rem' : '1rem' }}>{goal.description}</Box>
-                  <GoalProgressChip average={recentAvg} target={goal.target} evidenceCount={evidenceCount} />
+                  <GoalProgressChip
+                    average={recentAvg}
+                    target={goal.target}
+                    evidenceCount={evidenceCount}
+                    lastTargetedDate={lastTargetedDate}
+                  />
                   {(!goal.target || goal.target.trim() === '') && (
                     <Chip
                       label="No target set"
@@ -244,7 +255,9 @@ export const GoalHierarchy = memo(({
       
       {/* Render orphan goals (goals without parent/child relationships) in accordions for consistent layout */}
       {orphanGoals.map((goal) => {
-        const recentAvg = getRecentPerformance(goal.id, studentId);
+        const recent = getRecentPerformanceFull?.(goal.id, studentId);
+        const recentAvg = recent?.average ?? getRecentPerformance(goal.id, studentId);
+        const lastTargetedDate = recent && Array.isArray(recent.recentSessions) ? (recent.recentSessions as any[])?.[0]?.date : undefined;
         
         return (
           <Box key={goal.id}>
@@ -270,7 +283,11 @@ export const GoalHierarchy = memo(({
                     label={
                       <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                         <Box component="span" sx={{ fontSize: isCompact ? '0.875rem' : '1rem' }}>{goal.description}</Box>
-                        <GoalProgressChip average={recentAvg} target={goal.target} />
+                        <GoalProgressChip
+                          average={recentAvg}
+                          target={goal.target}
+                          lastTargetedDate={lastTargetedDate}
+                        />
                         {(!goal.target || goal.target.trim() === '') && (
                           <Chip
                             label="No target set"

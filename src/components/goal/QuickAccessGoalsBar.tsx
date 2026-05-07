@@ -110,6 +110,7 @@ export const QuickAccessGoalsBar = memo(({
                 const recent = getRecentPerformanceFull?.(goal.id, studentId);
                 const recentAvg = recent?.average ?? getRecentPerformance(goal.id, studentId);
                 const evidenceCount = recent ? (Array.isArray(recent.recentSessions) ? recent.recentSessions.length : undefined) : undefined;
+                const lastTargetedDate = recent && Array.isArray(recent.recentSessions) ? (recent.recentSessions as any[])?.[0]?.date : undefined;
                 return (
                   <Chip
                     key={`${studentId}-${goal.id}`}
@@ -119,7 +120,13 @@ export const QuickAccessGoalsBar = memo(({
                         <Typography variant="caption" sx={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {studentName}: {goal.description}
                         </Typography>
-                        <GoalProgressChip average={recentAvg} target={goal.target} evidenceCount={evidenceCount} size="small" />
+                        <GoalProgressChip
+                          average={recentAvg}
+                          target={goal.target}
+                          evidenceCount={evidenceCount}
+                          lastTargetedDate={lastTargetedDate}
+                          size="small"
+                        />
                       </Box>
                     }
                     onClick={() => {
@@ -155,6 +162,7 @@ export const QuickAccessGoalsBar = memo(({
                 const recent = getRecentPerformanceFull?.(goal.id, studentId);
                 const recentAvg = recent?.average ?? getRecentPerformance(goal.id, studentId);
                 const evidenceCount = recent ? (Array.isArray(recent.recentSessions) ? recent.recentSessions.length : undefined) : undefined;
+                const lastTargetedDate = recent && Array.isArray(recent.recentSessions) ? (recent.recentSessions as any[])?.[0]?.date : undefined;
                 return (
                   <Chip
                     key={`${studentId}-${goal.id}`}
@@ -163,7 +171,13 @@ export const QuickAccessGoalsBar = memo(({
                         <Typography variant="caption" sx={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {studentName}: {goal.description}
                         </Typography>
-                        <GoalProgressChip average={recentAvg} target={goal.target} evidenceCount={evidenceCount} size="small" />
+                        <GoalProgressChip
+                          average={recentAvg}
+                          target={goal.target}
+                          evidenceCount={evidenceCount}
+                          lastTargetedDate={lastTargetedDate}
+                          size="small"
+                        />
                       </Box>
                     }
                     onClick={() => {

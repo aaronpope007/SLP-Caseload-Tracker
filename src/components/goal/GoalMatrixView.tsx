@@ -185,6 +185,7 @@ export const GoalMatrixView = memo(({
     const recent = getRecentPerformanceFull?.(goal.id, studentId);
     const recentAvg = recent?.average ?? getRecentPerformance(goal.id, studentId);
     const evidenceCount = recent ? (Array.isArray(recent.recentSessions) ? recent.recentSessions.length : undefined) : undefined;
+    const lastTargetedDate = recent && Array.isArray(recent.recentSessions) ? (recent.recentSessions as any[])?.[0]?.date : undefined;
     const path = getGoalPath(goal, goals);
 
     return (
@@ -204,7 +205,12 @@ export const GoalMatrixView = memo(({
                   <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
                     {goal.description}
                   </Typography>
-                  <GoalProgressChip average={recentAvg} target={goal.target} evidenceCount={evidenceCount} />
+                  <GoalProgressChip
+                    average={recentAvg}
+                    target={goal.target}
+                    evidenceCount={evidenceCount}
+                    lastTargetedDate={lastTargetedDate}
+                  />
                 </Box>
                 {path !== goal.description && (
                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>

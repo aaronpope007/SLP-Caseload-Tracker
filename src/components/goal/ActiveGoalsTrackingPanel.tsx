@@ -58,14 +58,19 @@ export const ActiveGoalsTrackingPanel = memo(({
 }: ActiveGoalsTrackingPanelProps) => {
   // Memoize recent performance results to avoid calling getRecentPerformance repeatedly
   const recentPerformanceCache = useMemo(() => {
-    const cache = new Map<string, { average: number | null; evidenceCount?: number }>();
+    const cache = new Map<string, { average: number | null; evidenceCount?: number; lastTargetedDate?: string }>();
     goalsTargeted.forEach(goalId => {
       const goal = goals.find(g => g.id === goalId);
       if (goal) {
         const key = `${goalId}:${goal.studentId}`;
         if (getRecentPerformanceFull) {
           const full = getRecentPerformanceFull(goalId, goal.studentId);
-          cache.set(key, { average: full.average, evidenceCount: Array.isArray(full.recentSessions) ? full.recentSessions.length : undefined });
+          const lastTargetedDate = Array.isArray(full.recentSessions) ? (full.recentSessions as any[])?.[0]?.date : undefined;
+          cache.set(key, {
+            average: full.average,
+            evidenceCount: Array.isArray(full.recentSessions) ? full.recentSessions.length : undefined,
+            lastTargetedDate,
+          });
         } else {
           cache.set(key, { average: getRecentPerformance(goalId, goal.studentId) });
         }
@@ -92,6 +97,7 @@ export const ActiveGoalsTrackingPanel = memo(({
         perfData: perfData || { goalId, studentId: goal.studentId, correctTrials: 0, incorrectTrials: 0 },
         recentAvg,
         evidenceCount: cached?.evidenceCount,
+        lastTargetedDate: cached?.lastTargetedDate,
         path: getGoalPath(goal, goals),
       };
     }).filter((item): item is NonNullable<typeof item> => item !== null);
@@ -165,7 +171,7 @@ export const ActiveGoalsTrackingPanel = memo(({
       {!collapsed && (
         <Box sx={{ p: 1.5 }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {activeGoals.map(({ goal, student, perfData, recentAvg, evidenceCount, path }) => {
+            {activeGoals.map(({ goal, student, perfData, recentAvg, evidenceCount, lastTargetedDate, path }) => {
               const isFocused = focusedGoalId === goal.id;
               const correctTrials = perfData.correctTrials || 0;
               const incorrectTrials = perfData.incorrectTrials || 0;
@@ -231,7 +237,12 @@ export const ActiveGoalsTrackingPanel = memo(({
                             variant="outlined"
                           />
                         )}
-                        <GoalProgressChip average={recentAvg} target={goal.target} evidenceCount={evidenceCount} />
+                        <GoalProgressChip
+                          average={recentAvg}
+                          target={goal.target}
+                          evidenceCount={evidenceCount}
+                          lastTargetedDate={lastTargetedDate}
+                        />
                       </Box>
                     </Box>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>

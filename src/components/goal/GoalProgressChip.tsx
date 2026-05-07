@@ -1,11 +1,12 @@
 import React, { memo } from 'react';
 import { Chip } from '@mui/material';
-import { getGoalProgressChipProps } from '../../utils/helpers';
+import { formatDateOnly, getGoalProgressChipProps } from '../../utils/helpers';
 
 interface GoalProgressChipProps {
   average: number | null;
   target: string;
   evidenceCount?: number;
+  lastTargetedDate?: string | null;
   size?: 'small' | 'medium';
 }
 
@@ -13,6 +14,7 @@ export const GoalProgressChip: React.FC<GoalProgressChipProps> = memo(({
   average,
   target,
   evidenceCount,
+  lastTargetedDate,
   size = 'small',
 }) => {
   const chipProps = getGoalProgressChipProps(average, target, evidenceCount);
@@ -25,16 +27,19 @@ export const GoalProgressChip: React.FC<GoalProgressChipProps> = memo(({
   const isProgressingZone = progressPercentOfGoal !== null && progressPercentOfGoal >= 60 && progressPercentOfGoal < 100;
   const hasEnoughEvidence = typeof evidenceCount === 'number' ? evidenceCount >= 3 : undefined;
 
-  const label = (() => {
-    if (!isValidAverage || rounded === null) return 'not started 0%';
+  const baseLabel = (() => {
+    if (!isValidAverage || rounded === null) return 'Not started 0%';
     if (isAtOrAboveTarget && typeof hasEnoughEvidence === 'boolean') {
-      return hasEnoughEvidence ? `goal met: ${rounded}%` : `progressing: ${rounded}%`;
+      return hasEnoughEvidence ? `Goal met ${rounded}%` : `Progressing ${rounded}%`;
     }
     if (isProgressingZone) {
-      return `progressing: ${rounded}%`;
+      return `Progressing ${rounded}%`;
     }
     return `${rounded}%`;
   })();
+
+  const dateSuffix = lastTargetedDate ? ` ${formatDateOnly(lastTargetedDate)}` : '';
+  const label = `${baseLabel}${dateSuffix}`;
 
   return (
     <Chip
