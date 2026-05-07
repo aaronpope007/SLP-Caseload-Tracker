@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { endOfDay, startOfDay } from 'date-fns';
 import {
   Box,
   Button,
@@ -15,7 +16,10 @@ import {
 } from '@mui/material';
 import {
   Psychology as PsychologyIcon,
+  ContentCopy as CopyIcon,
 } from '@mui/icons-material';
+import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import type { Session, Student, Goal } from '../types';
 import {
   getSessions, // Needed for group session logic
@@ -80,6 +84,8 @@ export const Sessions = () => {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [studentSearch, setStudentSearch] = useState('');
   const [studentFilterId, setStudentFilterId] = useState<string>('');
+  const [startDateFilter, setStartDateFilter] = useState<Date | null>(null);
+  const [endDateFilter, setEndDateFilter] = useState<Date | null>(null);
   const [selectedSessionForSOAP, setSelectedSessionForSOAP] = useState<Session | null>(null);
   const [existingSOAPNote, setExistingSOAPNote] = useState<SOAPNote | undefined>(undefined);
 
@@ -113,25 +119,40 @@ export const Sessions = () => {
     });
   }, [studentsForSchool]);
 
-  // Filter sessions by selected student; include full group sessions when any member matches
+  const dateRangePredicate = useCallback((s: Session) => {
+    if (!startDateFilter && !endDateFilter) return true;
+    const t = new Date(s.date).getTime();
+    const startMs = startDateFilter ? startOfDay(startDateFilter).getTime() : null;
+    const endMs = endDateFilter ? endOfDay(endDateFilter).getTime() : null;
+    if (startMs != null && t < startMs) return false;
+    if (endMs != null && t > endMs) return false;
+    return true;
+  }, [startDateFilter, endDateFilter]);
+
+  // Filter sessions by selected student (include full group sessions when any member matches),
+  // then apply inclusive date range filter.
   const filteredSessions = useMemo(() => {
-    if (!studentFilterId) return sessions;
-    const groupIdsWithStudent = new Set(
-      sessions
-        .filter((s) => s.studentId === studentFilterId && s.groupSessionId)
-        .map((s) => s.groupSessionId!)
-    );
-    return sessions.filter(
-      (s) =>
-        s.studentId === studentFilterId ||
-        (s.groupSessionId != null && groupIdsWithStudent.has(s.groupSessionId))
-    );
-  }, [sessions, studentFilterId]);
+    const studentFiltered = (() => {
+      if (!studentFilterId) return sessions;
+      const groupIdsWithStudent = new Set(
+        sessions
+          .filter((s) => s.studentId === studentFilterId && s.groupSessionId)
+          .map((s) => s.groupSessionId!)
+      );
+      return sessions.filter(
+        (s) =>
+          s.studentId === studentFilterId ||
+          (s.groupSessionId != null && groupIdsWithStudent.has(s.groupSessionId))
+      );
+    })();
+
+    return studentFiltered.filter(dateRangePredicate);
+  }, [sessions, studentFilterId, dateRangePredicate]);
 
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSchool]);
+  }, [selectedSchool, studentFilterId]);
 
   // Check for URL parameter to open add session dialog
   useEffect(() => {
@@ -159,6 +180,7 @@ export const Sessions = () => {
     setStudents,
     setGoals,
     loadSessions,
+    studentId: studentFilterId || undefined,
   });
 
 
@@ -277,6 +299,82 @@ export const Sessions = () => {
     goals,
   });
 
+  const formatSessionsForClipboard = useCallback((items: Session[]) => {
+    const header = [
+      'Date',
+      'EndTime',
+      'Student',
+      'ServiceType',
+      'Missed',
+      'GroupSessionId',
+      'GoalsTargeted',
+      'Performance',
+      'Activities',
+      'Notes',
+      'IndirectNotes',
+    ].join('\t');
+
+    const rows = items
+      .slice()
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .map((s) => {
+        const goalsText = (s.goalsTargeted || [])
+          .map((gid) => getGoalDescription(gid))
+          .join(' | ');
+
+        const perfText = (s.performanceData || [])
+          .map((p) => {
+            const name = getGoalDescription(p.goalId);
+            const bits: string[] = [];
+            if (p.accuracy !== undefined) bits.push(`accuracy=${p.accuracy}%`);
+            if (p.correctTrials !== undefined) bits.push(`correct=${p.correctTrials}`);
+            if (p.incorrectTrials !== undefined) bits.push(`incorrect=${p.incorrectTrials}`);
+            if (p.cuingLevels && p.cuingLevels.length > 0) bits.push(`cuing=${p.cuingLevels.join(',')}`);
+            if (p.notes) bits.push(`notes=${p.notes.replace(/\s+/g, ' ').trim()}`);
+            return `${name}${bits.length ? ` (${bits.join('; ')})` : ''}`;
+          })
+          .join(' | ');
+
+        const activities = (s.activitiesUsed || []).join(', ');
+        const serviceType = s.isDirectServices === true ? 'Direct' : 'Indirect';
+        const missed = s.missedSession === true ? 'Yes' : 'No';
+
+        const cols = [
+          s.date,
+          s.endTime ?? '',
+          getStudentName(s.studentId),
+          serviceType,
+          missed,
+          s.groupSessionId ?? '',
+          goalsText,
+          perfText,
+          activities,
+          (s.notes ?? '').replace(/\s+/g, ' ').trim(),
+          (s.indirectServicesNotes ?? '').replace(/\s+/g, ' ').trim(),
+        ];
+
+        // Avoid breaking TSV with newlines/tabs
+        return cols.map((c) => String(c).replace(/\t/g, ' ').replace(/\r?\n/g, ' ')).join('\t');
+      });
+
+    return [header, ...rows].join('\n');
+  }, [getGoalDescription, getStudentName]);
+
+  const handleCopyFilteredSessions = useCallback(async () => {
+    if (filteredSessions.length === 0) {
+      showSnackbar('No sessions to copy for the current filters.', 'warning');
+      return;
+    }
+    const text = formatSessionsForClipboard(filteredSessions);
+    try {
+      await navigator.clipboard.writeText(text);
+      showSnackbar(`Copied ${filteredSessions.length} session${filteredSessions.length === 1 ? '' : 's'} to clipboard.`, 'success');
+    } catch (err) {
+      logError('Failed to copy sessions to clipboard', err);
+      showSnackbar('Failed to copy to clipboard. Your browser may block clipboard access.', 'error');
+    }
+  }, [filteredSessions, formatSessionsForClipboard, showSnackbar]);
+
   // Memoized callback for form data changes to prevent unnecessary re-renders
   const handleFormDataChange = useCallback((updates: Partial<SessionFormData>) => {
     Object.entries(updates).forEach(([key, value]) => {
@@ -339,10 +437,18 @@ export const Sessions = () => {
           <LogActivityMenu
             onAddSession={() => dialogHandlers.handleOpenDialog()}
           />
+          <Button
+            variant="outlined"
+            startIcon={<CopyIcon />}
+            onClick={handleCopyFilteredSessions}
+            disabled={filteredSessions.length === 0}
+          >
+            Copy session data
+          </Button>
         </Box>
       </Box>
 
-      <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
+      <Stack direction="row" spacing={2} sx={{ mb: 3, flexWrap: 'wrap' }}>
         <Autocomplete
           size="small"
           sx={{ minWidth: 240 }}
@@ -357,7 +463,31 @@ export const Sessions = () => {
           isOptionEqualToValue={(option, value) => value != null && option.id === value.id}
           clearText="Clear"
         />
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <DatePicker
+            label="Start date"
+            value={startDateFilter}
+            onChange={(v) => setStartDateFilter(v)}
+            slotProps={{
+              textField: { size: 'small', sx: { minWidth: 180 } },
+            }}
+          />
+          <DatePicker
+            label="End date"
+            value={endDateFilter}
+            onChange={(v) => setEndDateFilter(v)}
+            slotProps={{
+              textField: { size: 'small', sx: { minWidth: 180 } },
+            }}
+          />
+        </LocalizationProvider>
       </Stack>
+
+      {!studentFilterId && (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+          Showing the 20 most recent sessions. Select a student to load their full history.
+        </Typography>
+      )}
 
       <Grid container spacing={2}>
         {filteredSessions.length === 0 ? (

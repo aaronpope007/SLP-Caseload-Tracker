@@ -329,8 +329,8 @@ export const api = {
 
   // Sessions
   sessions: {
-    getAll: (studentId?: string, school?: string) => 
-      request<Session[]>(`/sessions${buildQueryString({ studentId, school })}`),
+    getAll: (studentId?: string, school?: string, limit?: number) =>
+      request<Session[]>(`/sessions${buildQueryString({ studentId, school, limit })}`),
     getById: (id: string) => 
       request<Session>(`/sessions/${id}`),
     create: (session: Omit<Session, 'id'>) => 

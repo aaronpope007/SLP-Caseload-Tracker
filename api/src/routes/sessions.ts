@@ -56,11 +56,11 @@ export const sessionsRouter = Router();
  *         description: List of sessions
  */
 sessionsRouter.get('/', asyncHandler(async (req, res) => {
-  const { studentId, school } = req.query;
-  
+  const { studentId, school, limit } = req.query;
+
   let query = 'SELECT * FROM sessions';
-  const params: string[] = [];
-  
+  const params: (string | number)[] = [];
+
   if (studentId && typeof studentId === 'string') {
     query += ' WHERE studentId = ? ORDER BY date DESC';
     params.push(studentId);
@@ -75,7 +75,16 @@ sessionsRouter.get('/', asyncHandler(async (req, res) => {
   } else {
     query += ' ORDER BY date DESC';
   }
-  
+
+  if (limit !== undefined) {
+    const parsedLimit = typeof limit === 'string' ? parseInt(limit, 10) : NaN;
+    if (Number.isFinite(parsedLimit) && parsedLimit > 0) {
+      const clamped = Math.min(parsedLimit, 1000);
+      query += ' LIMIT ?';
+      params.push(clamped);
+    }
+  }
+
   const sessions = db.prepare(query).all(...params) as SessionRow[];
   
   // Parse JSON fields

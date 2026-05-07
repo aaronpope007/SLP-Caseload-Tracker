@@ -28,12 +28,12 @@ export const useSessionManagement = ({
     };
   }, []);
 
-  const loadSessions = useCallback(async () => {
+  const loadSessions = useCallback(async (opts?: { studentId?: string; limit?: number }) => {
     if (!isMountedRef.current) return;
     setLoading(true);
     setError(undefined);
     try {
-      const loadedSessions = await getSessions(undefined, school);
+      const loadedSessions = await getSessions(opts?.studentId, school, opts?.limit);
       if (!isMountedRef.current) return;
       setSessions(loadedSessions);
     } catch (err) {
