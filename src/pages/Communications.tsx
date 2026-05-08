@@ -110,6 +110,7 @@ export const Communications = () => {
     sessionId: '',
     relatedTo: '',
   });
+  const originalFormDataRef = useRef<typeof formData | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -196,7 +197,7 @@ export const Communications = () => {
   const handleOpenDialog = (comm?: Communication) => {
     if (comm) {
       setEditingCommunication(comm);
-      setFormData({
+      const nextFormData = {
         studentId: comm.studentId || '',
         contactType: comm.contactType,
         contactId: comm.contactId || '',
@@ -208,13 +209,15 @@ export const Communications = () => {
         date: comm.date.split('T')[0],
         sessionId: comm.sessionId || '',
         relatedTo: comm.relatedTo || '',
-      });
+      };
+      setFormData(nextFormData);
+      originalFormDataRef.current = { ...nextFormData };
       // Set initial autocomplete values when editing
       setContactInputValue(comm.contactName);
       setStudentInputValue(comm.studentId ? students.find(s => s.id === comm.studentId)?.name || '' : '');
     } else {
       setEditingCommunication(null);
-      setFormData({
+      const nextFormData = {
         studentId: '',
         contactType: 'teacher',
         contactId: '',
@@ -226,7 +229,9 @@ export const Communications = () => {
         date: getTodayLocalDateString(),
         sessionId: '',
         relatedTo: '',
-      });
+      };
+      setFormData(nextFormData);
+      originalFormDataRef.current = { ...nextFormData };
       // Reset autocomplete values for new communication
       setContactInputValue('');
       setStudentInputValue('');
@@ -237,11 +242,32 @@ export const Communications = () => {
   const handleCloseDialog = () => {
     communicationDialog.closeDialog();
     setEditingCommunication(null);
+    originalFormDataRef.current = null;
     // Reset autocomplete input values when dialog closes
     setContactInputValue('');
     setStudentInputValue('');
     contactInputRef.current = '';
     studentInputRef.current = '';
+  };
+
+  const hasUnsavedChanges = (): boolean => {
+    if (!communicationDialog.open) return false;
+    if (!originalFormDataRef.current) return false;
+    return JSON.stringify(formData) !== JSON.stringify(originalFormDataRef.current);
+  };
+
+  const handleCancelDialog = () => {
+    if (hasUnsavedChanges()) {
+      confirm({
+        title: 'Discard Changes?',
+        message: 'You have unsaved changes. Are you sure you want to close? All changes will be lost.',
+        confirmText: 'Discard',
+        cancelText: 'Keep Editing',
+        onConfirm: handleCloseDialog,
+      });
+      return;
+    }
+    handleCloseDialog();
   };
 
   const handleSave = async () => {
@@ -604,7 +630,7 @@ export const Communications = () => {
       </Paper>
 
       {/* Create/Edit Dialog */}
-      <Dialog open={communicationDialog.open} onClose={handleCloseDialog} maxWidth="md" fullWidth>
+      <Dialog open={communicationDialog.open} onClose={handleCancelDialog} maxWidth="md" fullWidth>
         <DialogTitle>
           {editingCommunication ? 'Edit Communication' : 'Log Communication'}
         </DialogTitle>
@@ -859,7 +885,7 @@ export const Communications = () => {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
+          <Button onClick={handleCancelDialog}>Cancel</Button>
           <Button
             onClick={handleSave}
             variant="contained"
