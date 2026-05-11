@@ -4,6 +4,7 @@ import { asyncHandler } from '../middleware/asyncHandler';
 import { validateBody } from '../middleware/validateRequest';
 import { parseJsonField, stringifyJsonField } from '../utils/jsonHelpers';
 import { createSessionSchema, updateSessionSchema } from '../schemas';
+import { mergeIcdFromDomains } from '../utils/goalDomainIcd10';
 
 // Database row types
 interface SessionRow {
@@ -120,34 +121,80 @@ sessionsRouter.get('/', asyncHandler(async (req, res) => {
 }));
 
 sessionsRouter.get('/log', asyncHandler(async (req, res) => {
-  const { startDate, endDate, studentIds } = req.query;
+  const { startDate, endDate, studentIds, school } = req.query;
+  if (!school || typeof school !== 'string' || !school.trim()) {
+    return res.status(400).json({ error: 'school is required' });
+  }
   if (!startDate || !endDate || typeof startDate !== 'string' || typeof endDate !== 'string') {
-    return res.status(400).json({ error: 'startDate and endDate are required (YYYY-MM-DD)' });
+    return res.status(400).json({ error: 'startDate and endDate are required (ISO string)' });
   }
   if (!studentIds || typeof studentIds !== 'string' || !studentIds.trim()) {
-    return res.status(400).json({ error: 'studentIds is required (comma-separated)' });
+    return res.status(400).json({ error: 'studentIds is required (comma-separated ids or "all")' });
   }
-  const ids = studentIds.split(',').map((x) => x.trim()).filter(Boolean);
-  if (ids.length === 0) {
-    return res.status(400).json({ error: 'At least one student id is required' });
+
+  const schoolName = school.trim();
+  const studentIdsRaw = studentIds.trim();
+
+  // Resolve student IDs (either explicit list or "all" active students in school)
+  let ids: string[] | null = null;
+  if (studentIdsRaw.toLowerCase() !== 'all') {
+    const parsed = studentIdsRaw
+      .split(',')
+      .map((x) => x.trim())
+      .filter(Boolean);
+    if (parsed.length === 0) {
+      return res.status(400).json({ error: 'At least one student id is required' });
+    }
+    ids = parsed;
+  } else {
+    const all = db
+      .prepare(
+        `
+        SELECT id FROM students
+        WHERE school = ?
+          AND status = 'active'
+          AND (archived IS NULL OR archived = 0)
+        `
+      )
+      .all(schoolName) as Array<{ id: string }>;
+    ids = all.map((r) => r.id);
+  }
+
+  if (!ids || ids.length === 0) {
+    return res.json([]);
   }
 
   const placeholders = ids.map(() => '?').join(',');
   const rows = db
     .prepare(
       `
-    SELECT s.*, st.name as studentName
-    FROM sessions s
-    INNER JOIN students st ON st.id = s.studentId
-    WHERE s.studentId IN (${placeholders})
-      AND date(s.date) >= date(?)
-      AND date(s.date) <= date(?)
-      AND s.missedSession = 0
-      AND s.isDirectServices = 1
-    ORDER BY s.date ASC, st.name ASC
-  `
+      SELECT
+        s.*,
+        st.name as studentName,
+        st.domain as studentDomain,
+        st.icd10Codes as studentIcd10Codes,
+        st.icd10Descriptions as studentIcd10Descriptions,
+        st.cptCodeIndividual as studentCptCodeIndividual,
+        st.cptCodeGroup as studentCptCodeGroup
+      FROM sessions s
+      INNER JOIN students st ON st.id = s.studentId
+      WHERE st.school = ?
+        AND st.id IN (${placeholders})
+        AND date(s.date) >= date(?)
+        AND date(s.date) <= date(?)
+      ORDER BY s.date ASC, st.name ASC
+    `
     )
-    .all(...ids, startDate, endDate) as Array<SessionRow & { studentName: string }>;
+    .all(schoolName, ...ids, startDate, endDate) as Array<
+    SessionRow & {
+      studentName: string;
+      studentDomain: string | null;
+      studentIcd10Codes: string | null;
+      studentIcd10Descriptions: string | null;
+      studentCptCodeIndividual: string | null;
+      studentCptCodeGroup: string | null;
+    }
+  >;
 
   const groupCounts = new Map<string, number>();
   for (const row of rows) {
@@ -160,51 +207,108 @@ sessionsRouter.get('/log', asyncHandler(async (req, res) => {
     const ga = parseJsonField<string[]>(row.goalsAddressed, []);
     const gt = parseJsonField<string[]>(row.goalsTargeted, []);
     const use = ga.length > 0 ? ga : gt;
-    use.forEach((gid) => goalIds.add(gid));
+    use.forEach((gid) => {
+      const s = typeof gid === 'string' ? gid.trim() : String(gid);
+      if (s) goalIds.add(s);
+    });
   }
 
   const goalsMap = new Map<string, string>();
+  const goalMetaByStudentAndId = new Map<string, { description: string; domain: string | null }>();
   if (goalIds.size > 0) {
     const gPlaceholders = [...goalIds].map(() => '?').join(',');
     const goals = db
-      .prepare(`SELECT id, description FROM goals WHERE id IN (${gPlaceholders})`)
-      .all(...goalIds) as Array<{ id: string; description: string }>;
-    for (const g of goals) goalsMap.set(g.id, g.description);
+      .prepare(`SELECT id, studentId, description, domain FROM goals WHERE id IN (${gPlaceholders})`)
+      .all(...goalIds) as Array<{
+      id: string;
+      studentId: string;
+      description: string;
+      domain: string | null;
+    }>;
+    for (const g of goals) {
+      goalsMap.set(g.id, g.description);
+      goalMetaByStudentAndId.set(`${g.studentId}|${g.id}`, {
+        description: g.description,
+        domain: g.domain,
+      });
+    }
   }
 
   const out = rows.map((row) => {
     const goalsAddressedIds = parseJsonField<string[]>(row.goalsAddressed, []);
     const goalsTargetedIds = parseJsonField<string[]>(row.goalsTargeted, []);
     const resolvedGoalIds = goalsAddressedIds.length > 0 ? goalsAddressedIds : goalsTargetedIds;
-    const goalsAddressedTexts = resolvedGoalIds.map((gid) => goalsMap.get(gid) || `Goal ${gid}`);
+    const goalsAddressedTexts = resolvedGoalIds.map((gid) => {
+      const key = typeof gid === 'string' ? gid.trim() : String(gid).trim();
+      return goalsMap.get(key) ?? key;
+    });
 
     const inferredGroup =
       row.groupSessionId != null &&
       row.groupSessionId !== '' &&
       (groupCounts.get(row.groupSessionId) || 0) > 1;
     const isGroup = row.tsisGroup === 1 || inferredGroup;
-    const cptResolved = isGroup ? '92508' : '92507';
+    const groupSize = row.groupSessionId ? groupCounts.get(row.groupSessionId) || 1 : 1;
+    const isGroupOrMulti = isGroup || groupSize > 1;
+    const cptIndividual = row.studentCptCodeIndividual || '92507';
+    const cptGroup = row.studentCptCodeGroup || '92508';
+    const cptResolved = isGroupOrMulti ? cptGroup : cptIndividual;
 
-    let durationMinutes: number | null = null;
+    let duration: number | null = null;
     if (row.endTime) {
       const a = Date.parse(row.date);
       const b = Date.parse(row.endTime);
       if (Number.isFinite(a) && Number.isFinite(b) && b >= a) {
-        durationMinutes = Math.round((b - a) / 60000);
+        duration = Math.round((b - a) / 60000);
+      }
+    }
+
+    let icd10Codes: string[];
+    let icd10Descriptions: string[];
+    const addressedForIcd = goalsAddressedIds
+      .map((x) => (typeof x === 'string' ? x.trim() : String(x).trim()))
+      .filter((x) => x.length > 0);
+    if (addressedForIcd.length === 0) {
+      icd10Codes = parseJsonField<string[]>(row.studentIcd10Codes, []);
+      icd10Descriptions = parseJsonField<string[]>(row.studentIcd10Descriptions, []);
+    } else {
+      const domains: string[] = [];
+      for (const tr of addressedForIcd) {
+        const goalKey = `${row.studentId}|${tr}`;
+        const meta = tr.length <= 220 ? goalMetaByStudentAndId.get(goalKey) : undefined;
+        const domain = meta?.domain?.trim();
+        if (domain) domains.push(domain);
+      }
+      if (domains.length === 0) {
+        icd10Codes = parseJsonField<string[]>(row.studentIcd10Codes, []);
+        icd10Descriptions = parseJsonField<string[]>(row.studentIcd10Descriptions, []);
+      } else {
+        const merged = mergeIcdFromDomains(domains);
+        if (merged.codes.length === 0) {
+          icd10Codes = parseJsonField<string[]>(row.studentIcd10Codes, []);
+          icd10Descriptions = parseJsonField<string[]>(row.studentIcd10Descriptions, []);
+        } else {
+          icd10Codes = merged.codes;
+          icd10Descriptions = merged.descriptions;
+        }
       }
     }
 
     return {
       id: row.id,
+      date: row.date,
       studentId: row.studentId,
       studentName: row.studentName,
-      date: row.date,
-      endTime: row.endTime || undefined,
-      durationMinutes,
-      goalsAddressedTexts,
+      duration: duration ?? 0,
       isGroup,
-      cptCode: cptResolved,
-      icd10Codes: parseJsonField<string[]>(row.icd10Codes, []),
+      groupSize: isGroupOrMulti ? groupSize : undefined,
+      notes: row.notes || undefined,
+      goalsAddressed: goalsAddressedTexts.join(' | ') || undefined,
+      resolvedCptCode: cptResolved,
+      icd10Codes,
+      icd10Descriptions,
+      domain: row.studentDomain || undefined,
+      codesMapped: icd10Codes.length > 0,
     };
   });
 

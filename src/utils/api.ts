@@ -5,7 +5,7 @@
  * Set VITE_API_URL in your .env file or it defaults to http://localhost:3001
  */
 
-import type { Student, Goal, Session, Activity, Evaluation, ArticulationScreener, School, Teacher, CaseManager, SOAPNote, IEPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Meeting, Reminder, Communication, ScheduledSession, TimesheetNote, Todo, CombinedProgressNote, ReassessmentPlan, ReassessmentPlanItem, ReassessmentPlanTemplate, GoalsExportRow, SessionLogRow, GoalMapAiMapping } from '../types';
+import type { Student, Goal, Session, Activity, Evaluation, ArticulationScreener, School, Teacher, CaseManager, SOAPNote, IEPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Meeting, Reminder, Communication, ScheduledSession, TimesheetNote, Todo, CombinedProgressNote, ReassessmentPlan, ReassessmentPlanItem, ReassessmentPlanTemplate, GoalsExportRow, SessionLogEntry, GoalMapAiMapping } from '../types';
 import { buildQueryString } from './queryHelpers';
 import { logError } from './logger';
 
@@ -338,9 +338,9 @@ export const api = {
   sessions: {
     getAll: (studentId?: string, school?: string, limit?: number) =>
       request<Session[]>(`/sessions${buildQueryString({ studentId, school, limit })}`),
-    getLog: (startDate: string, endDate: string, studentIds: string) =>
-      request<SessionLogRow[]>(
-        `/sessions/log${buildQueryString({ startDate, endDate, studentIds })}`
+    getLog: (params: { startDate: string; endDate: string; studentIds: string; school: string }) =>
+      request<SessionLogEntry[]>(
+        `/sessions/log${buildQueryString(params)}`
       ),
     getById: (id: string) => 
       request<Session>(`/sessions/${id}`),

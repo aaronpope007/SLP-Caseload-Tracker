@@ -3,6 +3,7 @@ import type { Goal } from '../types';
 import { getGoals } from '../utils/storage-api';
 import { logError } from '../utils/logger';
 import { ApiError } from '../utils/api';
+import { GOAL_DOMAINS_SET } from '../constants/goalDomains';
 
 type ConfirmFn = (options: {
   title?: string;
@@ -58,12 +59,18 @@ export const useGoalSave = ({
     if (!studentId) return;
 
     try {
+      const domainTrim = formData.domain?.trim() ?? '';
+      if (!domainTrim || !GOAL_DOMAINS_SET.has(domainTrim)) {
+        showSnackbar('Please select a goal domain', 'error');
+        return;
+      }
+
       const goalData: Partial<Goal> = {
         description: formData.description,
         baseline: formData.baseline,
         target: targetOverride !== undefined ? targetOverride : formData.target,
         status: formData.status,
-        domain: formData.domain || undefined,
+        domain: domainTrim,
         priority: formData.priority,
         parentGoalId: formData.parentGoalId || undefined,
         templateId: selectedTemplateId || undefined,
@@ -141,6 +148,12 @@ export const useGoalSave = ({
 
   const handleSave = useCallback(() => {
     if (!studentId) return;
+
+    const domainTrim = formData.domain?.trim() ?? '';
+    if (!domainTrim || !GOAL_DOMAINS_SET.has(domainTrim)) {
+      showSnackbar('Please select a goal domain', 'error');
+      return;
+    }
 
     const hasNoTarget = !editingGoal && !formData.target?.trim();
     const defaultTarget80 = typeof localStorage !== 'undefined' && localStorage.getItem('default_goal_target_80') === 'true';

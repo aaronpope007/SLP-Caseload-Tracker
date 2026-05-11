@@ -112,7 +112,8 @@ export interface Goal {
   // Goal management enhancements
   parentGoalId?: string; // For sub-goals
   subGoalIds?: string[]; // IDs of sub-goals
-  domain?: string; // e.g., 'Articulation', 'Language', 'Pragmatics', 'Fluency'
+  /** Clinical domain; use values from `GOAL_DOMAINS` in `src/constants/goalDomains.ts`. */
+  domain?: string;
   priority?: 'high' | 'medium' | 'low';
   templateId?: string; // Reference to goal template used
   archived?: boolean; // Optional for backward compatibility
@@ -173,17 +174,21 @@ export interface GoalsExportRow {
 }
 
 /** One row from GET /api/sessions/log */
-export interface SessionLogRow {
+export interface SessionLogEntry {
   id: string;
+  date: string;
   studentId: string;
   studentName: string;
-  date: string;
-  endTime?: string;
-  durationMinutes: number | null;
-  goalsAddressedTexts: string[];
+  duration: number;
   isGroup: boolean;
-  cptCode: string;
+  groupSize?: number;
+  notes?: string;
+  goalsAddressed?: string;
+  resolvedCptCode: string;
   icd10Codes: string[];
+  icd10Descriptions: string[];
+  domain?: string;
+  codesMapped: boolean;
 }
 
 /** One mapping from POST /api/students/:id/map-goals */

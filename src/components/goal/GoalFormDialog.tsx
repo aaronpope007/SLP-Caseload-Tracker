@@ -8,11 +8,16 @@ import {
   DialogActions,
   TextField,
   Alert,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  FormHelperText,
 } from '@mui/material';
 import { AutoAwesome as AutoAwesomeIcon } from '@mui/icons-material';
 import type { Goal } from '../../types';
-import { getUniqueDomains } from '../../utils/goalTemplates';
-import { getGoalDepth, getGoalPath } from '../../utils/goalHierarchy';
+import { GOAL_DOMAINS } from '../../constants/goalDomains';
+import { getGoalDepth } from '../../utils/goalHierarchy';
 import { extractPercentageFromTarget } from '../../utils/helpers';
 
 interface GoalFormData {
@@ -64,7 +69,6 @@ export const GoalFormDialog: React.FC<GoalFormDialogProps> = ({
   const formatGoalOption = (goal: Goal): string => {
     const depth = getGoalDepth(goal, validGoals);
     const indent = '  '.repeat(depth); // 2 spaces per level
-    const path = getGoalPath(goal, validGoals);
     
     if (depth === 0) {
       return goal.description;
@@ -119,6 +123,10 @@ export const GoalFormDialog: React.FC<GoalFormDialogProps> = ({
   };
 
   const targetError = validateTargetPercentage();
+  const canSave =
+    !!formData.description?.trim() &&
+    !targetError &&
+    !!formData.domain?.trim();
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -157,23 +165,40 @@ export const GoalFormDialog: React.FC<GoalFormDialogProps> = ({
               Using template: <strong>{selectedTemplate.title}</strong>
             </Alert>
           )}
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <TextField
-              label="Domain"
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            <FormControl
               fullWidth
-              select
-              value={formData.domain}
-              onChange={(e) => onFormDataChange({ domain: e.target.value })}
-              InputLabelProps={{
-                shrink: true,
-              }}
-              SelectProps={{ native: true }}
+              required
+              error={hasError('domain')}
+              sx={{ minWidth: 0, flex: 1 }}
             >
-              <option value="">None</option>
-              {getUniqueDomains().map(domain => (
-                <option key={domain} value={domain}>{domain}</option>
-              ))}
-            </TextField>
+              <InputLabel id="goal-form-domain-label">Domain</InputLabel>
+              <Select
+                labelId="goal-form-domain-label"
+                label="Domain"
+                displayEmpty
+                value={formData.domain}
+                onChange={(e) => {
+                  onFormDataChange({ domain: e.target.value });
+                  clearError('domain');
+                }}
+                renderValue={(selected) =>
+                  selected ? String(selected) : 'Select domain'
+                }
+              >
+                <MenuItem value="" disabled>
+                  <em>Select domain</em>
+                </MenuItem>
+                {GOAL_DOMAINS.map((d) => (
+                  <MenuItem key={d} value={d}>
+                    {d}
+                  </MenuItem>
+                ))}
+              </Select>
+              {getError('domain') ? (
+                <FormHelperText>{getError('domain')}</FormHelperText>
+              ) : null}
+            </FormControl>
             <TextField
               label="Priority"
               fullWidth
@@ -184,6 +209,7 @@ export const GoalFormDialog: React.FC<GoalFormDialogProps> = ({
                 shrink: true,
               }}
               SelectProps={{ native: true }}
+              sx={{ minWidth: 140, maxWidth: 200 }}
             >
               <option value="high">High</option>
               <option value="medium">Medium</option>
@@ -249,7 +275,7 @@ export const GoalFormDialog: React.FC<GoalFormDialogProps> = ({
         <Button
           onClick={onSave}
           variant="contained"
-          disabled={!formData.description || !!targetError}
+          disabled={!canSave}
         >
           Save
         </Button>
@@ -257,4 +283,3 @@ export const GoalFormDialog: React.FC<GoalFormDialogProps> = ({
     </Dialog>
   );
 };
-

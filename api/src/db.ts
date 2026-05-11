@@ -122,6 +122,9 @@ export function initDatabase() {
   try {
     const goalTableInfo = db.prepare('PRAGMA table_info(goals)').all() as Array<{ name: string }>;
     const goalColumnNames = goalTableInfo.map(col => col.name);
+    if (!goalColumnNames.includes('domain')) {
+      db.exec(`ALTER TABLE goals ADD COLUMN domain TEXT`);
+    }
     if (!goalColumnNames.includes('archived')) {
       db.exec(`ALTER TABLE goals ADD COLUMN archived INTEGER DEFAULT 0`);
     }

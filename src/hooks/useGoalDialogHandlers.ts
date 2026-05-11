@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import type { Goal } from '../types';
+import { normalizeGoalDomainForForm } from '../constants/goalDomains';
 
 interface UseGoalDialogHandlersParams {
   goals: Goal[];
@@ -72,7 +73,7 @@ export const useGoalDialogHandlers = ({
     updateFormField('baseline', subGoal.baseline);
     updateFormField('target', subGoal.target);
     updateFormField('status', subGoal.status as 'in-progress' | 'achieved' | 'modified');
-    updateFormField('domain', subGoal.domain || '');
+    updateFormField('domain', normalizeGoalDomainForForm(subGoal.domain));
     updateFormField('priority', subGoal.priority || 'medium');
     clearTemplate();
     openDialog();
@@ -86,7 +87,7 @@ export const useGoalDialogHandlers = ({
     updateFormField('baseline', mainGoal.baseline);
     updateFormField('target', mainGoal.target);
     updateFormField('status', mainGoal.status as 'in-progress' | 'achieved' | 'modified');
-    updateFormField('domain', mainGoal.domain || '');
+    updateFormField('domain', normalizeGoalDomainForForm(mainGoal.domain));
     updateFormField('priority', mainGoal.priority || 'medium');
     updateFormField('parentGoalId', mainGoal.id);
     clearTemplate();

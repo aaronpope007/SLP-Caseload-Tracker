@@ -3,6 +3,7 @@ import { db } from '../db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { stringifyJsonField } from '../utils/jsonHelpers';
 import { splitStudentName } from '../utils/studentName';
+import { inferGoalDomainFromDescription } from '../utils/inferGoalDomainFromDescription';
 
 export const adminRouter = Router();
 
@@ -101,4 +102,45 @@ adminRouter.post('/import-codes', asyncHandler(async (req, res) => {
   }
 
   res.json(results);
+}));
+
+/**
+ * One-time: infer goal.domain from description for rows with missing domain (x-admin-token).
+ */
+adminRouter.post('/infer-goal-domains', asyncHandler(async (req, res) => {
+  const headerToken = req.headers['x-admin-token'];
+  const token = Array.isArray(headerToken) ? headerToken[0] : headerToken;
+  if (token !== process.env.ADMIN_IMPORT_TOKEN) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const rows = db
+    .prepare(
+      `SELECT id, description, domain FROM goals WHERE domain IS NULL OR TRIM(COALESCE(domain, '')) = ''`
+    )
+    .all() as Array<{ id: string; description: string; domain: string | null }>;
+
+  const updateStmt = db.prepare('UPDATE goals SET domain = ? WHERE id = ?');
+  const byDomain: Record<string, number> = {};
+  let updated = 0;
+  let skippedNoInference = 0;
+
+  for (const row of rows) {
+    const inferred = inferGoalDomainFromDescription(row.description);
+    if (!inferred) {
+      skippedNoInference++;
+      continue;
+    }
+    updateStmt.run(inferred, row.id);
+    updated++;
+    byDomain[inferred] = (byDomain[inferred] || 0) + 1;
+  }
+
+  res.json({
+    message: 'Goal domain inference complete',
+    candidates: rows.length,
+    updated,
+    skippedNoInference,
+    byDomain,
+  });
 }));

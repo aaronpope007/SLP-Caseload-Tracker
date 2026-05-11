@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import type { Goal } from '../../types';
 import { generateArticulationGoalTree, type ArticulationLevel } from '../../utils/quickGoals';
-import { getUniqueDomains } from '../../utils/goalTemplates';
+import { GOAL_DOMAINS, normalizeGoalDomainForForm } from '../../constants/goalDomains';
 import { extractPercentageFromTarget } from '../../utils/helpers';
 
 interface QuickGoalsDialogProps {
@@ -46,7 +46,7 @@ export const QuickGoalsDialog: React.FC<QuickGoalsDialogProps> = ({
   // When dialog opens with a parent goal, inherit the domain and target percentage
   useEffect(() => {
     if (open && parentGoalId && parentGoalDomain) {
-      setDomain(parentGoalDomain);
+      setDomain(normalizeGoalDomainForForm(parentGoalDomain));
       // Extract percentage from parent goal's target if available
       if (parentGoalTarget) {
         const extractedPercentage = extractPercentageFromTarget(parentGoalTarget);
@@ -113,7 +113,7 @@ export const QuickGoalsDialog: React.FC<QuickGoalsDialogProps> = ({
     }
   };
 
-  const domains = getUniqueDomains();
+  const domains = GOAL_DOMAINS;
   const articulationLevels: { value: ArticulationLevel; label: string }[] = [
     { value: 'conversation', label: 'Conversation' },
     { value: 'sentence', label: 'Sentence' },

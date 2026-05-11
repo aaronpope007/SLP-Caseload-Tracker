@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { Goal } from '../types';
+import { normalizeGoalDomainForForm } from '../constants/goalDomains';
 
 interface GoalFormData {
   description: string;
@@ -33,7 +34,7 @@ export const useGoalForm = () => {
         baseline: goal.baseline,
         target: goal.target,
         status: goal.status,
-        domain: goal.domain || '',
+        domain: normalizeGoalDomainForForm(goal.domain),
         priority: goal.priority || 'medium',
         parentGoalId: goal.parentGoalId || '',
       };
@@ -42,7 +43,7 @@ export const useGoalForm = () => {
       setEditingGoal(goal);
     } else {
       // If creating a sub-goal, inherit domain, priority, and target from parent
-      const inheritedDomain = parentGoal?.domain || '';
+      const inheritedDomain = normalizeGoalDomainForForm(parentGoal?.domain);
       const inheritedPriority = parentGoal?.priority || 'medium';
       const inheritedTarget = parentGoal?.target || '';
       const defaultTarget80 = typeof localStorage !== 'undefined' && localStorage.getItem('default_goal_target_80') === 'true';
