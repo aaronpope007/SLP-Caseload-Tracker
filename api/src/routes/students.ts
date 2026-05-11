@@ -1,9 +1,11 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { db } from '../db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { validateBody } from '../middleware/validateRequest';
 import { parseJsonField, stringifyJsonField } from '../utils/jsonHelpers';
 import { createStudentSchema, updateStudentSchema } from '../schemas';
+import { mapGoalsWithGemini } from '../utils/geminiMapGoals';
 
 // Database row types
 interface StudentRow {
@@ -26,7 +28,35 @@ interface StudentRow {
   frequencyPerWeek: number | null;
   frequencyType: string | null;
   gender: string | null;
+  dob: string | null;
+  maNumber: string | null;
+  tsgoals: string | null;
 }
+
+function splitStudentName(full: string): { firstName: string; lastName: string } {
+  const parts = full.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { firstName: '', lastName: '' };
+  if (parts.length === 1) return { firstName: parts[0], lastName: '' };
+  return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
+}
+
+function parseTsGoals(row: StudentRow): unknown[] {
+  const raw = row.tsgoals;
+  if (!raw || raw === 'null') return [];
+  const parsed = parseJsonField<unknown>(raw, []);
+  return Array.isArray(parsed) ? parsed : [];
+}
+
+function tsgoalsJsonForDb(ts: unknown, existing: string | null): string {
+  if (Array.isArray(ts)) return stringifyJsonField(ts) ?? '[]';
+  if (typeof ts === 'string' && ts.trim()) return ts;
+  if (existing && existing !== 'null') return existing;
+  return '[]';
+}
+
+const mapGoalsBodySchema = z.object({
+  apiKey: z.string().optional(),
+});
 
 interface SchoolRow {
   id: string;
@@ -137,15 +167,123 @@ studentsRouter.get('/', asyncHandler(async (req, res) => {
   const students = db.prepare(query).all(...params) as StudentRow[];
   
   // Parse JSON fields
-  const parsed = students.map((s) => ({
-    ...s,
-    concerns: parseJsonField<string[]>(s.concerns, []),
-    exceptionality: parseJsonField<string[]>(s.exceptionality, undefined),
-    archived: s.archived === 1,
-    gender: s.gender || undefined,
-  }));
+  const parsed = students.map((s) => {
+    const { tsgoals: _ts, ...rest } = s;
+    return {
+      ...rest,
+      concerns: parseJsonField<string[]>(s.concerns, []),
+      exceptionality: parseJsonField<string[]>(s.exceptionality, undefined),
+      archived: s.archived === 1,
+      gender: s.gender || undefined,
+      dob: s.dob || undefined,
+      maNumber: s.maNumber || undefined,
+      tsgoals: parseTsGoals(s),
+    };
+  });
   
   res.json(parsed);
+}));
+
+studentsRouter.get('/goals-export', asyncHandler(async (req, res) => {
+  const schoolParam = req.query.school;
+  if (!schoolParam || typeof schoolParam !== 'string' || !schoolParam.trim()) {
+    return res.status(400).json({ error: 'Missing required query parameter: school' });
+  }
+  const school = schoolParam.trim();
+
+  const rows = db
+    .prepare(
+      `
+    SELECT s.id, s.name, s.dob, s.maNumber, g.description as goalDescription, g.status as goalStatus, g.archived as goalArchived
+    FROM students s
+    LEFT JOIN goals g ON g.studentId = s.id
+      AND g.status != 'achieved'
+    WHERE s.status = 'active' AND (s.archived IS NULL OR s.archived = 0)
+      AND s.school = ?
+  `
+    )
+    .all(school) as Array<{
+    id: string;
+    name: string;
+    dob: string | null;
+    maNumber: string | null;
+    goalDescription: string | null;
+    goalStatus: string | null;
+    goalArchived: number | null;
+  }>;
+
+  const byStudent = new Map<
+    string,
+    {
+      firstName: string;
+      lastName: string;
+      dob?: string;
+      maNumber?: string;
+      goals: { goalText: string; archived?: boolean }[];
+    }
+  >();
+
+  for (const row of rows) {
+    const { firstName, lastName } = splitStudentName(row.name);
+    if (!byStudent.has(row.id)) {
+      byStudent.set(row.id, {
+        firstName,
+        lastName,
+        dob: row.dob || undefined,
+        maNumber: row.maNumber || undefined,
+        goals: [],
+      });
+    }
+    if (row.goalDescription && row.goalDescription.trim()) {
+      const archived = row.goalArchived === 1;
+      byStudent.get(row.id)!.goals.push({ goalText: row.goalDescription.trim(), archived });
+    }
+  }
+
+  for (const entry of byStudent.values()) {
+    entry.goals.sort((a, b) => {
+      const ac = a.archived ? 1 : 0;
+      const bc = b.archived ? 1 : 0;
+      if (ac !== bc) return ac - bc;
+      return a.goalText.localeCompare(b.goalText, undefined, { sensitivity: 'base' });
+    });
+  }
+
+  const list = Array.from(byStudent.values()).sort((a, b) => {
+    const ln = a.lastName.localeCompare(b.lastName, undefined, { sensitivity: 'base' });
+    if (ln !== 0) return ln;
+    return a.firstName.localeCompare(b.firstName, undefined, { sensitivity: 'base' });
+  });
+
+  res.json(list);
+}));
+
+studentsRouter.post('/:id/map-goals', asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const parsed = mapGoalsBodySchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() });
+    }
+    const apiKey = parsed.data.apiKey || process.env.GEMINI_API_KEY;
+
+    const student = db.prepare('SELECT * FROM students WHERE id = ?').get(id) as StudentRow | undefined;
+    if (!student) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    const goalRows = db
+      .prepare(
+        `SELECT id, description FROM goals WHERE studentId = ? AND (archived IS NULL OR archived = 0) AND status = 'in-progress'`
+      )
+      .all(id) as Array<{ id: string; description: string }>;
+
+    if (goalRows.length === 0) {
+      return res.status(400).json({ error: 'No in-progress goals to map for this student' });
+    }
+
+    const inputs = goalRows.map((g) => ({ goalId: g.id, goalText: g.description }));
+    const mappings = await mapGoalsWithGemini(apiKey || '', inputs);
+    res.json({ mappings });
 }));
 
 /**
@@ -183,12 +321,16 @@ studentsRouter.get('/:id', asyncHandler(async (req, res) => {
     return res.status(404).json({ error: 'Student not found' });
   }
   
+  const { tsgoals: _ts, ...base } = student;
   res.json({
-    ...student,
+    ...base,
     concerns: parseJsonField<string[]>(student.concerns, []),
     exceptionality: parseJsonField<string[]>(student.exceptionality, undefined),
     archived: student.archived === 1,
     gender: student.gender || undefined,
+    dob: student.dob || undefined,
+    maNumber: student.maNumber || undefined,
+    tsgoals: parseTsGoals(student),
   });
 }));
 
@@ -229,8 +371,8 @@ studentsRouter.post('/', validateBody(createStudentSchema), asyncHandler(async (
   const dateAdded = new Date().toISOString();
   
   db.prepare(`
-    INSERT INTO students (id, name, age, grade, concerns, exceptionality, status, dateAdded, archived, dateArchived, school, teacherId, caseManagerId, iepDate, annualReviewDate, progressReportFrequency, frequencyPerWeek, frequencyType, gender)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO students (id, name, age, grade, concerns, exceptionality, status, dateAdded, archived, dateArchived, school, teacherId, caseManagerId, iepDate, annualReviewDate, progressReportFrequency, frequencyPerWeek, frequencyType, gender, dob, maNumber, tsgoals)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     studentId,
     student.name,
@@ -250,7 +392,10 @@ studentsRouter.post('/', validateBody(createStudentSchema), asyncHandler(async (
     student.progressReportFrequency || null,
     student.frequencyPerWeek ?? null,
     student.frequencyType || null,
-    student.gender || null
+    student.gender || null,
+    student.dob || null,
+    student.maNumber || null,
+    tsgoalsJsonForDb(student.tsgoals, null)
   );
   
   res.status(201).json({ id: studentId, message: 'Student created' });
@@ -331,7 +476,7 @@ studentsRouter.post('/bulk', asyncHandler(async (req, res) => {
             SET name = ?, age = ?, grade = ?, concerns = ?, exceptionality = ?, status = ?, 
                 archived = ?, dateArchived = ?, school = ?, teacherId = ?, caseManagerId = ?, 
                 iepDate = ?, annualReviewDate = ?, progressReportFrequency = ?, 
-                frequencyPerWeek = ?, frequencyType = ?, gender = ?
+                frequencyPerWeek = ?, frequencyType = ?, gender = ?, dob = ?, maNumber = ?, tsgoals = ?
             WHERE id = ?
           `).run(
             merged.name,
@@ -351,6 +496,9 @@ studentsRouter.post('/bulk', asyncHandler(async (req, res) => {
             merged.frequencyPerWeek ?? null,
             merged.frequencyType || null,
             merged.gender || null,
+            merged.dob ?? existingFull.dob,
+            merged.maNumber ?? existingFull.maNumber,
+            tsgoalsJsonForDb(merged.tsgoals, existingFull.tsgoals),
             student.id
           );
           updated++;
@@ -361,8 +509,8 @@ studentsRouter.post('/bulk', asyncHandler(async (req, res) => {
           const dateAdded = new Date().toISOString();
           
           db.prepare(`
-            INSERT INTO students (id, name, age, grade, concerns, exceptionality, status, dateAdded, archived, dateArchived, school, teacherId, caseManagerId, iepDate, annualReviewDate, progressReportFrequency, frequencyPerWeek, frequencyType, gender)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO students (id, name, age, grade, concerns, exceptionality, status, dateAdded, archived, dateArchived, school, teacherId, caseManagerId, iepDate, annualReviewDate, progressReportFrequency, frequencyPerWeek, frequencyType, gender, dob, maNumber, tsgoals)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `).run(
             studentId,
             student.name,
@@ -382,7 +530,10 @@ studentsRouter.post('/bulk', asyncHandler(async (req, res) => {
             student.progressReportFrequency || null,
             student.frequencyPerWeek ?? null,
             student.frequencyType || null,
-            student.gender || null
+            student.gender || null,
+            student.dob || null,
+            student.maNumber || null,
+            tsgoalsJsonForDb(student.tsgoals, null)
           );
           created++;
         }
@@ -451,7 +602,7 @@ studentsRouter.put('/:id', validateBody(updateStudentSchema), asyncHandler(async
   db.prepare(`
     UPDATE students 
     SET name = ?, age = ?, grade = ?, concerns = ?, exceptionality = ?, status = ?, 
-        archived = ?, dateArchived = ?, school = ?, teacherId = ?, caseManagerId = ?, iepDate = ?, annualReviewDate = ?, progressReportFrequency = ?, frequencyPerWeek = ?, frequencyType = ?, gender = ?
+        archived = ?, dateArchived = ?, school = ?, teacherId = ?, caseManagerId = ?, iepDate = ?, annualReviewDate = ?, progressReportFrequency = ?, frequencyPerWeek = ?, frequencyType = ?, gender = ?, dob = ?, maNumber = ?, tsgoals = ?
     WHERE id = ?
   `).run(
     student.name,
@@ -471,6 +622,9 @@ studentsRouter.put('/:id', validateBody(updateStudentSchema), asyncHandler(async
     student.frequencyPerWeek ?? null,
     student.frequencyType || null,
     student.gender || null,
+    student.dob ?? existing.dob,
+    student.maNumber ?? existing.maNumber,
+    tsgoalsJsonForDb(student.tsgoals, existing.tsgoals),
     id
   );
   

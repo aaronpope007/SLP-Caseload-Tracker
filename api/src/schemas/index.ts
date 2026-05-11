@@ -98,6 +98,18 @@ export const studentStatusSchema = z.enum(['active', 'discharged']);
 export const progressReportFrequencySchema = z.enum(['quarterly', 'annual']);
 export const frequencyTypeSchema = z.enum(['per-week', 'per-month']);
 
+/** Time-study / billing goal mapping (stored on student as JSON) */
+export const tsGoalEntrySchema = z.object({
+  goalText: z.string().max(4000).default(''),
+  domain: z.string().max(200).optional().default(''),
+  icd10Codes: z.array(z.string()).default([]),
+  icd10Descriptions: z.array(z.string()).optional().default([]),
+  cptCodeIndividual: z.string().max(20).optional().default(''),
+  cptCodeGroup: z.string().max(20).optional().default(''),
+  mappedAt: optionalIsoDate,
+  mappedByAI: z.boolean().optional().default(false),
+});
+
 export const studentSchema = z.object({
   id: idString.optional(),
   name: nonEmptyString.pipe(z.string().max(200, 'Name must be 200 characters or less')),
@@ -117,6 +129,9 @@ export const studentSchema = z.object({
   frequencyPerWeek: z.number().int().min(1).max(10).optional().nullable(),
   frequencyType: frequencyTypeSchema.optional(),
   gender: z.enum(['male', 'female', 'non-binary']).optional(),
+  dob: z.string().max(40).optional().transform((s) => (s === '' ? undefined : s)),
+  maNumber: z.string().max(80).optional().transform((s) => (s === '' ? undefined : s)),
+  tsgoals: z.array(tsGoalEntrySchema).optional().default([]),
 });
 
 export const createStudentSchema = studentSchema.omit({ id: true });
@@ -173,6 +188,7 @@ export const sessionSchema = z.object({
   date: isoDateString,
   endTime: optionalIsoDate,
   goalsTargeted: z.array(z.string()).default([]),
+  goalsAddressed: z.array(z.string()).default([]),
   activitiesUsed: z.array(z.string()).default([]),
   performanceData: z.array(performanceDataSchema).default([]),
   notes: z.string().max(5000, 'Notes must be 5000 characters or less').default(''),
@@ -184,6 +200,9 @@ export const sessionSchema = z.object({
   customSubjective: optionalString,
   scheduledSessionId: optionalString,
   plan: optionalString,
+  tsisGroup: z.boolean().default(false),
+  cptCode: optionalString,
+  icd10Codes: z.array(z.string()).default([]),
 });
 
 export const createSessionSchema = sessionSchema.omit({ id: true });

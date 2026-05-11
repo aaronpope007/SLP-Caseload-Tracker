@@ -66,6 +66,24 @@ export interface Student {
   frequencyPerWeek?: number; // Number of sessions per week (e.g., 2, 3)
   frequencyType?: 'per-week' | 'per-month'; // Whether frequency is per week or per month
   gender?: 'male' | 'female' | 'non-binary';
+  /** Date of birth (ISO or YYYY-MM-DD) */
+  dob?: string;
+  /** Medicaid / member number for exports */
+  maNumber?: string;
+  /** Time-study / billing mapped goals (JSON from API) */
+  tsgoals?: TsGoalEntry[];
+}
+
+/** Billing-oriented goal mapping stored on the student record */
+export interface TsGoalEntry {
+  goalText: string;
+  domain?: string;
+  icd10Codes: string[];
+  icd10Descriptions?: string[];
+  cptCodeIndividual?: string;
+  cptCodeGroup?: string;
+  mappedAt?: string;
+  mappedByAI?: boolean;
 }
 
 export interface Goal {
@@ -110,6 +128,8 @@ export interface Session {
   date: string; // Start time
   endTime?: string; // End time
   goalsTargeted: string[]; // Goal IDs
+  /** Explicit goals addressed for billing (goal IDs); if empty, UI/API may fall back to goalsTargeted */
+  goalsAddressed?: string[];
   activitiesUsed: string[];
   performanceData: {
     goalId: string;
@@ -128,6 +148,46 @@ export interface Session {
   customSubjective?: string; // Custom subjective statement for SOAP notes
   scheduledSessionId?: string; // ID of the scheduled session template this was created from
   plan?: string; // Plan for next session (required for direct services)
+  /** True when session is group treatment (2+ students) for billing */
+  tsisGroup?: boolean;
+  /** Optional stored CPT (e.g. eval); treatment rows often derive 92507/92508 in session log */
+  cptCode?: string;
+  icd10Codes?: string[];
+}
+
+/** One row from GET /api/students/goals-export */
+export interface GoalsExportRow {
+  firstName: string;
+  lastName: string;
+  dob?: string;
+  maNumber?: string;
+  goals: { goalText: string; archived?: boolean }[];
+}
+
+/** One row from GET /api/sessions/log */
+export interface SessionLogRow {
+  id: string;
+  studentId: string;
+  studentName: string;
+  date: string;
+  endTime?: string;
+  durationMinutes: number | null;
+  goalsAddressedTexts: string[];
+  isGroup: boolean;
+  cptCode: string;
+  icd10Codes: string[];
+}
+
+/** One mapping from POST /api/students/:id/map-goals */
+export interface GoalMapAiMapping {
+  goalId: string;
+  goalText: string;
+  domain: string;
+  icd10Codes: string[];
+  icd10Descriptions: string[];
+  cptCodeIndividual: string;
+  cptCodeGroup: string;
+  rationale: string;
 }
 
 export interface ScheduledSession {

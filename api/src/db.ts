@@ -180,6 +180,21 @@ export function initDatabase() {
     if (!columnNames.includes('plan')) {
       db.exec(`ALTER TABLE sessions ADD COLUMN plan TEXT`);
     }
+    if (!columnNames.includes('scheduledSessionId')) {
+      db.exec(`ALTER TABLE sessions ADD COLUMN scheduledSessionId TEXT`);
+    }
+    if (!columnNames.includes('tsisGroup')) {
+      db.exec(`ALTER TABLE sessions ADD COLUMN tsisGroup INTEGER DEFAULT 0`);
+    }
+    if (!columnNames.includes('cptCode')) {
+      db.exec(`ALTER TABLE sessions ADD COLUMN cptCode TEXT`);
+    }
+    if (!columnNames.includes('icd10Codes')) {
+      db.exec(`ALTER TABLE sessions ADD COLUMN icd10Codes TEXT`);
+    }
+    if (!columnNames.includes('goalsAddressed')) {
+      db.exec(`ALTER TABLE sessions ADD COLUMN goalsAddressed TEXT`);
+    }
   } catch (e: any) {
     // If table doesn't exist yet, columns will be added via CREATE TABLE above
     console.warn('Could not add columns to sessions table:', e.message);
@@ -213,6 +228,15 @@ export function initDatabase() {
     }
     if (!studentColumnNames.includes('gender')) {
       db.exec(`ALTER TABLE students ADD COLUMN gender TEXT CHECK(gender IN ('male', 'female', 'non-binary'))`);
+    }
+    if (!studentColumnNames.includes('dob')) {
+      db.exec(`ALTER TABLE students ADD COLUMN dob TEXT`);
+    }
+    if (!studentColumnNames.includes('maNumber')) {
+      db.exec(`ALTER TABLE students ADD COLUMN maNumber TEXT`);
+    }
+    if (!studentColumnNames.includes('tsgoals')) {
+      db.exec(`ALTER TABLE students ADD COLUMN tsgoals TEXT`);
     }
   } catch (e: any) {
     console.warn('Could not add columns to students table:', e.message);

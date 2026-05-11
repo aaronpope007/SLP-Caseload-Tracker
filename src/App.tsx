@@ -35,6 +35,9 @@ const SessionCalendar = lazy(() => import('./pages/SessionCalendar').then(m => (
 const Communications = lazy(() => import('./pages/Communications').then(m => ({ default: m.Communications })));
 const NotFound = lazy(() => import('./pages/NotFound').then(m => ({ default: m.NotFound })));
 const Login = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })));
+const GoalExport = lazy(() => import('./components/GoalExport/GoalExport').then(m => ({ default: m.GoalExport })));
+const SessionLog = lazy(() => import('./components/SessionLog/SessionLog').then(m => ({ default: m.SessionLog })));
+const GoalMapper = lazy(() => import('./components/GoalMapper/GoalMapper').then(m => ({ default: m.GoalMapper })));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -138,6 +141,18 @@ const router = createBrowserRouter([
       {
         path: '/communications',
         element: <Communications />,
+      },
+      {
+        path: '/goal-export',
+        element: <GoalExport />,
+      },
+      {
+        path: '/session-log',
+        element: <SessionLog />,
+      },
+      {
+        path: '/goal-mapper',
+        element: <GoalMapper />,
       },
       {
         path: '*',

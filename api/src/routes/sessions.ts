@@ -12,6 +12,7 @@ interface SessionRow {
   date: string;
   endTime: string | null;
   goalsTargeted: string; // JSON string
+  goalsAddressed: string | null;
   activitiesUsed: string; // JSON string
   performanceData: string; // JSON string
   notes: string;
@@ -22,6 +23,10 @@ interface SessionRow {
   selectedSubjectiveStatements: string | null; // JSON string
   customSubjective: string | null;
   plan: string | null;
+  scheduledSessionId: string | null;
+  tsisGroup: number | null;
+  cptCode: string | null;
+  icd10Codes: string | null;
 }
 
 // Performance data type for proper parsing
@@ -32,6 +37,31 @@ interface PerformanceDataItem {
   incorrectTrials?: number;
   notes?: string;
   cuingLevels?: string[];
+}
+
+function toSessionResponse(s: SessionRow) {
+  return {
+    id: s.id,
+    studentId: s.studentId,
+    date: s.date,
+    endTime: s.endTime || undefined,
+    goalsTargeted: parseJsonField<string[]>(s.goalsTargeted, []),
+    goalsAddressed: parseJsonField<string[]>(s.goalsAddressed, []),
+    activitiesUsed: parseJsonField<string[]>(s.activitiesUsed, []),
+    performanceData: parseJsonField<PerformanceDataItem[]>(s.performanceData, []),
+    notes: s.notes,
+    isDirectServices: s.isDirectServices === 1,
+    indirectServicesNotes: s.indirectServicesNotes || undefined,
+    groupSessionId: s.groupSessionId || undefined,
+    missedSession: s.missedSession === 1,
+    selectedSubjectiveStatements: parseJsonField<string[]>(s.selectedSubjectiveStatements, undefined),
+    customSubjective: s.customSubjective || undefined,
+    plan: s.plan || undefined,
+    scheduledSessionId: s.scheduledSessionId || undefined,
+    tsisGroup: s.tsisGroup === 1,
+    cptCode: s.cptCode || undefined,
+    icd10Codes: parseJsonField<string[]>(s.icd10Codes, []),
+  };
 }
 
 export const sessionsRouter = Router();
@@ -86,21 +116,99 @@ sessionsRouter.get('/', asyncHandler(async (req, res) => {
   }
 
   const sessions = db.prepare(query).all(...params) as SessionRow[];
-  
-  // Parse JSON fields
-  const parsed = sessions.map((s) => ({
-    ...s,
-    goalsTargeted: parseJsonField<string[]>(s.goalsTargeted, []),
-    activitiesUsed: parseJsonField<string[]>(s.activitiesUsed, []),
-    performanceData: parseJsonField<PerformanceDataItem[]>(s.performanceData, []),
-    isDirectServices: s.isDirectServices === 1,
-    missedSession: s.missedSession === 1,
-    selectedSubjectiveStatements: parseJsonField<string[]>(s.selectedSubjectiveStatements, undefined),
-    customSubjective: s.customSubjective || undefined,
-    plan: s.plan || undefined,
-  }));
-  
-  res.json(parsed);
+  res.json(sessions.map(toSessionResponse));
+}));
+
+sessionsRouter.get('/log', asyncHandler(async (req, res) => {
+  const { startDate, endDate, studentIds } = req.query;
+  if (!startDate || !endDate || typeof startDate !== 'string' || typeof endDate !== 'string') {
+    return res.status(400).json({ error: 'startDate and endDate are required (YYYY-MM-DD)' });
+  }
+  if (!studentIds || typeof studentIds !== 'string' || !studentIds.trim()) {
+    return res.status(400).json({ error: 'studentIds is required (comma-separated)' });
+  }
+  const ids = studentIds.split(',').map((x) => x.trim()).filter(Boolean);
+  if (ids.length === 0) {
+    return res.status(400).json({ error: 'At least one student id is required' });
+  }
+
+  const placeholders = ids.map(() => '?').join(',');
+  const rows = db
+    .prepare(
+      `
+    SELECT s.*, st.name as studentName
+    FROM sessions s
+    INNER JOIN students st ON st.id = s.studentId
+    WHERE s.studentId IN (${placeholders})
+      AND date(s.date) >= date(?)
+      AND date(s.date) <= date(?)
+      AND s.missedSession = 0
+      AND s.isDirectServices = 1
+    ORDER BY s.date ASC, st.name ASC
+  `
+    )
+    .all(...ids, startDate, endDate) as Array<SessionRow & { studentName: string }>;
+
+  const groupCounts = new Map<string, number>();
+  for (const row of rows) {
+    const gid = row.groupSessionId;
+    if (gid) groupCounts.set(gid, (groupCounts.get(gid) || 0) + 1);
+  }
+
+  const goalIds = new Set<string>();
+  for (const row of rows) {
+    const ga = parseJsonField<string[]>(row.goalsAddressed, []);
+    const gt = parseJsonField<string[]>(row.goalsTargeted, []);
+    const use = ga.length > 0 ? ga : gt;
+    use.forEach((gid) => goalIds.add(gid));
+  }
+
+  const goalsMap = new Map<string, string>();
+  if (goalIds.size > 0) {
+    const gPlaceholders = [...goalIds].map(() => '?').join(',');
+    const goals = db
+      .prepare(`SELECT id, description FROM goals WHERE id IN (${gPlaceholders})`)
+      .all(...goalIds) as Array<{ id: string; description: string }>;
+    for (const g of goals) goalsMap.set(g.id, g.description);
+  }
+
+  const out = rows.map((row) => {
+    const goalsAddressedIds = parseJsonField<string[]>(row.goalsAddressed, []);
+    const goalsTargetedIds = parseJsonField<string[]>(row.goalsTargeted, []);
+    const resolvedGoalIds = goalsAddressedIds.length > 0 ? goalsAddressedIds : goalsTargetedIds;
+    const goalsAddressedTexts = resolvedGoalIds.map((gid) => goalsMap.get(gid) || `Goal ${gid}`);
+
+    const inferredGroup =
+      row.groupSessionId != null &&
+      row.groupSessionId !== '' &&
+      (groupCounts.get(row.groupSessionId) || 0) > 1;
+    const isGroup = row.tsisGroup === 1 || inferredGroup;
+    const cptResolved = isGroup ? '92508' : '92507';
+
+    let durationMinutes: number | null = null;
+    if (row.endTime) {
+      const a = Date.parse(row.date);
+      const b = Date.parse(row.endTime);
+      if (Number.isFinite(a) && Number.isFinite(b) && b >= a) {
+        durationMinutes = Math.round((b - a) / 60000);
+      }
+    }
+
+    return {
+      id: row.id,
+      studentId: row.studentId,
+      studentName: row.studentName,
+      date: row.date,
+      endTime: row.endTime || undefined,
+      durationMinutes,
+      goalsAddressedTexts,
+      isGroup,
+      cptCode: cptResolved,
+      icd10Codes: parseJsonField<string[]>(row.icd10Codes, []),
+    };
+  });
+
+  res.json(out);
 }));
 
 /**
@@ -134,17 +242,7 @@ sessionsRouter.get('/:id', asyncHandler(async (req, res) => {
     return res.status(404).json({ error: 'Session not found' });
   }
   
-  res.json({
-    ...session,
-    goalsTargeted: parseJsonField<string[]>(session.goalsTargeted, []),
-    activitiesUsed: parseJsonField<string[]>(session.activitiesUsed, []),
-    performanceData: parseJsonField<PerformanceDataItem[]>(session.performanceData, []),
-    isDirectServices: session.isDirectServices === 1,
-    missedSession: session.missedSession === 1,
-    selectedSubjectiveStatements: parseJsonField<string[]>(session.selectedSubjectiveStatements, undefined),
-    customSubjective: session.customSubjective || undefined,
-    plan: session.plan || undefined,
-  });
+  res.json(toSessionResponse(session));
 }));
 
 /**
@@ -178,16 +276,18 @@ sessionsRouter.post('/', validateBody(createSessionSchema), asyncHandler(async (
   const sessionId = session.id || `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   
   db.prepare(`
-    INSERT INTO sessions (id, studentId, date, endTime, goalsTargeted, activitiesUsed, 
+    INSERT INTO sessions (id, studentId, date, endTime, goalsTargeted, goalsAddressed, activitiesUsed, 
                          performanceData, notes, isDirectServices, indirectServicesNotes, 
-                         groupSessionId, missedSession, selectedSubjectiveStatements, customSubjective, plan)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         groupSessionId, missedSession, selectedSubjectiveStatements, customSubjective, plan,
+                         scheduledSessionId, tsisGroup, cptCode, icd10Codes)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     sessionId,
     session.studentId,
     session.date,
     session.endTime || null,
     stringifyJsonField(session.goalsTargeted || []),
+    stringifyJsonField(session.goalsAddressed ?? []),
     stringifyJsonField(session.activitiesUsed || []),
     stringifyJsonField(session.performanceData || []),
     session.notes || '',
@@ -197,7 +297,11 @@ sessionsRouter.post('/', validateBody(createSessionSchema), asyncHandler(async (
     session.missedSession ? 1 : 0,
     stringifyJsonField(session.selectedSubjectiveStatements),
     session.customSubjective || null,
-    session.plan || null
+    session.plan || null,
+    session.scheduledSessionId || null,
+    session.tsisGroup ? 1 : 0,
+    session.cptCode || null,
+    stringifyJsonField(session.icd10Codes || [])
   );
   
   res.status(201).json({ id: sessionId, message: 'Session created' });
@@ -265,16 +369,17 @@ sessionsRouter.post('/bulk', asyncHandler(async (req, res) => {
           // Update existing session
           db.prepare(`
             UPDATE sessions 
-            SET studentId = ?, date = ?, endTime = ?, goalsTargeted = ?, activitiesUsed = ?, 
+            SET studentId = ?, date = ?, endTime = ?, goalsTargeted = ?, goalsAddressed = ?, activitiesUsed = ?, 
                 performanceData = ?, notes = ?, isDirectServices = ?, indirectServicesNotes = ?, 
                 groupSessionId = ?, missedSession = ?, selectedSubjectiveStatements = ?, 
-                customSubjective = ?, plan = ?
+                customSubjective = ?, plan = ?, scheduledSessionId = ?, tsisGroup = ?, cptCode = ?, icd10Codes = ?
             WHERE id = ?
           `).run(
             session.studentId,
             session.date,
             session.endTime || null,
             stringifyJsonField(session.goalsTargeted || []),
+            stringifyJsonField(session.goalsAddressed ?? []),
             stringifyJsonField(session.activitiesUsed || []),
             stringifyJsonField(session.performanceData || []),
             session.notes || '',
@@ -285,6 +390,10 @@ sessionsRouter.post('/bulk', asyncHandler(async (req, res) => {
             stringifyJsonField(session.selectedSubjectiveStatements),
             session.customSubjective || null,
             session.plan || null,
+            session.scheduledSessionId || null,
+            session.tsisGroup ? 1 : 0,
+            session.cptCode || null,
+            stringifyJsonField(session.icd10Codes || []),
             session.id
           );
           updated++;
@@ -293,16 +402,18 @@ sessionsRouter.post('/bulk', asyncHandler(async (req, res) => {
           const sessionId = session.id || `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
           
           db.prepare(`
-            INSERT INTO sessions (id, studentId, date, endTime, goalsTargeted, activitiesUsed, 
+            INSERT INTO sessions (id, studentId, date, endTime, goalsTargeted, goalsAddressed, activitiesUsed, 
                                  performanceData, notes, isDirectServices, indirectServicesNotes, 
-                                 groupSessionId, missedSession, selectedSubjectiveStatements, customSubjective, plan)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                 groupSessionId, missedSession, selectedSubjectiveStatements, customSubjective, plan,
+                                 scheduledSessionId, tsisGroup, cptCode, icd10Codes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `).run(
             sessionId,
             session.studentId,
             session.date,
             session.endTime || null,
             stringifyJsonField(session.goalsTargeted || []),
+            stringifyJsonField(session.goalsAddressed ?? []),
             stringifyJsonField(session.activitiesUsed || []),
             stringifyJsonField(session.performanceData || []),
             session.notes || '',
@@ -312,7 +423,11 @@ sessionsRouter.post('/bulk', asyncHandler(async (req, res) => {
             session.missedSession ? 1 : 0,
             stringifyJsonField(session.selectedSubjectiveStatements),
             session.customSubjective || null,
-            session.plan || null
+            session.plan || null,
+            session.scheduledSessionId || null,
+            session.tsisGroup ? 1 : 0,
+            session.cptCode || null,
+            stringifyJsonField(session.icd10Codes || [])
           );
           created++;
         }
@@ -389,20 +504,40 @@ sessionsRouter.put('/:id', validateBody(updateSessionSchema), asyncHandler(async
   const missedSession = typeof session.missedSession === 'boolean'
     ? session.missedSession
     : session.missedSession === 1;
-  
+
+  const goalsTargetedArr = Array.isArray(session.goalsTargeted)
+    ? session.goalsTargeted
+    : parseJsonField<string[]>(session.goalsTargeted as unknown as string, []);
+  const goalsAddressedArr = Array.isArray(session.goalsAddressed)
+    ? session.goalsAddressed
+    : parseJsonField<string[]>(session.goalsAddressed as unknown as string, []);
+  const activitiesUsedArr = Array.isArray(session.activitiesUsed)
+    ? session.activitiesUsed
+    : parseJsonField<string[]>(session.activitiesUsed as unknown as string, []);
+  const performanceDataArr = Array.isArray(session.performanceData)
+    ? session.performanceData
+    : parseJsonField<PerformanceDataItem[]>(session.performanceData as unknown as string, []);
+  const icd10Arr = Array.isArray(session.icd10Codes)
+    ? session.icd10Codes
+    : parseJsonField<string[]>(session.icd10Codes as unknown as string, []);
+  const tsisGroup =
+    typeof session.tsisGroup === 'boolean' ? session.tsisGroup : session.tsisGroup === 1;
+
   db.prepare(`
     UPDATE sessions 
-    SET studentId = ?, date = ?, endTime = ?, goalsTargeted = ?, activitiesUsed = ?, 
+    SET studentId = ?, date = ?, endTime = ?, goalsTargeted = ?, goalsAddressed = ?, activitiesUsed = ?, 
         performanceData = ?, notes = ?, isDirectServices = ?, indirectServicesNotes = ?, 
-        groupSessionId = ?, missedSession = ?, selectedSubjectiveStatements = ?, customSubjective = ?, plan = ?
+        groupSessionId = ?, missedSession = ?, selectedSubjectiveStatements = ?, customSubjective = ?, plan = ?,
+        scheduledSessionId = ?, tsisGroup = ?, cptCode = ?, icd10Codes = ?
     WHERE id = ?
   `).run(
     session.studentId,
     session.date,
     session.endTime || null,
-    stringifyJsonField(session.goalsTargeted || []),
-    stringifyJsonField(session.activitiesUsed || []),
-    stringifyJsonField(session.performanceData || []),
+    stringifyJsonField(goalsTargetedArr),
+    stringifyJsonField(goalsAddressedArr),
+    stringifyJsonField(activitiesUsedArr),
+    stringifyJsonField(performanceDataArr),
     session.notes || '',
     isDirectServices ? 1 : 0,
     session.indirectServicesNotes || null,
@@ -411,6 +546,10 @@ sessionsRouter.put('/:id', validateBody(updateSessionSchema), asyncHandler(async
     stringifyJsonField(session.selectedSubjectiveStatements),
     session.customSubjective || null,
     session.plan || null,
+    session.scheduledSessionId || null,
+    tsisGroup ? 1 : 0,
+    session.cptCode || null,
+    stringifyJsonField(icd10Arr),
     id
   );
   
