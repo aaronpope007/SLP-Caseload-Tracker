@@ -72,6 +72,14 @@ export interface Student {
   maNumber?: string;
   /** Time-study / billing mapped goals (JSON from API) */
   tsgoals?: TsGoalEntry[];
+  /** Top-level billing / diagnosis domain (not per-goal) */
+  domain?: string;
+  icd10Codes?: string[];
+  icd10Descriptions?: string[];
+  cptCodeIndividual?: string;
+  cptCodeGroup?: string;
+  codesMappedAt?: string;
+  codesMappedByAI?: boolean;
 }
 
 /** Billing-oriented goal mapping stored on the student record */

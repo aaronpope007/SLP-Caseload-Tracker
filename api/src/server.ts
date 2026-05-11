@@ -30,6 +30,7 @@ import { todosRouter } from './routes/todos';
 import { seedTestDataRouter } from './routes/seed-test-data';
 import { backupRouter } from './routes/backup';
 import { authRouter } from './routes/auth';
+import { adminRouter } from './routes/admin';
 import { errorHandler } from './middleware/errorHandler';
 import { authMiddleware } from './middleware/auth';
 import { isAuthEnabled, isAuthSetup } from './utils/auth';
@@ -57,6 +58,8 @@ app.use('/api', apiLimiter);
 
 // Auth routes (before auth middleware so login/setup work)
 app.use('/api/auth', authRouter);
+// Admin utility routes (x-admin-token); before JWT middleware for scripted imports
+app.use('/api/admin', adminRouter);
 
 // Apply authentication middleware to all other API routes
 app.use('/api', authMiddleware);

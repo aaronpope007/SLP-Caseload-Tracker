@@ -6,6 +6,7 @@ import { validateBody } from '../middleware/validateRequest';
 import { parseJsonField, stringifyJsonField } from '../utils/jsonHelpers';
 import { createStudentSchema, updateStudentSchema } from '../schemas';
 import { mapGoalsWithGemini } from '../utils/geminiMapGoals';
+import { splitStudentName } from '../utils/studentName';
 
 // Database row types
 interface StudentRow {
@@ -31,13 +32,13 @@ interface StudentRow {
   dob: string | null;
   maNumber: string | null;
   tsgoals: string | null;
-}
-
-function splitStudentName(full: string): { firstName: string; lastName: string } {
-  const parts = full.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return { firstName: '', lastName: '' };
-  if (parts.length === 1) return { firstName: parts[0], lastName: '' };
-  return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
+  domain: string | null;
+  icd10Codes: string | null;
+  icd10Descriptions: string | null;
+  cptCodeIndividual: string | null;
+  cptCodeGroup: string | null;
+  codesMappedAt: string | null;
+  codesMappedByAI: number | null;
 }
 
 function parseTsGoals(row: StudentRow): unknown[] {
@@ -168,7 +169,17 @@ studentsRouter.get('/', asyncHandler(async (req, res) => {
   
   // Parse JSON fields
   const parsed = students.map((s) => {
-    const { tsgoals: _ts, ...rest } = s;
+    const {
+      tsgoals: _ts,
+      domain: _omitDomain,
+      icd10Codes: _omitIcd,
+      icd10Descriptions: _omitIcdDesc,
+      cptCodeIndividual: _omitCptI,
+      cptCodeGroup: _omitCptG,
+      codesMappedAt: _omitMappedAt,
+      codesMappedByAI: _omitMappedByAi,
+      ...rest
+    } = s;
     return {
       ...rest,
       concerns: parseJsonField<string[]>(s.concerns, []),
@@ -178,6 +189,13 @@ studentsRouter.get('/', asyncHandler(async (req, res) => {
       dob: s.dob || undefined,
       maNumber: s.maNumber || undefined,
       tsgoals: parseTsGoals(s),
+      domain: s.domain || undefined,
+      icd10Codes: parseJsonField<string[]>(s.icd10Codes, []),
+      icd10Descriptions: parseJsonField<string[]>(s.icd10Descriptions, []),
+      cptCodeIndividual: s.cptCodeIndividual ?? undefined,
+      cptCodeGroup: s.cptCodeGroup ?? undefined,
+      codesMappedAt: s.codesMappedAt || undefined,
+      codesMappedByAI: s.codesMappedByAI === 1,
     };
   });
   
@@ -321,7 +339,17 @@ studentsRouter.get('/:id', asyncHandler(async (req, res) => {
     return res.status(404).json({ error: 'Student not found' });
   }
   
-  const { tsgoals: _ts, ...base } = student;
+  const {
+    tsgoals: _ts,
+    domain: _omitDomain,
+    icd10Codes: _omitIcd,
+    icd10Descriptions: _omitIcdDesc,
+    cptCodeIndividual: _omitCptI,
+    cptCodeGroup: _omitCptG,
+    codesMappedAt: _omitMappedAt,
+    codesMappedByAI: _omitMappedByAi,
+    ...base
+  } = student;
   res.json({
     ...base,
     concerns: parseJsonField<string[]>(student.concerns, []),
@@ -331,6 +359,13 @@ studentsRouter.get('/:id', asyncHandler(async (req, res) => {
     dob: student.dob || undefined,
     maNumber: student.maNumber || undefined,
     tsgoals: parseTsGoals(student),
+    domain: student.domain || undefined,
+    icd10Codes: parseJsonField<string[]>(student.icd10Codes, []),
+    icd10Descriptions: parseJsonField<string[]>(student.icd10Descriptions, []),
+    cptCodeIndividual: student.cptCodeIndividual ?? undefined,
+    cptCodeGroup: student.cptCodeGroup ?? undefined,
+    codesMappedAt: student.codesMappedAt || undefined,
+    codesMappedByAI: student.codesMappedByAI === 1,
   });
 }));
 
@@ -371,8 +406,8 @@ studentsRouter.post('/', validateBody(createStudentSchema), asyncHandler(async (
   const dateAdded = new Date().toISOString();
   
   db.prepare(`
-    INSERT INTO students (id, name, age, grade, concerns, exceptionality, status, dateAdded, archived, dateArchived, school, teacherId, caseManagerId, iepDate, annualReviewDate, progressReportFrequency, frequencyPerWeek, frequencyType, gender, dob, maNumber, tsgoals)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO students (id, name, age, grade, concerns, exceptionality, status, dateAdded, archived, dateArchived, school, teacherId, caseManagerId, iepDate, annualReviewDate, progressReportFrequency, frequencyPerWeek, frequencyType, gender, dob, maNumber, tsgoals, domain, icd10Codes, icd10Descriptions, cptCodeIndividual, cptCodeGroup, codesMappedAt, codesMappedByAI)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     studentId,
     student.name,
@@ -395,7 +430,14 @@ studentsRouter.post('/', validateBody(createStudentSchema), asyncHandler(async (
     student.gender || null,
     student.dob || null,
     student.maNumber || null,
-    tsgoalsJsonForDb(student.tsgoals, null)
+    tsgoalsJsonForDb(student.tsgoals, null),
+    student.domain ?? null,
+    stringifyJsonField(student.icd10Codes ?? []) ?? '[]',
+    stringifyJsonField(student.icd10Descriptions ?? []) ?? '[]',
+    student.cptCodeIndividual ?? '92507',
+    student.cptCodeGroup ?? '92508',
+    student.codesMappedAt ?? null,
+    student.codesMappedByAI ? 1 : 0
   );
   
   res.status(201).json({ id: studentId, message: 'Student created' });
@@ -476,7 +518,9 @@ studentsRouter.post('/bulk', asyncHandler(async (req, res) => {
             SET name = ?, age = ?, grade = ?, concerns = ?, exceptionality = ?, status = ?, 
                 archived = ?, dateArchived = ?, school = ?, teacherId = ?, caseManagerId = ?, 
                 iepDate = ?, annualReviewDate = ?, progressReportFrequency = ?, 
-                frequencyPerWeek = ?, frequencyType = ?, gender = ?, dob = ?, maNumber = ?, tsgoals = ?
+                frequencyPerWeek = ?, frequencyType = ?, gender = ?, dob = ?, maNumber = ?, tsgoals = ?,
+                domain = ?, icd10Codes = ?, icd10Descriptions = ?, cptCodeIndividual = ?, cptCodeGroup = ?,
+                codesMappedAt = ?, codesMappedByAI = ?
             WHERE id = ?
           `).run(
             merged.name,
@@ -499,6 +543,29 @@ studentsRouter.post('/bulk', asyncHandler(async (req, res) => {
             merged.dob ?? existingFull.dob,
             merged.maNumber ?? existingFull.maNumber,
             tsgoalsJsonForDb(merged.tsgoals, existingFull.tsgoals),
+            merged.domain ?? existingFull.domain,
+            stringifyJsonField(
+              Array.isArray(merged.icd10Codes)
+                ? merged.icd10Codes
+                : typeof merged.icd10Codes === 'string'
+                  ? parseJsonField<string[]>(merged.icd10Codes, [])
+                  : parseJsonField<string[]>(existingFull.icd10Codes, [])
+            ) ?? '[]',
+            stringifyJsonField(
+              Array.isArray(merged.icd10Descriptions)
+                ? merged.icd10Descriptions
+                : typeof merged.icd10Descriptions === 'string'
+                  ? parseJsonField<string[]>(merged.icd10Descriptions, [])
+                  : parseJsonField<string[]>(existingFull.icd10Descriptions, [])
+            ) ?? '[]',
+            merged.cptCodeIndividual ?? existingFull.cptCodeIndividual ?? '92507',
+            merged.cptCodeGroup ?? existingFull.cptCodeGroup ?? '92508',
+            merged.codesMappedAt ?? existingFull.codesMappedAt,
+            merged.codesMappedByAI !== undefined && merged.codesMappedByAI !== null
+              ? merged.codesMappedByAI
+                ? 1
+                : 0
+              : (existingFull.codesMappedByAI ?? 0),
             student.id
           );
           updated++;
@@ -509,8 +576,8 @@ studentsRouter.post('/bulk', asyncHandler(async (req, res) => {
           const dateAdded = new Date().toISOString();
           
           db.prepare(`
-            INSERT INTO students (id, name, age, grade, concerns, exceptionality, status, dateAdded, archived, dateArchived, school, teacherId, caseManagerId, iepDate, annualReviewDate, progressReportFrequency, frequencyPerWeek, frequencyType, gender, dob, maNumber, tsgoals)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO students (id, name, age, grade, concerns, exceptionality, status, dateAdded, archived, dateArchived, school, teacherId, caseManagerId, iepDate, annualReviewDate, progressReportFrequency, frequencyPerWeek, frequencyType, gender, dob, maNumber, tsgoals, domain, icd10Codes, icd10Descriptions, cptCodeIndividual, cptCodeGroup, codesMappedAt, codesMappedByAI)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `).run(
             studentId,
             student.name,
@@ -533,7 +600,14 @@ studentsRouter.post('/bulk', asyncHandler(async (req, res) => {
             student.gender || null,
             student.dob || null,
             student.maNumber || null,
-            tsgoalsJsonForDb(student.tsgoals, null)
+            tsgoalsJsonForDb(student.tsgoals, null),
+            student.domain ?? null,
+            stringifyJsonField(student.icd10Codes ?? []) ?? '[]',
+            stringifyJsonField(student.icd10Descriptions ?? []) ?? '[]',
+            student.cptCodeIndividual ?? '92507',
+            student.cptCodeGroup ?? '92508',
+            student.codesMappedAt ?? null,
+            student.codesMappedByAI ? 1 : 0
           );
           created++;
         }
@@ -599,10 +673,23 @@ studentsRouter.put('/:id', validateBody(updateStudentSchema), asyncHandler(async
   // Ensure the school exists (create it if it doesn't)
   const schoolName = student.school ? ensureSchoolExists(student.school) : existing.school;
   
+  const icd10CodesForDb = Array.isArray(student.icd10Codes)
+    ? student.icd10Codes
+    : typeof student.icd10Codes === 'string'
+      ? parseJsonField<string[]>(student.icd10Codes, [])
+      : parseJsonField<string[]>(existing.icd10Codes, []);
+  const icd10DescForDb = Array.isArray(student.icd10Descriptions)
+    ? student.icd10Descriptions
+    : typeof student.icd10Descriptions === 'string'
+      ? parseJsonField<string[]>(student.icd10Descriptions, [])
+      : parseJsonField<string[]>(existing.icd10Descriptions, []);
+
   db.prepare(`
     UPDATE students 
     SET name = ?, age = ?, grade = ?, concerns = ?, exceptionality = ?, status = ?, 
-        archived = ?, dateArchived = ?, school = ?, teacherId = ?, caseManagerId = ?, iepDate = ?, annualReviewDate = ?, progressReportFrequency = ?, frequencyPerWeek = ?, frequencyType = ?, gender = ?, dob = ?, maNumber = ?, tsgoals = ?
+        archived = ?, dateArchived = ?, school = ?, teacherId = ?, caseManagerId = ?, iepDate = ?, annualReviewDate = ?, progressReportFrequency = ?, frequencyPerWeek = ?, frequencyType = ?, gender = ?, dob = ?, maNumber = ?, tsgoals = ?,
+        domain = ?, icd10Codes = ?, icd10Descriptions = ?, cptCodeIndividual = ?, cptCodeGroup = ?,
+        codesMappedAt = ?, codesMappedByAI = ?
     WHERE id = ?
   `).run(
     student.name,
@@ -625,6 +712,17 @@ studentsRouter.put('/:id', validateBody(updateStudentSchema), asyncHandler(async
     student.dob ?? existing.dob,
     student.maNumber ?? existing.maNumber,
     tsgoalsJsonForDb(student.tsgoals, existing.tsgoals),
+    student.domain ?? existing.domain,
+    stringifyJsonField(icd10CodesForDb) ?? '[]',
+    stringifyJsonField(icd10DescForDb) ?? '[]',
+    student.cptCodeIndividual ?? existing.cptCodeIndividual ?? '92507',
+    student.cptCodeGroup ?? existing.cptCodeGroup ?? '92508',
+    student.codesMappedAt ?? existing.codesMappedAt,
+    student.codesMappedByAI !== undefined && student.codesMappedByAI !== null
+      ? student.codesMappedByAI
+        ? 1
+        : 0
+      : (existing.codesMappedByAI ?? 0),
     id
   );
   

@@ -238,6 +238,27 @@ export function initDatabase() {
     if (!studentColumnNames.includes('tsgoals')) {
       db.exec(`ALTER TABLE students ADD COLUMN tsgoals TEXT`);
     }
+    if (!studentColumnNames.includes('domain')) {
+      db.exec(`ALTER TABLE students ADD COLUMN domain TEXT`);
+    }
+    if (!studentColumnNames.includes('icd10Codes')) {
+      db.exec(`ALTER TABLE students ADD COLUMN icd10Codes TEXT`);
+    }
+    if (!studentColumnNames.includes('icd10Descriptions')) {
+      db.exec(`ALTER TABLE students ADD COLUMN icd10Descriptions TEXT`);
+    }
+    if (!studentColumnNames.includes('cptCodeIndividual')) {
+      db.exec(`ALTER TABLE students ADD COLUMN cptCodeIndividual TEXT DEFAULT '92507'`);
+    }
+    if (!studentColumnNames.includes('cptCodeGroup')) {
+      db.exec(`ALTER TABLE students ADD COLUMN cptCodeGroup TEXT DEFAULT '92508'`);
+    }
+    if (!studentColumnNames.includes('codesMappedAt')) {
+      db.exec(`ALTER TABLE students ADD COLUMN codesMappedAt TEXT`);
+    }
+    if (!studentColumnNames.includes('codesMappedByAI')) {
+      db.exec(`ALTER TABLE students ADD COLUMN codesMappedByAI INTEGER DEFAULT 0`);
+    }
   } catch (e: any) {
     console.warn('Could not add columns to students table:', e.message);
   }

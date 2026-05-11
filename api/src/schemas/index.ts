@@ -132,6 +132,13 @@ export const studentSchema = z.object({
   dob: z.string().max(40).optional().transform((s) => (s === '' ? undefined : s)),
   maNumber: z.string().max(80).optional().transform((s) => (s === '' ? undefined : s)),
   tsgoals: z.array(tsGoalEntrySchema).optional().default([]),
+  domain: z.string().max(500).optional().transform((s) => (s === '' ? undefined : s)),
+  icd10Codes: z.array(z.string().max(20)).optional(),
+  icd10Descriptions: z.array(z.string().max(500)).optional(),
+  cptCodeIndividual: z.string().max(20).optional(),
+  cptCodeGroup: z.string().max(20).optional(),
+  codesMappedAt: optionalIsoDate,
+  codesMappedByAI: z.boolean().optional(),
 });
 
 export const createStudentSchema = studentSchema.omit({ id: true });

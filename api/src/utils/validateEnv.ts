@@ -78,10 +78,10 @@ const ENV_CONFIG: EnvConfig[] = [
     description: 'Maximum number of database backups to keep',
   },
   {
-    name: 'LOG_LEVEL',
+    name: 'ADMIN_IMPORT_TOKEN',
     required: false,
-    defaultValue: 'info',
-    description: 'Logging level (debug/info/warn/error)',
+    description: 'Static token for POST /api/admin/import-codes (x-admin-token header)',
+    sensitive: true,
   },
 ];
 
