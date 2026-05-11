@@ -16,6 +16,8 @@ npm run dev
 
 The server will run on `http://localhost:3001`
 
+Optional: set **`GEMINI_API_KEY`** in `.env` (see `.env.example`) for the **AI goal mapper** endpoint (`POST /api/students/:id/map-goals`). Document parsing can also accept a key from the client.
+
 ## Database
 
 The SQLite database is stored in `./data/slp-caseload.db`. This file is automatically created on first run.
@@ -43,9 +45,12 @@ The migration script will:
 
 ### Students
 - `GET /api/students` - Get all students (optional `?school=name` filter)
+- `GET /api/students/goals-export?school=name` - **Required** `school` (name). Plain-text-oriented JSON: active students at that school with goals (archived goals included, labeled; achieved goals excluded). Used by the Goal export page.
 - `POST /api/students` - Create student
+- `POST /api/students/bulk` - Bulk create/update students
 - `GET /api/students/:id` - Get student by ID
-- `PUT /api/students/:id` - Update student
+- `PUT /api/students/:id` - Update student (may include `dob`, `maNumber`, `tsgoals` for billing)
+- `POST /api/students/:id/map-goals` - AI map in-progress goals to ICD-10/CPT (body: optional `{ "apiKey": "..." }`; uses `GEMINI_API_KEY` env if set)
 - `DELETE /api/students/:id` - Delete student
 
 ### Goals
@@ -57,9 +62,11 @@ The migration script will:
 
 ### Sessions
 - `GET /api/sessions` - Get all sessions (optional `?studentId=id&school=name` filters)
+- `GET /api/sessions/log?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD&studentIds=id1,id2` - Session log rows for billing summaries (direct, non-missed; CPT 92507/92508 from group vs individual)
 - `POST /api/sessions` - Create session
+- `POST /api/sessions/bulk` - Bulk create/update sessions
 - `GET /api/sessions/:id` - Get session by ID
-- `PUT /api/sessions/:id` - Update session
+- `PUT /api/sessions/:id` - Update session (optional: `goalsAddressed`, `tsisGroup`, `cptCode`, `icd10Codes`, `scheduledSessionId`, …)
 - `DELETE /api/sessions/:id` - Delete session
 
 ### Activities

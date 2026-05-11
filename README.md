@@ -12,6 +12,7 @@ A comprehensive web application designed to help Speech-Language Pathologists (S
 ### 👥 Student Management
 - **Student Profiles**: Create and manage student profiles with:
   - Name, age, and grade
+  - Optional **date of birth** and **MA#** (Medicaid / member id) for billing-style exports
   - Status tracking (active/discharged)
   - Speech/language concerns
   - Date added to caseload
@@ -58,6 +59,7 @@ A comprehensive web application designed to help Speech-Language Pathologists (S
 - **Session Scheduling**: Schedule recurring or one-time sessions with calendar integration
 - **Session Calendar**: Visual calendar view of scheduled and completed sessions
 - **Missed Session Tracking**: Mark sessions as missed for attendance tracking
+- **Billing-oriented fields** (optional; stored with the session): goals explicitly **addressed** (`goalsAddressed`), **group vs individual** (`tsisGroup`), **CPT** and **ICD-10** codes when you need them on the record; the **Session log** screen can still derive treatment CPT **92507** / **92508** from group vs individual when summarizing logs
 
 ### 📈 Progress Tracking
 - **Visual Analytics**: 
@@ -163,6 +165,13 @@ A comprehensive web application designed to help Speech-Language Pathologists (S
   - Track direct and indirect service time
   - Save and reuse timesheet notes
 
+### 📄 Billing & goal exports
+Administrative tools (under **Administrative** in the sidebar) for Noble-style documentation and time-study prep:
+
+- **Goal export** (`/goal-export`): Choose a **school**, then generate a plain-text export (Noble Academy header) listing active students at that school with their goals. Includes **archived** goals (labeled `(archived)`); excludes goals marked **achieved** only. Uses first/last name parsed from the student **name** field; DOB and MA# appear when present on the student.
+- **Session log** (`/session-log`): Pick a **date range** and one or more **students**, then generate a table of **direct, non-missed** sessions with duration, goals addressed (text), individual vs **group**, and treatment CPT (**92507** individual / **92508** when grouped). **Print** hides filters and prints the log plus title/date range.
+- **AI goal mapper** (`/goal-mapper`): Select a student, review **in-progress** goals, run **Map all goals** to get Gemini-suggested ICD-10 and CPT codes, then **Confirm & save** to store mappings on the student as **`tsgoals`**. Uses a **Gemini API key** from Settings (browser) and/or **`GEMINI_API_KEY`** in the API `.env` (see [API README](./api/README.md)).
+
 ### ⚙️ Data Management
 - **SQLite Backend**: Express.js + SQLite backend for reliable data storage
   - All data stored in SQLite database (`api/data/slp-caseload.db`)
@@ -182,9 +191,10 @@ A comprehensive web application designed to help Speech-Language Pathologists (S
   - Export all data as JSON for full backup
   - Export as CSV for spreadsheet compatibility
   - Export via API endpoint for programmatic access
+  - **Goal export** (UI): school-scoped plain-text student/goals listing — separate from JSON backup
 - **Import Functionality**: 
   - Restore data from previously exported JSON files
-- **Settings**: Configure Google Gemini API key for AI features and manage test data
+- **Settings**: Configure a Google Gemini API key for in-app AI features, optional **`GEMINI_API_KEY`** on the API for the goal mapper, and manage test data
 
 ### 🔐 Security
 - **Authentication System**: 
@@ -252,7 +262,7 @@ npm run dev
 ```
 
 This will automatically start both:
-- **Frontend** on `http://localhost:5173` (or the port shown in the terminal)
+- **Frontend** on `http://localhost:5174` by default (see `vite.config.ts`, or the port shown in the terminal)
 - **API Server** on `http://localhost:3001`
 
 > **Note**: Both servers must be running for the app to function. The `pnpm dev` command uses `concurrently` to start both servers automatically.
@@ -267,7 +277,10 @@ This will automatically start both:
    - Get your API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
    - Open Settings in the app
    - Enter your API key
-   - The key is stored locally and never sent to any server except Google's Gemini API
+   - The key is stored locally and used by the browser for client-side Gemini calls (e.g. treatment ideas, progress notes)
+   - **Server-side goal mapping**: set **`GEMINI_API_KEY`** in `api/.env` so **AI goal mapper** can call Gemini from the API without pasting a key in the mapper page (optional; you can still pass a key from the UI)
+
+See `api/.env.example` for backend variables including `GEMINI_API_KEY`.
 
 ### First Time Setup - Explore with Test Data
 
@@ -339,6 +352,9 @@ MAX_BACKUPS=10
 
 # Logging
 LOG_LEVEL=info
+
+# Optional: Gemini for server-side AI goal mapper (POST /api/students/:id/map-goals)
+# GEMINI_API_KEY=your-key-here
 ```
 
 See the [API README](./api/README.md) for complete API documentation.
@@ -362,6 +378,7 @@ See the [API README](./api/README.md) for complete API documentation.
 5. **Log Sessions**: Use the Sessions page to document therapy sessions, track performance, and record activities
 6. **Track Progress**: View detailed progress charts and generate progress notes in the Progress page
 7. **Generate Ideas**: Use the Treatment Ideas page to get AI-generated activity suggestions based on goal areas and age ranges
+8. **Billing-style exports** (optional): Under **Administrative**, use **Goal export**, **Session log**, or **AI goal mapper** as needed
 
 ### Data Backup
 
@@ -394,6 +411,9 @@ SLP Caseload Tracker/
 │   └── README.md         # API documentation
 ├── src/
 │   ├── components/       # Reusable UI components
+│   │   ├── GoalExport/   # School-scoped goals text export
+│   │   ├── GoalMapper/   # AI map goals → tsgoals
+│   │   ├── SessionLog/   # Date range session log + print
 │   │   ├── common/       # Common/shared components
 │   │   ├── goal/         # Goal-related components
 │   │   ├── meeting/      # Meeting-related components
@@ -501,6 +521,7 @@ SLP Caseload Tracker/
 - **Due Date Items**: Comprehensive deadline tracking system ✅
 - **Reminders**: Smart reminder system for goals, evaluations, and reports ✅
 - **Time Tracking**: Unified time tracking dashboard for sessions and evaluations ✅
+- **Goal export, session log, AI goal mapper**: Billing-oriented exports and session summaries; optional `GEMINI_API_KEY` on API ✅
 - **Schools Management**: Multi-school caseload management ✅
 - **Teachers & Case Managers**: Team member tracking and linking ✅
 - **Evaluations**: Complete evaluation tracking system ✅
