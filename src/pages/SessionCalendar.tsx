@@ -822,7 +822,26 @@ export const SessionCalendar = () => {
         }
       }
     });
-    
+
+    // Logged sessions: show actual start/end from the session record (edits to minutes must reflect on calendar)
+    events.forEach((event) => {
+      if (!event.isLogged || !event.matchedSessions?.length) return;
+      const ms = event.matchedSessions;
+      const startMs = Math.min(...ms.map((s) => new Date(s.date).getTime()));
+      const sessionStart = new Date(startMs);
+      const endMs = Math.max(
+        ...ms.map((s) =>
+          s.endTime ? new Date(s.endTime).getTime() : addMinutes(new Date(s.date), 30).getTime()
+        )
+      );
+      event.startTime = format(sessionStart, 'HH:mm');
+      event.endTime = format(new Date(endMs), 'HH:mm');
+      const schoolSuffix = getSchoolForStudentIds(event.studentIds);
+      const namesStr = event.studentIds.map((id) => formatStudentNameWithGrade(id)).join(', ');
+      const titleBase = `${event.startTime}-${event.endTime} ${namesStr}`;
+      event.title = schoolSuffix ? `${titleBase} — ${schoolSuffix}` : titleBase;
+    });
+
     // Combine scheduled events with logged sessions without schedule
     // Filter out logged sessions without schedule that reference deleted sessions
     const validLoggedSessionsWithoutSchedule = loggedSessionsWithoutSchedule.filter(loggedEvent => {
