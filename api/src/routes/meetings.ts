@@ -5,6 +5,38 @@ import { validateBody } from '../middleware/validateRequest';
 import { createMeetingSchema, updateMeetingSchema } from '../schemas';
 import { parseJsonField, stringifyJsonField } from '../utils/jsonHelpers';
 
+const LEGACY_ASSESSMENT_CATEGORY = 'Assessment';
+
+/** Title tokens → CPT for eval billing (session log). */
+export function resolveCptFromTitle(title: string): { cptCode: string; billable: boolean; needsReview: boolean } {
+  const t = title.toLowerCase();
+  const hasGfta = /gfta|klpa/.test(t);
+  const hasLanguage = /celf|ppvt|owls|language/.test(t);
+
+  if (hasGfta && hasLanguage) return { cptCode: '92523', billable: true, needsReview: false };
+  if (hasLanguage) return { cptCode: '92523', billable: true, needsReview: false };
+  if (hasGfta) return { cptCode: '92522', billable: true, needsReview: false };
+  return { cptCode: '', billable: true, needsReview: true };
+}
+
+function resolveEvalBilling(
+  category: string | null | undefined,
+  title: string
+): { cptCode: string; billable: boolean; needsReview: boolean } {
+  if (category === 'SLP Screener') {
+    return { cptCode: '', billable: false, needsReview: false };
+  }
+  return resolveCptFromTitle(title);
+}
+
+function meetingDateOnly(isoOrDate: string): string {
+  const s = (isoOrDate || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return s.slice(0, 10);
+  return d.toISOString().slice(0, 10);
+}
+
 // Database row types
 interface MeetingRow {
   id: string;
@@ -41,6 +73,141 @@ function rowToMeeting(row: MeetingRow) {
 }
 
 export const meetingsRouter = Router();
+
+function getMeetingStudentIdsFromRow(row: MeetingRow): string[] {
+  const parsed = parseJsonField<string[]>(row.studentIds, []);
+  const fromJson = Array.isArray(parsed) ? parsed.filter((x) => typeof x === 'string' && x.trim()) : [];
+  if (fromJson.length > 0) return fromJson;
+  if (row.studentId) return [row.studentId];
+  return [];
+}
+
+// Evaluation / assessment billing log (must be registered before GET /:id)
+meetingsRouter.get('/eval-log', asyncHandler(async (req, res) => {
+  const { startDate, endDate, studentIds, school } = req.query;
+  if (!school || typeof school !== 'string' || !school.trim()) {
+    return res.status(400).json({ error: 'school is required' });
+  }
+  if (!startDate || !endDate || typeof startDate !== 'string' || typeof endDate !== 'string') {
+    return res.status(400).json({ error: 'startDate and endDate are required (ISO string)' });
+  }
+  if (!studentIds || typeof studentIds !== 'string' || !studentIds.trim()) {
+    return res.status(400).json({ error: 'studentIds is required (comma-separated ids or "all")' });
+  }
+
+  const schoolName = school.trim();
+  const studentIdsRaw = studentIds.trim();
+
+  let ids: string[] | null = null;
+  if (studentIdsRaw.toLowerCase() !== 'all') {
+    const parsed = studentIdsRaw
+      .split(',')
+      .map((x) => x.trim())
+      .filter(Boolean);
+    if (parsed.length === 0) {
+      return res.status(400).json({ error: 'At least one student id is required' });
+    }
+    ids = parsed;
+  } else {
+    const all = db
+      .prepare(
+        `
+        SELECT id FROM students
+        WHERE school = ?
+          AND status = 'active'
+          AND (archived IS NULL OR archived = 0)
+        `
+      )
+      .all(schoolName) as Array<{ id: string }>;
+    ids = all.map((r) => r.id);
+  }
+
+  if (!ids || ids.length === 0) {
+    return res.json([]);
+  }
+
+  const idSet = new Set(ids);
+  const rows = db
+    .prepare(
+      `
+      SELECT *
+      FROM meetings
+      WHERE school = ?
+        AND date(date) >= date(?)
+        AND date(date) <= date(?)
+        AND (
+          category IN ('Initial Assessment', '3 Year Reassessment', 'SLP Screener')
+          OR (category = ? AND activitySubtype = 'assessment')
+        )
+      ORDER BY date ASC
+    `
+    )
+    .all(schoolName, startDate, endDate, LEGACY_ASSESSMENT_CATEGORY) as MeetingRow[];
+
+  type Out = {
+    id: string;
+    date: string;
+    startTime: string | null;
+    endTime: string | null;
+    title: string;
+    type: string;
+    studentId: string;
+    studentName: string;
+    cptCode: string;
+    billable: boolean;
+    needsReview: boolean;
+  };
+
+  const out: Out[] = [];
+  const studentNameCache = new Map<string, string>();
+
+  const loadName = (studentId: string): string => {
+    if (studentNameCache.has(studentId)) return studentNameCache.get(studentId)!;
+    const st = db
+      .prepare('SELECT name FROM students WHERE id = ? AND school = ?')
+      .get(studentId, schoolName) as { name: string } | undefined;
+    const name = st?.name || 'Unknown student';
+    studentNameCache.set(studentId, name);
+    return name;
+  };
+
+  for (const row of rows) {
+    const mStudentIds = getMeetingStudentIdsFromRow(row);
+    const linked = [...new Set(mStudentIds.filter((sid) => idSet.has(sid)))];
+    if (linked.length === 0) continue;
+
+    const cat = row.category || '';
+    const dateOnly = meetingDateOnly(row.date);
+    const startTimeVal = row.date?.trim() ? row.date : null;
+
+    for (const studentId of linked) {
+      const billing = resolveEvalBilling(cat, row.title);
+      out.push({
+        id: row.id,
+        date: dateOnly,
+        startTime: startTimeVal,
+        endTime: row.endTime?.trim() ? row.endTime : null,
+        title: row.title,
+        type: cat,
+        studentId,
+        studentName: loadName(studentId),
+        cptCode: billing.cptCode,
+        billable: billing.billable,
+        needsReview: billing.needsReview,
+      });
+    }
+  }
+
+  out.sort((a, b) => {
+    const da = a.date.localeCompare(b.date);
+    if (da !== 0) return da;
+    const ns = a.studentName.localeCompare(b.studentName, undefined, { sensitivity: 'base' });
+    if (ns !== 0) return ns;
+    return (a.startTime || '').localeCompare(b.startTime || '');
+  });
+
+  res.json(out);
+}));
 
 // Get all meetings (filterable by studentId, school, category, date range)
 meetingsRouter.get('/', asyncHandler(async (req, res) => {

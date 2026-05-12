@@ -5,7 +5,7 @@
  * Set VITE_API_URL in your .env file or it defaults to http://localhost:3001
  */
 
-import type { Student, Goal, Session, Activity, Evaluation, ArticulationScreener, School, Teacher, CaseManager, SOAPNote, IEPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Meeting, Reminder, Communication, ScheduledSession, TimesheetNote, Todo, CombinedProgressNote, ReassessmentPlan, ReassessmentPlanItem, ReassessmentPlanTemplate, GoalsExportRow, SessionLogEntry, GoalMapAiMapping } from '../types';
+import type { Student, Goal, Session, Activity, Evaluation, ArticulationScreener, School, Teacher, CaseManager, SOAPNote, IEPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Meeting, Reminder, Communication, ScheduledSession, TimesheetNote, Todo, CombinedProgressNote, ReassessmentPlan, ReassessmentPlanItem, ReassessmentPlanTemplate, GoalsExportRow, SessionLogEntry, EvalLogEntry, GoalMapAiMapping } from '../types';
 import { buildQueryString } from './queryHelpers';
 import { logError } from './logger';
 
@@ -653,7 +653,9 @@ export const api = {
 
   // Meetings
   meetings: {
-    getAll: (studentId?: string, school?: string, category?: string, startDate?: string, endDate?: string) => 
+    getEvalLog: (params: { startDate: string; endDate: string; studentIds: string; school: string }) =>
+      request<EvalLogEntry[]>(`/meetings/eval-log${buildQueryString(params)}`),
+    getAll: (studentId?: string, school?: string, category?: string, startDate?: string, endDate?: string) =>
       request<Meeting[]>(`/meetings${buildQueryString({ studentId, school, category, startDate, endDate })}`),
     getById: (id: string) => 
       request<Meeting>(`/meetings/${id}`),

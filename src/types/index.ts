@@ -173,22 +173,54 @@ export interface GoalsExportRow {
   goals: { goalText: string; archived?: boolean }[];
 }
 
+/** One performance row from GET /api/sessions/log */
+export interface SessionLogPerformanceSummaryEntry {
+  goalId: string;
+  goalDescription: string;
+  accuracy: number;
+  correctTrials: number;
+  incorrectTrials: number;
+  totalTrials: number;
+  cuingLevels: string[];
+  notes: string;
+}
+
 /** One row from GET /api/sessions/log */
 export interface SessionLogEntry {
   id: string;
   date: string;
+  /** Same as `date` — session start instant (ISO) */
+  startTime: string;
+  endTime: string | null;
   studentId: string;
   studentName: string;
-  duration: number;
   isGroup: boolean;
   groupSize?: number;
   notes?: string;
-  goalsAddressed?: string;
+  /** Goal descriptions from `goalsAddressed` and/or inferred from `performanceData` when addressed is empty */
+  goalsAddressedText: string[];
+  /** Trial-level results per goal (from `performanceData`) */
+  performanceSummary: SessionLogPerformanceSummaryEntry[];
   resolvedCptCode: string;
   icd10Codes: string[];
   icd10Descriptions: string[];
   domain?: string;
   codesMapped: boolean;
+}
+
+/** One row from GET /api/meetings/eval-log (meeting category exposed as `type`) */
+export interface EvalLogEntry {
+  id: string;
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+  title: string;
+  type: string;
+  studentId: string;
+  studentName: string;
+  cptCode: string;
+  billable: boolean;
+  needsReview: boolean;
 }
 
 /** One mapping from POST /api/students/:id/map-goals */

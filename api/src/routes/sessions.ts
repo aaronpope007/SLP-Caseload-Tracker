@@ -40,6 +40,23 @@ interface PerformanceDataItem {
   cuingLevels?: string[];
 }
 
+function resolveGoalDescriptionForLog(
+  studentId: string,
+  token: string,
+  goalMetaByStudentAndId: Map<string, { description: string; domain: string | null }>,
+  goalsMap: Map<string, string>
+): string {
+  const tr = typeof token === 'string' ? token.trim() : String(token).trim();
+  if (!tr) return tr;
+  if (tr.length <= 220) {
+    const meta = goalMetaByStudentAndId.get(`${studentId}|${tr}`);
+    if (meta?.description?.trim()) return meta.description.trim();
+  }
+  const byId = goalsMap.get(tr);
+  if (byId?.trim()) return byId.trim();
+  return tr;
+}
+
 function toSessionResponse(s: SessionRow) {
   return {
     id: s.id,
@@ -211,6 +228,11 @@ sessionsRouter.get('/log', asyncHandler(async (req, res) => {
       const s = typeof gid === 'string' ? gid.trim() : String(gid);
       if (s) goalIds.add(s);
     });
+    const perfRaw = parseJsonField<PerformanceDataItem[]>(row.performanceData, []);
+    for (const p of perfRaw) {
+      const gid = typeof p?.goalId === 'string' ? p.goalId.trim() : String(p?.goalId ?? '').trim();
+      if (gid) goalIds.add(gid);
+    }
   }
 
   const goalsMap = new Map<string, string>();
@@ -236,12 +258,53 @@ sessionsRouter.get('/log', asyncHandler(async (req, res) => {
 
   const out = rows.map((row) => {
     const goalsAddressedIds = parseJsonField<string[]>(row.goalsAddressed, []);
-    const goalsTargetedIds = parseJsonField<string[]>(row.goalsTargeted, []);
-    const resolvedGoalIds = goalsAddressedIds.length > 0 ? goalsAddressedIds : goalsTargetedIds;
-    const goalsAddressedTexts = resolvedGoalIds.map((gid) => {
-      const key = typeof gid === 'string' ? gid.trim() : String(gid).trim();
-      return goalsMap.get(key) ?? key;
-    });
+    const perfRaw = parseJsonField<PerformanceDataItem[]>(row.performanceData, []);
+
+    const performanceSummary = perfRaw
+      .map((p) => {
+        const gid = typeof p?.goalId === 'string' ? p.goalId.trim() : String(p?.goalId ?? '').trim();
+        if (!gid) return null;
+        const correct = Math.max(0, Math.round(Number(p.correctTrials) || 0));
+        const incorrect = Math.max(0, Math.round(Number(p.incorrectTrials) || 0));
+        const totalTrials = correct + incorrect;
+        const accuracy = Math.round(Number(p.accuracy) || 0);
+        const cuingLevels = Array.isArray(p.cuingLevels)
+          ? p.cuingLevels.map((c) => String(c).trim()).filter(Boolean)
+          : [];
+        const notes = typeof p.notes === 'string' ? p.notes : '';
+        const goalDescription = resolveGoalDescriptionForLog(
+          row.studentId,
+          gid,
+          goalMetaByStudentAndId,
+          goalsMap
+        );
+        return {
+          goalId: gid,
+          goalDescription,
+          accuracy,
+          correctTrials: correct,
+          incorrectTrials: incorrect,
+          totalTrials,
+          cuingLevels,
+          notes,
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => x != null);
+
+    let goalsAddressedText = goalsAddressedIds
+      .map((x) => (typeof x === 'string' ? x.trim() : String(x).trim()))
+      .filter((x) => x.length > 0)
+      .map((tr) => resolveGoalDescriptionForLog(row.studentId, tr, goalMetaByStudentAndId, goalsMap));
+
+    if (goalsAddressedText.length === 0 && performanceSummary.length > 0) {
+      goalsAddressedText = performanceSummary.map((p) => p.goalDescription);
+    }
+
+    const addressedForIcd = goalsAddressedIds
+      .map((x) => (typeof x === 'string' ? x.trim() : String(x).trim()))
+      .filter((x) => x.length > 0);
+    const perfGoalIdsForIcd = performanceSummary.map((p) => p.goalId).filter(Boolean);
+    const tokensForIcd = addressedForIcd.length > 0 ? addressedForIcd : perfGoalIdsForIcd;
 
     const inferredGroup =
       row.groupSessionId != null &&
@@ -254,26 +317,14 @@ sessionsRouter.get('/log', asyncHandler(async (req, res) => {
     const cptGroup = row.studentCptCodeGroup || '92508';
     const cptResolved = isGroupOrMulti ? cptGroup : cptIndividual;
 
-    let duration: number | null = null;
-    if (row.endTime) {
-      const a = Date.parse(row.date);
-      const b = Date.parse(row.endTime);
-      if (Number.isFinite(a) && Number.isFinite(b) && b >= a) {
-        duration = Math.round((b - a) / 60000);
-      }
-    }
-
     let icd10Codes: string[];
     let icd10Descriptions: string[];
-    const addressedForIcd = goalsAddressedIds
-      .map((x) => (typeof x === 'string' ? x.trim() : String(x).trim()))
-      .filter((x) => x.length > 0);
-    if (addressedForIcd.length === 0) {
+    if (tokensForIcd.length === 0) {
       icd10Codes = parseJsonField<string[]>(row.studentIcd10Codes, []);
       icd10Descriptions = parseJsonField<string[]>(row.studentIcd10Descriptions, []);
     } else {
       const domains: string[] = [];
-      for (const tr of addressedForIcd) {
+      for (const tr of tokensForIcd) {
         const goalKey = `${row.studentId}|${tr}`;
         const meta = tr.length <= 220 ? goalMetaByStudentAndId.get(goalKey) : undefined;
         const domain = meta?.domain?.trim();
@@ -297,13 +348,15 @@ sessionsRouter.get('/log', asyncHandler(async (req, res) => {
     return {
       id: row.id,
       date: row.date,
+      startTime: row.date,
+      endTime: row.endTime || null,
       studentId: row.studentId,
       studentName: row.studentName,
-      duration: duration ?? 0,
       isGroup,
       groupSize: isGroupOrMulti ? groupSize : undefined,
       notes: row.notes || undefined,
-      goalsAddressed: goalsAddressedTexts.join(' | ') || undefined,
+      goalsAddressedText,
+      performanceSummary,
       resolvedCptCode: cptResolved,
       icd10Codes,
       icd10Descriptions,
