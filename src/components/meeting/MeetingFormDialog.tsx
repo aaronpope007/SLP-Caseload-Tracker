@@ -373,7 +373,9 @@ export const MeetingFormDialog = ({
               onChange={(e) => setFormData({ ...formData, activitySubtype: e.target.value as MeetingActivitySubtype })}
               margin="normal"
               helperText={
-                formData.category === 'IEP'
+                formData.category === 'Due process (Data Entry Spedforms)' || formData.category === 'Due process (progress reports)'
+                  ? `Shows on timesheet as "${formData.category}:"`
+                  : formData.category === 'IEP'
                   ? 'Shows on timesheet as "Due process (IEP)"'
                   : formData.category === 'IEP planning'
                     ? 'Shows on timesheet as "Due process (IEP)"'

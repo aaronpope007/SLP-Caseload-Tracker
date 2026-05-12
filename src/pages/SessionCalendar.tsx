@@ -269,6 +269,8 @@ export const SessionCalendar = () => {
         : cat === 'Initial assessment documentation' ? 'Initial assessment documentation'
         : cat === '3 year documentation' ? '3 year documentation'
         : cat === 'IEP documentation' ? 'IEP documentation'
+        : cat === 'Due process (progress reports)' ? 'Due process (progress reports)'
+        : cat === 'Due process (Data Entry Spedforms)' ? 'Due process (Data Entry Spedforms)'
         : cat || '-scheduled meeting-';
       return schoolInitials ? `${timePart} ${label} — ${schoolInitials}` : `${timePart} ${label}`;
     }

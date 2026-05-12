@@ -712,6 +712,14 @@ export const generateTimesheetNote = ({
   const progressReportsStudentIds = new Set<string>();
   progressReportsMeetings.forEach(m => getMeetingStudentIds(m).forEach(id => progressReportsStudentIds.add(id)));
 
+  const spedformsDataEntryMeetings = meetings.filter(
+    m => m.category === 'Due process (Data Entry Spedforms)'
+  );
+  const spedformsDataEntryStudentIds = new Set<string>();
+  spedformsDataEntryMeetings.forEach(m =>
+    getMeetingStudentIds(m).forEach(id => spedformsDataEntryStudentIds.add(id))
+  );
+
   // Lesson Planning: All students from all sessions (missed and attended)
   // Per SSG rules: Lesson planning includes all students, including those with missed sessions
   const lessonPlanningStudentIds = new Set<string>();
@@ -996,6 +1004,11 @@ export const generateTimesheetNote = ({
   const progressReportsEntries = buildStudentEntries(progressReportsStudentIds);
   if (progressReportsEntries.length > 0) {
     addIndirectSubsection('Due process (progress reports):', progressReportsEntries.join(', '));
+  }
+
+  const spedformsDataEntryEntries = buildStudentEntries(spedformsDataEntryStudentIds);
+  if (spedformsDataEntryEntries.length > 0) {
+    addIndirectSubsection('Due process (Data Entry Spedforms):', spedformsDataEntryEntries.join(', '));
   }
 
   noteParts.push(''); // Empty line after service
@@ -1696,6 +1709,18 @@ export const generateProspectiveTimesheetNote = ({
       });
     addIndirectSubsection('Indirect services, caseload planning:', lineParts.join(', '));
   }
+
+  const spedformsDataEntryProspective = meetings.filter(
+    m => m.category === 'Due process (Data Entry Spedforms)'
+  );
+  const spedformsDataEntryEntriesProspective = buildDocEntries(spedformsDataEntryProspective);
+  if (spedformsDataEntryEntriesProspective.length > 0) {
+    addIndirectSubsection(
+      'Due process (Data Entry Spedforms):',
+      spedformsDataEntryEntriesProspective.join(', ')
+    );
+  }
+
   if (staffMeetingEntriesProspective.length > 0) {
     addIndirectSubsection('Indirect services, staff meeting:', staffMeetingEntriesProspective.join(', '));
   }

@@ -10,7 +10,7 @@ export const MEETING_CATEGORY_GROUPS = {
   'Direct Contact': ['Initial Assessment', '3 Year Reassessment', 'SLP Screener', 'Assessment'], // Assessment = legacy, prefer Initial/3 Year
   Planning: ['IEP planning', 'Assessment planning', '3 year reassessment planning'],
   Meetings: ['IEP', 'CST Meeting', 'Sped Team meeting', 'Staff Meeting', 'Team Meeting', 'Parent Meeting', 'Professional Development', 'Speech screening'],
-  Documentation: ['Initial assessment documentation', '3 year documentation', 'IEP documentation', 'SLP Screening Assessment', 'Caseload planning', 'Case Management', 'Due process (progress reports)'],
+  Documentation: ['Initial assessment documentation', '3 year documentation', 'IEP documentation', 'SLP Screening Assessment', 'Caseload planning', 'Case Management', 'Due process (progress reports)', 'Due process (Data Entry Spedforms)'],
   Consultation: ['Consultation/screening', 'Consultation/intervention'],
   Other: ['Other'],
 } as const;
@@ -44,6 +44,7 @@ export const DOCUMENTATION_CATEGORIES = [
   'IEP documentation',
   'SLP Screening Assessment',
   'Caseload planning',
+  'Due process (Data Entry Spedforms)',
 ] as const;
 
 /** Legacy: old "Assessment documentation" (no subtype) - map to generic in timesheet */
