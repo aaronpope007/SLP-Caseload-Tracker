@@ -159,9 +159,14 @@ DIAGNOSIS CONTEXT (shape Subjective, Objective, Assessment, Plan; Assessment MUS
       : `
 DIAGNOSIS CONTEXT: No structured narrative map for ICD-10 ${s.primaryIcdCode || '—'}. Use the ICD-10 label/description in SESSION DATA and the IEP goal domain to justify skilled SLP services; do not invent unsupported diagnoses.`;
 
+    const dobSeg = (s.studentDob || '').trim();
+    const studentLine = dobSeg
+      ? `${s.studentName}, DOB: ${dobSeg}`
+      : s.studentName;
+
     const block = `
 SESSION ID: ${s.id}
-- Student: ${s.studentName}, DOB: ${s.studentDob || 'Not on file'}
+- Student: ${studentLine}
 - Grade: ${s.grade}
 - Date of Service: ${formatDisplayDate(s.serviceDateYmd)}
 - Late entry: ${lateLine}
@@ -213,7 +218,7 @@ CRITICAL INSTRUCTIONS:
 
 For each session, follow this exact output structure (plain text inside the JSON "note" string, with line breaks as shown):
 
-STUDENT: [name] | DOB: [dob] | DATE OF SERVICE: [use the M/D/YYYY shown after "Date of Service:" in SESSION DATA exactly]
+STUDENT: [name][if SESSION DATA "Student:" line includes ", DOB:", include " | DOB: [same dob] | "; if there is no DOB on that line, omit any DOB segment] | DATE OF SERVICE: [use the M/D/YYYY shown after "Date of Service:" in SESSION DATA exactly]
 [If late entry per SESSION DATA, start this line with: LATE ENTRY — DATE NOTE WRITTEN: [today M/D/YYYY] | ]CPT: [code from SESSION DATA] | ICD-10: [primary code from SESSION DATA]
 SESSION: [copy the start and end clocks from the "Session Time (Central / America/Chicago):" line in SESSION DATA verbatim, same 12-hour format and en dash between them] ([X] min) | UNITS BILLED: [X] | SETTING: [modality from data]
 
@@ -496,7 +501,7 @@ export function buildSoapNoteGenerationSession(
     ...bodySession,
     studentName,
     grade,
-    studentDob: studentDob || 'Not on file',
+    studentDob: (studentDob || '').trim(),
     totalMinutes,
     units,
     serviceDateYmd,
@@ -535,7 +540,7 @@ export function genericSessionNote(
     'Skilled speech-language pathology services remain medically necessary per the IEP to support functional communication and educational access.';
   const modality = cpt === '92508' ? 'Group Teletherapy via Zoom' : 'Individual Teletherapy via Zoom';
   const cptJust = cptMedicalNecessityLine(cpt, modality);
-  return `STUDENT: Student | DOB: Not on file | DATE OF SERVICE: ${today}
+  return `STUDENT: Student | DATE OF SERVICE: ${today}
 CPT: ${cpt} | ICD-10: ${icdHeader} — ${diagnosisLabel}
 SESSION: — (0 min) | UNITS BILLED: 0 | SETTING: ${modality}
 
