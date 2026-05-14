@@ -7,7 +7,7 @@ import {
 } from './geminiSessionNotes';
 import { logger } from './logger';
 
-const SOAP_ANTHROPIC_MODEL = 'claude-sonnet-4-20250514';
+const SOAP_ANTHROPIC_MODEL = 'claude-sonnet-4-6';
 
 /**
  * Same contract as Gemini: one batched prompt, JSON array of { sessionId, note }.

@@ -4,11 +4,12 @@ export const ANTHROPIC_API_KEY_STORAGE_KEY = 'anthropic_api_key';
 
 const ANTHROPIC_MESSAGES_URL = 'https://api.anthropic.com/v1/messages';
 
-/** Models to try in order (newer first); fall back on 404. */
+/** Models to try in order (stable IDs first); fall back on 404. */
 const CLAUDE_MODELS = [
-  'claude-sonnet-4-20250514',
-  'claude-3-5-haiku-20241022',
   'claude-3-5-sonnet-20241022',
+  'claude-sonnet-4-6',
+  'claude-3-5-haiku-20241022',
+  'claude-sonnet-4-20250514',
 ] as const;
 
 export function getHttpStatusFromError(error: unknown): number | undefined {
