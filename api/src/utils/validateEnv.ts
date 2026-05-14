@@ -114,6 +114,12 @@ export function validateEnv(): ValidationResult {
     }
   }
 
+  if (!process.env.GEMINI_API_KEY?.trim()) {
+    result.warnings.push(
+      'GEMINI_API_KEY is not set on the server. In-app AI (progress notes, etc.) uses your Settings key in the browser; Goal Mapper and Session Log AI notes can use that same key from Settings without this env var, or set GEMINI_API_KEY in api/.env or the repo-root .env (see api/.env.example).'
+    );
+  }
+
   // Production-specific warnings
   if (isProduction) {
     // Warn about default JWT secret in production
@@ -147,13 +153,17 @@ export function logEnvConfig(): void {
   
   for (const config of ENV_CONFIG) {
     const value = process.env[config.name];
-    
+
     if (config.sensitive && value) {
       configSummary[config.name] = '[SET]';
     } else {
       configSummary[config.name] = value || `(default: ${config.defaultValue})`;
     }
   }
+
+  configSummary['GEMINI_API_KEY'] = process.env.GEMINI_API_KEY?.trim()
+    ? '[SET]'
+    : '(not set — AI goal mapping & session notes disabled)';
   
   logger.info({ config: configSummary }, 'Environment variables');
 }
@@ -184,7 +194,9 @@ export function validateAndLogEnv(): void {
     if (process.env.NODE_ENV === 'production') {
       process.exit(1);
     }
-  } else if (result.warnings.length === 0) {
+  } else if (result.warnings.length > 0) {
+    logger.info('Environment validation passed (see warnings above)');
+  } else {
     logger.info('✅ Environment validation passed');
   }
 }

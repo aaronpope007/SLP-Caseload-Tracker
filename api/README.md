@@ -16,7 +16,14 @@ npm run dev
 
 The server will run on `http://localhost:3001`
 
-Optional: set **`GEMINI_API_KEY`** in `.env` (see `.env.example`) for the **AI goal mapper** endpoint (`POST /api/students/:id/map-goals`). Document parsing can also accept a key from the client.
+Optional: create **`api/.env`** (copy from `.env.example`) and set **`GEMINI_API_KEY`** for Google Gemini. Used by:
+
+- **`POST /api/students/:id/map-goals`** — AI goal → ICD-10/CPT mapping (body may also pass `apiKey`)
+- **`POST /api/sessions/generate-notes`** — Session Log AI progress notes (**server key only**)
+
+Get a key from [Google AI Studio](https://aistudio.google.com/apikey). Restart the API after changing `.env`.
+
+`.env` is loaded from the **`api/`** directory (next to `package.json`), even if you start the process from another folder.
 
 ## Database
 

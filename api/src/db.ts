@@ -159,6 +159,7 @@ export function initDatabase() {
       indirectServicesNotes TEXT,
       groupSessionId TEXT,
       missedSession INTEGER DEFAULT 0,
+      maLogged INTEGER NOT NULL DEFAULT 0,
       selectedSubjectiveStatements TEXT,
       customSubjective TEXT,
       plan TEXT,
@@ -197,6 +198,12 @@ export function initDatabase() {
     }
     if (!columnNames.includes('goalsAddressed')) {
       db.exec(`ALTER TABLE sessions ADD COLUMN goalsAddressed TEXT`);
+    }
+    if (!columnNames.includes('aiGeneratedNote')) {
+      db.exec(`ALTER TABLE sessions ADD COLUMN aiGeneratedNote TEXT`);
+    }
+    if (!columnNames.includes('maLogged')) {
+      db.exec(`ALTER TABLE sessions ADD COLUMN maLogged INTEGER NOT NULL DEFAULT 0`);
     }
   } catch (e: any) {
     // If table doesn't exist yet, columns will be added via CREATE TABLE above

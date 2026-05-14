@@ -35,6 +35,9 @@ export const SettingsDialog = ({ open, onClose }: SettingsDialogProps) => {
   const [zoomLink, setZoomLink] = useState('');
   const [emailAddress, setEmailAddress] = useState('');
   const [emailPassword, setEmailPassword] = useState('');
+  const [soapProviderName, setSoapProviderName] = useState('');
+  const [soapCredentials, setSoapCredentials] = useState('');
+  const [soapNpi, setSoapNpi] = useState('');
   const { mode, toggleMode } = useTheme();
   const { authStatus, changePassword } = useAuth();
   const [testDataExists, setTestDataExists] = useState(false);
@@ -93,6 +96,9 @@ Join instructions
     if (savedEmailPassword) {
       setEmailPassword(savedEmailPassword);
     }
+    setSoapProviderName(localStorage.getItem('soap_provider_name') || '');
+    setSoapCredentials(localStorage.getItem('soap_provider_credentials') || '');
+    setSoapNpi(localStorage.getItem('soap_provider_npi') || '');
   }, []);
 
   // Check if test data exists when dialog opens
@@ -223,11 +229,14 @@ Join instructions
     } else {
       localStorage.removeItem('email_password');
     }
+    localStorage.setItem('soap_provider_name', soapProviderName.trim());
+    localStorage.setItem('soap_provider_credentials', soapCredentials.trim());
+    localStorage.setItem('soap_provider_npi', soapNpi.replace(/\D/g, '').slice(0, 10));
     onClose();
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>Settings</DialogTitle>
       <DialogContent>
         <Box sx={{ mt: 1 }}>
@@ -296,6 +305,35 @@ Join instructions
             onChange={(e) => setUserName(e.target.value)}
             helperText="Your name for email signatures"
             margin="normal"
+          />
+          <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+            SOAP note signature (Session Log AI)
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+            Used for Minnesota DHS-style SOAP headers and signature lines. Stored only in this browser.
+          </Typography>
+          <TextField
+            fullWidth
+            label="Provider name"
+            value={soapProviderName}
+            onChange={(e) => setSoapProviderName(e.target.value)}
+            margin="dense"
+          />
+          <TextField
+            fullWidth
+            label="Credentials"
+            value={soapCredentials}
+            onChange={(e) => setSoapCredentials(e.target.value)}
+            placeholder="e.g. M.S., CCC-SLP"
+            margin="dense"
+          />
+          <TextField
+            fullWidth
+            label="NPI (10 digits)"
+            value={soapNpi}
+            onChange={(e) => setSoapNpi(e.target.value.replace(/\D/g, '').slice(0, 10))}
+            inputProps={{ inputMode: 'numeric', maxLength: 10 }}
+            margin="dense"
           />
           <FormControlLabel
             control={

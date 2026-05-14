@@ -162,6 +162,10 @@ export interface Session {
   /** Optional stored CPT (e.g. eval); treatment rows often derive 92507/92508 in session log */
   cptCode?: string;
   icd10Codes?: string[];
+  /** AI-generated Medicaid-style progress note (batch from Session Log) */
+  aiGeneratedNote?: string;
+  /** Session has been logged to Medicaid / MA billing (optional on older payloads) */
+  maLogged?: boolean;
 }
 
 /** One row from GET /api/students/goals-export */
@@ -206,6 +210,10 @@ export interface SessionLogEntry {
   icd10Descriptions: string[];
   domain?: string;
   codesMapped: boolean;
+  /** Persisted AI progress note from Session Log generator */
+  aiGeneratedNote?: string;
+  /** Logged to MA (Medicaid) billing */
+  maLogged: boolean;
 }
 
 /** One row from GET /api/meetings/eval-log (meeting category exposed as `type`) */

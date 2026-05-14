@@ -210,10 +210,58 @@ export const sessionSchema = z.object({
   tsisGroup: z.boolean().default(false),
   cptCode: optionalString,
   icd10Codes: z.array(z.string()).default([]),
+  aiGeneratedNote: z.string().max(8000).optional(),
+  maLogged: z.boolean().default(false),
 });
 
 export const createSessionSchema = sessionSchema.omit({ id: true });
 export const updateSessionSchema = sessionSchema.partial();
+
+/** PATCH /api/sessions/:id/ma-logged */
+export const patchSessionMaLoggedBodySchema = z.object({
+  maLogged: z.boolean(),
+});
+
+/** POST /api/sessions/generate-notes — batch AI progress notes (Gemini) */
+export const generateSessionNotesBodySchema = z.object({
+  /** Same optional client key as map-goals; falls back to GEMINI_API_KEY on the server. */
+  apiKey: z.string().optional(),
+  providerName: z.string().max(200).optional(),
+  providerCredentials: z.string().max(200).optional(),
+  providerNpi: z.string().max(20).optional(),
+  studentId: z.string().min(1),
+  studentName: z.string(),
+  grade: z.string(),
+  sessions: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        date: z.string(),
+        startTime: z.string(),
+        endTime: z.string().nullable().optional().transform((v) => (v == null ? '' : String(v))),
+        isGroup: z.boolean(),
+        cptCode: z.string(),
+        icd10Codes: z.array(z.string()),
+        icd10Descriptions: z.array(z.string()),
+        performanceSummary: z
+          .array(
+            z.object({
+              goalDescription: z.string(),
+              accuracy: z.number(),
+              correctTrials: z.number(),
+              totalTrials: z.number(),
+              cuingLevels: z.array(z.string()).default([]),
+              notes: z.string().default(''),
+            })
+          )
+          .default([]),
+        goalsAddressedText: z.array(z.string()).default([]),
+        sessionNotes: z.string().default(''),
+        domain: z.string().optional(),
+      })
+    )
+    .min(1, 'At least one session is required'),
+});
 
 // ============================================================================
 // Scheduled Session Schema

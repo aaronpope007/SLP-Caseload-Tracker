@@ -1,10 +1,22 @@
 import { Router } from 'express';
+import type { z } from 'zod';
 import { db } from '../db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { validateBody } from '../middleware/validateRequest';
 import { parseJsonField, stringifyJsonField } from '../utils/jsonHelpers';
-import { createSessionSchema, updateSessionSchema } from '../schemas';
+import {
+  createSessionSchema,
+  updateSessionSchema,
+  generateSessionNotesBodySchema,
+  patchSessionMaLoggedBodySchema,
+} from '../schemas';
 import { mergeIcdFromDomains } from '../utils/goalDomainIcd10';
+import {
+  generateSessionNotesWithGemini,
+  genericSessionNote,
+  buildSoapNoteGenerationSession,
+  type SessionNotePromptSession,
+} from '../utils/geminiSessionNotes';
 
 // Database row types
 interface SessionRow {
@@ -28,6 +40,8 @@ interface SessionRow {
   tsisGroup: number | null;
   cptCode: string | null;
   icd10Codes: string | null;
+  aiGeneratedNote: string | null;
+  maLogged: number | null;
 }
 
 // Performance data type for proper parsing
@@ -38,6 +52,53 @@ interface PerformanceDataItem {
   incorrectTrials?: number;
   notes?: string;
   cuingLevels?: string[];
+}
+
+function primaryGoalIdFromSessionRow(row: SessionRow): string | null {
+  const perf = parseJsonField<PerformanceDataItem[]>(row.performanceData, []);
+  const gid = perf[0]?.goalId;
+  const t = typeof gid === 'string' ? gid.trim() : String(gid ?? '').trim();
+  return t || null;
+}
+
+function goalDescriptionDomainFor(
+  goalId: string | null,
+  studentId: string
+): { description: string; domain: string } | null {
+  if (!goalId) return null;
+  const g = db
+    .prepare('SELECT description, domain FROM goals WHERE id = ? AND studentId = ?')
+    .get(goalId, studentId) as { description: string; domain: string | null } | undefined;
+  if (!g) return null;
+  return { description: (g.description || '').trim(), domain: (g.domain || '').trim() };
+}
+
+function priorSessionAccuracyForGoal(
+  studentId: string,
+  currentSessionId: string,
+  beforeDateIso: string,
+  goalId: string | null
+): number | null {
+  if (!goalId) return null;
+  const rows = db
+    .prepare(
+      `SELECT performanceData FROM sessions
+       WHERE studentId = ?
+         AND id != ?
+         AND datetime(date) < datetime(?)
+       ORDER BY date DESC`
+    )
+    .all(studentId, currentSessionId, beforeDateIso) as Array<{ performanceData: string }>;
+  for (const pr of rows) {
+    const perf = parseJsonField<PerformanceDataItem[]>(pr.performanceData, []);
+    const match = perf.find(
+      (x) => (typeof x.goalId === 'string' ? x.goalId.trim() : String(x.goalId ?? '').trim()) === goalId
+    );
+    if (match && match.accuracy != null) {
+      return Math.round(Number(match.accuracy) || 0);
+    }
+  }
+  return null;
 }
 
 function resolveGoalDescriptionForLog(
@@ -79,6 +140,8 @@ function toSessionResponse(s: SessionRow) {
     tsisGroup: s.tsisGroup === 1,
     cptCode: s.cptCode || undefined,
     icd10Codes: parseJsonField<string[]>(s.icd10Codes, []),
+    aiGeneratedNote: s.aiGeneratedNote?.trim() || undefined,
+    maLogged: (s.maLogged ?? 0) === 1,
   };
 }
 
@@ -213,10 +276,25 @@ sessionsRouter.get('/log', asyncHandler(async (req, res) => {
     }
   >;
 
+  const uniqueGroupSessionIds = [
+    ...new Set(
+      rows
+        .map((r) => r.groupSessionId)
+        .filter((g): g is string => typeof g === 'string' && g.trim() !== '')
+    ),
+  ];
+
   const groupCounts = new Map<string, number>();
-  for (const row of rows) {
-    const gid = row.groupSessionId;
-    if (gid) groupCounts.set(gid, (groupCounts.get(gid) || 0) + 1);
+  if (uniqueGroupSessionIds.length > 0) {
+    const gPh = uniqueGroupSessionIds.map(() => '?').join(',');
+    const countRows = db
+      .prepare(
+        `SELECT groupSessionId AS gid, COUNT(*) AS cnt FROM sessions WHERE groupSessionId IN (${gPh}) GROUP BY groupSessionId`
+      )
+      .all(...uniqueGroupSessionIds) as Array<{ gid: string; cnt: number }>;
+    for (const { gid, cnt } of countRows) {
+      groupCounts.set(gid, Number(cnt) || 0);
+    }
   }
 
   const goalIds = new Set<string>();
@@ -306,11 +384,11 @@ sessionsRouter.get('/log', asyncHandler(async (req, res) => {
     const perfGoalIdsForIcd = performanceSummary.map((p) => p.goalId).filter(Boolean);
     const tokensForIcd = addressedForIcd.length > 0 ? addressedForIcd : perfGoalIdsForIcd;
 
-    const inferredGroup =
-      row.groupSessionId != null &&
-      row.groupSessionId !== '' &&
-      (groupCounts.get(row.groupSessionId) || 0) > 1;
-    const isGroup = row.tsisGroup === 1 || inferredGroup;
+    // True group size comes from DB-wide counts (see groupCounts), not rows in this response.
+    const sharedCount = row.groupSessionId ? groupCounts.get(row.groupSessionId) ?? 0 : 0;
+    const inferredGroup = sharedCount > 1;
+    // Linked multi-student session: treat as group even when tsisGroup is 0.
+    const isGroup = inferredGroup || row.tsisGroup === 1;
     const groupSize = row.groupSessionId ? groupCounts.get(row.groupSessionId) || 1 : 1;
     const isGroupOrMulti = isGroup || groupSize > 1;
     const cptIndividual = row.studentCptCodeIndividual || '92507';
@@ -362,11 +440,133 @@ sessionsRouter.get('/log', asyncHandler(async (req, res) => {
       icd10Descriptions,
       domain: row.studentDomain || undefined,
       codesMapped: icd10Codes.length > 0,
+      aiGeneratedNote: row.aiGeneratedNote?.trim() || undefined,
+      maLogged: (row.maLogged ?? 0) === 1,
     };
   });
 
   res.json(out);
 }));
+
+sessionsRouter.post(
+  '/generate-notes',
+  validateBody(generateSessionNotesBodySchema),
+  asyncHandler(async (req, res) => {
+    const {
+      apiKey: bodyApiKey,
+      studentId,
+      studentName,
+      grade,
+      sessions: bodySessions,
+      providerName,
+      providerCredentials,
+      providerNpi,
+    } = req.body as z.infer<typeof generateSessionNotesBodySchema>;
+    const apiKey = (bodyApiKey?.trim() || process.env.GEMINI_API_KEY?.trim()) ?? '';
+    if (!apiKey) {
+      return res.status(503).json({
+        error:
+          'Gemini API key is not configured. Add your key in Settings (same as other AI features), or set GEMINI_API_KEY in api/.env or the repo-root .env and restart the API (see api/.env.example).',
+      });
+    }
+
+    const student = db.prepare('SELECT id, dob FROM students WHERE id = ?').get(studentId) as
+      | { id: string; dob: string | null }
+      | undefined;
+    if (!student) {
+      return res.status(400).json({ error: 'Student not found' });
+    }
+
+    const ids = new Set(bodySessions.map((s) => s.id));
+    for (const sid of ids) {
+      const row = db
+        .prepare('SELECT id FROM sessions WHERE id = ? AND studentId = ?')
+        .get(sid, studentId) as { id: string } | undefined;
+      if (!row) {
+        return res.status(400).json({ error: `Session ${sid} not found for this student` });
+      }
+    }
+
+    const studentDob = (student.dob || '').trim();
+    const provider = {
+      providerName: (providerName || '').trim(),
+      credentials: (providerCredentials || '').trim(),
+      npiNumber: (providerNpi || '').replace(/\D/g, '').slice(0, 10),
+    };
+
+    const enriched = bodySessions.map((s) => {
+      const row = db
+        .prepare('SELECT * FROM sessions WHERE id = ? AND studentId = ?')
+        .get(s.id, studentId) as SessionRow | undefined;
+      const goalId = row ? primaryGoalIdFromSessionRow(row) : null;
+      const goalMeta = goalDescriptionDomainFor(goalId, studentId);
+      const sessionDateForPrior = (row?.date || s.date) as string;
+      const prior = row ? priorSessionAccuracyForGoal(studentId, s.id, sessionDateForPrior, goalId) : null;
+      const base: SessionNotePromptSession = {
+        id: s.id,
+        date: s.date,
+        startTime: s.startTime,
+        endTime: s.endTime || '',
+        isGroup: s.isGroup,
+        cptCode: s.cptCode,
+        icd10Codes: s.icd10Codes,
+        icd10Descriptions: s.icd10Descriptions,
+        performanceSummary: s.performanceSummary,
+        goalsAddressedText: s.goalsAddressedText,
+        sessionNotes: s.sessionNotes,
+        domain: s.domain,
+      };
+      return buildSoapNoteGenerationSession(studentName, grade, studentDob, base, goalMeta, prior);
+    });
+
+    let parsedNotes: Array<{ sessionId: string; note: string }>;
+    try {
+      parsedNotes = await generateSessionNotesWithGemini(apiKey, enriched, provider);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg === 'Failed to parse AI response') {
+        return res.status(502).json({ error: 'Failed to parse AI response' });
+      }
+      return res.status(502).json({ error: msg || 'AI generation failed' });
+    }
+
+    const byId = new Map(parsedNotes.map((n) => [n.sessionId, n.note]));
+    const notesOut: Array<{ sessionId: string; note: string }> = [];
+
+    const updateStmt = db.prepare('UPDATE sessions SET aiGeneratedNote = ? WHERE id = ? AND studentId = ?');
+
+    const tx = db.transaction(() => {
+      for (const s of bodySessions) {
+        let note = byId.get(s.id)?.trim();
+        if (!note) {
+          note = genericSessionNote(s.domain);
+        }
+        updateStmt.run(note, s.id, studentId);
+        notesOut.push({ sessionId: s.id, note });
+      }
+    });
+    tx();
+
+    res.json({ notes: notesOut });
+  })
+);
+
+sessionsRouter.patch(
+  '/:id/ma-logged',
+  validateBody(patchSessionMaLoggedBodySchema),
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { maLogged } = req.body as z.infer<typeof patchSessionMaLoggedBodySchema>;
+    if (!id || typeof id !== 'string') {
+      return res.status(400).json({ error: 'Invalid session ID' });
+    }
+    const result = db.prepare('UPDATE sessions SET maLogged = ? WHERE id = ?').run(maLogged ? 1 : 0, id);
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+    res.json({ success: true });
+  })
+);
 
 /**
  * @openapi
@@ -436,8 +636,8 @@ sessionsRouter.post('/', validateBody(createSessionSchema), asyncHandler(async (
     INSERT INTO sessions (id, studentId, date, endTime, goalsTargeted, goalsAddressed, activitiesUsed, 
                          performanceData, notes, isDirectServices, indirectServicesNotes, 
                          groupSessionId, missedSession, selectedSubjectiveStatements, customSubjective, plan,
-                         scheduledSessionId, tsisGroup, cptCode, icd10Codes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         scheduledSessionId, tsisGroup, cptCode, icd10Codes, aiGeneratedNote, maLogged)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     sessionId,
     session.studentId,
@@ -458,7 +658,9 @@ sessionsRouter.post('/', validateBody(createSessionSchema), asyncHandler(async (
     session.scheduledSessionId || null,
     session.tsisGroup ? 1 : 0,
     session.cptCode || null,
-    stringifyJsonField(session.icd10Codes || [])
+    stringifyJsonField(session.icd10Codes || []),
+    session.aiGeneratedNote?.trim() || null,
+    session.maLogged ? 1 : 0
   );
   
   res.status(201).json({ id: sessionId, message: 'Session created' });
@@ -520,16 +722,29 @@ sessionsRouter.post('/bulk', asyncHandler(async (req, res) => {
           continue;
         }
         
-        const existing = db.prepare('SELECT id FROM sessions WHERE id = ?').get(session.id) as { id: string } | undefined;
-        
-        if (existing) {
+        const existingById = db.prepare('SELECT * FROM sessions WHERE id = ?').get(session.id) as SessionRow | undefined;
+
+        if (existingById) {
+          const aiBulk =
+            'aiGeneratedNote' in session && session.aiGeneratedNote !== undefined
+              ? typeof session.aiGeneratedNote === 'string' && session.aiGeneratedNote.trim()
+                ? session.aiGeneratedNote.trim()
+                : null
+              : (existingById.aiGeneratedNote ?? null);
+          const maBulk =
+            'maLogged' in session && session.maLogged !== undefined
+              ? session.maLogged
+                ? 1
+                : 0
+              : (existingById.maLogged ?? 0);
           // Update existing session
           db.prepare(`
             UPDATE sessions 
             SET studentId = ?, date = ?, endTime = ?, goalsTargeted = ?, goalsAddressed = ?, activitiesUsed = ?, 
                 performanceData = ?, notes = ?, isDirectServices = ?, indirectServicesNotes = ?, 
                 groupSessionId = ?, missedSession = ?, selectedSubjectiveStatements = ?, 
-                customSubjective = ?, plan = ?, scheduledSessionId = ?, tsisGroup = ?, cptCode = ?, icd10Codes = ?
+                customSubjective = ?, plan = ?, scheduledSessionId = ?, tsisGroup = ?, cptCode = ?, icd10Codes = ?, aiGeneratedNote = ?,
+                maLogged = ?
             WHERE id = ?
           `).run(
             session.studentId,
@@ -551,6 +766,8 @@ sessionsRouter.post('/bulk', asyncHandler(async (req, res) => {
             session.tsisGroup ? 1 : 0,
             session.cptCode || null,
             stringifyJsonField(session.icd10Codes || []),
+            aiBulk,
+            maBulk,
             session.id
           );
           updated++;
@@ -562,8 +779,8 @@ sessionsRouter.post('/bulk', asyncHandler(async (req, res) => {
             INSERT INTO sessions (id, studentId, date, endTime, goalsTargeted, goalsAddressed, activitiesUsed, 
                                  performanceData, notes, isDirectServices, indirectServicesNotes, 
                                  groupSessionId, missedSession, selectedSubjectiveStatements, customSubjective, plan,
-                                 scheduledSessionId, tsisGroup, cptCode, icd10Codes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                 scheduledSessionId, tsisGroup, cptCode, icd10Codes, aiGeneratedNote, maLogged)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `).run(
             sessionId,
             session.studentId,
@@ -584,7 +801,9 @@ sessionsRouter.post('/bulk', asyncHandler(async (req, res) => {
             session.scheduledSessionId || null,
             session.tsisGroup ? 1 : 0,
             session.cptCode || null,
-            stringifyJsonField(session.icd10Codes || [])
+            stringifyJsonField(session.icd10Codes || []),
+            session.aiGeneratedNote?.trim() || null,
+            session.maLogged ? 1 : 0
           );
           created++;
         }
@@ -680,12 +899,22 @@ sessionsRouter.put('/:id', validateBody(updateSessionSchema), asyncHandler(async
   const tsisGroup =
     typeof session.tsisGroup === 'boolean' ? session.tsisGroup : session.tsisGroup === 1;
 
+  const aiGeneratedNoteOut = Object.prototype.hasOwnProperty.call(cleanUpdates, 'aiGeneratedNote')
+    ? typeof session.aiGeneratedNote === 'string' && session.aiGeneratedNote.trim()
+      ? session.aiGeneratedNote.trim()
+      : null
+    : (existing.aiGeneratedNote ?? null);
+
+  const maLoggedOut = Object.prototype.hasOwnProperty.call(cleanUpdates, 'maLogged')
+    ? Boolean(session.maLogged)
+    : (existing.maLogged ?? 0) === 1;
+
   db.prepare(`
     UPDATE sessions 
     SET studentId = ?, date = ?, endTime = ?, goalsTargeted = ?, goalsAddressed = ?, activitiesUsed = ?, 
         performanceData = ?, notes = ?, isDirectServices = ?, indirectServicesNotes = ?, 
         groupSessionId = ?, missedSession = ?, selectedSubjectiveStatements = ?, customSubjective = ?, plan = ?,
-        scheduledSessionId = ?, tsisGroup = ?, cptCode = ?, icd10Codes = ?
+        scheduledSessionId = ?, tsisGroup = ?, cptCode = ?, icd10Codes = ?, aiGeneratedNote = ?, maLogged = ?
     WHERE id = ?
   `).run(
     session.studentId,
@@ -707,6 +936,8 @@ sessionsRouter.put('/:id', validateBody(updateSessionSchema), asyncHandler(async
     tsisGroup ? 1 : 0,
     session.cptCode || null,
     stringifyJsonField(icd10Arr),
+    aiGeneratedNoteOut,
+    maLoggedOut ? 1 : 0,
     id
   );
   

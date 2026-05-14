@@ -1,5 +1,12 @@
-import 'dotenv/config';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
 import express from 'express';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// api/.env first; repo-root .env fills only vars not already set (api wins on duplicate keys)
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 import cors from 'cors';
 import { initDatabase } from './db';
 import { studentsRouter } from './routes/students';

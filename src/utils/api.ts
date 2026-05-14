@@ -342,8 +342,48 @@ export const api = {
       request<SessionLogEntry[]>(
         `/sessions/log${buildQueryString(params)}`
       ),
+    generateNotes: (body: {
+      /** Same as map-goals: optional Settings key; server uses GEMINI_API_KEY if omitted. */
+      apiKey?: string;
+      providerName?: string;
+      providerCredentials?: string;
+      providerNpi?: string;
+      studentId: string;
+      studentName: string;
+      grade: string;
+      sessions: Array<{
+        id: string;
+        date: string;
+        startTime: string;
+        endTime: string;
+        isGroup: boolean;
+        cptCode: string;
+        icd10Codes: string[];
+        icd10Descriptions: string[];
+        performanceSummary: Array<{
+          goalDescription: string;
+          accuracy: number;
+          correctTrials: number;
+          totalTrials: number;
+          cuingLevels: string[];
+          notes: string;
+        }>;
+        goalsAddressedText: string[];
+        sessionNotes: string;
+        domain?: string;
+      }>;
+    }) =>
+      request<{ notes: Array<{ sessionId: string; note: string }> }>(
+        '/sessions/generate-notes',
+        { method: 'POST', body: JSON.stringify(body) }
+      ),
     getById: (id: string) => 
       request<Session>(`/sessions/${id}`),
+    patchMaLogged: (id: string, body: { maLogged: boolean }) =>
+      request<{ success: boolean }>(`/sessions/${encodeURIComponent(id)}/ma-logged`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }),
     create: (session: Omit<Session, 'id'>) => 
       request<{ id: string; message: string }>('/sessions', {
         method: 'POST',

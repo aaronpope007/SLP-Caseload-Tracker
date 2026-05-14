@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, Fragment } from 'react';
 import {
   Box,
   Button,
   Checkbox,
   Chip,
+  CircularProgress,
   FormControlLabel,
   FormControl,
   InputLabel,
@@ -11,6 +12,7 @@ import {
   Paper,
   Select,
   Stack,
+  Switch,
   Table,
   TableBody,
   TableCell,
@@ -20,17 +22,23 @@ import {
   Alert,
 } from '@mui/material';
 import PrintIcon from '@mui/icons-material/Print';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { format, formatISO, startOfMonth } from 'date-fns';
-import { api } from '../../utils/api';
+import { ApiError, api } from '../../utils/api';
 import { getStudents } from '../../utils/storage-api';
 import type { EvalLogEntry, SessionLogEntry, Student } from '../../types';
 import { useSchool } from '../../context/SchoolContext';
 import { logError } from '../../utils/logger';
+import { useSnackbar } from '../../hooks';
 
 /** Bold column headers; body rows stay default weight */
 const sessionLogHeaderRowSx = { '& > .MuiTableCell-root': { fontWeight: 700 } };
+
+function sessionLogMaMutedSx(maLogged: boolean) {
+  return maLogged ? { opacity: 0.45, textDecoration: 'line-through' as const } : {};
+}
 
 function isValidDate(d: unknown): d is Date {
   return d instanceof Date && !Number.isNaN(d.getTime());
@@ -63,6 +71,12 @@ function formatSessionClock(iso: string): string {
 function formatSessionEnd(iso: string | null | undefined): string {
   if (iso == null || iso === '') return '—';
   return formatSessionClock(iso);
+}
+
+function effectiveAiNote(r: SessionLogEntry, map: Record<string, string>): string {
+  const fromMap = map[r.id]?.trim();
+  if (fromMap) return fromMap;
+  return (r.aiGeneratedNote || '').trim();
 }
 
 function goalsAddressedList(entry: SessionLogEntry): string[] {
@@ -131,7 +145,7 @@ function EvalLogTable({ rows }: { rows: EvalLogEntry[] }) {
   );
 }
 
-function SessionLogGoalsCell({ entry }: { entry: SessionLogEntry }) {
+function SessionLogGoalsCell({ entry, muted }: { entry: SessionLogEntry; muted?: boolean }) {
   const perf = performanceSummaryList(entry);
   const goals = goalsAddressedList(entry);
   const hasSessionNotes = Boolean(entry.notes?.trim());
@@ -146,6 +160,7 @@ function SessionLogGoalsCell({ entry }: { entry: SessionLogEntry }) {
         verticalAlign: 'top',
         whiteSpace: 'normal',
         wordBreak: 'break-word',
+        ...(muted ? { opacity: 0.45, textDecoration: 'line-through' } : {}),
       }}
     >
       {hasPerf ? (
@@ -226,6 +241,11 @@ export function SessionLog() {
   const [logGenerated, setLogGenerated] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { showSnackbar, SnackbarComponent } = useSnackbar();
+  const [aiNotesBySessionId, setAiNotesBySessionId] = useState<Record<string, string>>({});
+  const [aiNotesLoading, setAiNotesLoading] = useState(false);
+  const [copySessionId, setCopySessionId] = useState<string | null>(null);
+  const [showUnloggedOnly, setShowUnloggedOnly] = useState(false);
 
   useEffect(() => {
     setSchool(selectedSchool || '');
@@ -289,6 +309,7 @@ export function SessionLog() {
     setLogGenerated(false);
     setSessions([]);
     setEvaluations([]);
+    setAiNotesBySessionId({});
   }, [school, startStr, endStr, selectedIds.join(',')]);
 
   const handleGenerate = useCallback(async () => {
@@ -302,7 +323,13 @@ export function SessionLog() {
         api.sessions.getLog(params),
         api.meetings.getEvalLog(params),
       ]);
-      setSessions(sessionData);
+      const normalized = sessionData.map((s) => ({ ...s, maLogged: Boolean(s.maLogged) }));
+      setSessions(normalized);
+      const nextAi: Record<string, string> = {};
+      for (const s of normalized) {
+        if (s.aiGeneratedNote?.trim()) nextAi[s.id] = s.aiGeneratedNote.trim();
+      }
+      setAiNotesBySessionId(nextAi);
       setEvaluations(evalData);
       setLogGenerated(true);
     } catch (e) {
@@ -313,18 +340,108 @@ export function SessionLog() {
     }
   }, [school, startStr, endStr, selectedIds, allSelected]);
 
+  const visibleSessions = useMemo(
+    () => (showUnloggedOnly ? sessions.filter((s) => !s.maLogged) : sessions),
+    [sessions, showUnloggedOnly]
+  );
+
+  const handleMaLoggedToggle = useCallback(
+    async (sessionId: string, checked: boolean) => {
+      const was = sessions.find((s) => s.id === sessionId)?.maLogged ?? false;
+      setSessions((prev) => prev.map((row) => (row.id === sessionId ? { ...row, maLogged: checked } : row)));
+      try {
+        await api.sessions.patchMaLogged(sessionId, { maLogged: checked });
+      } catch (e) {
+        setSessions((prev) => prev.map((row) => (row.id === sessionId ? { ...row, maLogged: was } : row)));
+        const msg = e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Failed to update MA log';
+        logError('MA logged toggle', e);
+        showSnackbar(msg, 'error');
+      }
+    },
+    [sessions, showSnackbar]
+  );
+
   const multiStudent = selectedIds.length > 1 || allSelected;
+
+  const handleGenerateAiNotes = useCallback(async () => {
+    if (multiStudent || selectedIds.length !== 1 || sessions.length === 0) return;
+    const st = students.find((s) => s.id === selectedIds[0]);
+    setAiNotesLoading(true);
+    try {
+      const storedGeminiKey =
+        typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_api_key')?.trim() : '';
+      const soapName = typeof localStorage !== 'undefined' ? localStorage.getItem('soap_provider_name')?.trim() : '';
+      const soapCred = typeof localStorage !== 'undefined' ? localStorage.getItem('soap_provider_credentials')?.trim() : '';
+      const soapNpi = typeof localStorage !== 'undefined' ? localStorage.getItem('soap_provider_npi')?.trim() : '';
+      const body = {
+        ...(storedGeminiKey ? { apiKey: storedGeminiKey } : {}),
+        ...(soapName ? { providerName: soapName } : {}),
+        ...(soapCred ? { providerCredentials: soapCred } : {}),
+        ...(soapNpi ? { providerNpi: soapNpi } : {}),
+        studentId: selectedIds[0],
+        studentName: st?.name ?? 'Student',
+        grade: st?.grade ?? '',
+        sessions: sessions.map((s) => ({
+          id: s.id,
+          date: s.date,
+          startTime: s.startTime || s.date,
+          endTime: s.endTime ?? '',
+          isGroup: s.isGroup,
+          cptCode: s.resolvedCptCode ?? '',
+          icd10Codes: s.icd10Codes,
+          icd10Descriptions: s.icd10Descriptions,
+          performanceSummary: s.performanceSummary.map((p) => ({
+            goalDescription: p.goalDescription,
+            accuracy: p.accuracy,
+            correctTrials: p.correctTrials,
+            totalTrials: p.totalTrials,
+            cuingLevels: p.cuingLevels || [],
+            notes: p.notes || '',
+          })),
+          goalsAddressedText: s.goalsAddressedText,
+          sessionNotes: s.notes?.trim() ? s.notes : '',
+          domain: s.domain,
+        })),
+      };
+      const res = await api.sessions.generateNotes(body);
+      const next: Record<string, string> = {};
+      for (const n of res.notes) {
+        next[n.sessionId] = n.note;
+      }
+      setAiNotesBySessionId(next);
+      setSessions((prev) =>
+        prev.map((row) => {
+          const hit = res.notes.find((n) => n.sessionId === row.id);
+          return hit ? { ...row, aiGeneratedNote: hit.note } : row;
+        })
+      );
+      showSnackbar('AI notes generated and saved.', 'success');
+    } catch (e) {
+      const msg =
+        e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Failed to generate notes';
+      logError('AI session notes', e);
+      showSnackbar(msg, 'error');
+    } finally {
+      setAiNotesLoading(false);
+    }
+  }, [multiStudent, selectedIds, sessions, students, showSnackbar]);
+
+  useEffect(() => {
+    if (!copySessionId) return;
+    const t = window.setTimeout(() => setCopySessionId(null), 2000);
+    return () => window.clearTimeout(t);
+  }, [copySessionId]);
 
   const grouped = useMemo(() => {
     if (!multiStudent) return null;
     const map = new Map<string, SessionLogEntry[]>();
-    for (const r of sessions) {
+    for (const r of visibleSessions) {
       const k = sessionDateKey(r.date);
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(r);
     }
     return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
-  }, [sessions, multiStudent]);
+  }, [visibleSessions, multiStudent]);
 
   const evaluationsByStudent = useMemo(() => {
     if (evaluations.length === 0) return [];
@@ -357,6 +474,17 @@ export function SessionLog() {
     }
     return `${school} — Session log — ${range}`;
   }, [school, startDate, endDate, selectedIds, students, multiStudent]);
+
+  const showAiNotesLayout = useMemo(
+    () =>
+      !multiStudent &&
+      selectedIds.length === 1 &&
+      sessions.length > 0 &&
+      sessions.every((s) => Boolean(effectiveAiNote(s, aiNotesBySessionId))),
+    [multiStudent, selectedIds, sessions, aiNotesBySessionId]
+  );
+
+  const canShowAiNotesButton = !multiStudent && selectedIds.length === 1 && sessions.length > 0;
 
   const canGenerate = Boolean(school && startStr && endStr && selectedIds.length > 0);
 
@@ -425,6 +553,18 @@ export function SessionLog() {
               <Button variant="contained" disabled={!canGenerate || loading} onClick={handleGenerate}>
                 {loading ? 'Generating…' : 'Generate Log'}
               </Button>
+              <FormControlLabel
+                className="no-print"
+                sx={{ ml: { xs: 0, md: 1 } }}
+                control={
+                  <Switch
+                    checked={showUnloggedOnly}
+                    onChange={(_, v) => setShowUnloggedOnly(v)}
+                    size="small"
+                  />
+                }
+                label="Show unlogged only"
+              />
             </Stack>
           </Paper>
 
@@ -472,47 +612,198 @@ export function SessionLog() {
             <Typography color="text.secondary" sx={{ mb: 2 }} className="no-print">
               No therapy sessions in this range.
             </Typography>
+          ) : sessions.length > 0 && visibleSessions.length === 0 && showUnloggedOnly ? (
+            <Typography color="text.secondary" sx={{ mb: 2 }} className="no-print">
+              No unlogged sessions in this range (all visible sessions are already marked logged to MA).
+            </Typography>
           ) : !multiStudent && selectedIds.length === 1 ? (
             <>
               <Typography variant="h6" sx={{ mb: 1 }}>
                 {students.find((s) => s.id === selectedIds[0])?.name ?? 'Student'} —{' '}
                 {format(startDate, 'M/d/yyyy')} – {format(endDate, 'M/d/yyyy')}
               </Typography>
+              {canShowAiNotesButton && (
+                <Stack spacing={1} className="no-print" sx={{ mb: 1.5 }}>
+                  <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+                    <Button
+                      variant="contained"
+                      color="secondary"
+                      disabled={aiNotesLoading}
+                      onClick={handleGenerateAiNotes}
+                    >
+                      {showAiNotesLayout ? '✨ Regenerate AI Notes' : '✨ Generate AI Notes'}
+                    </Button>
+                    {aiNotesLoading && (
+                      <>
+                        <CircularProgress size={22} />
+                        <Typography variant="body2" color="text.secondary">
+                          Generating notes with AI...
+                        </Typography>
+                      </>
+                    )}
+                  </Stack>
+                </Stack>
+              )}
               <Table size="small">
                 <TableHead>
                   <TableRow sx={sessionLogHeaderRowSx}>
-                    <TableCell>Date</TableCell>
-                    <TableCell>Start</TableCell>
-                    <TableCell>End</TableCell>
-                    <TableCell>Individual/Group</TableCell>
-                    <TableCell>CPT Code</TableCell>
-                    <TableCell>ICD-10 Codes</TableCell>
-                    <TableCell>Goals Addressed</TableCell>
+                    {showAiNotesLayout ? (
+                      <>
+                        <TableCell>Date</TableCell>
+                        <TableCell>Start</TableCell>
+                        <TableCell>End</TableCell>
+                        <TableCell>Individual/Group</TableCell>
+                        <TableCell>CPT Code</TableCell>
+                        <TableCell>ICD-10 Codes</TableCell>
+                        <TableCell className="no-print">Logged to MA</TableCell>
+                      </>
+                    ) : (
+                      <>
+                        <TableCell>Date</TableCell>
+                        <TableCell>Start</TableCell>
+                        <TableCell>End</TableCell>
+                        <TableCell>Individual/Group</TableCell>
+                        <TableCell>CPT Code</TableCell>
+                        <TableCell>ICD-10 Codes</TableCell>
+                        <TableCell className="no-print">Logged to MA</TableCell>
+                        <TableCell>Goals Addressed</TableCell>
+                      </>
+                    )}
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {sessions.map((r) => (
-                    <TableRow key={r.id}>
-                      <TableCell>{formatSessionDateOnly(r.startTime || r.date)}</TableCell>
-                      <TableCell>{formatSessionClock(r.startTime || r.date)}</TableCell>
-                      <TableCell>{formatSessionEnd(r.endTime)}</TableCell>
-                      <TableCell>{r.isGroup ? `Group${r.groupSize ? ` (${r.groupSize})` : ''}` : 'Individual'}</TableCell>
-                      <TableCell>{r.resolvedCptCode}</TableCell>
-                      <TableCell>
-                        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                          {!r.codesMapped && <Chip size="small" color="warning" label="⚠️ Codes not mapped" />}
-                          <Typography variant="body2" component="span">
-                            {r.icd10Codes.length ? r.icd10Codes.join(', ') : '—'}
-                          </Typography>
-                        </Stack>
-                      </TableCell>
-                      <SessionLogGoalsCell entry={r} />
-                    </TableRow>
-                  ))}
+                  {visibleSessions.map((r) =>
+                    showAiNotesLayout ? (
+                      <Fragment key={r.id}>
+                        <TableRow>
+                          <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>
+                            {formatSessionDateOnly(r.startTime || r.date)}
+                          </TableCell>
+                          <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>
+                            {formatSessionClock(r.startTime || r.date)}
+                          </TableCell>
+                          <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>{formatSessionEnd(r.endTime)}</TableCell>
+                          <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>
+                            {r.isGroup ? `Group${r.groupSize ? ` (${r.groupSize})` : ''}` : 'Individual'}
+                          </TableCell>
+                          <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>{r.resolvedCptCode}</TableCell>
+                          <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>
+                            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                              {!r.codesMapped && <Chip size="small" color="warning" label="⚠️ Codes not mapped" />}
+                              <Typography variant="body2" component="span">
+                                {r.icd10Codes.length ? r.icd10Codes.join(', ') : '—'}
+                              </Typography>
+                            </Stack>
+                          </TableCell>
+                          <TableCell className="no-print" align="center" sx={{ opacity: 1, textDecoration: 'none' }}>
+                            <Checkbox
+                              size="small"
+                              checked={r.maLogged}
+                              onChange={(e) => handleMaLoggedToggle(r.id, e.target.checked)}
+                              inputProps={{ 'aria-label': 'Logged to MA' }}
+                            />
+                          </TableCell>
+                        </TableRow>
+                        <TableRow
+                          sx={{
+                            '& > td': {
+                              borderTop: (t) => `1px solid ${t.palette.divider}`,
+                              pt: 1,
+                            },
+                          }}
+                        >
+                          <TableCell colSpan={6} sx={{ ...sessionLogMaMutedSx(r.maLogged), p: 1.5, verticalAlign: 'top' }}>
+                            <Paper
+                              variant="outlined"
+                              sx={{
+                                p: 1.5,
+                                bgcolor: 'action.hover',
+                                maxHeight: { xs: 280, sm: 420 },
+                                overflow: 'auto',
+                              }}
+                            >
+                              <Typography
+                                component="pre"
+                                sx={{
+                                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                                  whiteSpace: 'pre-wrap',
+                                  wordBreak: 'break-word',
+                                  m: 0,
+                                  fontSize: '0.8125rem',
+                                }}
+                              >
+                                {effectiveAiNote(r, aiNotesBySessionId)}
+                              </Typography>
+                            </Paper>
+                          </TableCell>
+                          <TableCell align="right" valign="top" className="no-print" sx={{ opacity: 1, textDecoration: 'none' }}>
+                            <Stack spacing={1} alignItems="flex-end">
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                startIcon={<ContentCopyIcon fontSize="small" />}
+                                onClick={async () => {
+                                  const text = effectiveAiNote(r, aiNotesBySessionId);
+                                  try {
+                                    await navigator.clipboard.writeText(text);
+                                    setCopySessionId(r.id);
+                                    showSnackbar('Note copied to clipboard.', 'success');
+                                  } catch {
+                                    showSnackbar('Could not copy to clipboard', 'error');
+                                  }
+                                }}
+                              >
+                                {copySessionId === r.id ? 'Copied ✓' : 'Copy'}
+                              </Button>
+                              <Button
+                                size="small"
+                                variant="text"
+                                disabled={aiNotesLoading}
+                                onClick={() => handleGenerateAiNotes()}
+                              >
+                                Regenerate
+                              </Button>
+                            </Stack>
+                          </TableCell>
+                        </TableRow>
+                      </Fragment>
+                    ) : (
+                      <TableRow key={r.id}>
+                        <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>
+                          {formatSessionDateOnly(r.startTime || r.date)}
+                        </TableCell>
+                        <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>
+                          {formatSessionClock(r.startTime || r.date)}
+                        </TableCell>
+                        <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>{formatSessionEnd(r.endTime)}</TableCell>
+                        <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>
+                          {r.isGroup ? `Group${r.groupSize ? ` (${r.groupSize})` : ''}` : 'Individual'}
+                        </TableCell>
+                        <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>{r.resolvedCptCode}</TableCell>
+                        <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>
+                          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                            {!r.codesMapped && <Chip size="small" color="warning" label="⚠️ Codes not mapped" />}
+                            <Typography variant="body2" component="span">
+                              {r.icd10Codes.length ? r.icd10Codes.join(', ') : '—'}
+                            </Typography>
+                          </Stack>
+                        </TableCell>
+                        <TableCell className="no-print" align="center" sx={{ opacity: 1, textDecoration: 'none' }}>
+                          <Checkbox
+                            size="small"
+                            checked={r.maLogged}
+                            onChange={(e) => handleMaLoggedToggle(r.id, e.target.checked)}
+                            inputProps={{ 'aria-label': 'Logged to MA' }}
+                          />
+                        </TableCell>
+                        <SessionLogGoalsCell entry={r} muted={r.maLogged} />
+                      </TableRow>
+                    )
+                  )}
                 </TableBody>
               </Table>
             </>
-          ) : multiStudent && grouped ? (
+          ) : multiStudent && grouped != null && grouped.length > 0 ? (
             grouped.map(([dateKey, list]) => (
               <Box key={dateKey} sx={{ mb: 3 }}>
                 <Typography variant="h6" sx={{ mb: 1, borderBottom: 1, borderColor: 'divider' }}>
@@ -528,19 +819,26 @@ export function SessionLog() {
                       <TableCell>Individual/Group</TableCell>
                       <TableCell>CPT Code</TableCell>
                       <TableCell>ICD-10 Codes</TableCell>
+                      <TableCell className="no-print">Logged to MA</TableCell>
                       <TableCell>Goals Addressed</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {list.map((r) => (
                       <TableRow key={r.id}>
-                        <TableCell>{r.studentName}</TableCell>
-                        <TableCell>{formatSessionDateOnly(r.startTime || r.date)}</TableCell>
-                        <TableCell>{formatSessionClock(r.startTime || r.date)}</TableCell>
-                        <TableCell>{formatSessionEnd(r.endTime)}</TableCell>
-                        <TableCell>{r.isGroup ? `Group${r.groupSize ? ` (${r.groupSize})` : ''}` : 'Individual'}</TableCell>
-                        <TableCell>{r.resolvedCptCode}</TableCell>
-                        <TableCell>
+                        <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>{r.studentName}</TableCell>
+                        <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>
+                          {formatSessionDateOnly(r.startTime || r.date)}
+                        </TableCell>
+                        <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>
+                          {formatSessionClock(r.startTime || r.date)}
+                        </TableCell>
+                        <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>{formatSessionEnd(r.endTime)}</TableCell>
+                        <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>
+                          {r.isGroup ? `Group${r.groupSize ? ` (${r.groupSize})` : ''}` : 'Individual'}
+                        </TableCell>
+                        <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>{r.resolvedCptCode}</TableCell>
+                        <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>
                           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                             {!r.codesMapped && <Chip size="small" color="warning" label="⚠️ Codes not mapped" />}
                             <Typography variant="body2" component="span">
@@ -548,7 +846,15 @@ export function SessionLog() {
                             </Typography>
                           </Stack>
                         </TableCell>
-                        <SessionLogGoalsCell entry={r} />
+                        <TableCell className="no-print" align="center" sx={{ opacity: 1, textDecoration: 'none' }}>
+                          <Checkbox
+                            size="small"
+                            checked={r.maLogged}
+                            onChange={(e) => handleMaLoggedToggle(r.id, e.target.checked)}
+                            inputProps={{ 'aria-label': 'Logged to MA' }}
+                          />
+                        </TableCell>
+                        <SessionLogGoalsCell entry={r} muted={r.maLogged} />
                       </TableRow>
                     ))}
                   </TableBody>
@@ -565,18 +871,25 @@ export function SessionLog() {
                   <TableCell>Individual/Group</TableCell>
                   <TableCell>CPT Code</TableCell>
                   <TableCell>ICD-10 Codes</TableCell>
+                  <TableCell className="no-print">Logged to MA</TableCell>
                   <TableCell>Goals Addressed</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {sessions.map((r) => (
+                {visibleSessions.map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell>{formatSessionDateOnly(r.startTime || r.date)}</TableCell>
-                    <TableCell>{formatSessionClock(r.startTime || r.date)}</TableCell>
-                    <TableCell>{formatSessionEnd(r.endTime)}</TableCell>
-                    <TableCell>{r.isGroup ? `Group${r.groupSize ? ` (${r.groupSize})` : ''}` : 'Individual'}</TableCell>
-                    <TableCell>{r.resolvedCptCode}</TableCell>
-                    <TableCell>
+                    <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>
+                      {formatSessionDateOnly(r.startTime || r.date)}
+                    </TableCell>
+                    <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>
+                      {formatSessionClock(r.startTime || r.date)}
+                    </TableCell>
+                    <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>{formatSessionEnd(r.endTime)}</TableCell>
+                    <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>
+                      {r.isGroup ? `Group${r.groupSize ? ` (${r.groupSize})` : ''}` : 'Individual'}
+                    </TableCell>
+                    <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>{r.resolvedCptCode}</TableCell>
+                    <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>
                       <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                         {!r.codesMapped && <Chip size="small" color="warning" label="⚠️ Codes not mapped" />}
                         <Typography variant="body2" component="span">
@@ -584,7 +897,15 @@ export function SessionLog() {
                         </Typography>
                       </Stack>
                     </TableCell>
-                    <SessionLogGoalsCell entry={r} />
+                    <TableCell className="no-print" align="center" sx={{ opacity: 1, textDecoration: 'none' }}>
+                      <Checkbox
+                        size="small"
+                        checked={r.maLogged}
+                        onChange={(e) => handleMaLoggedToggle(r.id, e.target.checked)}
+                        inputProps={{ 'aria-label': 'Logged to MA' }}
+                      />
+                    </TableCell>
+                    <SessionLogGoalsCell entry={r} muted={r.maLogged} />
                   </TableRow>
                 ))}
               </TableBody>
@@ -614,6 +935,7 @@ export function SessionLog() {
           )}
         </Box>
       </Box>
+      <SnackbarComponent />
     </LocalizationProvider>
   );
 }
