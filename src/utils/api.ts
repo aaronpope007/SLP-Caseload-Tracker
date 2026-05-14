@@ -345,6 +345,8 @@ export const api = {
     generateNotes: (body: {
       /** Same as map-goals: optional Settings key; server uses GEMINI_API_KEY if omitted. */
       apiKey?: string;
+      /** Optional Settings Anthropic key; server uses ANTHROPIC_API_KEY if omitted. Used when Gemini fails. */
+      anthropicApiKey?: string;
       providerName?: string;
       providerCredentials?: string;
       providerNpi?: string;
@@ -373,7 +375,7 @@ export const api = {
         domain?: string;
       }>;
     }) =>
-      request<{ notes: Array<{ sessionId: string; note: string }> }>(
+      request<{ notes: Array<{ sessionId: string; note: string }>; generatedBy?: 'gemini' | 'anthropic' }>(
         '/sessions/generate-notes',
         { method: 'POST', body: JSON.stringify(body) }
       ),

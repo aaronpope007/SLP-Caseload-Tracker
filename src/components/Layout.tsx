@@ -113,7 +113,7 @@ const menuStructure: MenuItem[] = [
       { text: 'Communications', path: '/communications' },
       { text: 'Time Tracking', path: '/time-tracking' },
       { text: 'Goal export', path: '/goal-export' },
-      { text: 'Session log', path: '/session-log' },
+      { text: 'MA billing', path: '/session-log' },
       { text: 'Goal mapper', path: '/goal-mapper' },
     ],
   },

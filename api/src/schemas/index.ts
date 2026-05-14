@@ -226,6 +226,8 @@ export const patchSessionMaLoggedBodySchema = z.object({
 export const generateSessionNotesBodySchema = z.object({
   /** Same optional client key as map-goals; falls back to GEMINI_API_KEY on the server. */
   apiKey: z.string().optional(),
+  /** Optional; falls back to ANTHROPIC_API_KEY on the server. Used when Gemini fails or if only Anthropic is configured. */
+  anthropicApiKey: z.string().optional(),
   providerName: z.string().max(200).optional(),
   providerCredentials: z.string().max(200).optional(),
   providerNpi: z.string().max(20).optional(),

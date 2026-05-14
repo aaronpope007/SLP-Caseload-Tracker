@@ -12,3 +12,13 @@ export function cptDescriptionForPrompt(code: string | undefined | null): string
   };
   return map[c] || 'Speech-language pathology service';
 }
+
+export function cptMedicalNecessityLine(code: string, modality: string): string {
+  const c = (code || '').trim();
+  const mod = (modality || '').trim();
+  const via = mod.toLowerCase().includes('zoom') ? 'teletherapy (Zoom)' : mod || 'teletherapy (Zoom)';
+  if (c === '92508') {
+    return `Group speech-language treatment (92508) was provided in a small-group ${via} format. Group format was clinically appropriate to target communication skills in a structured social context.`;
+  }
+  return `Individual speech-language treatment (92507) was provided via ${via}. Individual format was required to deliver the targeted, data-driven intervention needed to address this student's specific IEP goals.`;
+}

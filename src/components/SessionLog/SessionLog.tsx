@@ -20,6 +20,7 @@ import {
   TableRow,
   Typography,
   Alert,
+  Tooltip,
 } from '@mui/material';
 import PrintIcon from '@mui/icons-material/Print';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -244,6 +245,7 @@ export function SessionLog() {
   const { showSnackbar, SnackbarComponent } = useSnackbar();
   const [aiNotesBySessionId, setAiNotesBySessionId] = useState<Record<string, string>>({});
   const [aiNotesLoading, setAiNotesLoading] = useState(false);
+  const [lastSoapNotesProvider, setLastSoapNotesProvider] = useState<'gemini' | 'anthropic' | null>(null);
   const [copySessionId, setCopySessionId] = useState<string | null>(null);
   const [showUnloggedOnly, setShowUnloggedOnly] = useState(false);
 
@@ -370,11 +372,14 @@ export function SessionLog() {
     try {
       const storedGeminiKey =
         typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_api_key')?.trim() : '';
+      const storedAnthropicKey =
+        typeof localStorage !== 'undefined' ? localStorage.getItem('anthropic_api_key')?.trim() : '';
       const soapName = typeof localStorage !== 'undefined' ? localStorage.getItem('soap_provider_name')?.trim() : '';
       const soapCred = typeof localStorage !== 'undefined' ? localStorage.getItem('soap_provider_credentials')?.trim() : '';
       const soapNpi = typeof localStorage !== 'undefined' ? localStorage.getItem('soap_provider_npi')?.trim() : '';
       const body = {
         ...(storedGeminiKey ? { apiKey: storedGeminiKey } : {}),
+        ...(storedAnthropicKey ? { anthropicApiKey: storedAnthropicKey } : {}),
         ...(soapName ? { providerName: soapName } : {}),
         ...(soapCred ? { providerCredentials: soapCred } : {}),
         ...(soapNpi ? { providerNpi: soapNpi } : {}),
@@ -404,6 +409,9 @@ export function SessionLog() {
         })),
       };
       const res = await api.sessions.generateNotes(body);
+      const providerLabel =
+        res.generatedBy === 'anthropic' ? 'Claude (Anthropic)' : res.generatedBy === 'gemini' ? 'Gemini' : 'AI';
+      setLastSoapNotesProvider(res.generatedBy === 'anthropic' ? 'anthropic' : 'gemini');
       const next: Record<string, string> = {};
       for (const n of res.notes) {
         next[n.sessionId] = n.note;
@@ -415,7 +423,7 @@ export function SessionLog() {
           return hit ? { ...row, aiGeneratedNote: hit.note } : row;
         })
       );
-      showSnackbar('AI notes generated and saved.', 'success');
+      showSnackbar(`AI notes generated and saved (${providerLabel}).`, 'success');
     } catch (e) {
       const msg =
         e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Failed to generate notes';
@@ -625,14 +633,32 @@ export function SessionLog() {
               {canShowAiNotesButton && (
                 <Stack spacing={1} className="no-print" sx={{ mb: 1.5 }}>
                   <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
-                    <Button
-                      variant="contained"
-                      color="secondary"
-                      disabled={aiNotesLoading}
-                      onClick={handleGenerateAiNotes}
+                    <Tooltip
+                      title={
+                        lastSoapNotesProvider
+                          ? `Last batch: ${lastSoapNotesProvider === 'anthropic' ? 'Claude (Anthropic)' : 'Gemini'}`
+                          : 'Uses Gemini first; falls back to Claude if Gemini fails (Anthropic key required for fallback).'
+                      }
                     >
-                      {showAiNotesLayout ? '✨ Regenerate AI Notes' : '✨ Generate AI Notes'}
-                    </Button>
+                      <span>
+                        <Button
+                          variant="contained"
+                          color="secondary"
+                          disabled={aiNotesLoading}
+                          onClick={handleGenerateAiNotes}
+                        >
+                          {showAiNotesLayout ? '✨ Regenerate AI Notes' : '✨ Generate AI Notes'}
+                        </Button>
+                      </span>
+                    </Tooltip>
+                    {lastSoapNotesProvider && (
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        label={lastSoapNotesProvider === 'anthropic' ? 'Claude' : 'Gemini'}
+                        color={lastSoapNotesProvider === 'anthropic' ? 'secondary' : 'primary'}
+                      />
+                    )}
                     {aiNotesLoading && (
                       <>
                         <CircularProgress size={22} />

@@ -15,6 +15,7 @@
     "kill-port": "node kill-port.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.96.0",
     "@google/generative-ai": "^0.24.1",
     "@types/multer": "^2.0.0",
     "@types/nodemailer": "^7.0.4",

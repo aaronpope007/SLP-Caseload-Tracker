@@ -17,6 +17,8 @@ import {
   buildSoapNoteGenerationSession,
   type SessionNotePromptSession,
 } from '../utils/geminiSessionNotes';
+import { generateSessionNotesWithAnthropic } from '../utils/anthropicSessionNotes';
+import { logger } from '../utils/logger';
 
 // Database row types
 interface SessionRow {
@@ -454,6 +456,7 @@ sessionsRouter.post(
   asyncHandler(async (req, res) => {
     const {
       apiKey: bodyApiKey,
+      anthropicApiKey: bodyAnthropicKey,
       studentId,
       studentName,
       grade,
@@ -462,11 +465,12 @@ sessionsRouter.post(
       providerCredentials,
       providerNpi,
     } = req.body as z.infer<typeof generateSessionNotesBodySchema>;
-    const apiKey = (bodyApiKey?.trim() || process.env.GEMINI_API_KEY?.trim()) ?? '';
-    if (!apiKey) {
+    const geminiApiKey = (bodyApiKey?.trim() || process.env.GEMINI_API_KEY?.trim()) ?? '';
+    const anthropicApiKey = (bodyAnthropicKey?.trim() || process.env.ANTHROPIC_API_KEY?.trim()) ?? '';
+    if (!geminiApiKey && !anthropicApiKey) {
       return res.status(503).json({
         error:
-          'Gemini API key is not configured. Add your key in Settings (same as other AI features), or set GEMINI_API_KEY in api/.env or the repo-root .env and restart the API (see api/.env.example).',
+          'No AI API key configured. Add a Gemini key and/or Anthropic key in Settings, or set GEMINI_API_KEY and/or ANTHROPIC_API_KEY in api/.env or the repo-root .env (see api/.env.example).',
       });
     }
 
@@ -520,8 +524,29 @@ sessionsRouter.post(
     });
 
     let parsedNotes: Array<{ sessionId: string; note: string }>;
+    let generatedBy: 'gemini' | 'anthropic';
+
     try {
-      parsedNotes = await generateSessionNotesWithGemini(apiKey, enriched, provider);
+      if (geminiApiKey) {
+        try {
+          parsedNotes = await generateSessionNotesWithGemini(geminiApiKey, enriched, provider);
+          generatedBy = 'gemini';
+        } catch (geminiErr) {
+          logger.warn({ err: geminiErr }, 'Gemini SOAP note generation failed; attempting Anthropic fallback');
+          if (!anthropicApiKey) {
+            const msg = geminiErr instanceof Error ? geminiErr.message : String(geminiErr);
+            if (msg === 'Failed to parse AI response') {
+              return res.status(502).json({ error: 'Failed to parse AI response' });
+            }
+            return res.status(502).json({ error: msg || 'AI generation failed' });
+          }
+          parsedNotes = await generateSessionNotesWithAnthropic(anthropicApiKey, enriched, provider);
+          generatedBy = 'anthropic';
+        }
+      } else {
+        parsedNotes = await generateSessionNotesWithAnthropic(anthropicApiKey, enriched, provider);
+        generatedBy = 'anthropic';
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       if (msg === 'Failed to parse AI response') {
@@ -539,7 +564,10 @@ sessionsRouter.post(
       for (const s of bodySessions) {
         let note = byId.get(s.id)?.trim();
         if (!note) {
-          note = genericSessionNote(s.domain);
+          note = genericSessionNote(s.domain, {
+            icd10Code: s.icd10Codes?.[0],
+            cptCode: s.cptCode,
+          });
         }
         updateStmt.run(note, s.id, studentId);
         notesOut.push({ sessionId: s.id, note });
@@ -547,7 +575,7 @@ sessionsRouter.post(
     });
     tx();
 
-    res.json({ notes: notesOut });
+    res.json({ notes: notesOut, generatedBy });
   })
 );
 
