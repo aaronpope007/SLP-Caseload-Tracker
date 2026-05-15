@@ -391,6 +391,11 @@ export function SessionLog() {
     return showUnloggedOnly ? nonMissed.filter((s) => !s.maLogged) : nonMissed;
   }, [sessions, showUnloggedOnly]);
 
+  const visibleSessionCountLabel = useMemo(() => {
+    const n = visibleSessions.length;
+    return `(${n} ${n === 1 ? 'session' : 'sessions'})`;
+  }, [visibleSessions.length]);
+
   const handleMaLoggedToggle = useCallback(
     async (sessionId: string, checked: boolean) => {
       const was = sessions.find((s) => s.id === sessionId)?.maLogged ?? false;
@@ -708,7 +713,10 @@ export function SessionLog() {
             <>
               <Typography variant="h6" sx={{ mb: 1 }}>
                 {students.find((s) => s.id === selectedIds[0])?.name ?? 'Student'} —{' '}
-                {format(startDate, 'M/d/yyyy')} – {format(endDate, 'M/d/yyyy')}
+                {format(startDate, 'M/d/yyyy')} – {format(endDate, 'M/d/yyyy')}{' '}
+                <Box component="span" sx={{ color: 'text.secondary', fontSize: '0.92rem', fontWeight: 400 }}>
+                  {visibleSessionCountLabel}
+                </Box>
               </Typography>
               {canShowAiNotesButton && (
                 <Stack spacing={1} className="no-print" sx={{ mb: 1.5 }}>
@@ -994,7 +1002,14 @@ export function SessionLog() {
               </Table>
             </>
           ) : multiStudent && grouped != null && grouped.length > 0 ? (
-            grouped.map(([dateKey, list]) => (
+            <>
+              <Typography variant="h6" sx={{ mb: 1 }}>
+                {format(startDate, 'M/d/yyyy')} – {format(endDate, 'M/d/yyyy')}{' '}
+                <Box component="span" sx={{ color: 'text.secondary', fontSize: '0.92rem', fontWeight: 400 }}>
+                  {visibleSessionCountLabel}
+                </Box>
+              </Typography>
+              {grouped.map(([dateKey, list]) => (
               <Box key={dateKey} sx={{ mb: 3 }}>
                 <Typography variant="h6" sx={{ mb: 1, borderBottom: 1, borderColor: 'divider' }}>
                   {format(new Date(dateKey + 'T12:00:00'), 'EEEE, MMM d, yyyy')}
@@ -1060,10 +1075,18 @@ export function SessionLog() {
                   </TableBody>
                 </Table>
               </Box>
-            ))
+            ))}
+            </>
           ) : (
-            <Table size="small">
-              <TableHead>
+            <>
+              <Typography variant="h6" sx={{ mb: 1 }}>
+                {format(startDate, 'M/d/yyyy')} – {format(endDate, 'M/d/yyyy')}{' '}
+                <Box component="span" sx={{ color: 'text.secondary', fontSize: '0.92rem', fontWeight: 400 }}>
+                  {visibleSessionCountLabel}
+                </Box>
+              </Typography>
+              <Table size="small">
+                <TableHead>
                 <TableRow sx={sessionLogHeaderRowSx}>
                   <TableCell>Date</TableCell>
                   <TableCell>Start</TableCell>
@@ -1120,6 +1143,7 @@ export function SessionLog() {
                 ))}
               </TableBody>
             </Table>
+            </>
           )}
 
           {logGenerated && (
