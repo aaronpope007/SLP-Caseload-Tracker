@@ -1,9 +1,10 @@
-import { useCallback, useRef, useEffect } from 'react';
+import { useCallback, useRef, useEffect, useState } from 'react';
 import type { Session, Student, Goal, SOAPNote, Activity } from '../types';
 import { generateId, fromLocalDateTimeString } from '../utils/helpers';
 import { getSessions, getSOAPNotesBySession, getActivities, addActivity } from '../utils/storage-api';
 import { generateSOAPNote, generateGroupSOAPNote } from '../utils/soapNoteGenerator';
 import { logError } from '../utils/logger';
+import { sessionSaveHasTimeDuplicate } from '../utils/sessionDuplicateCheck';
 
 interface UseSessionSaveParams {
   formData: {
@@ -65,6 +66,9 @@ export const useSessionSave = ({
   showSnackbar,
 }: UseSessionSaveParams) => {
   const isMountedRef = useRef(true);
+  const allowDuplicateAfterWarningRef = useRef(false);
+  const [duplicateWarningOpen, setDuplicateWarningOpen] = useState(false);
+  const [duplicateWarningGroupHint, setDuplicateWarningGroupHint] = useState(false);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -93,6 +97,35 @@ export const useSessionSave = ({
         showSnackbar('Please enter a plan for the next session.', 'error');
         return;
       }
+    }
+
+    if (!allowDuplicateAfterWarningRef.current) {
+      try {
+        const allSessions = await getSessions();
+        if (!isMountedRef.current) return;
+        const groupSessionsForEdit = editingGroupSessionId
+          ? allSessions.filter((s) => s.groupSessionId === editingGroupSessionId && s.groupSessionId != null)
+          : [];
+        const dup = await sessionSaveHasTimeDuplicate({
+          formDate: formData.date,
+          studentIds: formData.studentIds,
+          editingSession,
+          editingGroupSessionId,
+          groupSessionsForEdit,
+        });
+        if (!isMountedRef.current) return;
+        if (dup) {
+          setDuplicateWarningGroupHint(formData.studentIds.length > 1);
+          setDuplicateWarningOpen(true);
+          return;
+        }
+      } catch (e) {
+        logError('Duplicate session check failed', e);
+        showSnackbar('Could not verify duplicates. Check your connection and try again.', 'error');
+        return;
+      }
+    } else {
+      allowDuplicateAfterWarningRef.current = false;
     }
 
     try {
@@ -441,6 +474,24 @@ export const useSessionSave = ({
     showSnackbar,
   ]);
 
-  return { handleSave };
+  const handleDuplicateConfirm = useCallback(() => {
+    allowDuplicateAfterWarningRef.current = true;
+    setDuplicateWarningOpen(false);
+    void handleSave();
+  }, [handleSave]);
+
+  const handleDuplicateCancel = useCallback(() => {
+    setDuplicateWarningOpen(false);
+  }, []);
+
+  return {
+    handleSave,
+    duplicateSessionWarningProps: {
+      open: duplicateWarningOpen,
+      groupConflictHint: duplicateWarningGroupHint,
+      onConfirm: handleDuplicateConfirm,
+      onCancel: handleDuplicateCancel,
+    },
+  };
 };
 

@@ -566,6 +566,65 @@ sessionsRouter.get('/log', asyncHandler(async (req, res) => {
   res.json(out);
 }));
 
+/** Match `sessions.date` storage (ISO) from `date` (YYYY-MM-DD) + `startTime` (ISO or HH:mm). */
+function normalizeDuplicateCheckStartIso(dateYmd: string, startTimeRaw: string): string | null {
+  const date = (dateYmd || '').trim();
+  const st = (startTimeRaw || '').trim();
+  if (!date || !st) return null;
+
+  const hhmm = /^(\d{1,2}):(\d{2})$/;
+  const m = st.match(hhmm);
+  if (m) {
+    const hh = String(Math.min(23, Math.max(0, parseInt(m[1], 10)))).padStart(2, '0');
+    const mm = String(Math.min(59, Math.max(0, parseInt(m[2], 10)))).padStart(2, '0');
+    const combined = `${date}T${hh}:${mm}`;
+    const d = new Date(combined);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toISOString();
+  }
+
+  const d = new Date(st);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
+sessionsRouter.get('/check-duplicate', asyncHandler(async (req, res) => {
+  const q = req.query as Record<string, string | undefined>;
+  const studentId = (q.studentId || '').trim();
+  const date = (q.date || '').trim();
+  const startTime = (q.startTime || '').trim();
+  const excludeId = (q.excludeId || '').trim() || undefined;
+
+  if (!studentId || !date || !startTime) {
+    return res.status(400).json({ error: 'studentId, date, and startTime are required' });
+  }
+
+  const startIso = normalizeDuplicateCheckStartIso(date, startTime);
+  if (!startIso) {
+    return res.status(400).json({ error: 'Invalid date or startTime' });
+  }
+
+  const params: string[] = [studentId, startIso];
+  let sql = `
+    SELECT id FROM sessions
+    WHERE studentId = ?
+      AND date = ?
+      AND (missedSession = 0 OR missedSession IS NULL)
+  `;
+  if (excludeId) {
+    sql += ' AND id != ?';
+    params.push(excludeId);
+  }
+  sql += ' LIMIT 1';
+
+  const row = db.prepare(sql).get(...params) as { id: string } | undefined;
+
+  if (row) {
+    return res.json({ duplicate: true, existingSessionId: row.id });
+  }
+  return res.json({ duplicate: false });
+}));
+
 sessionsRouter.post(
   '/generate-notes',
   validateBody(generateSessionNotesBodySchema),

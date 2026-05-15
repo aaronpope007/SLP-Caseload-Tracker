@@ -32,6 +32,7 @@ import { SessionsList } from '../components/session/SessionsList';
 import { SessionPlanDialog } from '../components/session/SessionPlanDialog';
 import { LogActivityMenu } from '../components/LogActivityMenu';
 import { SessionFormDialog } from '../components/session/SessionFormDialog';
+import { DuplicateSessionWarning } from '../components/SessionForm/DuplicateSessionWarning';
 import type { SessionFormData } from '../components/session/SessionFormDialog';
 import { SOAPNoteDialog } from '../components/SOAPNoteDialog';
 import type { SOAPNote } from '../types';
@@ -256,7 +257,7 @@ export const Sessions = () => {
   });
 
   // Session save hook
-  const { handleSave } = useSessionSave({
+  const { handleSave, duplicateSessionWarningProps } = useSessionSave({
     formData,
     editingSession,
     editingGroupSessionId,
@@ -555,6 +556,8 @@ Produce one copy-paste block per goal. Label each block clearly (e.g., Goal 1 â€
         isGoalAchieved={isGoalAchieved}
         onMarkGoalMet={handleMarkGoalMet}
       />
+
+      <DuplicateSessionWarning {...duplicateSessionWarningProps} />
 
       <SessionPlanDialog
         open={sessionPlanDialog.open}

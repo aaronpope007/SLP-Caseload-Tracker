@@ -266,6 +266,23 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   }
 }
 
+export async function checkDuplicateSession(params: {
+  studentId: string;
+  date: string;
+  startTime: string;
+  excludeId?: string;
+}): Promise<{ duplicate: boolean; existingSessionId?: string }> {
+  return request<{ duplicate: boolean; existingSessionId?: string }>(
+    `/sessions/check-duplicate${buildQueryString({
+      studentId: params.studentId,
+      date: params.date,
+      startTime: params.startTime,
+      excludeId: params.excludeId,
+    })}`,
+    { method: 'GET' }
+  );
+}
+
 // Students
 export const api = {
   // Students

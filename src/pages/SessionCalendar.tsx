@@ -79,8 +79,10 @@ import {
   updateMeeting,
 } from '../utils/storage-api';
 import { generateId, toLocalDateTimeString, fromLocalDateTimeString } from '../utils/helpers';
+import { sessionSaveHasTimeDuplicate } from '../utils/sessionDuplicateCheck';
 import { useSchool } from '../context/SchoolContext';
 import { SessionFormDialog } from '../components/session/SessionFormDialog';
+import { DuplicateSessionWarning } from '../components/SessionForm/DuplicateSessionWarning';
 import { StudentSelector } from '../components/student/StudentSelector';
 import { CancellationEmailDialog } from '../components/CancellationEmailDialog';
 import { MeetingFormDialog } from '../components/meeting/MeetingFormDialog';
@@ -128,7 +130,10 @@ export const SessionCalendar = () => {
   const [editingGroupSessionId, setEditingGroupSessionId] = useState<string | null>(null);
   const [studentSearch, setStudentSearch] = useState('');
   const [currentEvent, setCurrentEvent] = useState<CalendarEvent | null>(null);
-  
+  const allowDuplicateSessionSaveRef = useRef(false);
+  const [duplicateSessionWarningOpen, setDuplicateSessionWarningOpen] = useState(false);
+  const [duplicateSessionWarningGroupHint, setDuplicateSessionWarningGroupHint] = useState(false);
+
   // Cancellation email dialog state
   const [cancellationEmailDialogOpen, setCancellationEmailDialogOpen] = useState(false);
   const [pendingCancellation, setPendingCancellation] = useState<{
@@ -1762,6 +1767,34 @@ export const SessionCalendar = () => {
         }
       }
 
+      if (!allowDuplicateSessionSaveRef.current) {
+        try {
+          const groupSessionsForEdit = editingGroupSessionId
+            ? sessions.filter((s) => s.groupSessionId === editingGroupSessionId && s.groupSessionId != null)
+            : [];
+          const dup = await sessionSaveHasTimeDuplicate({
+            formDate: sessionFormData.date,
+            studentIds: sessionFormData.studentIds,
+            editingSession,
+            editingGroupSessionId,
+            groupSessionsForEdit,
+          });
+          if (!isMountedRef.current) return;
+          if (dup) {
+            setDuplicateSessionWarningGroupHint(sessionFormData.studentIds.length > 1);
+            setDuplicateSessionWarningOpen(true);
+            return;
+          }
+        } catch (e) {
+          if (!isMountedRef.current) return;
+          logError('Duplicate session check failed', e);
+          alert('Could not verify duplicates. Check your connection and try again.');
+          return;
+        }
+      } else {
+        allowDuplicateSessionSaveRef.current = false;
+      }
+
       // Check if we're editing existing session(s)
       if (editingSession) {
         // Editing a single session
@@ -1927,6 +1960,16 @@ export const SessionCalendar = () => {
       logError('Failed to save session', error);
       alert('Failed to save session. Please try again.');
     }
+  };
+
+  const handleDuplicateSessionSaveConfirm = () => {
+    allowDuplicateSessionSaveRef.current = true;
+    setDuplicateSessionWarningOpen(false);
+    void handleSaveSession();
+  };
+
+  const handleDuplicateSessionSaveCancel = () => {
+    setDuplicateSessionWarningOpen(false);
   };
 
   const handleStudentToggle = (studentId: string) => {
@@ -3517,6 +3560,12 @@ export const SessionCalendar = () => {
       </Dialog>
 
       {/* Session Form Dialog */}
+      <DuplicateSessionWarning
+        open={duplicateSessionWarningOpen}
+        groupConflictHint={duplicateSessionWarningGroupHint}
+        onConfirm={handleDuplicateSessionSaveConfirm}
+        onCancel={handleDuplicateSessionSaveCancel}
+      />
       <SessionFormDialog
         open={sessionDialogOpen}
         editingSession={editingSession}
