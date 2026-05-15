@@ -25,8 +25,10 @@ import {
   School as SchoolIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 export function Login() {
+  useDocumentTitle();
   const navigate = useNavigate();
   const { authStatus, login, setup, isLoading: authLoading } = useAuth();
   

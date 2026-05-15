@@ -289,19 +289,18 @@ sessionsRouter.get('/', asyncHandler(async (req, res) => {
   const params: (string | number)[] = [];
 
   if (studentId && typeof studentId === 'string') {
-    query += ' WHERE studentId = ? AND (missedSession = 0 OR missedSession IS NULL) ORDER BY date DESC';
+    query += ' WHERE studentId = ? ORDER BY date DESC';
     params.push(studentId);
   } else if (school && typeof school === 'string') {
     query = `
       SELECT s.* FROM sessions s
       INNER JOIN students st ON s.studentId = st.id
       WHERE st.school = ?
-        AND (s.missedSession = 0 OR s.missedSession IS NULL)
       ORDER BY s.date DESC
     `;
     params.push(school);
   } else {
-    query += ' WHERE (missedSession = 0 OR missedSession IS NULL) ORDER BY date DESC';
+    query += ' ORDER BY date DESC';
   }
 
   if (limit !== undefined) {

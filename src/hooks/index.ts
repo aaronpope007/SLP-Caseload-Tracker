@@ -3,6 +3,7 @@
  */
 
 export { useDialog } from './useDialog';
+export { useDocumentTitle } from './useDocumentTitle';
 export { useAsyncOperation } from './useAsyncOperation';
 export { useSnackbar } from './useSnackbar';
 export { useConfirm } from './useConfirm';

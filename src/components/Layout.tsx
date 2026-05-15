@@ -51,6 +51,7 @@ import {
 } from '@mui/icons-material';
 import { SettingsDialog } from './settings/SettingsDialog';
 import { useSchool } from '../context/SchoolContext';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 const drawerWidth = 240;
 
@@ -197,6 +198,7 @@ export const Layout = ({ children }: LayoutProps) => {
   const [newSchoolTeletherapy, setNewSchoolTeletherapy] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  useDocumentTitle();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { logout, authStatus } = useAuth();

@@ -42,6 +42,7 @@ import { GoalMatrixView } from '../goal/GoalMatrixView';
 import { ActiveGoalsTrackingPanel } from '../goal/ActiveGoalsTrackingPanel';
 import { usePinnedGoals } from '../../hooks/usePinnedGoals';
 import { PreviousSessionGoals } from './PreviousSessionGoals';
+import { getDocumentTitleForPathname } from '../../config/routeTitles';
 
 export interface SessionFormData {
   studentIds: string[];
@@ -404,9 +405,8 @@ export const SessionFormDialog = ({
         hasTitleChangedRef.current = true;
       }
     } else {
-      // Restore title to "SLP Tracker" when dialog closes or no students selected
       if (hasTitleChangedRef.current) {
-        document.title = 'SLP Tracker';
+        document.title = getDocumentTitleForPathname(window.location.pathname);
         hasTitleChangedRef.current = false;
       }
     }
@@ -415,9 +415,8 @@ export const SessionFormDialog = ({
   // Separate effect for cleanup on unmount only
   useEffect(() => {
     return () => {
-      // Restore title to "SLP Tracker" when component unmounts
       if (hasTitleChangedRef.current) {
-        document.title = 'SLP Tracker';
+        document.title = getDocumentTitleForPathname(window.location.pathname);
         hasTitleChangedRef.current = false;
       }
     };
@@ -501,10 +500,9 @@ export const SessionFormDialog = ({
   }, [localNotes, localPlan, localActivitiesUsed, localCustomSubjective, localIndirectServicesNotes]); // Uses ref for onFormDataChange
 
   // Handle save with immediate sync
-  // Helper function to restore title to "SLP Tracker"
   const restoreTitle = useCallback(() => {
     if (hasTitleChangedRef.current) {
-      document.title = 'SLP Tracker';
+      document.title = getDocumentTitleForPathname(window.location.pathname);
       hasTitleChangedRef.current = false;
     }
   }, []);
