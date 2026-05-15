@@ -18,6 +18,7 @@ import {
   type SessionNotePromptSession,
   type AddressedGoalWithIcd,
 } from '../utils/geminiSessionNotes';
+import { postProcessMaActivityLogNote } from '../utils/maActivityLogNote';
 import { generateSessionNotesWithAnthropic } from '../utils/anthropicSessionNotes';
 import { logger } from '../utils/logger';
 
@@ -794,12 +795,12 @@ sessionsRouter.post(
 
     const tx = db.transaction(() => {
       for (const s of notesSessions) {
+        const enrichedRow = enriched.find((e) => e.id === s.id);
         let note = byId.get(s.id)?.trim();
         if (!note) {
-          note = genericSessionNote(s.domain, {
-            icd10Code: s.icd10Codes?.[0],
-            cptCode: s.cptCode,
-          });
+          note = genericSessionNote(s.domain, { isGroup: s.isGroup });
+        } else {
+          note = postProcessMaActivityLogNote(note, { isLateEntry: enrichedRow?.isLateEntry });
         }
         updateStmt.run(note, s.id, studentId);
         notesOut.push({ sessionId: s.id, note });

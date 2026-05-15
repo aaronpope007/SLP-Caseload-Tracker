@@ -4,6 +4,10 @@ import { calcUnits, sessionDurationMinutes } from './billingUnits';
 import type { Icd10NarrativeContext } from './icd10NarrativeContext';
 import { getNarrativeContext } from './icd10NarrativeContext';
 import { logger } from './logger';
+import {
+  buildMaNoteStyleInstructions,
+  postProcessMaActivityLogNote,
+} from './maActivityLogNote';
 
 const MN_TZ = 'America/Chicago';
 
@@ -158,15 +162,15 @@ function formatAddressedGoalsForPrompt(goals: AddressedGoalWithIcd[]): string {
         const desc = g.icd10Descriptions[j]?.trim() || '';
         const ctx = getNarrativeContext(code);
         const ctxStr = ctx
-          ? `\n    Narrative map (for this ICD): deficit — ${ctx.deficitDescription}; skill — ${ctx.skillTargeted}; academic impact — ${ctx.academicImpact}`
-          : '\n    (No narrative map entry for this ICD — use the code label and goal text.)';
-        return `    - ${code}${desc ? ` — ${desc}` : ''}${ctxStr}`;
+          ? `\n    Clinical context (do NOT write ICD/CPT codes in the note): deficit — ${ctx.deficitDescription}; skill — ${ctx.skillTargeted}; academic impact — ${ctx.academicImpact}`
+          : '';
+        return `    - ${desc || code}${ctxStr}`;
       });
       const icdBlock =
         icdLines.length > 0
           ? icdLines.join('\n')
-          : '    - (No domain-mapped ICD for this goal — use ENCOUNTER ICD-10 list and session notes.)';
-      return `ADDRESSED GOAL ${i + 1}\n  - goalId: ${g.goalId}\n  - IEP goal text: ${g.goalDescription}\n  - Goal domain: ${g.domain ?? '—'}\n  - Billing ICD-10 for this goal:\n${icdBlock}`;
+          : '    - (Use session notes and goal text for clinical context.)';
+      return `ADDRESSED GOAL ${i + 1}\n  - goalId: ${g.goalId}\n  - IEP goal text: ${g.goalDescription}\n  - Goal domain: ${g.domain ?? '—'}\n  - Clinical context:\n${icdBlock}`;
     })
     .join('\n\n');
 }
@@ -183,51 +187,54 @@ function formatPerformanceByGoal(summary: SessionNotePromptSession['performanceS
     .join('\n');
 }
 
-function buildSoapSessionsBlock(
-  sessions: SoapNoteGenerationSession[],
-  provider: SoapNoteProviderInfo
-): string {
+function buildSoapSessionsBlock(sessions: SoapNoteGenerationSession[]): string {
   const parts: string[] = [];
   for (const s of sessions) {
     const lateLine = s.isLateEntry
       ? 'LATE ENTRY — Note written after date of service'
       : '(not a late entry — omit late-entry line from header)';
-    const prior =
-      s.priorSessionAccuracyPct != null
-        ? `${s.priorSessionAccuracyPct}%`
-        : 'Not available — omit prior-session comparison or state no prior data.';
-
     const endIso = (s.endTime || '').trim() || s.startTime;
     const sessionTimeCentral = `${formatClockMn(s.startTime)} – ${formatClockMn(endIso)}`;
 
     const encounterIcd = (s.icd10Codes || []).length > 0 ? s.icd10Codes.join(', ') : '—';
 
-    const diagnosisSection =
+    const serviceTypeName = s.isGroup ? 'group speech-language treatment' : 'individual speech-language treatment';
+
+    const goalsSection =
       s.addressedGoalsWithIcd && s.addressedGoalsWithIcd.length > 0
         ? `
-ADDRESSED IEP GOALS WITH DOMAIN-MAPPED ICD-10 (each goal has its billing ICD(s) from the goal's domain. Pair clinical activities and trial lines with the correct goal and ICD; you may reference **more than one** ICD-10 in the prose when multiple goals below were clearly addressed):
+ADDRESSED IEP GOALS (clinical context only — do NOT write ICD-10 or CPT codes in the note):
 ${formatAddressedGoalsForPrompt(s.addressedGoalsWithIcd)}`
         : s.narrativeContext
           ? `
-DIAGNOSIS CONTEXT (weave briefly into the description prose where relevant — not a SOAP section):
-- Deficit Description: ${s.narrativeContext.deficitDescription}
-- Skill Targeted: ${s.narrativeContext.skillTargeted}
-- Academic Impact: ${s.narrativeContext.academicImpact}
-- Medical Necessity (one short clause max if needed): ${s.narrativeContext.medicalNecessityRationale}`
+CLINICAL CONTEXT (do NOT write diagnosis codes in the note):
+- Deficit: ${s.narrativeContext.deficitDescription}
+- Skill targeted: ${s.narrativeContext.skillTargeted}
+- Academic impact: ${s.narrativeContext.academicImpact}`
           : `
-DIAGNOSIS CONTEXT: No structured narrative map for ICD-10 ${s.primaryIcdCode || '—'}. Use the ICD-10 label/description in SESSION DATA and named goal domains; do not invent unsupported diagnoses.`;
+CLINICAL CONTEXT: Use named goal domains and session notes; do not invent unsupported diagnoses or write billing codes in the note.`;
+
+    const targetsLine =
+      s.addressedGoalsWithIcd && s.addressedGoalsWithIcd.length > 0
+        ? s.addressedGoalsWithIcd.map((g) => g.goalDescription).join('; ')
+        : s.iepGoalText;
 
     const ctxBlock = `
-- Session context (visit type / timing): ${(s.billingSessionContext || '').trim() || 'Not specified — infer only if clearly supported by session notes'}
-- Communication modality (for description): ${(s.communicationModalityBilling || '').trim() || 'Not specified — infer only if clearly supported by session notes (e.g. verbal, Zoom chat, AAC)'}
-- Clinical activities (brief): ${(s.clinicalActivitiesBilling || '').trim() || 'Not specified — infer only if supported by session notes'}`;
+- Service type (name only in note): ${serviceTypeName}
+- Target skill(s): ${targetsLine}
+- Therapy activities: ${(s.clinicalActivitiesBilling || '').trim() || 'Not specified — infer one plausible structured activity from targets and session notes (e.g. sentence-level production, minimal pairs, word-level drill, conversational probing)'}
+- Session context: ${(s.billingSessionContext || '').trim() || 'Not specified — use only if supported by session notes'}
+- Communication modality: ${(s.communicationModalityBilling || '').trim() || 'teletherapy via Zoom (infer verbal/chat/AAC from session notes if stated)'}
+- Clinician notes: ${(s.sessionNotes || '').trim() || 'None recorded'}`;
 
     const multiPerf = s.performanceSummary.length > 1;
     const trialDataRule = multiPerf
-      ? `Performance data are listed **per IEP goal** below. State accuracy and trial counts **per goal** as shown; align each with the matching goalId and ICD block above. Overall prompting tone for the encounter: ${s.promptingLevel}.`
+      ? `Session data (per goal — include all numbers provided; do not fabricate):\n${formatPerformanceByGoal(s.performanceSummary)}\nOverall cueing tone: ${s.promptingLevel}.`
       : s.trialsTotal > 0
-        ? `Discrete trials were collected (${s.trialsCorrect}/${s.trialsTotal} trials; ${s.trialAccuracyPct}% accuracy). State results factually with prompting level ${s.promptingLevel}.`
-        : `No discrete trial totals this session (trials total 0). The MA description must NOT say "0/0 trials" or "0 trials" or list 0/0 — use qualitative language (e.g. "formal data collection not initiated", "qualitative baseline observation completed") consistent with session notes and clinical judgment.`;
+        ? `Session data: ${s.trialsCorrect}/${s.trialsTotal} trials; ${s.trialAccuracyPct}% accuracy; cueing: ${s.promptingLevel}.${s.priorSessionAccuracyPct != null ? ` Prior session: ${s.priorSessionAccuracyPct}%.` : ''}`
+        : `Session data: No formal trial data provided — state that formal data were not collected and describe the qualitative observation from session notes. Do NOT write "0/0 trials" or "0 trials".`;
+
+    const styleBlock = buildMaNoteStyleInstructions(s.studentName, s.serviceDateYmd);
 
     const dobSeg = (s.studentDob || '').trim();
     const studentLine = dobSeg
@@ -240,72 +247,64 @@ SESSION ID: ${s.id}
 - Grade: ${s.grade}
 - Date of Service: ${formatDisplayDate(s.serviceDateYmd)}
 - Late entry: ${lateLine}
-- CPT Code: ${s.cptCode} — ${s.cptDescription}
-- All ICD-10 codes on encounter (fixed): ${encounterIcd}
-- Lead summary ICD (first addressed goal when listed; else first encounter code): ${s.primaryIcdCode || '—'} — ${s.primaryIcdDescription || '—'}
-- Session Time (Central / America/Chicago): ${sessionTimeCentral} (${s.totalMinutes} minutes)
-${s.shortSessionBillingNote ? `- ${s.shortSessionBillingNote}\n` : ''}- Units Billed: ${s.units} (8-minute rule / 15-min units)
-- Setting: ${s.modality}
-- Goal domain (lead / first addressed goal when listed): ${s.goalDomain || s.domain || 'communication'}
-- IEP Goal Targeted (lead): ${s.iepGoalText}
-- Performance by IEP goal (discrete trials when recorded):
-${formatPerformanceByGoal(s.performanceSummary)}
-- Prior Session Accuracy (if available; applies to lead goal row): ${prior}
-- Clinician Prompting Level Used: ${s.promptingLevel} (use maximal / moderate / minimal / independent language consistent with this in the description)
-- ${trialDataRule}
-- Session / clinician notes (verbatim context): ${(s.sessionNotes || '').trim() || 'None recorded'}${diagnosisSection}
+- Session Time (Central): ${sessionTimeCentral} (${s.totalMinutes} minutes)
+- Delivery: teletherapy via Zoom
+${s.shortSessionBillingNote ? `- ${s.shortSessionBillingNote}\n` : ''}
+BILLING METADATA (already shown in SpedForms above the note — NEVER include CPT or ICD-10 codes in the "note" text):
+- CPT: ${s.cptCode} — ${s.cptDescription}
+- ICD-10 on encounter: ${encounterIcd}
+- Units: ${s.units}
+
+${trialDataRule}
+${goalsSection}
 ${ctxBlock}
 
-CPT / service format (one short clause in description if needed; do not paste verbatim legal boilerplate):
-${s.cptJustification}
+${styleBlock}
 `.trim();
     parts.push(block);
   }
 
-  const prov = `
-PROVIDER (signature block — use exactly; do not invent NPI):
-- Name: ${provider.providerName || '[Configure in Settings]'}
-- Credentials: ${provider.credentials || ''}
-- NPI: ${provider.npiNumber || ''}
-`.trim();
-
-  return `${parts.join('\n\n---\n\n')}\n\n${prov}`;
+  return parts.join('\n\n---\n\n');
 }
 
 /**
- * Full MA billing **description** prompt (one or more sessions). Shared with Gemini and Anthropic.
- * The JSON "note" is pasted into the MA description field — not a full SOAP note.
+ * Full MA activity log note prompt (one or more sessions). Shared with Gemini and Anthropic.
+ * The JSON "note" is pasted into the SpedForms description field (codes live in metadata row).
  */
 export function buildSoapGenerationPrompt(
   sessions: SoapNoteGenerationSession[],
   provider: SoapNoteProviderInfo
 ): string {
-  const dataBlock = buildSoapSessionsBlock(sessions, provider);
-  return `You are an MS CCC-SLP documenting Minnesota Medicaid (MA) school-based services for a licensed school SLP delivering teletherapy (Zoom) at a K–8 charter school. The billing system uses **discrete fields**; the JSON field **"note"** is the **only narrative** — it is pasted into the **MA clinical description** field. It must **not** be a SOAP note: **no** S– / O– / A– / P– headings, no SOAP template, no multi-page prose.
+  const dataBlock = buildSoapSessionsBlock(sessions);
+  return `You are a licensed speech-language pathologist writing a clinical activity log note for Minnesota Medicaid (MA) billing documentation. Services are delivered via teletherapy (Zoom).
 
-GOAL: Produce a **defensible, concise, clinically accurate** description (skilled SLP services) without over-documentation. **3–5 sentences. 60–120 words maximum** for the description portion (excluding the optional late-entry header line below).
+The JSON field **"note"** is the **only narrative** pasted into the MA activity log description. CPT and ICD-10 codes are already entered in separate SpedForms fields above this text.
 
-LATE ENTRY (header line only when applicable):
-- If SESSION DATA says the session is a late entry, the "note" value MUST begin with **exactly one first line**: \`LATE ENTRY — Note written after date of service\` (verbatim — no date on this line).
-- Then one blank line, then the description sentences.
-- If not a late entry, **no** late-entry line — start directly with the description.
+OUTPUT FORMAT:
+- **One paragraph only** for the clinical narrative (no bullet points, no headers, no SOAP sections).
+- **80–130 words** for the narrative (max ~150 words). Third person, past tense, clinical but readable.
+- If late entry: first line MUST be exactly \`LATE ENTRY — Note written after date of service\` (no date on this line), then one blank line, then the paragraph.
+- If not a late entry: no late-entry line — start with the paragraph only.
 
-DESCRIPTION BODY — cover these in order as natural sentences (merge; do not use bullet labels in output):
-1. **Service statement:** CPT code, **all relevant ICD-10 codes** from SESSION DATA when multiple goals were addressed (see ADDRESSED GOALS block), **specific goal domains** (e.g. expressive language, pragmatics, grammar — **never** use the phrase "communication goals per IEP"), individual vs group, teletherapy/Zoom as in SESSION DATA.
-2. **Student-specific context:** communication modality of participation (name explicitly when known — e.g. Zoom chat, verbal, AAC); relevant visit context from SESSION DATA or optional fields (first session, post-break, re-evaluation, post-absence, etc.) **only if supported**.
-3. **Clinical activity:** what the clinician did; tasks/stimuli briefly; align with **prompting / cueing level** from SESSION DATA (maximal / moderate / minimal / independent).
-4. **Data:** If trials are listed per goal, summarize factually **per goal** with the correct ICD for that goal when multiple ICDs apply. If no discrete trials, **never** write "0/0 trials", "0 trials", or similar — use qualitative phrasing consistent with session notes and clinical judgment.
-5. **Optional fifth sentence:** brief skilled-service or session-structure justification **only if** the session was data-light or atypical; avoid repetitive boilerplate and walls of medical-necessity text.
+MUST INCLUDE IN THE PARAGRAPH:
+1. **Service type by name** — "individual speech-language treatment" or "group speech-language treatment" (and group context when applicable); teletherapy via Zoom.
+2. **At least one specific therapy activity** — use Therapy activities from SESSION DATA, or infer a plausible structured task from targets (sentence-level production, minimal pairs, word-level drill, conversational probing, structured elicitation).
+3. **Session data** — include every accuracy %, trial count, and prior-session comparison provided in SESSION DATA. If no trial data, state that formal trial data were not collected and give a qualitative observation. **Do not fabricate numbers.**
+4. **Cueing** — use the PHRASING VARIANT cueing language when consistent with SESSION DATA.
+5. **Closing** — one sentence on rationale for continued treatment (use PHRASING VARIANT closing pattern).
 
-RULES:
-- ICD-10 and CPT in SESSION DATA are **fixed** — use only ICD-10 codes listed for each addressed goal or on the encounter list; do not invent codes, modalities, or context not supported by SESSION DATA and optional fields.
-- When **ADDRESSED IEP GOALS WITH DOMAIN-MAPPED ICD-10** lists more than one goal, the description may reference **more than one** ICD-10; tie each substantive intervention or trial result to the **goal and ICD** it belongs to.
-- **Prior session accuracy:** reference only when provided in SESSION DATA; otherwise do not claim comparisons.
-- **Provider:** do not include provider signature block or NPI in this description field unless SESSION DATA explicitly asks for a single closing clause (default: omit provider block entirely from "note").
+MUST NOT INCLUDE IN THE "note" TEXT:
+- **Any CPT code** (e.g. 92507, 92508) or **any ICD-10 code** (e.g. F80.0, F80.1, F80.2, F80.89, F98.5, R49.0) or the phrases "ICD-10" / "CPT".
+- Provider name, NPI, or signature block.
+- The phrase "communication goals per IEP".
+
+VARIETY:
+- Follow the **PHRASING VARIANT** block for each session (opening, cueing, performance phrasing, closing).
+- Vary wording across sessions; do not start every note with "The clinician".
 
 Return a single JSON array only (root = array).
-Each element: { "sessionId": "<exact SESSION ID from SESSION DATA>", "note": "<late-entry header if applicable per rules, then description as specified>" }.
-Use each SESSION ID verbatim from the SESSION DATA blocks. Do not rename or invent ids.
+Each element: { "sessionId": "<exact SESSION ID>", "note": "<late-entry line if applicable, then one paragraph>" }.
+Use each SESSION ID verbatim. Do not rename or invent ids.
 
 SESSION DATA (per session separated by ---):
 ${dataBlock}
@@ -504,7 +503,11 @@ export async function generateSessionNotesWithGemini(
         const note =
           typeof rawNote === 'string' ? rawNote.trim() : rawNote != null ? String(rawNote).trim() : '';
         if (!sessionId || !note) continue;
-        out.push({ sessionId, note });
+        const sessionRow = sessions.find((x) => x.id === sessionId);
+        const processed = postProcessMaActivityLogNote(note, {
+          isLateEntry: sessionRow?.isLateEntry,
+        });
+        out.push({ sessionId, note: processed });
       }
 
       if (out.length === 0) {
@@ -611,14 +614,13 @@ export function buildSoapNoteGenerationSession(
 
 export function genericSessionNote(
   domain: string | undefined,
-  opts?: { icd10Code?: string; cptCode?: string }
+  opts?: { isGroup?: boolean }
 ): string {
   const d = (domain || '').trim() || 'speech and language';
-  const icd = (opts?.icd10Code || '').trim();
-  const cpt = (opts?.cptCode || '92507').trim();
-  const ctx = icd ? getNarrativeContext(icd) : null;
-  const diag = ctx?.diagnosisLabel || (icd ? `ICD-10 ${icd}` : 'documented communication needs');
-  const modalityStr = cpt === '92508' ? 'Group teletherapy (Zoom)' : 'Individual teletherapy (Zoom)';
-  const goalPhrase = d.toLowerCase().includes('communication') ? d : `${d} communication targets`;
-  return `Provided ${modalityStr} (${cpt}) addressing ${diag} with work on ${goalPhrase} per IEP. Structured trial data were not available from the export used for this placeholder; describe participation using qualitative language from the session log when charting. Continue skilled speech-language services per IEP; confirm codes and units against the encounter record.`;
+  const service =
+    opts?.isGroup === true
+      ? 'group speech-language treatment'
+      : 'individual speech-language treatment';
+  const goalPhrase = d.toLowerCase().includes('communication') ? d : `${d} communication`;
+  return `The clinician provided structured teletherapy via Zoom during ${service}, targeting ${goalPhrase} per IEP. Formal trial data were not collected during this session; participation was observed qualitatively and should be summarized from the session log before billing. Session data support ongoing skilled intervention targeting ${goalPhrase}.`;
 }

@@ -5,6 +5,7 @@ import {
   parseSessionNotesAiResponse,
   resolveKnownSessionId,
 } from './geminiSessionNotes';
+import { postProcessMaActivityLogNote } from './maActivityLogNote';
 import { logger } from './logger';
 
 const MA_ANTHROPIC_MODEL = 'claude-sonnet-4-6';
@@ -65,7 +66,11 @@ export async function generateSessionNotesWithAnthropic(
     const note =
       typeof rawNote === 'string' ? rawNote.trim() : rawNote != null ? String(rawNote).trim() : '';
     if (!sessionId || !note) continue;
-    out.push({ sessionId, note });
+    const sessionRow = sessions.find((x) => x.id === sessionId);
+    out.push({
+      sessionId,
+      note: postProcessMaActivityLogNote(note, { isLateEntry: sessionRow?.isLateEntry }),
+    });
   }
 
   if (out.length === 0) {

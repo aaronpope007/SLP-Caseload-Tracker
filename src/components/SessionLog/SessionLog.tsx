@@ -34,6 +34,7 @@ import { getStudents } from '../../utils/storage-api';
 import type { EvalLogEntry, SessionLogEntry, Student } from '../../types';
 import { groupSessionHasInsufficientData } from '../../utils/sessionValidation';
 import { GroupSessionDataWarning } from './GroupSessionDataWarning';
+import { MaActivityLogNoteDisplay } from './MaActivityLogNoteDisplay';
 import { useSchool } from '../../context/SchoolContext';
 import { logError } from '../../utils/logger';
 import { useSnackbar } from '../../hooks';
@@ -910,18 +911,10 @@ export function SessionLog() {
                                   overflow: 'auto',
                                 }}
                               >
-                                <Typography
-                                  component="pre"
-                                  sx={{
-                                    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-                                    whiteSpace: 'pre-wrap',
-                                    wordBreak: 'break-word',
-                                    m: 0,
-                                    fontSize: '0.8125rem',
-                                  }}
-                                >
-                                  {effectiveAiNote(r, aiNotesBySessionId)}
-                                </Typography>
+                                <MaActivityLogNoteDisplay
+                                  entry={r}
+                                  noteText={effectiveAiNote(r, aiNotesBySessionId)}
+                                />
                               </Paper>
                               {groupSessionHasInsufficientData(r) ? <GroupSessionDataWarning /> : null}
                             </Stack>

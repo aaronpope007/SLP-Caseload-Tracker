@@ -1,0 +1,26 @@
+---
+description: MA activity log note generation and Session Log display (SpedForms)
+globs:
+  - api/src/utils/geminiSessionNotes.ts
+  - api/src/utils/maActivityLogNote.ts
+  - api/src/utils/anthropicSessionNotes.ts
+  - src/components/SessionLog/**
+---
+
+# MA Activity Log Note Generation
+
+## Note body rules
+- Never include CPT or ICD-10 codes in generated note text (metadata row carries codes).
+- Refer to service by name: "individual/group speech-language treatment".
+- Always include session data when provided; if none, state formal data were not collected.
+- Always include at least one specific therapy activity (from input or plausible inference).
+- Rotate phrasing via `maNoteStyleVariantIndex(studentName, serviceDateYmd)` in `maActivityLogNote.ts`.
+- One paragraph, 80–130 words, third person past tense.
+- Late entry: prepend exactly `LATE ENTRY — Note written after date of service` (no date), blank line, then paragraph.
+
+## UI (Session Log)
+- Metadata row above note: Date | Start | End | Group/Individual | CPT | ICD-10 (red border).
+- Note body: plain narrative only via `MaActivityLogNoteDisplay`.
+
+## Post-processing
+- Run `postProcessMaActivityLogNote` after AI generation to strip any leaked billing codes.

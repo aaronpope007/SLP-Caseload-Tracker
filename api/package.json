@@ -12,7 +12,8 @@
     "migrate": "tsx src/migrate.ts",
     "import-scheduled-sessions": "tsx import-scheduled-sessions.ts",
     "fix-foreign-key": "tsx src/fix-foreign-key.ts",
-    "kill-port": "node kill-port.js"
+    "kill-port": "node kill-port.js",
+    "ma-note-harness": "tsx src/utils/__tests__/maNoteHarness.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.96.0",
