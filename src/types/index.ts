@@ -201,6 +201,10 @@ export interface SessionLogEntry {
   studentId: string;
   studentName: string;
   isGroup: boolean;
+  /** Present when session is part of a linked multi-student group (from `sessions.groupSessionId`) */
+  groupSessionId?: string | null;
+  /** True when `goalsAddressed` was saved with at least one goal id (distinct from display-only backfill from performance) */
+  hasStoredGoalsAddressed?: boolean;
   groupSize?: number;
   notes?: string;
   /** Goal descriptions from `goalsAddressed` and/or inferred from `performanceData` when addressed is empty */

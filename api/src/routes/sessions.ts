@@ -549,6 +549,8 @@ sessionsRouter.get('/log', asyncHandler(async (req, res) => {
       studentId: row.studentId,
       studentName: row.studentName,
       isGroup,
+      groupSessionId: row.groupSessionId || null,
+      hasStoredGoalsAddressed: goalsAddressedIds.length > 0,
       groupSize: isGroupOrMulti ? groupSize : undefined,
       notes: row.notes || undefined,
       goalsAddressedText,

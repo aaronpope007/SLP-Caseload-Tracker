@@ -32,6 +32,8 @@ import { format, formatISO, startOfMonth } from 'date-fns';
 import { ApiError, api } from '../../utils/api';
 import { getStudents } from '../../utils/storage-api';
 import type { EvalLogEntry, SessionLogEntry, Student } from '../../types';
+import { groupSessionHasInsufficientData } from '../../utils/sessionValidation';
+import { GroupSessionDataWarning } from './GroupSessionDataWarning';
 import { useSchool } from '../../context/SchoolContext';
 import { logError } from '../../utils/logger';
 import { useSnackbar } from '../../hooks';
@@ -423,6 +425,7 @@ export function SessionLog() {
       const soapName = typeof localStorage !== 'undefined' ? localStorage.getItem('soap_provider_name')?.trim() : '';
       const soapCred = typeof localStorage !== 'undefined' ? localStorage.getItem('soap_provider_credentials')?.trim() : '';
       const soapNpi = typeof localStorage !== 'undefined' ? localStorage.getItem('soap_provider_npi')?.trim() : '';
+      const selectedSessions = sessions.filter((s) => !s.missedSession);
       const body = {
         ...(storedGeminiKey ? { apiKey: storedGeminiKey } : {}),
         ...(storedAnthropicKey ? { anthropicApiKey: storedAnthropicKey } : {}),
@@ -433,7 +436,7 @@ export function SessionLog() {
         studentId: selectedIds[0],
         studentName: st?.name ?? 'Student',
         grade: st?.grade ?? '',
-        sessions: sessions.filter((s) => !s.missedSession).map((s) => ({
+        sessions: selectedSessions.map((s) => ({
           id: s.id,
           date: s.date,
           startTime: s.startTime || s.date,
@@ -478,7 +481,16 @@ export function SessionLog() {
           return hit ? { ...row, aiGeneratedNote: hit.note } : row;
         })
       );
-      showSnackbar(`MA clinical descriptions saved (${providerLabel}).`, 'success');
+      const suspectSessions = selectedSessions.filter(groupSessionHasInsufficientData);
+      if (suspectSessions.length > 0) {
+        const names = [...new Set(suspectSessions.map((s) => s.studentName))].join(', ');
+        showSnackbar(
+          `MA clinical descriptions saved (${providerLabel}). Warning: ${names} may have incomplete data for this group session. Notes were generated but should be reviewed before billing.`,
+          'warning'
+        );
+      } else {
+        showSnackbar(`MA clinical descriptions saved (${providerLabel}).`, 'success');
+      }
     } catch (e) {
       const msg =
         e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Failed to generate notes';
@@ -927,6 +939,11 @@ export function SessionLog() {
                                 Regenerate
                               </Button>
                             </Stack>
+                            {groupSessionHasInsufficientData(r) ? (
+                              <Box sx={{ alignSelf: 'stretch', maxWidth: 420, mt: 0.5, textAlign: 'left' }}>
+                                <GroupSessionDataWarning />
+                              </Box>
+                            ) : null}
                           </TableCell>
                         </TableRow>
                       </Fragment>

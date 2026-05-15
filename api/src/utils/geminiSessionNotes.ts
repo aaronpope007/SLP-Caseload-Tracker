@@ -190,7 +190,7 @@ function buildSoapSessionsBlock(
   const parts: string[] = [];
   for (const s of sessions) {
     const lateLine = s.isLateEntry
-      ? `Date Note Written: ${formatDisplayDate(s.noteWrittenYmd)} (LATE ENTRY)`
+      ? 'LATE ENTRY — Note written after date of service'
       : '(not a late entry — omit late-entry line from header)';
     const prior =
       s.priorSessionAccuracyPct != null
@@ -286,7 +286,7 @@ export function buildSoapGenerationPrompt(
 GOAL: Produce a **defensible, concise, clinically accurate** description (skilled SLP services) without over-documentation. **3–5 sentences. 60–120 words maximum** for the description portion (excluding the optional late-entry header line below).
 
 LATE ENTRY (header line only when applicable):
-- If SESSION DATA says the session is a late entry, the "note" value MUST begin with **exactly one first line**: \`LATE ENTRY — DATE NOTE WRITTEN: [M/D/YYYY]\` using the **Date Note Written** date from SESSION DATA (same style as "Date of Service" formatting).
+- If SESSION DATA says the session is a late entry, the "note" value MUST begin with **exactly one first line**: \`LATE ENTRY — Note written after date of service\` (verbatim — no date on this line).
 - Then one blank line, then the description sentences.
 - If not a late entry, **no** late-entry line — start directly with the description.
 
