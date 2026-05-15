@@ -24,6 +24,7 @@ import {
 } from '@mui/icons-material';
 import type { Student, Teacher, CaseManager, Communication } from '../types';
 import { api } from '../utils/api';
+import { getEmailCredentials, EMAIL_CREDENTIALS_MISSING_MESSAGE } from '../utils/emailCredentials';
 
 interface SendEmailDialogProps {
   open: boolean;
@@ -199,12 +200,9 @@ export const SendEmailDialog = ({
       return;
     }
 
-    // Check email credentials
-    const emailAddress = localStorage.getItem('email_address');
-    const emailPassword = localStorage.getItem('email_password');
-
-    if (!emailAddress || !emailPassword) {
-      setError('Email credentials not configured. Please add your Gmail address and App Password in Settings.');
+    const creds = getEmailCredentials();
+    if (!creds) {
+      setError(EMAIL_CREDENTIALS_MISSING_MESSAGE);
       return;
     }
 
@@ -224,12 +222,12 @@ export const SendEmailDialog = ({
         to: contactEmail,
         subject: subject,
         body: bodyWithSignature,
-        fromEmail: emailAddress,
+        fromEmail: creds.address,
         fromName: userName,
         smtpHost: 'smtp.gmail.com',
         smtpPort: 587,
-        smtpUser: emailAddress,
-        smtpPassword: emailPassword,
+        smtpUser: creds.address,
+        smtpPassword: creds.password,
       };
       // Build CC list: selected teacher, selected case manager, and free-text emails
       const ccEmails: string[] = [];
@@ -250,7 +248,7 @@ export const SendEmailDialog = ({
         sendPayload.cc = ccEmails;
       }
       // Always BCC the sender so they get a copy of their sent email
-      sendPayload.bcc = emailAddress;
+      sendPayload.bcc = creds.address;
       await api.email.send(sendPayload);
 
       // Automatically log the communication

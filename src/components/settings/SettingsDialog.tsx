@@ -20,6 +20,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../utils/api';
 import { logError } from '../../utils/logger';
+import { persistEmailCredentials } from '../../utils/emailCredentials';
 
 interface SettingsDialogProps {
   open: boolean;
@@ -219,16 +220,7 @@ Join instructions
     localStorage.setItem('default_goal_target_80', defaultGoalTarget80 ? 'true' : 'false');
     // Don't trim zoom link - preserve newlines and formatting
     localStorage.setItem('zoom_link', zoomLink);
-    if (emailAddress.trim()) {
-      localStorage.setItem('email_address', emailAddress.trim());
-    } else {
-      localStorage.removeItem('email_address');
-    }
-    if (emailPassword.trim()) {
-      localStorage.setItem('email_password', emailPassword.trim());
-    } else {
-      localStorage.removeItem('email_password');
-    }
+    persistEmailCredentials(emailAddress, emailPassword);
     localStorage.setItem('soap_provider_name', soapProviderName.trim());
     localStorage.setItem('soap_provider_credentials', soapCredentials.trim());
     localStorage.setItem('soap_provider_npi', soapNpi.replace(/\D/g, '').slice(0, 10));
@@ -369,7 +361,11 @@ Join instructions
             type="email"
             label="Email Address"
             value={emailAddress}
-            onChange={(e) => setEmailAddress(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value;
+              setEmailAddress(value);
+              persistEmailCredentials(value, emailPassword);
+            }}
             helperText="Your Gmail address for sending emails"
             margin="normal"
           />
@@ -378,13 +374,17 @@ Join instructions
             type="password"
             label="App Password"
             value={emailPassword}
-            onChange={(e) => setEmailPassword(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value;
+              setEmailPassword(value);
+              persistEmailCredentials(emailAddress, value);
+            }}
             helperText="Gmail App Password (not your regular password). Generate one in your Google Account settings."
             margin="normal"
           />
           <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-            Your email credentials are stored locally and only used to send emails through the app. 
-            For Gmail, you'll need to create an App Password in your Google Account settings.
+            Your email credentials are stored locally as you type and only used to send emails through the app.
+            For Gmail, create an App Password in your Google Account settings (not your regular password).
           </Typography>
         </Box>
         {authStatus?.enabled && authStatus?.setup && (

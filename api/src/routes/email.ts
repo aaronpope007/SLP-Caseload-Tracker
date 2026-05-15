@@ -102,7 +102,6 @@ router.post('/send', validateBody(emailSchema), asyncHandler(async (req, res) =>
   }
 
   try {
-    await transporter.verify();
     const info = await transporter.sendMail(mailOptions);
 
     res.json({

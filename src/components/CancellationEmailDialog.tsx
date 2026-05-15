@@ -30,6 +30,7 @@ import { getTeachers, getCaseManagers, getSessionsBySchool, getSchoolByName, get
 import { getScheduledSessions } from '../utils/storage-api';
 import { format, isBefore, isAfter, parse, isSameDay, startOfDay } from 'date-fns';
 import { api } from '../utils/api';
+import { getEmailCredentials, EMAIL_CREDENTIALS_MISSING_MESSAGE } from '../utils/emailCredentials';
 
 interface CancellationEmailDialogProps {
   open: boolean;
@@ -623,11 +624,9 @@ export const CancellationEmailDialog = ({
       return;
     }
 
-    const emailAddress = localStorage.getItem('email_address');
-    const emailPassword = localStorage.getItem('email_password');
-
-    if (!emailAddress || !emailPassword) {
-      setSendError('Email credentials not configured. Please add your Gmail address and App Password in Settings.');
+    const creds = getEmailCredentials();
+    if (!creds) {
+      setSendError(EMAIL_CREDENTIALS_MISSING_MESSAGE);
       return;
     }
 
@@ -648,7 +647,7 @@ export const CancellationEmailDialog = ({
       const emailSubject = `Speech Therapy Session Cancellation - ${dateStr}`;
 
       // Build CC: always CC me, optionally CC case manager(s), optionally CC primary school contact
-      const ccAddresses: string[] = [emailAddress];
+      const ccAddresses: string[] = [creds.address];
       if (ccCaseManager) {
         const studentCaseManagerIds = associatedStudents
           .map(s => s.caseManagerId)
@@ -670,12 +669,12 @@ export const CancellationEmailDialog = ({
         to: emailData.teacher.emailAddress,
         subject: emailSubject,
         body: emailData.emailText,
-        fromEmail: emailAddress,
+        fromEmail: creds.address,
         fromName: userName,
         smtpHost: 'smtp.gmail.com',
         smtpPort: 587,
-        smtpUser: emailAddress,
-        smtpPassword: emailPassword,
+        smtpUser: creds.address,
+        smtpPassword: creds.password,
         cc: ccAddresses,
       });
 
@@ -739,10 +738,8 @@ export const CancellationEmailDialog = ({
       if (index === -1) continue;
 
       try {
-        const emailAddress = localStorage.getItem('email_address');
-        const emailPassword = localStorage.getItem('email_password');
-
-        if (!emailAddress || !emailPassword) {
+        const creds = getEmailCredentials();
+        if (!creds) {
           errors.push(`${emailData.teacher.name} (credentials not configured)`);
           continue;
         }
@@ -753,7 +750,7 @@ export const CancellationEmailDialog = ({
         const associatedStudents = emailData.studentIds
           .map(id => students.find(s => s.id === id))
           .filter((s): s is Student => s !== undefined);
-        const ccAddresses: string[] = [emailAddress];
+        const ccAddresses: string[] = [creds.address];
         if (ccCaseManager) {
           const studentCaseManagerIds = associatedStudents
             .map(s => s.caseManagerId)
@@ -774,12 +771,12 @@ export const CancellationEmailDialog = ({
           to: emailData.teacher.emailAddress!,
           subject: emailSubject,
           body: emailData.emailText,
-          fromEmail: emailAddress,
+          fromEmail: creds.address,
           fromName: userName,
           smtpHost: 'smtp.gmail.com',
           smtpPort: 587,
-          smtpUser: emailAddress,
-          smtpPassword: emailPassword,
+          smtpUser: creds.address,
+          smtpPassword: creds.password,
           cc: ccAddresses,
         });
 

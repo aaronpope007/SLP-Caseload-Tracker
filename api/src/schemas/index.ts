@@ -542,7 +542,7 @@ export const emailSchema = z.object({
   fromEmail: z.string().email().optional(),
   fromName: optionalString,
   smtpHost: optionalString,
-  smtpPort: z.number().int().min(1).max(65535).optional(),
+  smtpPort: z.coerce.number().int().min(1).max(65535).optional(),
   smtpUser: optionalString,
   smtpPassword: optionalString,
   cc: z.union([z.string().email(), z.array(z.string().email())]).optional(),

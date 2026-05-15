@@ -29,7 +29,12 @@ import type { Student, Teacher, CaseManager, ScheduledSession, Session } from '.
 import { getTeachers, getCaseManagers, getSessionsBySchool, getSchoolByName } from '../utils/storage-api';
 import { getScheduledSessions, getMeetings } from '../utils/storage-api';
 import { format, isBefore, isAfter, addMinutes, parse, isSameDay, startOfDay } from 'date-fns';
-import { api } from '../utils/api';
+import { api, ApiError } from '../utils/api';
+import {
+  getEmailCredentials,
+  hasEmailCredentials,
+  EMAIL_CREDENTIALS_MISSING_MESSAGE,
+} from '../utils/emailCredentials';
 import { useSchool } from '../context/SchoolContext';
 
 interface EmailTeacherDialogProps {
@@ -915,11 +920,9 @@ export const EmailTeacherDialog = ({
       return;
     }
 
-    const emailAddress = localStorage.getItem('email_address');
-    const emailPassword = localStorage.getItem('email_password');
-
-    if (!emailAddress || !emailPassword) {
-      setSendError('Email credentials not configured. Please add your Gmail address and App Password in Settings.');
+    const creds = getEmailCredentials();
+    if (!creds) {
+      setSendError(EMAIL_CREDENTIALS_MISSING_MESSAGE);
       return;
     }
 
@@ -1019,12 +1022,12 @@ export const EmailTeacherDialog = ({
         to: emailData.teacher.emailAddress,
         subject: emailSubject,
         body: finalEmailBody,
-        fromEmail: emailAddress,
+        fromEmail: creds.address,
         fromName: userName,
         smtpHost: 'smtp.gmail.com',
         smtpPort: 587,
-        smtpUser: emailAddress,
-        smtpPassword: emailPassword,
+        smtpUser: creds.address,
+        smtpPassword: creds.password,
         // Add CC and BCC for missed appointment emails
         ...(isMissedSession && {
           ...(uniqueCcAddresses.length > 0 && { cc: uniqueCcAddresses }),
@@ -1097,7 +1100,11 @@ export const EmailTeacherDialog = ({
       }, 100);
     } catch (error: unknown) {
       logError('Error sending email', error);
-      setSendError(getErrorMessage(error) || 'Failed to send email. Please check your email settings and try again.');
+      const message =
+        error instanceof ApiError
+          ? error.message || error.getUserMessage()
+          : getErrorMessage(error);
+      setSendError(message || 'Failed to send email. Please check your email settings and try again.');
     } finally {
       setSending(false);
     }
@@ -1159,6 +1166,11 @@ export const EmailTeacherDialog = ({
         </Box>
       </DialogTitle>
       <DialogContent>
+        {open && !hasEmailCredentials() && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            {EMAIL_CREDENTIALS_MISSING_MESSAGE}
+          </Alert>
+        )}
         {teacherEmails.length === 0 && (
           <Alert severity="info" sx={{ mb: 2 }}>
             Loading teacher information...

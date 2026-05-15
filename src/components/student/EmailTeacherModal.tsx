@@ -18,6 +18,7 @@ import {
 } from '@mui/icons-material';
 import type { Student, Teacher, CaseManager, Communication } from '../../types';
 import { api } from '../../utils/api';
+import { getEmailCredentials, EMAIL_CREDENTIALS_MISSING_MESSAGE } from '../../utils/emailCredentials';
 import { logError } from '../../utils/logger';
 import { getErrorMessage } from '../../utils/validators';
 import { useConfirm } from '../../hooks/useConfirm';
@@ -110,12 +111,9 @@ export const EmailTeacherModal = ({
       return;
     }
 
-    // Check email credentials
-    const emailAddress = localStorage.getItem('email_address');
-    const emailPassword = localStorage.getItem('email_password');
-
-    if (!emailAddress || !emailPassword) {
-      setError('Email credentials not configured. Please add your Gmail address and App Password in Settings.');
+    const creds = getEmailCredentials();
+    if (!creds) {
+      setError(EMAIL_CREDENTIALS_MISSING_MESSAGE);
       return;
     }
 
@@ -140,12 +138,12 @@ export const EmailTeacherModal = ({
         to: teacher.emailAddress,
         subject: subject,
         body: body.trim(),
-        fromEmail: emailAddress,
+        fromEmail: creds.address,
         fromName: userName,
         smtpHost: 'smtp.gmail.com',
         smtpPort: 587,
-        smtpUser: emailAddress,
-        smtpPassword: emailPassword,
+        smtpUser: creds.address,
+        smtpPassword: creds.password,
         bcc: bccToSelf,
       };
 
