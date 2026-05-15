@@ -8,7 +8,6 @@ export function GroupSessionDataWarning() {
         display: 'flex',
         alignItems: 'flex-start',
         gap: 0.75,
-        mt: 1,
         color: 'error.main',
       }}
     >

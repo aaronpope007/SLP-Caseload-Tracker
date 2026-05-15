@@ -22,7 +22,8 @@ function performanceRowsEffectivelyEmpty(perf: SessionLogPerformanceSummaryEntry
 
 /**
  * Group session rows where this student may have been left selected by mistake: no stored goals
- * addressed, no performance rows, or only zero-trial / zero-accuracy performance rows.
+ * and no performance rows, or only zero-trial / zero-accuracy performance rows. Valid trial data alone
+ * is enough — missing stored goals do not warn when performance is present and non-empty.
  */
 export function groupSessionHasInsufficientData(session: SessionLogEntry): boolean {
   if (!isGroupSessionRow(session)) return false;
@@ -32,10 +33,10 @@ export function groupSessionHasInsufficientData(session: SessionLogEntry): boole
   const weakTrialsOnly = hasPerfRows && performanceRowsEffectivelyEmpty(perf);
 
   if (session.hasStoredGoalsAddressed !== undefined) {
-    return !session.hasStoredGoalsAddressed || !hasPerfRows || weakTrialsOnly;
+    return weakTrialsOnly || (!session.hasStoredGoalsAddressed && !hasPerfRows);
   }
 
   // Older log payloads without `hasStoredGoalsAddressed`: infer missing goals from empty goal labels.
   const hasGoalLabels = (session.goalsAddressedText ?? []).some((g) => String(g).trim().length > 0);
-  return !hasGoalLabels || !hasPerfRows || weakTrialsOnly;
+  return weakTrialsOnly || (!hasGoalLabels && !hasPerfRows);
 }

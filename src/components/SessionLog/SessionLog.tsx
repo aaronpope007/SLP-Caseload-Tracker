@@ -900,28 +900,31 @@ export function SessionLog() {
                           }}
                         >
                           <TableCell colSpan={6} sx={{ ...sessionLogMaMutedSx(r.maLogged), p: 1.5, verticalAlign: 'top' }}>
-                            <Paper
-                              variant="outlined"
-                              sx={{
-                                p: 1.5,
-                                bgcolor: 'action.hover',
-                                maxHeight: { xs: 280, sm: 420 },
-                                overflow: 'auto',
-                              }}
-                            >
-                              <Typography
-                                component="pre"
+                            <Stack spacing={1.25}>
+                              <Paper
+                                variant="outlined"
                                 sx={{
-                                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-                                  whiteSpace: 'pre-wrap',
-                                  wordBreak: 'break-word',
-                                  m: 0,
-                                  fontSize: '0.8125rem',
+                                  p: 1.5,
+                                  bgcolor: 'action.hover',
+                                  maxHeight: { xs: 280, sm: 420 },
+                                  overflow: 'auto',
                                 }}
                               >
-                                {effectiveAiNote(r, aiNotesBySessionId)}
-                              </Typography>
-                            </Paper>
+                                <Typography
+                                  component="pre"
+                                  sx={{
+                                    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                                    whiteSpace: 'pre-wrap',
+                                    wordBreak: 'break-word',
+                                    m: 0,
+                                    fontSize: '0.8125rem',
+                                  }}
+                                >
+                                  {effectiveAiNote(r, aiNotesBySessionId)}
+                                </Typography>
+                              </Paper>
+                              {groupSessionHasInsufficientData(r) ? <GroupSessionDataWarning /> : null}
+                            </Stack>
                           </TableCell>
                           <TableCell align="right" valign="top" className="no-print" sx={{ opacity: 1, textDecoration: 'none' }}>
                             <Stack spacing={1} alignItems="flex-end">
@@ -947,11 +950,6 @@ export function SessionLog() {
                                 Regenerate
                               </Button>
                             </Stack>
-                            {groupSessionHasInsufficientData(r) ? (
-                              <Box sx={{ alignSelf: 'stretch', maxWidth: 420, mt: 0.5, textAlign: 'left' }}>
-                                <GroupSessionDataWarning />
-                              </Box>
-                            ) : null}
                           </TableCell>
                         </TableRow>
                       </Fragment>
