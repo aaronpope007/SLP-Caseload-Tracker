@@ -10,12 +10,13 @@ import {
   generateSessionNotesBodySchema,
   patchSessionMaLoggedBodySchema,
 } from '../schemas';
-import { mergeIcdFromDomains } from '../utils/goalDomainIcd10';
+import { mergeIcdFromDomains, getIcdCodesFromDomain } from '../utils/goalDomainIcd10';
 import {
   generateSessionNotesWithGemini,
   genericSessionNote,
   buildSoapNoteGenerationSession,
   type SessionNotePromptSession,
+  type AddressedGoalWithIcd,
 } from '../utils/geminiSessionNotes';
 import { generateSessionNotesWithAnthropic } from '../utils/anthropicSessionNotes';
 import { logger } from '../utils/logger';
@@ -63,6 +64,118 @@ function primaryGoalIdFromSessionRow(row: SessionRow): string | null {
   return t || null;
 }
 
+interface AugmentedSessionRow extends SessionRow {
+  studentIcd10Codes: string | null;
+  studentIcd10Descriptions: string | null;
+}
+
+function batchGoalMetaForStudent(
+  studentId: string,
+  goalIds: string[]
+): Map<string, { description: string; domain: string | null }> {
+  const map = new Map<string, { description: string; domain: string | null }>();
+  const ids = [...new Set(goalIds.map((x) => x.trim()).filter(Boolean))];
+  if (ids.length === 0) return map;
+  const ph = ids.map(() => '?').join(',');
+  const rows = db
+    .prepare(`SELECT id, description, domain FROM goals WHERE studentId = ? AND id IN (${ph})`)
+    .all(studentId, ...ids) as Array<{ id: string; description: string; domain: string | null }>;
+  for (const r of rows) {
+    map.set(r.id, { description: (r.description || '').trim(), domain: r.domain?.trim() || null });
+  }
+  return map;
+}
+
+function collectOrderedGoalIds(row: SessionRow): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const id of parseJsonField<string[]>(row.goalsAddressed, [])) {
+    const gid = typeof id === 'string' ? id.trim() : String(id).trim();
+    if (gid && !seen.has(gid)) {
+      seen.add(gid);
+      out.push(gid);
+    }
+  }
+  for (const p of parseJsonField<PerformanceDataItem[]>(row.performanceData, [])) {
+    const gid = typeof p.goalId === 'string' ? p.goalId.trim() : String(p.goalId ?? '').trim();
+    if (gid && !seen.has(gid)) {
+      seen.add(gid);
+      out.push(gid);
+    }
+  }
+  return out;
+}
+
+function performanceSummaryForMa(
+  row: SessionRow,
+  studentId: string,
+  goalMeta: Map<string, { description: string; domain: string | null }>
+): Array<{
+  goalId: string;
+  goalDescription: string;
+  accuracy: number;
+  correctTrials: number;
+  totalTrials: number;
+  cuingLevels: string[];
+  notes: string;
+}> {
+  const perfRaw = parseJsonField<PerformanceDataItem[]>(row.performanceData, []);
+  return perfRaw
+    .map((p) => {
+      const gid = typeof p?.goalId === 'string' ? p.goalId.trim() : String(p?.goalId ?? '').trim();
+      if (!gid) return null;
+      const correct = Math.max(0, Math.round(Number(p.correctTrials) || 0));
+      const incorrect = Math.max(0, Math.round(Number(p.incorrectTrials) || 0));
+      const totalTrials = correct + incorrect;
+      const accuracy = Math.round(Number(p.accuracy) || 0);
+      const cuingLevels = Array.isArray(p.cuingLevels)
+        ? p.cuingLevels.map((c) => String(c).trim()).filter(Boolean)
+        : [];
+      const notes = typeof p.notes === 'string' ? p.notes : '';
+      const meta = goalMeta.get(gid);
+      const goalDescription = meta?.description || gid;
+      return {
+        goalId: gid,
+        goalDescription,
+        accuracy,
+        correctTrials: correct,
+        totalTrials,
+        cuingLevels,
+        notes,
+      };
+    })
+    .filter((x): x is NonNullable<typeof x> => x != null);
+}
+
+function buildAddressedGoalsWithIcd(
+  row: SessionRow,
+  studentId: string,
+  goalMeta: Map<string, { description: string; domain: string | null }>,
+  studentIcd10Codes: string[],
+  studentIcd10Descriptions: string[]
+): AddressedGoalWithIcd[] {
+  const ordered = collectOrderedGoalIds(row);
+  const out: AddressedGoalWithIcd[] = [];
+  for (const goalId of ordered) {
+    const meta = goalMeta.get(goalId);
+    const goalDescription = meta?.description || goalId;
+    const domain = meta?.domain ?? null;
+    let icd10Codes: string[] = [];
+    let icd10Descriptions: string[] = [];
+    if (domain) {
+      const m = getIcdCodesFromDomain(domain);
+      icd10Codes = m.codes;
+      icd10Descriptions = m.descriptions;
+    }
+    if (icd10Codes.length === 0 && studentIcd10Codes.length > 0) {
+      icd10Codes = [...studentIcd10Codes];
+      icd10Descriptions = [...studentIcd10Descriptions];
+    }
+    out.push({ goalId, goalDescription, domain, icd10Codes, icd10Descriptions });
+  }
+  return out;
+}
+
 function goalDescriptionDomainFor(
   goalId: string | null,
   studentId: string
@@ -88,6 +201,7 @@ function priorSessionAccuracyForGoal(
        WHERE studentId = ?
          AND id != ?
          AND datetime(date) < datetime(?)
+         AND (missedSession = 0 OR missedSession IS NULL)
        ORDER BY date DESC`
     )
     .all(studentId, currentSessionId, beforeDateIso) as Array<{ performanceData: string }>;
@@ -175,18 +289,19 @@ sessionsRouter.get('/', asyncHandler(async (req, res) => {
   const params: (string | number)[] = [];
 
   if (studentId && typeof studentId === 'string') {
-    query += ' WHERE studentId = ? ORDER BY date DESC';
+    query += ' WHERE studentId = ? AND (missedSession = 0 OR missedSession IS NULL) ORDER BY date DESC';
     params.push(studentId);
   } else if (school && typeof school === 'string') {
     query = `
       SELECT s.* FROM sessions s
       INNER JOIN students st ON s.studentId = st.id
       WHERE st.school = ?
+        AND (s.missedSession = 0 OR s.missedSession IS NULL)
       ORDER BY s.date DESC
     `;
     params.push(school);
   } else {
-    query += ' ORDER BY date DESC';
+    query += ' WHERE (missedSession = 0 OR missedSession IS NULL) ORDER BY date DESC';
   }
 
   if (limit !== undefined) {
@@ -264,6 +379,7 @@ sessionsRouter.get('/log', asyncHandler(async (req, res) => {
         AND st.id IN (${placeholders})
         AND date(s.date) >= date(?)
         AND date(s.date) <= date(?)
+        AND (s.missedSession = 0 OR s.missedSession IS NULL)
       ORDER BY s.date ASC, st.name ASC
     `
     )
@@ -291,7 +407,7 @@ sessionsRouter.get('/log', asyncHandler(async (req, res) => {
     const gPh = uniqueGroupSessionIds.map(() => '?').join(',');
     const countRows = db
       .prepare(
-        `SELECT groupSessionId AS gid, COUNT(*) AS cnt FROM sessions WHERE groupSessionId IN (${gPh}) GROUP BY groupSessionId`
+        `SELECT groupSessionId AS gid, COUNT(*) AS cnt FROM sessions WHERE groupSessionId IN (${gPh}) AND (missedSession = 0 OR missedSession IS NULL) GROUP BY groupSessionId`
       )
       .all(...uniqueGroupSessionIds) as Array<{ gid: string; cnt: number }>;
     for (const { gid, cnt } of countRows) {
@@ -457,6 +573,7 @@ sessionsRouter.post(
     const {
       apiKey: bodyApiKey,
       anthropicApiKey: bodyAnthropicKey,
+      preferAnthropic,
       studentId,
       studentName,
       grade,
@@ -481,14 +598,24 @@ sessionsRouter.post(
       return res.status(400).json({ error: 'Student not found' });
     }
 
-    const ids = new Set(bodySessions.map((s) => s.id));
-    for (const sid of ids) {
+    const notesSessions: typeof bodySessions = [];
+    for (const s of bodySessions) {
       const row = db
-        .prepare('SELECT id FROM sessions WHERE id = ? AND studentId = ?')
-        .get(sid, studentId) as { id: string } | undefined;
+        .prepare('SELECT id, missedSession FROM sessions WHERE id = ? AND studentId = ?')
+        .get(s.id, studentId) as { id: string; missedSession: number | null } | undefined;
       if (!row) {
-        return res.status(400).json({ error: `Session ${sid} not found for this student` });
+        return res.status(400).json({ error: `Session ${s.id} not found for this student` });
       }
+      if (row.missedSession === 1) {
+        logger.warn({ sessionId: s.id }, 'Skipping note generation for missed session');
+        continue;
+      }
+      notesSessions.push(s);
+    }
+    if (notesSessions.length === 0) {
+      return res.status(400).json({
+        error: 'No sessions to generate notes for (missed sessions are excluded).',
+      });
     }
 
     const studentDob = (student.dob || '').trim();
@@ -498,14 +625,46 @@ sessionsRouter.post(
       npiNumber: (providerNpi || '').replace(/\D/g, '').slice(0, 10),
     };
 
-    const enriched = bodySessions.map((s) => {
-      const row = db
-        .prepare('SELECT * FROM sessions WHERE id = ? AND studentId = ?')
-        .get(s.id, studentId) as SessionRow | undefined;
-      const goalId = row ? primaryGoalIdFromSessionRow(row) : null;
-      const goalMeta = goalDescriptionDomainFor(goalId, studentId);
+    const augmentedRows = new Map<string, AugmentedSessionRow>();
+    for (const s of notesSessions) {
+      const r = db
+        .prepare(
+          `SELECT s.*, st.icd10Codes AS studentIcd10Codes, st.icd10Descriptions AS studentIcd10Descriptions
+           FROM sessions s
+           INNER JOIN students st ON st.id = s.studentId
+           WHERE s.id = ? AND s.studentId = ?
+             AND (s.missedSession = 0 OR s.missedSession IS NULL)`
+        )
+        .get(s.id, studentId) as AugmentedSessionRow | undefined;
+      if (r) augmentedRows.set(s.id, r);
+    }
+
+    const allGoalIds: string[] = [];
+    for (const s of notesSessions) {
+      const r = augmentedRows.get(s.id);
+      if (r) allGoalIds.push(...collectOrderedGoalIds(r));
+    }
+    const goalMetaMap = batchGoalMetaForStudent(studentId, allGoalIds);
+
+    const enriched = notesSessions.map((s) => {
+      const row = augmentedRows.get(s.id);
+      const studentCodes = row ? parseJsonField<string[]>(row.studentIcd10Codes, []) : [];
+      const studentDescs = row ? parseJsonField<string[]>(row.studentIcd10Descriptions, []) : [];
+
+      const perfFromDb = row ? performanceSummaryForMa(row, studentId, goalMetaMap) : [];
+      const performanceSummary = perfFromDb.length > 0 ? perfFromDb : s.performanceSummary;
+
+      const addressedGoalsWithIcd = row
+        ? buildAddressedGoalsWithIcd(row, studentId, goalMetaMap, studentCodes, studentDescs)
+        : [];
+
+      const primaryGid = row ? primaryGoalIdFromSessionRow(row) : null;
+      const priorGid = addressedGoalsWithIcd[0]?.goalId ?? primaryGid;
+      const goalMeta =
+        goalDescriptionDomainFor(priorGid, studentId) ?? goalDescriptionDomainFor(primaryGid, studentId);
       const sessionDateForPrior = (row?.date || s.date) as string;
-      const prior = row ? priorSessionAccuracyForGoal(studentId, s.id, sessionDateForPrior, goalId) : null;
+      const prior = row ? priorSessionAccuracyForGoal(studentId, s.id, sessionDateForPrior, priorGid) : null;
+
       const base: SessionNotePromptSession = {
         id: s.id,
         date: s.date,
@@ -515,10 +674,14 @@ sessionsRouter.post(
         cptCode: s.cptCode,
         icd10Codes: s.icd10Codes,
         icd10Descriptions: s.icd10Descriptions,
-        performanceSummary: s.performanceSummary,
+        performanceSummary,
         goalsAddressedText: s.goalsAddressedText,
         sessionNotes: s.sessionNotes,
         domain: s.domain,
+        addressedGoalsWithIcd,
+        billingSessionContext: s.billingSessionContext,
+        communicationModalityBilling: s.communicationModalityBilling,
+        clinicalActivitiesBilling: s.clinicalActivitiesBilling,
       };
       return buildSoapNoteGenerationSession(studentName, grade, studentDob, base, goalMeta, prior);
     });
@@ -527,7 +690,16 @@ sessionsRouter.post(
     let generatedBy: 'gemini' | 'anthropic';
 
     try {
-      if (geminiApiKey) {
+      if (preferAnthropic) {
+        if (!anthropicApiKey) {
+          return res.status(400).json({
+            error:
+              'Claude-only mode requires an Anthropic API key. Add it in Settings or set ANTHROPIC_API_KEY on the server.',
+          });
+        }
+        parsedNotes = await generateSessionNotesWithAnthropic(anthropicApiKey, enriched, provider);
+        generatedBy = 'anthropic';
+      } else if (geminiApiKey) {
         try {
           parsedNotes = await generateSessionNotesWithGemini(geminiApiKey, enriched, provider);
           generatedBy = 'gemini';
@@ -561,7 +733,7 @@ sessionsRouter.post(
     const updateStmt = db.prepare('UPDATE sessions SET aiGeneratedNote = ? WHERE id = ? AND studentId = ?');
 
     const tx = db.transaction(() => {
-      for (const s of bodySessions) {
+      for (const s of notesSessions) {
         let note = byId.get(s.id)?.trim();
         if (!note) {
           note = genericSessionNote(s.domain, {

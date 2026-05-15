@@ -347,6 +347,7 @@ export const api = {
       apiKey?: string;
       /** Optional Settings Anthropic key; server uses ANTHROPIC_API_KEY if omitted. Used when Gemini fails. */
       anthropicApiKey?: string;
+      preferAnthropic?: boolean;
       providerName?: string;
       providerCredentials?: string;
       providerNpi?: string;
@@ -363,6 +364,7 @@ export const api = {
         icd10Codes: string[];
         icd10Descriptions: string[];
         performanceSummary: Array<{
+          goalId?: string;
           goalDescription: string;
           accuracy: number;
           correctTrials: number;
@@ -373,6 +375,9 @@ export const api = {
         goalsAddressedText: string[];
         sessionNotes: string;
         domain?: string;
+        billingSessionContext?: string;
+        communicationModalityBilling?: string;
+        clinicalActivitiesBilling?: string;
       }>;
     }) =>
       request<{ notes: Array<{ sessionId: string; note: string }>; generatedBy?: 'gemini' | 'anthropic' }>(

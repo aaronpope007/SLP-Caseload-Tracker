@@ -77,10 +77,6 @@ router.post('/send', validateBody(emailSchema), asyncHandler(async (req, res) =>
     },
   });
 
-  // Verify connection
-  await transporter.verify();
-
-  // Send email
   const mailOptions: {
     from: string;
     to: string;
@@ -105,13 +101,49 @@ router.post('/send', validateBody(emailSchema), asyncHandler(async (req, res) =>
     mailOptions.bcc = bcc;
   }
 
-  const info = await transporter.sendMail(mailOptions);
+  try {
+    await transporter.verify();
+    const info = await transporter.sendMail(mailOptions);
 
-  res.json({
-    success: true,
-    messageId: info.messageId,
-    message: 'Email sent successfully',
-  });
+    res.json({
+      success: true,
+      messageId: info.messageId,
+      message: 'Email sent successfully',
+    });
+  } catch (err: unknown) {
+    const raw = err instanceof Error ? err.message : String(err);
+    const lower = raw.toLowerCase();
+
+    const gmailAuthRejected =
+      lower.includes('invalid login') ||
+      lower.includes('535') ||
+      lower.includes('badcredentials') ||
+      lower.includes('username and password not accepted') ||
+      lower.includes('authentication failed') ||
+      lower.includes('535-5.7.8');
+
+    if (gmailAuthRejected) {
+      return res.status(400).json({
+        error:
+          'The mail server rejected your SMTP username or password. For Gmail: turn on 2-Step Verification, then create an App Password (Google Account → Security → App passwords) and paste that 16-character password here—not your normal Gmail password. Use your full Gmail address as the SMTP user.',
+        code: 'SMTP_AUTH_REJECTED',
+      });
+    }
+
+    if (
+      lower.includes('econnrefused') ||
+      lower.includes('etimedout') ||
+      lower.includes('enotfound') ||
+      lower.includes('getaddrinfo')
+    ) {
+      return res.status(502).json({
+        error: `Could not reach the mail server at ${smtpHost}:${smtpPort}. Check host/port, firewall, and your network.`,
+        code: 'SMTP_CONNECTION_FAILED',
+      });
+    }
+
+    throw err;
+  }
 }));
 
 export { router as emailRouter };

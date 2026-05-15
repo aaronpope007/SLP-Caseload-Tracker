@@ -7,6 +7,14 @@ import { logger } from './logger';
 
 const MN_TZ = 'America/Chicago';
 
+export interface AddressedGoalWithIcd {
+  goalId: string;
+  goalDescription: string;
+  domain: string | null;
+  icd10Codes: string[];
+  icd10Descriptions: string[];
+}
+
 export interface SessionNotePromptSession {
   id: string;
   date: string;
@@ -17,6 +25,7 @@ export interface SessionNotePromptSession {
   icd10Codes: string[];
   icd10Descriptions: string[];
   performanceSummary: Array<{
+    goalId?: string;
     goalDescription: string;
     accuracy: number;
     correctTrials: number;
@@ -27,9 +36,17 @@ export interface SessionNotePromptSession {
   goalsAddressedText: string[];
   sessionNotes: string;
   domain?: string;
+  /** Per addressed IEP goal: domain-mapped billing ICD-10 (built server-side for MA generation). */
+  addressedGoalsWithIcd?: AddressedGoalWithIcd[];
+  /** Optional: visit context for MA description (e.g. first session after winter break). */
+  billingSessionContext?: string;
+  /** Optional: expressive modality for MA description (e.g. Zoom chat, verbal, AAC). */
+  communicationModalityBilling?: string;
+  /** Optional: brief activities/stimuli for MA description. */
+  clinicalActivitiesBilling?: string;
 }
 
-/** Fully enriched row for Minnesota DHS SOAP generation (built server-side). */
+/** Fully enriched row for Minnesota MA clinical description generation (built server-side). */
 export interface SoapNoteGenerationSession extends SessionNotePromptSession {
   studentName: string;
   grade: string;
@@ -97,7 +114,8 @@ function todayYmdChicago(): string {
 function formatDisplayDate(ymd: string): string {
   const [y, mo, da] = ymd.split('-').map((x) => parseInt(x, 10));
   if (!y || !mo || !da) return ymd;
-  const d = new Date(Date.UTC(y, mo - 1, da));
+  // Use UTC noon so the instant falls on the intended calendar day in Chicago (UTC midnight would map to the prior evening in Central).
+  const d = new Date(Date.UTC(y, mo - 1, da, 12, 0, 0));
   return d.toLocaleDateString('en-US', { timeZone: MN_TZ, month: 'numeric', day: 'numeric', year: 'numeric' });
 }
 
@@ -116,20 +134,53 @@ function primaryTrialBlock(s: SessionNotePromptSession): {
 } {
   if (s.performanceSummary.length > 0) {
     const p = s.performanceSummary[0];
+    const addr = (s.goalsAddressedText || []).map((x) => x.trim()).filter(Boolean).slice(0, 3).join('; ');
     return {
       trialAccuracyPct: Math.round(Number(p.accuracy) || 0),
       trialsCorrect: Math.max(0, Math.round(Number(p.correctTrials) || 0)),
       trialsTotal: Math.max(0, Math.round(Number(p.totalTrials) || 0)),
-      iepGoalText: (p.goalDescription || '').trim() || 'Communication goals per IEP',
+      iepGoalText: (p.goalDescription || '').trim() || addr || 'IEP communication targets per session export',
     };
   }
-  const g = (s.goalsAddressedText[0] || '').trim();
+  const g = (s.goalsAddressedText || []).map((x) => x.trim()).filter(Boolean).slice(0, 4).join('; ');
   return {
     trialAccuracyPct: 0,
     trialsCorrect: 0,
     trialsTotal: 0,
-    iepGoalText: g || 'Communication goals per IEP',
+    iepGoalText: g || 'IEP communication targets per session export',
   };
+}
+
+function formatAddressedGoalsForPrompt(goals: AddressedGoalWithIcd[]): string {
+  return goals
+    .map((g, i) => {
+      const icdLines = g.icd10Codes.map((code, j) => {
+        const desc = g.icd10Descriptions[j]?.trim() || '';
+        const ctx = getNarrativeContext(code);
+        const ctxStr = ctx
+          ? `\n    Narrative map (for this ICD): deficit — ${ctx.deficitDescription}; skill — ${ctx.skillTargeted}; academic impact — ${ctx.academicImpact}`
+          : '\n    (No narrative map entry for this ICD — use the code label and goal text.)';
+        return `    - ${code}${desc ? ` — ${desc}` : ''}${ctxStr}`;
+      });
+      const icdBlock =
+        icdLines.length > 0
+          ? icdLines.join('\n')
+          : '    - (No domain-mapped ICD for this goal — use ENCOUNTER ICD-10 list and session notes.)';
+      return `ADDRESSED GOAL ${i + 1}\n  - goalId: ${g.goalId}\n  - IEP goal text: ${g.goalDescription}\n  - Goal domain: ${g.domain ?? '—'}\n  - Billing ICD-10 for this goal:\n${icdBlock}`;
+    })
+    .join('\n\n');
+}
+
+function formatPerformanceByGoal(summary: SessionNotePromptSession['performanceSummary']): string {
+  if (!summary.length) return '(none)';
+  return summary
+    .map((p) => {
+      const gid = p.goalId ? ` [goalId: ${p.goalId}]` : '';
+      const cues = Array.isArray(p.cuingLevels) ? p.cuingLevels.join(', ') : '';
+      const n = p.notes?.trim() ? ` | Notes: ${p.notes.trim()}` : '';
+      return `  • ${p.goalDescription}${gid}: ${p.accuracy}% (${p.correctTrials}/${p.totalTrials} trials); cues: ${cues || '—'}${n}`;
+    })
+    .join('\n');
 }
 
 function buildSoapSessionsBlock(
@@ -149,15 +200,34 @@ function buildSoapSessionsBlock(
     const endIso = (s.endTime || '').trim() || s.startTime;
     const sessionTimeCentral = `${formatClockMn(s.startTime)} – ${formatClockMn(endIso)}`;
 
-    const diagnosisCtxLines = s.narrativeContext
-      ? `
-DIAGNOSIS CONTEXT (shape Subjective, Objective, Assessment, Plan; Assessment MUST integrate medical necessity below):
+    const encounterIcd = (s.icd10Codes || []).length > 0 ? s.icd10Codes.join(', ') : '—';
+
+    const diagnosisSection =
+      s.addressedGoalsWithIcd && s.addressedGoalsWithIcd.length > 0
+        ? `
+ADDRESSED IEP GOALS WITH DOMAIN-MAPPED ICD-10 (each goal has its billing ICD(s) from the goal's domain. Pair clinical activities and trial lines with the correct goal and ICD; you may reference **more than one** ICD-10 in the prose when multiple goals below were clearly addressed):
+${formatAddressedGoalsForPrompt(s.addressedGoalsWithIcd)}`
+        : s.narrativeContext
+          ? `
+DIAGNOSIS CONTEXT (weave briefly into the description prose where relevant — not a SOAP section):
 - Deficit Description: ${s.narrativeContext.deficitDescription}
 - Skill Targeted: ${s.narrativeContext.skillTargeted}
 - Academic Impact: ${s.narrativeContext.academicImpact}
-- Medical Necessity (use in Assessment): ${s.narrativeContext.medicalNecessityRationale}`
-      : `
-DIAGNOSIS CONTEXT: No structured narrative map for ICD-10 ${s.primaryIcdCode || '—'}. Use the ICD-10 label/description in SESSION DATA and the IEP goal domain to justify skilled SLP services; do not invent unsupported diagnoses.`;
+- Medical Necessity (one short clause max if needed): ${s.narrativeContext.medicalNecessityRationale}`
+          : `
+DIAGNOSIS CONTEXT: No structured narrative map for ICD-10 ${s.primaryIcdCode || '—'}. Use the ICD-10 label/description in SESSION DATA and named goal domains; do not invent unsupported diagnoses.`;
+
+    const ctxBlock = `
+- Session context (visit type / timing): ${(s.billingSessionContext || '').trim() || 'Not specified — infer only if clearly supported by session notes'}
+- Communication modality (for description): ${(s.communicationModalityBilling || '').trim() || 'Not specified — infer only if clearly supported by session notes (e.g. verbal, Zoom chat, AAC)'}
+- Clinical activities (brief): ${(s.clinicalActivitiesBilling || '').trim() || 'Not specified — infer only if supported by session notes'}`;
+
+    const multiPerf = s.performanceSummary.length > 1;
+    const trialDataRule = multiPerf
+      ? `Performance data are listed **per IEP goal** below. State accuracy and trial counts **per goal** as shown; align each with the matching goalId and ICD block above. Overall prompting tone for the encounter: ${s.promptingLevel}.`
+      : s.trialsTotal > 0
+        ? `Discrete trials were collected (${s.trialsCorrect}/${s.trialsTotal} trials; ${s.trialAccuracyPct}% accuracy). State results factually with prompting level ${s.promptingLevel}.`
+        : `No discrete trial totals this session (trials total 0). The MA description must NOT say "0/0 trials" or "0 trials" or list 0/0 — use qualitative language (e.g. "formal data collection not initiated", "qualitative baseline observation completed") consistent with session notes and clinical judgment.`;
 
     const dobSeg = (s.studentDob || '').trim();
     const studentLine = dobSeg
@@ -171,18 +241,22 @@ SESSION ID: ${s.id}
 - Date of Service: ${formatDisplayDate(s.serviceDateYmd)}
 - Late entry: ${lateLine}
 - CPT Code: ${s.cptCode} — ${s.cptDescription}
-- ICD-10: ${s.primaryIcdCode || '—'} — ${s.primaryIcdDescription || '—'}
+- All ICD-10 codes on encounter (fixed): ${encounterIcd}
+- Lead summary ICD (first addressed goal when listed; else first encounter code): ${s.primaryIcdCode || '—'} — ${s.primaryIcdDescription || '—'}
 - Session Time (Central / America/Chicago): ${sessionTimeCentral} (${s.totalMinutes} minutes)
 ${s.shortSessionBillingNote ? `- ${s.shortSessionBillingNote}\n` : ''}- Units Billed: ${s.units} (8-minute rule / 15-min units)
 - Setting: ${s.modality}
-- Goal domain (for interventions): ${s.goalDomain || s.domain || 'communication'}
-- IEP Goal Targeted: ${s.iepGoalText}
-- Trial Accuracy This Session: ${s.trialAccuracyPct}% (${s.trialsCorrect}/${s.trialsTotal} trials)
-- Prior Session Accuracy (if available): ${prior}
-- Clinician Prompting Level Used: ${s.promptingLevel} (derive from session rules; do not contradict)
-- Session / clinician notes (verbatim context): ${(s.sessionNotes || '').trim() || 'None recorded'}${diagnosisCtxLines}
+- Goal domain (lead / first addressed goal when listed): ${s.goalDomain || s.domain || 'communication'}
+- IEP Goal Targeted (lead): ${s.iepGoalText}
+- Performance by IEP goal (discrete trials when recorded):
+${formatPerformanceByGoal(s.performanceSummary)}
+- Prior Session Accuracy (if available; applies to lead goal row): ${prior}
+- Clinician Prompting Level Used: ${s.promptingLevel} (use maximal / moderate / minimal / independent language consistent with this in the description)
+- ${trialDataRule}
+- Session / clinician notes (verbatim context): ${(s.sessionNotes || '').trim() || 'None recorded'}${diagnosisSection}
+${ctxBlock}
 
-CPT JUSTIFICATION (integrate into Assessment; must align with CPT on file above):
+CPT / service format (one short clause in description if needed; do not paste verbatim legal boilerplate):
 ${s.cptJustification}
 `.trim();
     parts.push(block);
@@ -199,50 +273,39 @@ PROVIDER (signature block — use exactly; do not invent NPI):
 }
 
 /**
- * Full SOAP generation user prompt (one or more sessions). Same content as previously built inside
- * {@link generateSessionNotesWithGemini}; shared with Anthropic fallback.
+ * Full MA billing **description** prompt (one or more sessions). Shared with Gemini and Anthropic.
+ * The JSON "note" is pasted into the MA description field — not a full SOAP note.
  */
 export function buildSoapGenerationPrompt(
   sessions: SoapNoteGenerationSession[],
   provider: SoapNoteProviderInfo
 ): string {
   const dataBlock = buildSoapSessionsBlock(sessions, provider);
-  return `You are a licensed school-based Speech-Language Pathologist writing Minnesota DHS-compliant SOAP progress notes for MA billing audit purposes.
+  return `You are an MS CCC-SLP documenting Minnesota Medicaid (MA) school-based services for a licensed school SLP delivering teletherapy (Zoom) at a K–8 charter school. The billing system uses **discrete fields**; the JSON field **"note"** is the **only narrative** — it is pasted into the **MA clinical description** field. It must **not** be a SOAP note: **no** S– / O– / A– / P– headings, no SOAP template, no multi-page prose.
 
-CRITICAL INSTRUCTIONS:
-- The ICD-10 and CPT codes in each SESSION DATA block are already determined. Your job is to write a note whose narrative **justifies those exact codes**.
-- Use each session's DIAGNOSIS CONTEXT (when provided) to shape Subjective, Objective, Assessment, and Plan. When DIAGNOSIS CONTEXT says no map is available, still tie narrative to the documented ICD-10 label/description and IEP goal domain.
-- The **Assessment** section MUST: (1) reference the student's communication deficit using language consistent with DIAGNOSIS CONTEXT (or the documented ICD-10 label when no map), (2) interpret trial data vs. Prior Session Accuracy when available, (3) state why skilled SLP remains necessary using the Medical Necessity line from DIAGNOSIS CONTEXT or clinically equivalent wording aligned to that diagnosis, (4) explicitly incorporate the **CPT JUSTIFICATION** paragraph for service format (individual vs group, teletherapy).
-- Do **not** fabricate trial accuracy, diagnoses, or outcomes not supported by SESSION DATA. Use only the accuracy, trial counts, prompting level, and prior session accuracy given.
-- **Objective — Interventions** must match the **goal domain** and diagnosis-linked deficits (not generic boilerplate). For teletherapy, reference Zoom-based delivery where appropriate.
+GOAL: Produce a **defensible, concise, clinically accurate** description (skilled SLP services) without over-documentation. **3–5 sentences. 60–120 words maximum** for the description portion (excluding the optional late-entry header line below).
 
-For each session, follow this exact output structure (plain text inside the JSON "note" string, with line breaks as shown):
+LATE ENTRY (header line only when applicable):
+- If SESSION DATA says the session is a late entry, the "note" value MUST begin with **exactly one first line**: \`LATE ENTRY — DATE NOTE WRITTEN: [M/D/YYYY]\` using the **Date Note Written** date from SESSION DATA (same style as "Date of Service" formatting).
+- Then one blank line, then the description sentences.
+- If not a late entry, **no** late-entry line — start directly with the description.
 
-STUDENT: [name][if SESSION DATA "Student:" line includes ", DOB:", include " | DOB: [same dob] | "; if there is no DOB on that line, omit any DOB segment] | DATE OF SERVICE: [use the M/D/YYYY shown after "Date of Service:" in SESSION DATA exactly]
-[If late entry per SESSION DATA, start this line with: LATE ENTRY — DATE NOTE WRITTEN: [today M/D/YYYY] | ]CPT: [code from SESSION DATA] | ICD-10: [primary code from SESSION DATA]
-SESSION: [copy the start and end clocks from the "Session Time (Central / America/Chicago):" line in SESSION DATA verbatim, same 12-hour format and en dash between them] ([X] min) | UNITS BILLED: [X] | SETTING: [modality from data]
+DESCRIPTION BODY — cover these in order as natural sentences (merge; do not use bullet labels in output):
+1. **Service statement:** CPT code, **all relevant ICD-10 codes** from SESSION DATA when multiple goals were addressed (see ADDRESSED GOALS block), **specific goal domains** (e.g. expressive language, pragmatics, grammar — **never** use the phrase "communication goals per IEP"), individual vs group, teletherapy/Zoom as in SESSION DATA.
+2. **Student-specific context:** communication modality of participation (name explicitly when known — e.g. Zoom chat, verbal, AAC); relevant visit context from SESSION DATA or optional fields (first session, post-break, re-evaluation, post-absence, etc.) **only if supported**.
+3. **Clinical activity:** what the clinician did; tasks/stimuli briefly; align with **prompting / cueing level** from SESSION DATA (maximal / moderate / minimal / independent).
+4. **Data:** If trials are listed per goal, summarize factually **per goal** with the correct ICD for that goal when multiple ICDs apply. If no discrete trials, **never** write "0/0 trials", "0 trials", or similar — use qualitative phrasing consistent with session notes and clinical judgment.
+5. **Optional fifth sentence:** brief skilled-service or session-structure justification **only if** the session was data-light or atypical; avoid repetitive boilerplate and walls of medical-necessity text.
 
-S – SUBJECTIVE
-[Student status, transition, engagement, readiness. Tie to diagnosis-linked academic/functional impact where appropriate. 2–3 sentences.]
+RULES:
+- ICD-10 and CPT in SESSION DATA are **fixed** — use only ICD-10 codes listed for each addressed goal or on the encounter list; do not invent codes, modalities, or context not supported by SESSION DATA and optional fields.
+- When **ADDRESSED IEP GOALS WITH DOMAIN-MAPPED ICD-10** lists more than one goal, the description may reference **more than one** ICD-10; tie each substantive intervention or trial result to the **goal and ICD** it belongs to.
+- **Prior session accuracy:** reference only when provided in SESSION DATA; otherwise do not claim comparisons.
+- **Provider:** do not include provider signature block or NPI in this description field unless SESSION DATA explicitly asks for a single closing clause (default: omit provider block entirely from "note").
 
-O – OBJECTIVE
-IEP Goal Targeted: [goal text from data]
-Interventions: [strategies aligned with goal domain AND diagnosis context — teletherapy/Zoom-appropriate]
-Data: Student achieved [X]% accuracy ([correct]/[total] trials) with [prompting level] clinician support.
-
-A – ASSESSMENT
-[Meet the four Assessment requirements in CRITICAL INSTRUCTIONS above. 3–5 sentences.]
-
-P – PLAN
-Continue speech-language therapy per IEP schedule. Next session will [advance/maintain/modify] targets based on today's performance.
-
-[Provider name], [credentials]
-NPI: [NPI from PROVIDER block; if blank write "NPI: Pending configuration"]
-
-Return a single JSON array only (the document root must be an array, not an object).
-Each element must be: { "sessionId": "<exact SESSION ID from SESSION DATA>", "note": "<full SOAP note>" }.
-Use each SESSION ID verbatim from the SESSION DATA blocks (SESSION ID: ... line). Do not rename or invent ids.
-Do not convert or reinterpret times from any other format; the line beginning "Session Time (Central" in SESSION DATA is authoritative for the SOAP SESSION header.
+Return a single JSON array only (root = array).
+Each element: { "sessionId": "<exact SESSION ID from SESSION DATA>", "note": "<late-entry header if applicable per rules, then description as specified>" }.
+Use each SESSION ID verbatim from the SESSION DATA blocks. Do not rename or invent ids.
 
 SESSION DATA (per session separated by ---):
 ${dataBlock}
@@ -379,7 +442,7 @@ export function resolveKnownSessionId(raw: string, known: Set<string>): string |
 }
 
 /**
- * Minnesota DHS-style SOAP progress notes (Gemini Flash), one note per session.
+ * Minnesota MA clinical description (Gemini Flash), one description per session.
  */
 export async function generateSessionNotesWithGemini(
   apiKey: string,
@@ -415,7 +478,7 @@ export async function generateSessionNotesWithGemini(
         model: name,
         generationConfig: {
           maxOutputTokens: 8192,
-          // Ask Gemini for valid JSON so multiline SOAP notes are escaped correctly.
+          // Ask Gemini for valid JSON so multiline description text is escaped correctly.
           responseMimeType: 'application/json',
         } as { maxOutputTokens: number; responseMimeType?: string },
       });
@@ -475,23 +538,45 @@ export function buildSoapNoteGenerationSession(
   const trial = primaryTrialBlock(bodySession);
   const promptingLevel = promptingLevelFromAccuracy(trial.trialAccuracyPct);
   const modality = bodySession.isGroup ? 'Group Teletherapy via Zoom' : 'Individual Teletherapy via Zoom';
-  const primaryIcdCode = bodySession.icd10Codes[0] || '';
-  const primaryIcdDescription = bodySession.icd10Descriptions[0] || '';
-  const narrativeContext = getNarrativeContext(primaryIcdCode);
-  const cptJustification = cptMedicalNecessityLine(bodySession.cptCode, modality);
-  if (primaryIcdCode && !narrativeContext) {
-    logger.warn(
-      { primaryIcdCode, sessionId: bodySession.id },
-      'ICD-10 code has no narrative map entry; SOAP prompt uses generic diagnosis guidance — add to icd10NarrativeMap if needed'
-    );
-  }
+  const addrGoals = (bodySession.goalsAddressedText || []).map((x) => x.trim()).filter(Boolean).slice(0, 4).join('; ');
+  const addressed = bodySession.addressedGoalsWithIcd;
+
   const iepGoalText =
+    (addressed && addressed.length > 0 && addressed[0].goalDescription?.trim()) ||
     goalMeta?.description?.trim() ||
     trial.iepGoalText ||
-    (bodySession.goalsAddressedText[0] || '').trim() ||
-    'Communication goals per IEP';
-  const goalDomain = (goalMeta?.domain || bodySession.domain || '').trim() || 'communication';
+    addrGoals ||
+    'IEP communication targets per session export';
+  const goalDomain =
+    (addressed && addressed.length > 0 && addressed[0].domain?.trim()) ||
+    goalMeta?.domain ||
+    bodySession.domain ||
+    'communication';
 
+  let primaryIcdCode = '';
+  let primaryIcdDescription = '';
+  let narrativeContext: Icd10NarrativeContext | null = null;
+
+  if (addressed && addressed.length > 0) {
+    const first = addressed[0];
+    primaryIcdCode = first.icd10Codes[0] || bodySession.icd10Codes[0] || '';
+    primaryIcdDescription = first.icd10Descriptions[0] || bodySession.icd10Descriptions[0] || '';
+    if (addressed.length === 1) {
+      narrativeContext = getNarrativeContext(primaryIcdCode);
+    }
+  } else {
+    primaryIcdCode = bodySession.icd10Codes[0] || '';
+    primaryIcdDescription = bodySession.icd10Descriptions[0] || '';
+    narrativeContext = getNarrativeContext(primaryIcdCode);
+  }
+
+  const cptJustification = cptMedicalNecessityLine(bodySession.cptCode, modality);
+  if (primaryIcdCode && !narrativeContext && (!addressed || addressed.length <= 1)) {
+    logger.warn(
+      { primaryIcdCode, sessionId: bodySession.id },
+      'ICD-10 code has no narrative map entry; MA description prompt uses generic diagnosis guidance — add to icd10NarrativeMap if needed'
+    );
+  }
   const shortSessionBillingNote =
     totalMinutes > 0 && totalMinutes < 8
       ? 'BILLING NOTICE: Session is under 8 minutes; units billed are 0. Confirm whether this was a consult, non-billable contact, or documentation-only before claiming treatment units.'
@@ -528,36 +613,12 @@ export function genericSessionNote(
   domain: string | undefined,
   opts?: { icd10Code?: string; cptCode?: string }
 ): string {
-  const d = (domain || '').trim() || 'communication';
-  const today = formatDisplayDate(todayYmdChicago());
+  const d = (domain || '').trim() || 'speech and language';
   const icd = (opts?.icd10Code || '').trim();
   const cpt = (opts?.cptCode || '92507').trim();
   const ctx = icd ? getNarrativeContext(icd) : null;
-  const icdHeader = icd || '—';
-  const diagnosisLabel = ctx?.diagnosisLabel || (icd ? `ICD-10 ${icd}` : 'Communication needs per IEP');
-  const medOneLine =
-    ctx?.medicalNecessityRationale ||
-    'Skilled speech-language pathology services remain medically necessary per the IEP to support functional communication and educational access.';
-  const modality = cpt === '92508' ? 'Group Teletherapy via Zoom' : 'Individual Teletherapy via Zoom';
-  const cptJust = cptMedicalNecessityLine(cpt, modality);
-  return `STUDENT: Student | DATE OF SERVICE: ${today}
-CPT: ${cpt} | ICD-10: ${icdHeader} — ${diagnosisLabel}
-SESSION: — (0 min) | UNITS BILLED: 0 | SETTING: ${modality}
-
-S – SUBJECTIVE
-Student participated in a speech-language therapy session as documented; narrative below aligns to billed codes (${cpt} / ${icdHeader}).
-
-O – OBJECTIVE
-IEP Goal Targeted: ${d} goals per IEP.
-Interventions: ${ctx ? `Activities aligned with ${ctx.skillTargeted} and teletherapy delivery.` : 'Activities aligned with documented communication goals and teletherapy service delivery.'}
-Data: Session documentation did not include trial-level data in the export used for note generation.
-
-A – ASSESSMENT
-Insufficient structured trial data were available to quantify progress this session. ${medOneLine} ${cptJust}
-
-P – PLAN
-Continue speech-language therapy per IEP schedule. Next session will maintain targets until quantitative data are available.
-
-Clinician
-NPI: Pending configuration`;
+  const diag = ctx?.diagnosisLabel || (icd ? `ICD-10 ${icd}` : 'documented communication needs');
+  const modalityStr = cpt === '92508' ? 'Group teletherapy (Zoom)' : 'Individual teletherapy (Zoom)';
+  const goalPhrase = d.toLowerCase().includes('communication') ? d : `${d} communication targets`;
+  return `Provided ${modalityStr} (${cpt}) addressing ${diag} with work on ${goalPhrase} per IEP. Structured trial data were not available from the export used for this placeholder; describe participation using qualitative language from the session log when charting. Continue skilled speech-language services per IEP; confirm codes and units against the encounter record.`;
 }

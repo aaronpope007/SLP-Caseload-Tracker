@@ -158,7 +158,7 @@ export function initDatabase() {
       isDirectServices INTEGER DEFAULT 1,
       indirectServicesNotes TEXT,
       groupSessionId TEXT,
-      missedSession INTEGER DEFAULT 0,
+      missedSession INTEGER NOT NULL DEFAULT 0,
       maLogged INTEGER NOT NULL DEFAULT 0,
       selectedSubjectiveStatements TEXT,
       customSubjective TEXT,
@@ -195,6 +195,9 @@ export function initDatabase() {
     }
     if (!columnNames.includes('icd10Codes')) {
       db.exec(`ALTER TABLE sessions ADD COLUMN icd10Codes TEXT`);
+    }
+    if (!columnNames.includes('missedSession')) {
+      db.exec(`ALTER TABLE sessions ADD COLUMN missedSession INTEGER NOT NULL DEFAULT 0`);
     }
     if (!columnNames.includes('goalsAddressed')) {
       db.exec(`ALTER TABLE sessions ADD COLUMN goalsAddressed TEXT`);

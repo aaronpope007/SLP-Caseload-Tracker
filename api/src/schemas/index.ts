@@ -222,12 +222,14 @@ export const patchSessionMaLoggedBodySchema = z.object({
   maLogged: z.boolean(),
 });
 
-/** POST /api/sessions/generate-notes — batch AI progress notes (Gemini) */
+/** POST /api/sessions/generate-notes — batch MA clinical description text (Gemini / Anthropic) */
 export const generateSessionNotesBodySchema = z.object({
   /** Same optional client key as map-goals; falls back to GEMINI_API_KEY on the server. */
   apiKey: z.string().optional(),
   /** Optional; falls back to ANTHROPIC_API_KEY on the server. Used when Gemini fails or if only Anthropic is configured. */
   anthropicApiKey: z.string().optional(),
+  /** When true, use Claude only and skip Gemini (requires Anthropic key). */
+  preferAnthropic: z.boolean().optional(),
   providerName: z.string().max(200).optional(),
   providerCredentials: z.string().max(200).optional(),
   providerNpi: z.string().max(20).optional(),
@@ -248,6 +250,7 @@ export const generateSessionNotesBodySchema = z.object({
         performanceSummary: z
           .array(
             z.object({
+              goalId: z.string().optional(),
               goalDescription: z.string(),
               accuracy: z.number(),
               correctTrials: z.number(),
@@ -260,6 +263,9 @@ export const generateSessionNotesBodySchema = z.object({
         goalsAddressedText: z.array(z.string()).default([]),
         sessionNotes: z.string().default(''),
         domain: z.string().optional(),
+        billingSessionContext: z.string().max(800).optional(),
+        communicationModalityBilling: z.string().max(800).optional(),
+        clinicalActivitiesBilling: z.string().max(800).optional(),
       })
     )
     .min(1, 'At least one session is required'),

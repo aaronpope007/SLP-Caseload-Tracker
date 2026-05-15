@@ -55,15 +55,15 @@ export const icd10NarrativeMap: Record<string, Icd10NarrativeContext> = {
       'Skilled SLP intervention is required to develop functional social communication skills that cannot be adequately addressed through behavioral or general education supports.',
   },
   'F80.89': {
-    diagnosisLabel: 'Other Developmental Disorders of Speech and Language',
+    diagnosisLabel: 'Developmental Speech and Language Disorder (Pragmatic / School-Based)',
     deficitDescription:
-      'speech and language deficits not fully captured by a single categorical diagnosis',
+      'pragmatic and social-language use affecting conversational initiation, topic selection, and appropriate language use in peer and classroom interactions',
     skillTargeted:
-      'functional communication skills across targeted speech and language domains per IEP goals',
+      'functional social communication including initiating and maintaining conversation, interpreting social contexts, and applying language skills in varied social situations',
     academicImpact:
-      'communication deficits impacting academic engagement and the ability to demonstrate learning',
+      'difficulty navigating peer interactions, collaborative work, and teacher-directed discourse, impacting social participation and demonstration of learning',
     medicalNecessityRationale:
-      "Skilled SLP intervention is required to address complex communication needs impacting educational participation.",
+      'Skilled SLP intervention is required to develop social-pragmatic communication skills that general education or behavioral supports alone do not sufficiently address.',
   },
   'F98.5': {
     diagnosisLabel: 'Childhood-Onset Fluency Disorder (Stuttering)',

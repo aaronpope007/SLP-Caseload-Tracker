@@ -21,6 +21,8 @@ import {
   Typography,
   Alert,
   Tooltip,
+  TextField,
+  IconButton,
 } from '@mui/material';
 import PrintIcon from '@mui/icons-material/Print';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -73,6 +75,8 @@ function formatSessionEnd(iso: string | null | undefined): string {
   if (iso == null || iso === '') return '—';
   return formatSessionClock(iso);
 }
+
+type SessionClipKind = 'note' | 'date';
 
 function effectiveAiNote(r: SessionLogEntry, map: Record<string, string>): string {
   const fromMap = map[r.id]?.trim();
@@ -143,6 +147,40 @@ function EvalLogTable({ rows }: { rows: EvalLogEntry[] }) {
         ))}
       </TableBody>
     </Table>
+  );
+}
+
+function SessionLogTableDateCell({
+  entry,
+  muted,
+  clipFeedback,
+  onCopyDate,
+}: {
+  entry: SessionLogEntry;
+  muted: boolean;
+  clipFeedback: { sessionId: string; kind: SessionClipKind } | null;
+  onCopyDate: (e: SessionLogEntry) => void;
+}) {
+  const copied = clipFeedback?.sessionId === entry.id && clipFeedback?.kind === 'date';
+  return (
+    <TableCell sx={sessionLogMaMutedSx(muted)}>
+      <Stack direction="row" alignItems="center" spacing={0.25} flexWrap="nowrap">
+        <Typography component="span" variant="body2">
+          {formatSessionDateOnly(entry.startTime || entry.date)}
+        </Typography>
+        <Tooltip title="Copy date">
+          <IconButton
+            className="no-print"
+            size="small"
+            aria-label="Copy session date"
+            color={copied ? 'success' : 'default'}
+            onClick={() => onCopyDate(entry)}
+          >
+            <ContentCopyIcon sx={{ fontSize: '0.9rem' }} />
+          </IconButton>
+        </Tooltip>
+      </Stack>
+    </TableCell>
   );
 }
 
@@ -246,7 +284,11 @@ export function SessionLog() {
   const [aiNotesBySessionId, setAiNotesBySessionId] = useState<Record<string, string>>({});
   const [aiNotesLoading, setAiNotesLoading] = useState(false);
   const [lastSoapNotesProvider, setLastSoapNotesProvider] = useState<'gemini' | 'anthropic' | null>(null);
-  const [copySessionId, setCopySessionId] = useState<string | null>(null);
+  const [preferClaudeOnlyForSoap, setPreferClaudeOnlyForSoap] = useState(false);
+  const [maBillingSessionContext, setMaBillingSessionContext] = useState('');
+  const [maBillingModality, setMaBillingModality] = useState('');
+  const [maBillingActivities, setMaBillingActivities] = useState('');
+  const [clipFeedback, setClipFeedback] = useState<{ sessionId: string; kind: SessionClipKind } | null>(null);
   const [showUnloggedOnly, setShowUnloggedOnly] = useState(false);
 
   useEffect(() => {
@@ -342,10 +384,10 @@ export function SessionLog() {
     }
   }, [school, startStr, endStr, selectedIds, allSelected]);
 
-  const visibleSessions = useMemo(
-    () => (showUnloggedOnly ? sessions.filter((s) => !s.maLogged) : sessions),
-    [sessions, showUnloggedOnly]
-  );
+  const visibleSessions = useMemo(() => {
+    const nonMissed = sessions.filter((s) => !s.missedSession);
+    return showUnloggedOnly ? nonMissed.filter((s) => !s.maLogged) : nonMissed;
+  }, [sessions, showUnloggedOnly]);
 
   const handleMaLoggedToggle = useCallback(
     async (sessionId: string, checked: boolean) => {
@@ -374,19 +416,24 @@ export function SessionLog() {
         typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_api_key')?.trim() : '';
       const storedAnthropicKey =
         typeof localStorage !== 'undefined' ? localStorage.getItem('anthropic_api_key')?.trim() : '';
+      if (preferClaudeOnlyForSoap && !storedAnthropicKey) {
+        showSnackbar('Claude-only mode needs an Anthropic API key in Settings.', 'error');
+        return;
+      }
       const soapName = typeof localStorage !== 'undefined' ? localStorage.getItem('soap_provider_name')?.trim() : '';
       const soapCred = typeof localStorage !== 'undefined' ? localStorage.getItem('soap_provider_credentials')?.trim() : '';
       const soapNpi = typeof localStorage !== 'undefined' ? localStorage.getItem('soap_provider_npi')?.trim() : '';
       const body = {
         ...(storedGeminiKey ? { apiKey: storedGeminiKey } : {}),
         ...(storedAnthropicKey ? { anthropicApiKey: storedAnthropicKey } : {}),
+        ...(preferClaudeOnlyForSoap ? { preferAnthropic: true } : {}),
         ...(soapName ? { providerName: soapName } : {}),
         ...(soapCred ? { providerCredentials: soapCred } : {}),
         ...(soapNpi ? { providerNpi: soapNpi } : {}),
         studentId: selectedIds[0],
         studentName: st?.name ?? 'Student',
         grade: st?.grade ?? '',
-        sessions: sessions.map((s) => ({
+        sessions: sessions.filter((s) => !s.missedSession).map((s) => ({
           id: s.id,
           date: s.date,
           startTime: s.startTime || s.date,
@@ -396,6 +443,7 @@ export function SessionLog() {
           icd10Codes: s.icd10Codes,
           icd10Descriptions: s.icd10Descriptions,
           performanceSummary: s.performanceSummary.map((p) => ({
+            ...(p.goalId ? { goalId: p.goalId } : {}),
             goalDescription: p.goalDescription,
             accuracy: p.accuracy,
             correctTrials: p.correctTrials,
@@ -406,6 +454,13 @@ export function SessionLog() {
           goalsAddressedText: s.goalsAddressedText,
           sessionNotes: s.notes?.trim() ? s.notes : '',
           domain: s.domain,
+          ...(maBillingSessionContext.trim()
+            ? { billingSessionContext: maBillingSessionContext.trim() }
+            : {}),
+          ...(maBillingModality.trim()
+            ? { communicationModalityBilling: maBillingModality.trim() }
+            : {}),
+          ...(maBillingActivities.trim() ? { clinicalActivitiesBilling: maBillingActivities.trim() } : {}),
         })),
       };
       const res = await api.sessions.generateNotes(body);
@@ -423,7 +478,7 @@ export function SessionLog() {
           return hit ? { ...row, aiGeneratedNote: hit.note } : row;
         })
       );
-      showSnackbar(`AI notes generated and saved (${providerLabel}).`, 'success');
+      showSnackbar(`MA clinical descriptions saved (${providerLabel}).`, 'success');
     } catch (e) {
       const msg =
         e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Failed to generate notes';
@@ -432,13 +487,26 @@ export function SessionLog() {
     } finally {
       setAiNotesLoading(false);
     }
-  }, [multiStudent, selectedIds, sessions, students, showSnackbar]);
+  }, [multiStudent, selectedIds, sessions, students, showSnackbar, preferClaudeOnlyForSoap, maBillingSessionContext, maBillingModality, maBillingActivities]);
+
+  const copySessionField = useCallback(
+    async (r: SessionLogEntry, kind: SessionClipKind, text: string, successMessage: string) => {
+      try {
+        await navigator.clipboard.writeText(text);
+        setClipFeedback({ sessionId: r.id, kind });
+        showSnackbar(successMessage, 'success');
+      } catch {
+        showSnackbar('Could not copy to clipboard', 'error');
+      }
+    },
+    [showSnackbar]
+  );
 
   useEffect(() => {
-    if (!copySessionId) return;
-    const t = window.setTimeout(() => setCopySessionId(null), 2000);
+    if (!clipFeedback) return;
+    const t = window.setTimeout(() => setClipFeedback(null), 2000);
     return () => window.clearTimeout(t);
-  }, [copySessionId]);
+  }, [clipFeedback]);
 
   const grouped = useMemo(() => {
     if (!multiStudent) return null;
@@ -637,14 +705,21 @@ export function SessionLog() {
                       title={
                         lastSoapNotesProvider
                           ? `Last batch: ${lastSoapNotesProvider === 'anthropic' ? 'Claude (Anthropic)' : 'Gemini'}`
-                          : 'Uses Gemini first; falls back to Claude if Gemini fails (Anthropic key required for fallback).'
+                          : preferClaudeOnlyForSoap
+                            ? 'Notes will be generated with Claude only (Anthropic key required).'
+                            : 'Uses Gemini first; falls back to Claude if Gemini fails (Anthropic key required for fallback).'
                       }
                     >
                       <span>
                         <Button
                           variant="contained"
                           color="secondary"
-                          disabled={aiNotesLoading}
+                          disabled={
+                            aiNotesLoading ||
+                            (preferClaudeOnlyForSoap &&
+                              typeof window !== 'undefined' &&
+                              !localStorage.getItem('anthropic_api_key')?.trim())
+                          }
                           onClick={handleGenerateAiNotes}
                         >
                           {showAiNotesLayout ? '✨ Regenerate AI Notes' : '✨ Generate AI Notes'}
@@ -663,11 +738,67 @@ export function SessionLog() {
                       <>
                         <CircularProgress size={22} />
                         <Typography variant="body2" color="text.secondary">
-                          Generating notes with AI...
+                          Generating MA descriptions…
                         </Typography>
                       </>
                     )}
                   </Stack>
+                  <FormControlLabel
+                    sx={{ alignItems: 'flex-start', ml: 0, mr: 0 }}
+                    control={
+                      <Switch
+                        checked={preferClaudeOnlyForSoap}
+                        onChange={(_, checked) => setPreferClaudeOnlyForSoap(checked)}
+                        color="secondary"
+                        disabled={aiNotesLoading}
+                      />
+                    }
+                    label={
+                      <Box>
+                        <Typography variant="body2" component="span">
+                          Use Claude only (skip Gemini)
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          Off: try Gemini first, then Claude on failure. On: requires an Anthropic key in Settings.
+                        </Typography>
+                      </Box>
+                    }
+                  />
+                  <Box className="no-print" sx={{ maxWidth: 560 }}>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                      Optional — applies to this run (all sessions below). Helps the MA description field without
+                      pasting a SOAP note.
+                    </Typography>
+                    <Stack spacing={1}>
+                      <TextField
+                        size="small"
+                        fullWidth
+                        label="Session context"
+                        placeholder="e.g. First session after winter break"
+                        value={maBillingSessionContext}
+                        onChange={(e) => setMaBillingSessionContext(e.target.value)}
+                        disabled={aiNotesLoading}
+                      />
+                      <TextField
+                        size="small"
+                        fullWidth
+                        label="Communication modality"
+                        placeholder="e.g. Zoom chat (selective mutism)"
+                        value={maBillingModality}
+                        onChange={(e) => setMaBillingModality(e.target.value)}
+                        disabled={aiNotesLoading}
+                      />
+                      <TextField
+                        size="small"
+                        fullWidth
+                        label="Clinical activities (brief)"
+                        placeholder="e.g. Social scenario via screen share; responses via chat"
+                        value={maBillingActivities}
+                        onChange={(e) => setMaBillingActivities(e.target.value)}
+                        disabled={aiNotesLoading}
+                      />
+                    </Stack>
+                  </Box>
                 </Stack>
               )}
               <Table size="small">
@@ -702,9 +833,19 @@ export function SessionLog() {
                     showAiNotesLayout ? (
                       <Fragment key={r.id}>
                         <TableRow>
-                          <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>
-                            {formatSessionDateOnly(r.startTime || r.date)}
-                          </TableCell>
+                          <SessionLogTableDateCell
+                            entry={r}
+                            muted={r.maLogged}
+                            clipFeedback={clipFeedback}
+                            onCopyDate={(e) =>
+                              void copySessionField(
+                                e,
+                                'date',
+                                formatSessionDateOnly(e.startTime || e.date),
+                                'Date copied to clipboard.'
+                              )
+                            }
+                          />
                           <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>
                             {formatSessionClock(r.startTime || r.date)}
                           </TableCell>
@@ -770,16 +911,12 @@ export function SessionLog() {
                                 startIcon={<ContentCopyIcon fontSize="small" />}
                                 onClick={async () => {
                                   const text = effectiveAiNote(r, aiNotesBySessionId);
-                                  try {
-                                    await navigator.clipboard.writeText(text);
-                                    setCopySessionId(r.id);
-                                    showSnackbar('Note copied to clipboard.', 'success');
-                                  } catch {
-                                    showSnackbar('Could not copy to clipboard', 'error');
-                                  }
+                                  await copySessionField(r, 'note', text, 'Note copied to clipboard.');
                                 }}
                               >
-                                {copySessionId === r.id ? 'Copied ✓' : 'Copy'}
+                                {clipFeedback?.sessionId === r.id && clipFeedback?.kind === 'note'
+                                  ? 'Copied ✓'
+                                  : 'Copy'}
                               </Button>
                               <Button
                                 size="small"
@@ -795,9 +932,19 @@ export function SessionLog() {
                       </Fragment>
                     ) : (
                       <TableRow key={r.id}>
-                        <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>
-                          {formatSessionDateOnly(r.startTime || r.date)}
-                        </TableCell>
+                        <SessionLogTableDateCell
+                          entry={r}
+                          muted={r.maLogged}
+                          clipFeedback={clipFeedback}
+                          onCopyDate={(e) =>
+                            void copySessionField(
+                              e,
+                              'date',
+                              formatSessionDateOnly(e.startTime || e.date),
+                              'Date copied to clipboard.'
+                            )
+                          }
+                        />
                         <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>
                           {formatSessionClock(r.startTime || r.date)}
                         </TableCell>
@@ -853,9 +1000,19 @@ export function SessionLog() {
                     {list.map((r) => (
                       <TableRow key={r.id}>
                         <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>{r.studentName}</TableCell>
-                        <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>
-                          {formatSessionDateOnly(r.startTime || r.date)}
-                        </TableCell>
+                        <SessionLogTableDateCell
+                          entry={r}
+                          muted={r.maLogged}
+                          clipFeedback={clipFeedback}
+                          onCopyDate={(e) =>
+                            void copySessionField(
+                              e,
+                              'date',
+                              formatSessionDateOnly(e.startTime || e.date),
+                              'Date copied to clipboard.'
+                            )
+                          }
+                        />
                         <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>
                           {formatSessionClock(r.startTime || r.date)}
                         </TableCell>
@@ -904,9 +1061,19 @@ export function SessionLog() {
               <TableBody>
                 {visibleSessions.map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>
-                      {formatSessionDateOnly(r.startTime || r.date)}
-                    </TableCell>
+                    <SessionLogTableDateCell
+                      entry={r}
+                      muted={r.maLogged}
+                      clipFeedback={clipFeedback}
+                      onCopyDate={(e) =>
+                        void copySessionField(
+                          e,
+                          'date',
+                          formatSessionDateOnly(e.startTime || e.date),
+                          'Date copied to clipboard.'
+                        )
+                      }
+                    />
                     <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>
                       {formatSessionClock(r.startTime || r.date)}
                     </TableCell>

@@ -195,6 +195,8 @@ export interface SessionLogEntry {
   date: string;
   /** Same as `date` — session start instant (ISO) */
   startTime: string;
+  /** When true, session was marked missed (excluded from session log API; optional on cached rows) */
+  missedSession?: boolean;
   endTime: string | null;
   studentId: string;
   studentName: string;

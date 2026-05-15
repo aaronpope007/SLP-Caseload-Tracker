@@ -7,7 +7,7 @@ import {
 } from './geminiSessionNotes';
 import { logger } from './logger';
 
-const SOAP_ANTHROPIC_MODEL = 'claude-sonnet-4-6';
+const MA_ANTHROPIC_MODEL = 'claude-sonnet-4-6';
 
 /**
  * Same contract as Gemini: one batched prompt, JSON array of { sessionId, note }.
@@ -19,7 +19,7 @@ export async function generateSessionNotesWithAnthropic(
   provider: SoapNoteProviderInfo
 ): Promise<Array<{ sessionId: string; note: string }>> {
   if (!apiKey?.trim()) {
-    throw new Error('Anthropic API key is required for SOAP note generation');
+    throw new Error('Anthropic API key is required for MA description generation');
   }
   if (sessions.length === 0) {
     return [];
@@ -32,7 +32,7 @@ export async function generateSessionNotesWithAnthropic(
   let text: string;
   try {
     const response = await client.messages.create({
-      model: SOAP_ANTHROPIC_MODEL,
+      model: MA_ANTHROPIC_MODEL,
       max_tokens: 16384,
       messages: [{ role: 'user', content: prompt }],
     });
@@ -41,7 +41,7 @@ export async function generateSessionNotesWithAnthropic(
       .map((b) => (b as { type: 'text'; text: string }).text)
       .join('');
   } catch (err) {
-    logger.error({ err }, 'Anthropic SOAP batch request failed');
+    logger.error({ err }, 'Anthropic MA description batch request failed');
     throw err;
   }
 
