@@ -1,40 +1,573 @@
 {
   "students": [
-    { "firstName": "Abdullhamid", "lastName": "Abdi", "domain": "Articulation / Phonology", "icd10Codes": ["F80.0"], "icd10Descriptions": ["Phonological disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Dimitrius", "lastName": "Cha", "domain": "Pragmatics + Expressive Language", "icd10Codes": ["F80.1", "F80.89"], "icd10Descriptions": ["Expressive language disorder", "Other developmental disorders of speech and language (pragmatics)"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Richie", "lastName": "Chang", "domain": "Articulation + Mixed Receptive-Expressive Language", "icd10Codes": ["F80.0", "F80.2"], "icd10Descriptions": ["Phonological disorder", "Mixed receptive-expressive language disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Royal", "lastName": "Horton", "domain": "Articulation / Phonology", "icd10Codes": ["F80.0"], "icd10Descriptions": ["Phonological disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "James", "lastName": "Kilikpo", "domain": "Articulation / Phonology", "icd10Codes": ["F80.0"], "icd10Descriptions": ["Phonological disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Aaron", "lastName": "Lee", "domain": "Phonology + Expressive Language", "icd10Codes": ["F80.0", "F80.1"], "icd10Descriptions": ["Phonological disorder", "Expressive language disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Chaalia", "lastName": "Lee", "domain": "Articulation", "icd10Codes": ["F80.0"], "icd10Descriptions": ["Phonological disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Damien", "lastName": "Lee", "domain": "Articulation + Expressive Language", "icd10Codes": ["F80.0", "F80.1"], "icd10Descriptions": ["Phonological disorder", "Expressive language disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Emerie", "lastName": "Lee", "domain": "Articulation / Phonology", "icd10Codes": ["F80.0"], "icd10Descriptions": ["Phonological disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Hayden", "lastName": "Lee", "domain": "Articulation", "icd10Codes": ["F80.0"], "icd10Descriptions": ["Phonological disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Hiro", "lastName": "Lee", "domain": "Mixed Receptive-Expressive Language", "icd10Codes": ["F80.2"], "icd10Descriptions": ["Mixed receptive-expressive language disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Zachary", "lastName": "Lee", "domain": "Articulation / Phonology", "icd10Codes": ["F80.0"], "icd10Descriptions": ["Phonological disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Zakou", "lastName": "Lor", "domain": "Mixed Receptive-Expressive Language", "icd10Codes": ["F80.2"], "icd10Descriptions": ["Mixed receptive-expressive language disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Jose", "lastName": "Moreno", "domain": "Articulation", "icd10Codes": ["F80.0"], "icd10Descriptions": ["Phonological disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Rin", "lastName": "Nag Xiong", "domain": "Phonology", "icd10Codes": ["F80.0"], "icd10Descriptions": ["Phonological disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Oumaru", "lastName": "Sesay", "domain": "Expressive Language", "icd10Codes": ["F80.1"], "icd10Descriptions": ["Expressive language disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Yousuf", "lastName": "Sesay", "domain": "Mixed Receptive-Expressive Language", "icd10Codes": ["F80.2"], "icd10Descriptions": ["Mixed receptive-expressive language disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Benson", "lastName": "Thao", "domain": "Articulation", "icd10Codes": ["F80.0"], "icd10Descriptions": ["Phonological disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Richard", "lastName": "Thao", "domain": "Articulation", "icd10Codes": ["F80.0"], "icd10Descriptions": ["Phonological disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Charlie", "lastName": "Vang", "domain": "Phonology + Mixed Receptive-Expressive Language", "icd10Codes": ["F80.0", "F80.2"], "icd10Descriptions": ["Phonological disorder", "Mixed receptive-expressive language disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Joey", "lastName": "Vang", "domain": "Articulation + Expressive Language", "icd10Codes": ["F80.0", "F80.1"], "icd10Descriptions": ["Phonological disorder", "Expressive language disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Kristy", "lastName": "Vang", "domain": "Mixed Receptive-Expressive Language", "icd10Codes": ["F80.2"], "icd10Descriptions": ["Mixed receptive-expressive language disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Leonardo", "lastName": "Vang", "domain": "Mixed Receptive-Expressive Language", "icd10Codes": ["F80.2"], "icd10Descriptions": ["Mixed receptive-expressive language disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Aizen", "lastName": "Xiong", "domain": "Phonology", "icd10Codes": ["F80.0"], "icd10Descriptions": ["Phonological disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Mikey", "lastName": "Xiong", "domain": "Mixed Receptive-Expressive Language + Articulation", "icd10Codes": ["F80.0", "F80.2"], "icd10Descriptions": ["Phonological disorder", "Mixed receptive-expressive language disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Nathan", "lastName": "Xiong", "domain": "Mixed Receptive-Expressive Language", "icd10Codes": ["F80.2"], "icd10Descriptions": ["Mixed receptive-expressive language disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Adan", "lastName": "Yang", "domain": "Articulation + Receptive Language", "icd10Codes": ["F80.0", "F80.2"], "icd10Descriptions": ["Phonological disorder", "Mixed receptive-expressive language disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Brian", "lastName": "Yang", "domain": "Receptive Language", "icd10Codes": ["F80.2"], "icd10Descriptions": ["Mixed receptive-expressive language disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Eleanor", "lastName": "Yang", "domain": "Articulation", "icd10Codes": ["F80.0"], "icd10Descriptions": ["Phonological disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Faithlynn", "lastName": "Yang", "domain": "Mixed Receptive-Expressive Language", "icd10Codes": ["F80.2"], "icd10Descriptions": ["Mixed receptive-expressive language disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Jacob", "lastName": "Yang", "domain": "Mixed Receptive-Expressive Language", "icd10Codes": ["F80.2"], "icd10Descriptions": ["Mixed receptive-expressive language disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Jaxsten", "lastName": "Yang", "domain": "Articulation + Mixed Language + Pragmatics", "icd10Codes": ["F80.0", "F80.2", "F80.89"], "icd10Descriptions": ["Phonological disorder", "Mixed receptive-expressive language disorder", "Other developmental disorders of speech and language (pragmatics)"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Mason", "lastName": "Yang", "domain": "Articulation", "icd10Codes": ["F80.0"], "icd10Descriptions": ["Phonological disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Messi", "lastName": "Yang", "domain": "Articulation + Expressive Language", "icd10Codes": ["F80.0", "F80.1"], "icd10Descriptions": ["Phonological disorder", "Expressive language disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Mugen", "lastName": "Yang", "domain": "Articulation + Mixed Language + Pragmatics", "icd10Codes": ["F80.0", "F80.2", "F80.89"], "icd10Descriptions": ["Phonological disorder", "Mixed receptive-expressive language disorder", "Other developmental disorders of speech and language (pragmatics)"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" },
-    { "firstName": "Talia", "lastName": "Yang", "domain": "Mixed Receptive-Expressive Language", "icd10Codes": ["F80.2"], "icd10Descriptions": ["Mixed receptive-expressive language disorder"], "cptCodeIndividual": "92507", "cptCodeGroup": "92508" }
+    {
+      "firstName": "Abdullhamid",
+      "lastName": "Abdi",
+      "domain": "Articulation / Phonology",
+      "icd10Codes": [
+        {
+          "code": "F80.0",
+          "description": "Phonological disorder",
+          "primary": true
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Dimitrius",
+      "lastName": "Cha",
+      "domain": "Pragmatics + Expressive Language",
+      "icd10Codes": [
+        {
+          "code": "F80.1",
+          "description": "Expressive language disorder",
+          "primary": true
+        },
+        {
+          "code": "F80.89",
+          "description": "Other developmental disorders of speech and language (pragmatics)",
+          "primary": false
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Richie",
+      "lastName": "Chang",
+      "domain": "Articulation + Mixed Receptive-Expressive Language",
+      "icd10Codes": [
+        {
+          "code": "F80.0",
+          "description": "Phonological disorder",
+          "primary": true
+        },
+        {
+          "code": "F80.2",
+          "description": "Mixed receptive-expressive language disorder",
+          "primary": false
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Royal",
+      "lastName": "Horton",
+      "domain": "Articulation / Phonology",
+      "icd10Codes": [
+        {
+          "code": "F80.0",
+          "description": "Phonological disorder",
+          "primary": true
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "James",
+      "lastName": "Kilikpo",
+      "domain": "Articulation / Phonology",
+      "icd10Codes": [
+        {
+          "code": "F80.0",
+          "description": "Phonological disorder",
+          "primary": true
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Aaron",
+      "lastName": "Lee",
+      "domain": "Phonology + Expressive Language",
+      "icd10Codes": [
+        {
+          "code": "F80.0",
+          "description": "Phonological disorder",
+          "primary": true
+        },
+        {
+          "code": "F80.1",
+          "description": "Expressive language disorder",
+          "primary": false
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Chaalia",
+      "lastName": "Lee",
+      "domain": "Articulation",
+      "icd10Codes": [
+        {
+          "code": "F80.0",
+          "description": "Phonological disorder",
+          "primary": true
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Damien",
+      "lastName": "Lee",
+      "domain": "Articulation + Expressive Language",
+      "icd10Codes": [
+        {
+          "code": "F80.0",
+          "description": "Phonological disorder",
+          "primary": true
+        },
+        {
+          "code": "F80.1",
+          "description": "Expressive language disorder",
+          "primary": false
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Emerie",
+      "lastName": "Lee",
+      "domain": "Articulation / Phonology",
+      "icd10Codes": [
+        {
+          "code": "F80.0",
+          "description": "Phonological disorder",
+          "primary": true
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Hayden",
+      "lastName": "Lee",
+      "domain": "Articulation",
+      "icd10Codes": [
+        {
+          "code": "F80.0",
+          "description": "Phonological disorder",
+          "primary": true
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Hiro",
+      "lastName": "Lee",
+      "domain": "Mixed Receptive-Expressive Language",
+      "icd10Codes": [
+        {
+          "code": "F80.2",
+          "description": "Mixed receptive-expressive language disorder",
+          "primary": true
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Zachary",
+      "lastName": "Lee",
+      "domain": "Articulation / Phonology",
+      "icd10Codes": [
+        {
+          "code": "F80.0",
+          "description": "Phonological disorder",
+          "primary": true
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Zakou",
+      "lastName": "Lor",
+      "domain": "Mixed Receptive-Expressive Language",
+      "icd10Codes": [
+        {
+          "code": "F80.2",
+          "description": "Mixed receptive-expressive language disorder",
+          "primary": true
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Jose",
+      "lastName": "Moreno",
+      "domain": "Articulation",
+      "icd10Codes": [
+        {
+          "code": "F80.0",
+          "description": "Phonological disorder",
+          "primary": true
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Rin",
+      "lastName": "Nag Xiong",
+      "domain": "Phonology",
+      "icd10Codes": [
+        {
+          "code": "F80.0",
+          "description": "Phonological disorder",
+          "primary": true
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Oumaru",
+      "lastName": "Sesay",
+      "domain": "Expressive Language",
+      "icd10Codes": [
+        {
+          "code": "F80.1",
+          "description": "Expressive language disorder",
+          "primary": true
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Yousuf",
+      "lastName": "Sesay",
+      "domain": "Mixed Receptive-Expressive Language",
+      "icd10Codes": [
+        {
+          "code": "F80.2",
+          "description": "Mixed receptive-expressive language disorder",
+          "primary": true
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Benson",
+      "lastName": "Thao",
+      "domain": "Articulation",
+      "icd10Codes": [
+        {
+          "code": "F80.0",
+          "description": "Phonological disorder",
+          "primary": true
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Richard",
+      "lastName": "Thao",
+      "domain": "Articulation",
+      "icd10Codes": [
+        {
+          "code": "F80.0",
+          "description": "Phonological disorder",
+          "primary": true
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Charlie",
+      "lastName": "Vang",
+      "domain": "Phonology + Mixed Receptive-Expressive Language",
+      "icd10Codes": [
+        {
+          "code": "F80.0",
+          "description": "Phonological disorder",
+          "primary": true
+        },
+        {
+          "code": "F80.2",
+          "description": "Mixed receptive-expressive language disorder",
+          "primary": false
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Joey",
+      "lastName": "Vang",
+      "domain": "Articulation + Expressive Language",
+      "icd10Codes": [
+        {
+          "code": "F80.0",
+          "description": "Phonological disorder",
+          "primary": true
+        },
+        {
+          "code": "F80.1",
+          "description": "Expressive language disorder",
+          "primary": false
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Kristy",
+      "lastName": "Vang",
+      "domain": "Mixed Receptive-Expressive Language",
+      "icd10Codes": [
+        {
+          "code": "F80.2",
+          "description": "Mixed receptive-expressive language disorder",
+          "primary": true
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Leonardo",
+      "lastName": "Vang",
+      "domain": "Mixed Receptive-Expressive Language",
+      "icd10Codes": [
+        {
+          "code": "F80.2",
+          "description": "Mixed receptive-expressive language disorder",
+          "primary": true
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Aizen",
+      "lastName": "Xiong",
+      "domain": "Phonology",
+      "icd10Codes": [
+        {
+          "code": "F80.0",
+          "description": "Phonological disorder",
+          "primary": true
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Mikey",
+      "lastName": "Xiong",
+      "domain": "Mixed Receptive-Expressive Language + Articulation",
+      "icd10Codes": [
+        {
+          "code": "F80.0",
+          "description": "Phonological disorder",
+          "primary": true
+        },
+        {
+          "code": "F80.2",
+          "description": "Mixed receptive-expressive language disorder",
+          "primary": false
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Nathan",
+      "lastName": "Xiong",
+      "domain": "Mixed Receptive-Expressive Language",
+      "icd10Codes": [
+        {
+          "code": "F80.2",
+          "description": "Mixed receptive-expressive language disorder",
+          "primary": true
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Adan",
+      "lastName": "Yang",
+      "domain": "Articulation + Receptive Language",
+      "icd10Codes": [
+        {
+          "code": "F80.0",
+          "description": "Phonological disorder",
+          "primary": true
+        },
+        {
+          "code": "F80.2",
+          "description": "Mixed receptive-expressive language disorder",
+          "primary": false
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Brian",
+      "lastName": "Yang",
+      "domain": "Receptive Language",
+      "icd10Codes": [
+        {
+          "code": "F80.2",
+          "description": "Mixed receptive-expressive language disorder",
+          "primary": true
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Eleanor",
+      "lastName": "Yang",
+      "domain": "Articulation",
+      "icd10Codes": [
+        {
+          "code": "F80.0",
+          "description": "Phonological disorder",
+          "primary": true
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Faithlynn",
+      "lastName": "Yang",
+      "domain": "Mixed Receptive-Expressive Language",
+      "icd10Codes": [
+        {
+          "code": "F80.2",
+          "description": "Mixed receptive-expressive language disorder",
+          "primary": true
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Jacob",
+      "lastName": "Yang",
+      "domain": "Mixed Receptive-Expressive Language",
+      "icd10Codes": [
+        {
+          "code": "F80.2",
+          "description": "Mixed receptive-expressive language disorder",
+          "primary": true
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Jaxsten",
+      "lastName": "Yang",
+      "domain": "Articulation + Mixed Language + Pragmatics",
+      "icd10Codes": [
+        {
+          "code": "F80.0",
+          "description": "Phonological disorder",
+          "primary": true
+        },
+        {
+          "code": "F80.2",
+          "description": "Mixed receptive-expressive language disorder",
+          "primary": false
+        },
+        {
+          "code": "F80.89",
+          "description": "Other developmental disorders of speech and language (pragmatics)",
+          "primary": false
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Mason",
+      "lastName": "Yang",
+      "domain": "Articulation",
+      "icd10Codes": [
+        {
+          "code": "F80.0",
+          "description": "Phonological disorder",
+          "primary": true
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Messi",
+      "lastName": "Yang",
+      "domain": "Articulation + Expressive Language",
+      "icd10Codes": [
+        {
+          "code": "F80.0",
+          "description": "Phonological disorder",
+          "primary": true
+        },
+        {
+          "code": "F80.1",
+          "description": "Expressive language disorder",
+          "primary": false
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Mugen",
+      "lastName": "Yang",
+      "domain": "Articulation + Mixed Language + Pragmatics",
+      "icd10Codes": [
+        {
+          "code": "F80.0",
+          "description": "Phonological disorder",
+          "primary": true
+        },
+        {
+          "code": "F80.2",
+          "description": "Mixed receptive-expressive language disorder",
+          "primary": false
+        },
+        {
+          "code": "F80.89",
+          "description": "Other developmental disorders of speech and language (pragmatics)",
+          "primary": false
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    },
+    {
+      "firstName": "Talia",
+      "lastName": "Yang",
+      "domain": "Mixed Receptive-Expressive Language",
+      "icd10Codes": [
+        {
+          "code": "F80.2",
+          "description": "Mixed receptive-expressive language disorder",
+          "primary": true
+        }
+      ],
+      "cptCodeIndividual": "92507",
+      "cptCodeGroup": "92508"
+    }
   ]
 }

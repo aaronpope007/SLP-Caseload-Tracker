@@ -2,21 +2,20 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { cptDescriptionForPrompt, cptMedicalNecessityLine } from './cptDescriptions';
 import { calcUnits, sessionDurationMinutes } from './billingUnits';
 import type { Icd10NarrativeContext } from './icd10NarrativeContext';
-import { getNarrativeContext } from './icd10NarrativeContext';
 import { logger } from './logger';
 import {
   buildMaNoteStyleInstructions,
   postProcessMaActivityLogNote,
 } from './maActivityLogNote';
+import type { GoalDomainBucket } from './goalDomainMap';
+import { DOMAIN_META } from './goalDomainMap';
 
 const MN_TZ = 'America/Chicago';
 
-export interface AddressedGoalWithIcd {
+export interface AddressedGoalWithDomain {
   goalId: string;
   goalDescription: string;
-  domain: string | null;
-  icd10Codes: string[];
-  icd10Descriptions: string[];
+  domain: GoalDomainBucket;
 }
 
 export interface SessionNotePromptSession {
@@ -40,8 +39,8 @@ export interface SessionNotePromptSession {
   goalsAddressedText: string[];
   sessionNotes: string;
   domain?: string;
-  /** Per addressed IEP goal: domain-mapped billing ICD-10 (built server-side for MA generation). */
-  addressedGoalsWithIcd?: AddressedGoalWithIcd[];
+  /** Per addressed IEP goal: inferred clinical domain bucket (built server-side for MA generation). */
+  addressedGoalsWithDomain?: AddressedGoalWithDomain[];
   /** Optional: visit context for MA description (e.g. first session after winter break). */
   billingSessionContext?: string;
   /** Optional: expressive modality for MA description (e.g. Zoom chat, verbal, AAC). */
@@ -155,24 +154,48 @@ function primaryTrialBlock(s: SessionNotePromptSession): {
   };
 }
 
-function formatAddressedGoalsForPrompt(goals: AddressedGoalWithIcd[]): string {
-  return goals
-    .map((g, i) => {
-      const icdLines = g.icd10Codes.map((code, j) => {
-        const desc = g.icd10Descriptions[j]?.trim() || '';
-        const ctx = getNarrativeContext(code);
-        const ctxStr = ctx
-          ? `\n    Clinical context (do NOT write ICD/CPT codes in the note): deficit — ${ctx.deficitDescription}; skill — ${ctx.skillTargeted}; academic impact — ${ctx.academicImpact}`
-          : '';
-        return `    - ${desc || code}${ctxStr}`;
-      });
-      const icdBlock =
-        icdLines.length > 0
-          ? icdLines.join('\n')
-          : '    - (Use session notes and goal text for clinical context.)';
-      return `ADDRESSED GOAL ${i + 1}\n  - goalId: ${g.goalId}\n  - IEP goal text: ${g.goalDescription}\n  - Goal domain: ${g.domain ?? '—'}\n  - Clinical context:\n${icdBlock}`;
-    })
-    .join('\n\n');
+const DOMAIN_FOCUS_BUCKETS = ['articulation', 'language', 'pragmatics'] as const;
+
+function formatSessionFocusByDomain(goals: AddressedGoalWithDomain[]): string {
+  const buckets: Record<(typeof DOMAIN_FOCUS_BUCKETS)[number], string[]> = {
+    articulation: [],
+    language: [],
+    pragmatics: [],
+  };
+  const unknownGoals: string[] = [];
+
+  for (const g of goals) {
+    const text = g.goalDescription.trim();
+    if (!text) continue;
+    if (g.domain === 'unknown') {
+      unknownGoals.push(text);
+    } else if (g.domain in buckets) {
+      buckets[g.domain as (typeof DOMAIN_FOCUS_BUCKETS)[number]].push(text);
+    }
+  }
+
+  const domainLine = (label: string, items: string[]) =>
+    `- ${label}: ${items.length > 0 ? items.join(', ') : 'none this session'}`;
+
+  const lines = [
+    'Session focus by clinical domain:',
+    domainLine('Articulation goals addressed', buckets.articulation),
+    domainLine('Language goals addressed', buckets.language),
+    domainLine('Pragmatics goals addressed', buckets.pragmatics),
+  ];
+
+  if (unknownGoals.length > 0) {
+    lines.push(`- Other goals addressed: ${unknownGoals.join(', ')}`);
+  }
+
+  lines.push(
+    '',
+    'When writing the note, emphasize only the domains that have goals listed above (not "none this session").',
+    'Do not reference domains marked "none this session".',
+    'Do not include ICD-10 codes or CPT codes in the note body.'
+  );
+
+  return lines.join('\n');
 }
 
 function formatPerformanceByGoal(summary: SessionNotePromptSession['performanceSummary']): string {
@@ -201,22 +224,15 @@ function buildSoapSessionsBlock(sessions: SoapNoteGenerationSession[]): string {
     const serviceTypeName = s.isGroup ? 'group speech-language treatment' : 'individual speech-language treatment';
 
     const goalsSection =
-      s.addressedGoalsWithIcd && s.addressedGoalsWithIcd.length > 0
+      s.addressedGoalsWithDomain && s.addressedGoalsWithDomain.length > 0
         ? `
-ADDRESSED IEP GOALS (clinical context only — do NOT write ICD-10 or CPT codes in the note):
-${formatAddressedGoalsForPrompt(s.addressedGoalsWithIcd)}`
-        : s.narrativeContext
-          ? `
-CLINICAL CONTEXT (do NOT write diagnosis codes in the note):
-- Deficit: ${s.narrativeContext.deficitDescription}
-- Skill targeted: ${s.narrativeContext.skillTargeted}
-- Academic impact: ${s.narrativeContext.academicImpact}`
-          : `
-CLINICAL CONTEXT: Use named goal domains and session notes; do not invent unsupported diagnoses or write billing codes in the note.`;
+${formatSessionFocusByDomain(s.addressedGoalsWithDomain)}`
+        : `
+CLINICAL CONTEXT: Use session notes and goal targets; do not invent unsupported diagnoses or write billing codes in the note.`;
 
     const targetsLine =
-      s.addressedGoalsWithIcd && s.addressedGoalsWithIcd.length > 0
-        ? s.addressedGoalsWithIcd.map((g) => g.goalDescription).join('; ')
+      s.addressedGoalsWithDomain && s.addressedGoalsWithDomain.length > 0
+        ? s.addressedGoalsWithDomain.map((g) => g.goalDescription).join('; ')
         : s.iepGoalText;
 
     const ctxBlock = `
@@ -290,8 +306,9 @@ MUST INCLUDE IN THE PARAGRAPH:
 1. **Service type by name** — "individual speech-language treatment" or "group speech-language treatment" (and group context when applicable); teletherapy via Zoom.
 2. **At least one specific therapy activity** — use Therapy activities from SESSION DATA, or infer a plausible structured task from targets (sentence-level production, minimal pairs, word-level drill, conversational probing, structured elicitation).
 3. **Session data** — include every accuracy %, trial count, and prior-session comparison provided in SESSION DATA. If no trial data, state that formal trial data were not collected and give a qualitative observation. **Do not fabricate numbers.**
-4. **Cueing** — use the PHRASING VARIANT cueing language when consistent with SESSION DATA.
-5. **Closing** — one sentence on rationale for continued treatment (use PHRASING VARIANT closing pattern).
+4. **Domain emphasis** — when SESSION DATA includes "Session focus by clinical domain", emphasize only domains with listed goals (not "none this session"). Do not name or discuss domains marked "none this session".
+5. **Cueing** — use the PHRASING VARIANT cueing language when consistent with SESSION DATA.
+6. **Closing** — one sentence on rationale for continued treatment (use PHRASING VARIANT closing pattern).
 
 MUST NOT INCLUDE IN THE "note" TEXT:
 - **Any CPT code** (e.g. 92507, 92508) or **any ICD-10 code** (e.g. F80.0, F80.1, F80.2, F80.89, F98.5, R49.0) or the phrases "ICD-10" / "CPT".
@@ -542,7 +559,7 @@ export function buildSoapNoteGenerationSession(
   const promptingLevel = promptingLevelFromAccuracy(trial.trialAccuracyPct);
   const modality = bodySession.isGroup ? 'Group Teletherapy via Zoom' : 'Individual Teletherapy via Zoom';
   const addrGoals = (bodySession.goalsAddressedText || []).map((x) => x.trim()).filter(Boolean).slice(0, 4).join('; ');
-  const addressed = bodySession.addressedGoalsWithIcd;
+  const addressed = bodySession.addressedGoalsWithDomain;
 
   const iepGoalText =
     (addressed && addressed.length > 0 && addressed[0].goalDescription?.trim()) ||
@@ -551,35 +568,15 @@ export function buildSoapNoteGenerationSession(
     addrGoals ||
     'IEP communication targets per session export';
   const goalDomain =
-    (addressed && addressed.length > 0 && addressed[0].domain?.trim()) ||
+    (addressed && addressed.length > 0 && DOMAIN_META[addressed[0].domain]?.label) ||
     goalMeta?.domain ||
     bodySession.domain ||
     'communication';
 
-  let primaryIcdCode = '';
-  let primaryIcdDescription = '';
-  let narrativeContext: Icd10NarrativeContext | null = null;
-
-  if (addressed && addressed.length > 0) {
-    const first = addressed[0];
-    primaryIcdCode = first.icd10Codes[0] || bodySession.icd10Codes[0] || '';
-    primaryIcdDescription = first.icd10Descriptions[0] || bodySession.icd10Descriptions[0] || '';
-    if (addressed.length === 1) {
-      narrativeContext = getNarrativeContext(primaryIcdCode);
-    }
-  } else {
-    primaryIcdCode = bodySession.icd10Codes[0] || '';
-    primaryIcdDescription = bodySession.icd10Descriptions[0] || '';
-    narrativeContext = getNarrativeContext(primaryIcdCode);
-  }
+  const primaryIcdCode = bodySession.icd10Codes[0] || '';
+  const primaryIcdDescription = bodySession.icd10Descriptions[0] || '';
 
   const cptJustification = cptMedicalNecessityLine(bodySession.cptCode, modality);
-  if (primaryIcdCode && !narrativeContext && (!addressed || addressed.length <= 1)) {
-    logger.warn(
-      { primaryIcdCode, sessionId: bodySession.id },
-      'ICD-10 code has no narrative map entry; MA description prompt uses generic diagnosis guidance — add to icd10NarrativeMap if needed'
-    );
-  }
   const shortSessionBillingNote =
     totalMinutes > 0 && totalMinutes < 8
       ? 'BILLING NOTICE: Session is under 8 minutes; units billed are 0. Confirm whether this was a consult, non-billable contact, or documentation-only before claiming treatment units.'
@@ -607,7 +604,7 @@ export function buildSoapNoteGenerationSession(
     promptingLevel,
     modality,
     shortSessionBillingNote,
-    narrativeContext,
+    narrativeContext: null,
     cptJustification,
   };
 }

@@ -7,6 +7,10 @@ import { inferGoalDomainFromDescription } from '../utils/inferGoalDomainFromDesc
 
 export const adminRouter = Router();
 
+// TODO(cleanup): POST /import-codes still expects legacy parallel string[] icd10Codes +
+// icd10Descriptions. import-codes-payload.json uses SpedForms object shape; update this route
+// to parse object[] and write via serializeIcd10ForDb (see students PUT) before re-running bulk import.
+
 type ImportEntry = {
   firstName?: string;
   lastName?: string;

@@ -18,7 +18,7 @@ The server will run on `http://localhost:3001`
 
 Optional: create **`api/.env`** (copy from `.env.example`) and set **`GEMINI_API_KEY`** for Google Gemini. Used by:
 
-- **`POST /api/students/:id/map-goals`** — AI goal → ICD-10/CPT mapping (body may also pass `apiKey`)
+- **`POST /api/students/:id/map-goals`** — AI goal → CPT mapping plus deterministic clinical domain (body may also pass `apiKey`)
 - **`POST /api/sessions/generate-notes`** — Session Log AI progress notes (**server key only**)
 
 Get a key from [Google AI Studio](https://aistudio.google.com/apikey). Restart the API after changing `.env`.
@@ -30,6 +30,8 @@ Get a key from [Google AI Studio](https://aistudio.google.com/apikey). Restart t
 The SQLite database is stored in `./data/slp-caseload.db`. This file is automatically created on first run.
 
 ## Data Import
+
+**Follow-up:** `POST /api/admin/import-codes` still expects legacy parallel `icd10Codes` string arrays + `icd10Descriptions`. Root `import-codes-payload.json` uses the new object shape; update the admin route (see `TODO(cleanup)` in `api/src/routes/admin.ts`) before re-running bulk import.
 
 To import data from a JSON export file:
 
@@ -57,7 +59,8 @@ The migration script will:
 - `POST /api/students/bulk` - Bulk create/update students
 - `GET /api/students/:id` - Get student by ID
 - `PUT /api/students/:id` - Update student (may include `dob`, `maNumber`, `tsgoals` for billing)
-- `POST /api/students/:id/map-goals` - AI map in-progress goals to ICD-10/CPT (body: optional `{ "apiKey": "..." }`; uses `GEMINI_API_KEY` env if set)
+- `POST /api/students/:id/map-goals` - AI map in-progress goals to CPT (domain via `inferGoalDomain`; body: optional `{ "apiKey": "..." }`; uses `GEMINI_API_KEY` env if set)
+- Student **ICD-10** codes are stored on the student record (`icd10Codes` object array, SpedForms-aligned) and are not inferred from goal domains or the goal mapper.
 - `DELETE /api/students/:id` - Delete student
 
 ### Goals

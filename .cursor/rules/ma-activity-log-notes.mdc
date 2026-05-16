@@ -9,6 +9,10 @@ globs:
 
 # MA Activity Log Note Generation
 
+## ICD-10 and goal domains
+- ICD-10 codes are stored manually at the student level and mirror SpedForms. They are never inferred from goal domains.
+- Goal domains (articulation / language / pragmatics) are inferred separately for display and prompt emphasis only using `inferGoalDomain` from `goalDomainMap.ts`.
+
 ## Note body rules
 - Never include CPT or ICD-10 codes in generated note text (metadata row carries codes).
 - Refer to service by name: "individual/group speech-language treatment".

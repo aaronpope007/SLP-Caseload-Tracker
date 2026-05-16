@@ -6,7 +6,9 @@ import { validateBody } from '../middleware/validateRequest';
 import { parseJsonField, stringifyJsonField } from '../utils/jsonHelpers';
 import { createStudentSchema, updateStudentSchema } from '../schemas';
 import { mapGoalsWithGemini } from '../utils/geminiMapGoals';
+import { parseStoredIcd10Codes, serializeIcd10ForDb } from '../utils/icd10Codes';
 import { splitStudentName } from '../utils/studentName';
+import type { Icd10CodeEntry } from '../schemas';
 
 // Database row types
 interface StudentRow {
@@ -35,6 +37,7 @@ interface StudentRow {
   domain: string | null;
   icd10Codes: string | null;
   icd10Descriptions: string | null;
+  icd10Primary: string | null;
   cptCodeIndividual: string | null;
   cptCodeGroup: string | null;
   codesMappedAt: string | null;
@@ -53,6 +56,39 @@ function tsgoalsJsonForDb(ts: unknown, existing: string | null): string {
   if (typeof ts === 'string' && ts.trim()) return ts;
   if (existing && existing !== 'null') return existing;
   return '[]';
+}
+
+/** API student shape: icd10Codes as object array; icd10Descriptions omitted. */
+function formatStudentForApi(row: StudentRow) {
+  const {
+    tsgoals: _ts,
+    domain: _domain,
+    icd10Codes: _icd,
+    icd10Descriptions: _icdDesc,
+    icd10Primary: _icdPrimary,
+    cptCodeIndividual: _cptI,
+    cptCodeGroup: _cptG,
+    codesMappedAt: _mappedAt,
+    codesMappedByAI: _mappedByAi,
+    ...rest
+  } = row;
+
+  return {
+    ...rest,
+    concerns: parseJsonField<string[]>(row.concerns, []),
+    exceptionality: parseJsonField<string[]>(row.exceptionality, undefined),
+    archived: row.archived === 1,
+    gender: row.gender || undefined,
+    dob: row.dob || undefined,
+    maNumber: row.maNumber || undefined,
+    tsgoals: parseTsGoals(row),
+    domain: row.domain || undefined,
+    icd10Codes: parseStoredIcd10Codes(row.icd10Codes, row.icd10Descriptions),
+    cptCodeIndividual: row.cptCodeIndividual ?? undefined,
+    cptCodeGroup: row.cptCodeGroup ?? undefined,
+    codesMappedAt: row.codesMappedAt || undefined,
+    codesMappedByAI: row.codesMappedByAI === 1,
+  };
 }
 
 const mapGoalsBodySchema = z.object({
@@ -166,40 +202,7 @@ studentsRouter.get('/', asyncHandler(async (req, res) => {
   }
   
   const students = db.prepare(query).all(...params) as StudentRow[];
-  
-  // Parse JSON fields
-  const parsed = students.map((s) => {
-    const {
-      tsgoals: _ts,
-      domain: _omitDomain,
-      icd10Codes: _omitIcd,
-      icd10Descriptions: _omitIcdDesc,
-      cptCodeIndividual: _omitCptI,
-      cptCodeGroup: _omitCptG,
-      codesMappedAt: _omitMappedAt,
-      codesMappedByAI: _omitMappedByAi,
-      ...rest
-    } = s;
-    return {
-      ...rest,
-      concerns: parseJsonField<string[]>(s.concerns, []),
-      exceptionality: parseJsonField<string[]>(s.exceptionality, undefined),
-      archived: s.archived === 1,
-      gender: s.gender || undefined,
-      dob: s.dob || undefined,
-      maNumber: s.maNumber || undefined,
-      tsgoals: parseTsGoals(s),
-      domain: s.domain || undefined,
-      icd10Codes: parseJsonField<string[]>(s.icd10Codes, []),
-      icd10Descriptions: parseJsonField<string[]>(s.icd10Descriptions, []),
-      cptCodeIndividual: s.cptCodeIndividual ?? undefined,
-      cptCodeGroup: s.cptCodeGroup ?? undefined,
-      codesMappedAt: s.codesMappedAt || undefined,
-      codesMappedByAI: s.codesMappedByAI === 1,
-    };
-  });
-  
-  res.json(parsed);
+  res.json(students.map(formatStudentForApi));
 }));
 
 studentsRouter.get('/goals-export', asyncHandler(async (req, res) => {
@@ -339,34 +342,7 @@ studentsRouter.get('/:id', asyncHandler(async (req, res) => {
     return res.status(404).json({ error: 'Student not found' });
   }
   
-  const {
-    tsgoals: _ts,
-    domain: _omitDomain,
-    icd10Codes: _omitIcd,
-    icd10Descriptions: _omitIcdDesc,
-    cptCodeIndividual: _omitCptI,
-    cptCodeGroup: _omitCptG,
-    codesMappedAt: _omitMappedAt,
-    codesMappedByAI: _omitMappedByAi,
-    ...base
-  } = student;
-  res.json({
-    ...base,
-    concerns: parseJsonField<string[]>(student.concerns, []),
-    exceptionality: parseJsonField<string[]>(student.exceptionality, undefined),
-    archived: student.archived === 1,
-    gender: student.gender || undefined,
-    dob: student.dob || undefined,
-    maNumber: student.maNumber || undefined,
-    tsgoals: parseTsGoals(student),
-    domain: student.domain || undefined,
-    icd10Codes: parseJsonField<string[]>(student.icd10Codes, []),
-    icd10Descriptions: parseJsonField<string[]>(student.icd10Descriptions, []),
-    cptCodeIndividual: student.cptCodeIndividual ?? undefined,
-    cptCodeGroup: student.cptCodeGroup ?? undefined,
-    codesMappedAt: student.codesMappedAt || undefined,
-    codesMappedByAI: student.codesMappedByAI === 1,
-  });
+  res.json(formatStudentForApi(student));
 }));
 
 /**
@@ -662,7 +638,7 @@ studentsRouter.put('/:id', validateBody(updateStudentSchema), asyncHandler(async
     return res.status(404).json({ error: 'Student not found' });
   }
   
-  // Merge existing with updates
+  // Merge existing with updates (parsed fields only — keep raw DB columns out of merge)
   const student = {
     ...existing,
     concerns: parseJsonField<string[]>(existing.concerns, []),
@@ -672,23 +648,18 @@ studentsRouter.put('/:id', validateBody(updateStudentSchema), asyncHandler(async
   
   // Ensure the school exists (create it if it doesn't)
   const schoolName = student.school ? ensureSchoolExists(student.school) : existing.school;
-  
-  const icd10CodesForDb = Array.isArray(student.icd10Codes)
-    ? student.icd10Codes
-    : typeof student.icd10Codes === 'string'
-      ? parseJsonField<string[]>(student.icd10Codes, [])
-      : parseJsonField<string[]>(existing.icd10Codes, []);
-  const icd10DescForDb = Array.isArray(student.icd10Descriptions)
-    ? student.icd10Descriptions
-    : typeof student.icd10Descriptions === 'string'
-      ? parseJsonField<string[]>(student.icd10Descriptions, [])
-      : parseJsonField<string[]>(existing.icd10Descriptions, []);
+
+  const icd10Codes: Icd10CodeEntry[] =
+    updates.icd10Codes !== undefined
+      ? (updates.icd10Codes as Icd10CodeEntry[])
+      : parseStoredIcd10Codes(existing.icd10Codes, existing.icd10Descriptions);
+  const { icd10CodesJson, icd10PrimaryJson } = serializeIcd10ForDb(icd10Codes);
 
   db.prepare(`
     UPDATE students 
     SET name = ?, age = ?, grade = ?, concerns = ?, exceptionality = ?, status = ?, 
         archived = ?, dateArchived = ?, school = ?, teacherId = ?, caseManagerId = ?, iepDate = ?, annualReviewDate = ?, progressReportFrequency = ?, frequencyPerWeek = ?, frequencyType = ?, gender = ?, dob = ?, maNumber = ?, tsgoals = ?,
-        domain = ?, icd10Codes = ?, icd10Descriptions = ?, cptCodeIndividual = ?, cptCodeGroup = ?,
+        domain = ?, icd10Codes = ?, icd10Primary = ?, cptCodeIndividual = ?, cptCodeGroup = ?,
         codesMappedAt = ?, codesMappedByAI = ?
     WHERE id = ?
   `).run(
@@ -713,8 +684,8 @@ studentsRouter.put('/:id', validateBody(updateStudentSchema), asyncHandler(async
     student.maNumber ?? existing.maNumber,
     tsgoalsJsonForDb(student.tsgoals, existing.tsgoals),
     student.domain ?? existing.domain,
-    stringifyJsonField(icd10CodesForDb) ?? '[]',
-    stringifyJsonField(icd10DescForDb) ?? '[]',
+    icd10CodesJson,
+    icd10PrimaryJson,
     student.cptCodeIndividual ?? existing.cptCodeIndividual ?? '92507',
     student.cptCodeGroup ?? existing.cptCodeGroup ?? '92508',
     student.codesMappedAt ?? existing.codesMappedAt,

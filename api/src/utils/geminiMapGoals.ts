@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { inferGoalDomain, type GoalDomainBucket } from './goalDomainMap';
 
 const APPROVED_CPT = new Set(['92507', '92508', '92521', '92522', '92523', '92524']);
 
@@ -58,23 +59,22 @@ export interface GoalMappingInput {
 export interface GoalMappingResult {
   goalId: string;
   goalText: string;
-  domain: string;
-  icd10Codes: string[];
-  icd10Descriptions: string[];
+  domain: GoalDomainBucket;
   cptCodeIndividual: string;
   cptCodeGroup: string;
   rationale: string;
 }
 
 /**
- * Calls Gemini (preferring a Flash model) to suggest ICD-10 and CPT codes per goal.
+ * Calls Gemini (preferring a Flash model) to suggest CPT codes per goal.
+ * Clinical domain is assigned deterministically via inferGoalDomain (not from the model).
  */
 export async function mapGoalsWithGemini(
   apiKey: string,
   goals: GoalMappingInput[]
 ): Promise<GoalMappingResult[]> {
   if (!apiKey) {
-    throw new Error('Gemini API key is required (set GEMINI_API_KEY or pass apiKey in the request body)');
+    throw new Error('Gemini API key is required (set GEMINI_API_KEY or pass apiKey in the body)');
   }
   if (goals.length === 0) {
     return [];
@@ -105,7 +105,7 @@ export async function mapGoalsWithGemini(
 
   const prompt = `You are an expert pediatric school-based speech-language pathologist billing assistant for US Medicaid / private insurance.
 
-For each treatment goal below, propose appropriate ICD-10 diagnosis codes and CPT treatment codes for speech-language pathology services.
+For each treatment goal below, propose appropriate CPT treatment codes for speech-language pathology services.
 
 Approved CPT codes you may use (only these): 92507 (individual treatment), 92508 (group treatment, 2+ students), 92521 (fluency evaluation), 92522 (speech sound production evaluation), 92523 (speech and language evaluation combined, or language evaluation), 92524 (voice/resonance evaluation).
 
@@ -114,9 +114,6 @@ ${goalsJson}
 
 Return JSON ONLY: a single array. Each element must have:
 - goalId: string (must match input)
-- domain: string (short clinical domain label, e.g. "Articulation", "Receptive Language")
-- icd10Codes: string[] (valid ICD-10-CM codes, no descriptions inside this array)
-- icd10Descriptions: string[] (parallel short descriptions for each code; same length as icd10Codes)
 - cptCodeIndividual: string (for one-on-one treatment — usually 92507 unless evaluation)
 - cptCodeGroup: string (for group treatment — usually 92508 unless evaluation)
 - rationale: string (one or two sentences, plain language)
@@ -145,13 +142,7 @@ Do not include markdown, prose, or keys other than those listed.`;
         const goalId = typeof r.goalId === 'string' ? r.goalId : '';
         if (!goalId || !byId.has(goalId)) continue;
 
-        const icd10Codes = Array.isArray(r.icd10Codes)
-          ? r.icd10Codes.filter((c): c is string => typeof c === 'string')
-          : [];
-        const icd10Descriptions = Array.isArray(r.icd10Descriptions)
-          ? r.icd10Descriptions.filter((c): c is string => typeof c === 'string')
-          : [];
-
+        const goalText = byId.get(goalId)!.goalText;
         const cptCodeIndividual = validateCptIndividual(
           typeof r.cptCodeIndividual === 'string' ? r.cptCodeIndividual : undefined
         );
@@ -161,10 +152,8 @@ Do not include markdown, prose, or keys other than those listed.`;
 
         out.push({
           goalId,
-          goalText: byId.get(goalId)!.goalText,
-          domain: typeof r.domain === 'string' ? r.domain : '',
-          icd10Codes,
-          icd10Descriptions,
+          goalText,
+          domain: inferGoalDomain(goalText),
           cptCodeIndividual,
           cptCodeGroup,
           rationale: typeof r.rationale === 'string' ? r.rationale : '',
@@ -180,9 +169,7 @@ Do not include markdown, prose, or keys other than those listed.`;
           out.push({
             goalId: g.goalId,
             goalText: g.goalText,
-            domain: '',
-            icd10Codes: [],
-            icd10Descriptions: [],
+            domain: inferGoalDomain(g.goalText),
             cptCodeIndividual: validateCptIndividual(undefined),
             cptCodeGroup: validateCptGroup(undefined),
             rationale: 'No mapping returned for this goal; defaulted CPT. Review and edit manually.',

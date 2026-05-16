@@ -27,6 +27,68 @@ const optionalIsoDate = isoDateString.optional().or(z.literal('').transform(() =
 const idString = z.string().min(1, 'ID is required');
 
 // ============================================================================
+// ICD-10 (student-level, SpedForms-aligned)
+// ============================================================================
+
+/** One ICD-10 entry on a student record */
+export const icd10CodeEntrySchema = z.object({
+  code: z
+    .string()
+    .max(20)
+    .transform((s) => s.trim())
+    .pipe(z.string().min(1, 'ICD-10 code is required')),
+  description: z
+    .string()
+    .max(500)
+    .optional()
+    .default('')
+    .transform((s) => (typeof s === 'string' ? s.trim() : '')),
+  primary: z.boolean().default(false),
+  startDate: z
+    .string()
+    .max(40)
+    .optional()
+    .transform((s) => (s && String(s).trim() ? String(s).trim() : undefined)),
+});
+
+export type Icd10CodeEntry = z.infer<typeof icd10CodeEntrySchema>;
+
+/** Coerce legacy string[] to object array before validating entries. */
+function preprocessIcd10Codes(val: unknown): unknown {
+  if (val == null || val === '') return [];
+  if (!Array.isArray(val)) return val;
+  if (val.length === 0) return [];
+  if (val.every((item) => typeof item === 'string')) {
+    return val
+      .map((c) => String(c).trim())
+      .filter(Boolean)
+      .map((code) => ({ code, description: '', primary: false }));
+  }
+  return val;
+}
+
+/** Student icd10Codes: accepts legacy string[] or { code, description, primary, startDate? }[]. */
+export const icd10CodesSchema = z.preprocess(
+  preprocessIcd10Codes,
+  z.array(icd10CodeEntrySchema).default([])
+);
+
+/** Merge parallel legacy icd10Descriptions into icd10Codes when descriptions are empty on entries. */
+function mergeLegacyIcd10Descriptions<T extends { icd10Codes?: Icd10CodeEntry[]; icd10Descriptions?: string[] }>(
+  data: T
+): T {
+  const codes = data.icd10Codes;
+  const descs = data.icd10Descriptions;
+  if (!codes?.length || !descs?.length) return data;
+  const merged = codes.map((entry, i) =>
+    !entry.description && descs[i]?.trim()
+      ? { ...entry, description: descs[i].trim() }
+      : entry
+  );
+  return { ...data, icd10Codes: merged };
+}
+
+// ============================================================================
 // School Schema
 // ============================================================================
 
@@ -98,19 +160,22 @@ export const studentStatusSchema = z.enum(['active', 'discharged']);
 export const progressReportFrequencySchema = z.enum(['quarterly', 'annual']);
 export const frequencyTypeSchema = z.enum(['per-week', 'per-month']);
 
-/** Time-study / billing goal mapping (stored on student as JSON) */
-export const tsGoalEntrySchema = z.object({
+const tsGoalEntryBaseSchema = z.object({
   goalText: z.string().max(4000).default(''),
   domain: z.string().max(200).optional().default(''),
-  icd10Codes: z.array(z.string()).default([]),
-  icd10Descriptions: z.array(z.string()).optional().default([]),
+  icd10Codes: icd10CodesSchema,
+  /** @deprecated Read for legacy tsgoals rows; new writes use description on each icd10Codes entry. */
+  icd10Descriptions: z.array(z.string().max(500)).optional().default([]),
   cptCodeIndividual: z.string().max(20).optional().default(''),
   cptCodeGroup: z.string().max(20).optional().default(''),
   mappedAt: optionalIsoDate,
   mappedByAI: z.boolean().optional().default(false),
 });
 
-export const studentSchema = z.object({
+/** Time-study / billing goal mapping (stored on student as JSON) */
+export const tsGoalEntrySchema = tsGoalEntryBaseSchema.transform(mergeLegacyIcd10Descriptions);
+
+const studentBaseSchema = z.object({
   id: idString.optional(),
   name: nonEmptyString.pipe(z.string().max(200, 'Name must be 200 characters or less')),
   age: z.number().int().min(0, 'Age must be 0 or greater').max(25, 'Age must be 25 or less'),
@@ -133,16 +198,20 @@ export const studentSchema = z.object({
   maNumber: z.string().max(80).optional().transform((s) => (s === '' ? undefined : s)),
   tsgoals: z.array(tsGoalEntrySchema).optional().default([]),
   domain: z.string().max(500).optional().transform((s) => (s === '' ? undefined : s)),
-  icd10Codes: z.array(z.string().max(20)).optional(),
+  icd10Codes: icd10CodesSchema.optional(),
+  /** @deprecated Read for legacy rows; new writes use description on each icd10Codes entry. */
   icd10Descriptions: z.array(z.string().max(500)).optional(),
+  /** Denormalized primary code; routes may derive from icd10Codes when omitted. */
+  icd10Primary: z.string().max(20).optional().transform((s) => (s === '' ? undefined : s?.trim())),
   cptCodeIndividual: z.string().max(20).optional(),
   cptCodeGroup: z.string().max(20).optional(),
   codesMappedAt: optionalIsoDate,
   codesMappedByAI: z.boolean().optional(),
 });
 
-export const createStudentSchema = studentSchema.omit({ id: true });
-export const updateStudentSchema = studentSchema.partial();
+export const studentSchema = studentBaseSchema.transform(mergeLegacyIcd10Descriptions);
+export const createStudentSchema = studentBaseSchema.omit({ id: true }).transform(mergeLegacyIcd10Descriptions);
+export const updateStudentSchema = studentBaseSchema.partial().transform(mergeLegacyIcd10Descriptions);
 
 // ============================================================================
 // Goal Schema

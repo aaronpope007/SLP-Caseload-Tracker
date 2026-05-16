@@ -23,6 +23,8 @@ import { getGoalsByStudent, getStudents, updateStudent } from '../../utils/stora
 import type { Goal, GoalMapAiMapping, Student, TsGoalEntry } from '../../types';
 import { useSchool } from '../../context/SchoolContext';
 import { logError } from '../../utils/logger';
+import { GoalDomainLabel } from '../goal/GoalDomainDot';
+import { DOMAIN_META } from '../../utils/goalDomainMap';
 
 export function GoalMapper() {
   const { selectedSchool } = useSchool();
@@ -103,9 +105,8 @@ export function GoalMapper() {
       const now = new Date().toISOString();
       const tsgoals: TsGoalEntry[] = mappings.map((m) => ({
         goalText: m.goalText,
-        domain: m.domain,
-        icd10Codes: m.icd10Codes,
-        icd10Descriptions: m.icd10Descriptions,
+        domain: DOMAIN_META[m.domain].label,
+        icd10Codes: [],
         cptCodeIndividual: m.cptCodeIndividual,
         cptCodeGroup: m.cptCodeGroup,
         mappedAt: now,
@@ -133,8 +134,8 @@ export function GoalMapper() {
         AI goal mapper
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Map in-progress IEP goals to ICD-10 and CPT codes using Gemini Flash. Confirm results before saving to the
-        student record.
+        Map in-progress IEP goals to clinical domain and CPT codes using Gemini Flash. ICD-10 is set on the student
+        record separately. Confirm results before saving.
       </Typography>
 
       <Stack spacing={2}>
@@ -197,7 +198,6 @@ export function GoalMapper() {
               <TableRow>
                 <TableCell>Goal</TableCell>
                 <TableCell>Domain</TableCell>
-                <TableCell>ICD-10</TableCell>
                 <TableCell>CPT ind / grp</TableCell>
                 <TableCell>Rationale</TableCell>
               </TableRow>
@@ -206,8 +206,9 @@ export function GoalMapper() {
               {mappings.map((m) => (
                 <TableRow key={m.goalId}>
                   <TableCell sx={{ maxWidth: 220 }}>{m.goalText}</TableCell>
-                  <TableCell>{m.domain}</TableCell>
-                  <TableCell sx={{ maxWidth: 160 }}>{m.icd10Codes.join(', ')}</TableCell>
+                  <TableCell>
+                    <GoalDomainLabel goalText={m.goalText} domain={m.domain} />
+                  </TableCell>
                   <TableCell>
                     {m.cptCodeIndividual} / {m.cptCodeGroup}
                   </TableCell>

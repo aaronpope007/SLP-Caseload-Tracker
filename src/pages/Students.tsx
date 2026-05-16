@@ -27,7 +27,9 @@ import {
   UnfoldMore as UnfoldMoreIcon,
   UnfoldLess as UnfoldLessIcon,
 } from '@mui/icons-material';
-import type { Student, Teacher, CaseManager } from '../types';
+import type { Icd10CodeEntry, Student, Teacher, CaseManager } from '../types';
+import { StudentIcd10Editor } from '../components/student/StudentIcd10Editor';
+import { icd10CodesEqual, normalizeIcd10Codes } from '../utils/icd10Codes';
 import { generateId } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
 import {
@@ -100,6 +102,7 @@ export const Students = () => {
     frequencyPerWeek: '',
     frequencyType: 'per-week' as 'per-week' | 'per-month',
     gender: '' as '' | 'male' | 'female' | 'non-binary',
+    icd10Codes: [] as Icd10CodeEntry[],
   });
   const [initialFormData, setInitialFormData] = useState(formData);
   const { confirm, ConfirmDialog } = useConfirm();
@@ -122,7 +125,8 @@ export const Students = () => {
       formData.progressReportFrequency !== initialFormData.progressReportFrequency ||
       formData.frequencyPerWeek !== initialFormData.frequencyPerWeek ||
       formData.frequencyType !== initialFormData.frequencyType ||
-      formData.gender !== initialFormData.gender
+      formData.gender !== initialFormData.gender ||
+      !icd10CodesEqual(formData.icd10Codes, initialFormData.icd10Codes)
     );
   };
 
@@ -199,6 +203,7 @@ export const Students = () => {
         frequencyPerWeek: student.frequencyPerWeek ? student.frequencyPerWeek.toString() : '',
         frequencyType: student.frequencyType || 'per-week',
         gender: student.gender || '',
+        icd10Codes: normalizeIcd10Codes(student.icd10Codes, student.icd10Descriptions),
       };
     } else {
       setEditingStudent(null);
@@ -218,6 +223,7 @@ export const Students = () => {
         frequencyPerWeek: '',
         frequencyType: 'per-week' as 'per-week' | 'per-month',
         gender: '' as '' | 'male' | 'female' | 'non-binary',
+        icd10Codes: [],
       };
     }
     setFormData(newFormData);
@@ -290,6 +296,7 @@ export const Students = () => {
         frequencyPerWeek: frequencyPerWeekValue,
         frequencyType: frequencyPerWeekValue ? formData.frequencyType : undefined,
         gender: formData.gender || undefined,
+        icd10Codes: formData.icd10Codes,
       };
 
       if (editingStudent) {
@@ -822,6 +829,10 @@ export const Students = () => {
             <Typography variant="caption" color="text.secondary" sx={{ mt: -1 }}>
               Set the expected session frequency to track when students fall behind schedule. Leave blank if not tracking frequency.
             </Typography>
+            <StudentIcd10Editor
+              value={formData.icd10Codes}
+              onChange={(icd10Codes) => setFormData({ ...formData, icd10Codes })}
+            />
           </Box>
         </DialogContent>
         <DialogActions>

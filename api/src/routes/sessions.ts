@@ -10,14 +10,15 @@ import {
   generateSessionNotesBodySchema,
   patchSessionMaLoggedBodySchema,
 } from '../schemas';
-import { mergeIcdFromDomains, getIcdCodesFromDomain } from '../utils/goalDomainIcd10';
 import {
   generateSessionNotesWithGemini,
   genericSessionNote,
   buildSoapNoteGenerationSession,
   type SessionNotePromptSession,
-  type AddressedGoalWithIcd,
+  type AddressedGoalWithDomain,
 } from '../utils/geminiSessionNotes';
+import { inferGoalDomain, type GoalDomainBucket } from '../utils/goalDomainMap';
+import { parseStoredIcd10Codes } from '../utils/icd10Codes';
 import { postProcessMaActivityLogNote } from '../utils/maActivityLogNote';
 import { generateSessionNotesWithAnthropic } from '../utils/anthropicSessionNotes';
 import { logger } from '../utils/logger';
@@ -148,33 +149,31 @@ function performanceSummaryForMa(
     .filter((x): x is NonNullable<typeof x> => x != null);
 }
 
-function buildAddressedGoalsWithIcd(
+function buildAddressedGoalsWithDomain(
   row: SessionRow,
-  studentId: string,
-  goalMeta: Map<string, { description: string; domain: string | null }>,
-  studentIcd10Codes: string[],
-  studentIcd10Descriptions: string[]
-): AddressedGoalWithIcd[] {
+  goalMeta: Map<string, { description: string; domain: string | null }>
+): AddressedGoalWithDomain[] {
   const ordered = collectOrderedGoalIds(row);
-  const out: AddressedGoalWithIcd[] = [];
+  const out: AddressedGoalWithDomain[] = [];
   for (const goalId of ordered) {
     const meta = goalMeta.get(goalId);
     const goalDescription = meta?.description || goalId;
-    const domain = meta?.domain ?? null;
-    let icd10Codes: string[] = [];
-    let icd10Descriptions: string[] = [];
-    if (domain) {
-      const m = getIcdCodesFromDomain(domain);
-      icd10Codes = m.codes;
-      icd10Descriptions = m.descriptions;
-    }
-    if (icd10Codes.length === 0 && studentIcd10Codes.length > 0) {
-      icd10Codes = [...studentIcd10Codes];
-      icd10Descriptions = [...studentIcd10Descriptions];
-    }
-    out.push({ goalId, goalDescription, domain, icd10Codes, icd10Descriptions });
+    const domain: GoalDomainBucket = inferGoalDomain(goalDescription);
+    out.push({ goalId, goalDescription, domain });
   }
   return out;
+}
+
+/** Student-level ICD-10 as parallel code/description arrays for session log / MA billing metadata. */
+function studentIcd10ForLog(studentIcd10Codes: string | null, studentIcd10Descriptions: string | null): {
+  icd10Codes: string[];
+  icd10Descriptions: string[];
+} {
+  const entries = parseStoredIcd10Codes(studentIcd10Codes, studentIcd10Descriptions);
+  return {
+    icd10Codes: entries.map((e) => e.code),
+    icd10Descriptions: entries.map((e) => e.description),
+  };
 }
 
 function goalDescriptionDomainFor(
@@ -496,11 +495,10 @@ sessionsRouter.get('/log', asyncHandler(async (req, res) => {
       goalsAddressedText = performanceSummary.map((p) => p.goalDescription);
     }
 
-    const addressedForIcd = goalsAddressedIds
-      .map((x) => (typeof x === 'string' ? x.trim() : String(x).trim()))
-      .filter((x) => x.length > 0);
-    const perfGoalIdsForIcd = performanceSummary.map((p) => p.goalId).filter(Boolean);
-    const tokensForIcd = addressedForIcd.length > 0 ? addressedForIcd : perfGoalIdsForIcd;
+    const { icd10Codes, icd10Descriptions } = studentIcd10ForLog(
+      row.studentIcd10Codes,
+      row.studentIcd10Descriptions
+    );
 
     // True group size comes from DB-wide counts (see groupCounts), not rows in this response.
     const sharedCount = row.groupSessionId ? groupCounts.get(row.groupSessionId) ?? 0 : 0;
@@ -512,34 +510,6 @@ sessionsRouter.get('/log', asyncHandler(async (req, res) => {
     const cptIndividual = row.studentCptCodeIndividual || '92507';
     const cptGroup = row.studentCptCodeGroup || '92508';
     const cptResolved = isGroupOrMulti ? cptGroup : cptIndividual;
-
-    let icd10Codes: string[];
-    let icd10Descriptions: string[];
-    if (tokensForIcd.length === 0) {
-      icd10Codes = parseJsonField<string[]>(row.studentIcd10Codes, []);
-      icd10Descriptions = parseJsonField<string[]>(row.studentIcd10Descriptions, []);
-    } else {
-      const domains: string[] = [];
-      for (const tr of tokensForIcd) {
-        const goalKey = `${row.studentId}|${tr}`;
-        const meta = tr.length <= 220 ? goalMetaByStudentAndId.get(goalKey) : undefined;
-        const domain = meta?.domain?.trim();
-        if (domain) domains.push(domain);
-      }
-      if (domains.length === 0) {
-        icd10Codes = parseJsonField<string[]>(row.studentIcd10Codes, []);
-        icd10Descriptions = parseJsonField<string[]>(row.studentIcd10Descriptions, []);
-      } else {
-        const merged = mergeIcdFromDomains(domains);
-        if (merged.codes.length === 0) {
-          icd10Codes = parseJsonField<string[]>(row.studentIcd10Codes, []);
-          icd10Descriptions = parseJsonField<string[]>(row.studentIcd10Descriptions, []);
-        } else {
-          icd10Codes = merged.codes;
-          icd10Descriptions = merged.descriptions;
-        }
-      }
-    }
 
     return {
       id: row.id,
@@ -709,18 +679,17 @@ sessionsRouter.post(
 
     const enriched = notesSessions.map((s) => {
       const row = augmentedRows.get(s.id);
-      const studentCodes = row ? parseJsonField<string[]>(row.studentIcd10Codes, []) : [];
-      const studentDescs = row ? parseJsonField<string[]>(row.studentIcd10Descriptions, []) : [];
+      const studentIcd = row
+        ? studentIcd10ForLog(row.studentIcd10Codes, row.studentIcd10Descriptions)
+        : { icd10Codes: s.icd10Codes, icd10Descriptions: s.icd10Descriptions };
 
       const perfFromDb = row ? performanceSummaryForMa(row, studentId, goalMetaMap) : [];
       const performanceSummary = perfFromDb.length > 0 ? perfFromDb : s.performanceSummary;
 
-      const addressedGoalsWithIcd = row
-        ? buildAddressedGoalsWithIcd(row, studentId, goalMetaMap, studentCodes, studentDescs)
-        : [];
+      const addressedGoalsWithDomain = row ? buildAddressedGoalsWithDomain(row, goalMetaMap) : [];
 
       const primaryGid = row ? primaryGoalIdFromSessionRow(row) : null;
-      const priorGid = addressedGoalsWithIcd[0]?.goalId ?? primaryGid;
+      const priorGid = addressedGoalsWithDomain[0]?.goalId ?? primaryGid;
       const goalMeta =
         goalDescriptionDomainFor(priorGid, studentId) ?? goalDescriptionDomainFor(primaryGid, studentId);
       const sessionDateForPrior = (row?.date || s.date) as string;
@@ -733,13 +702,14 @@ sessionsRouter.post(
         endTime: s.endTime || '',
         isGroup: s.isGroup,
         cptCode: s.cptCode,
-        icd10Codes: s.icd10Codes,
-        icd10Descriptions: s.icd10Descriptions,
+        icd10Codes: studentIcd.icd10Codes.length > 0 ? studentIcd.icd10Codes : s.icd10Codes,
+        icd10Descriptions:
+          studentIcd.icd10Descriptions.length > 0 ? studentIcd.icd10Descriptions : s.icd10Descriptions,
         performanceSummary,
         goalsAddressedText: s.goalsAddressedText,
         sessionNotes: s.sessionNotes,
         domain: s.domain,
-        addressedGoalsWithIcd,
+        addressedGoalsWithDomain,
         billingSessionContext: s.billingSessionContext,
         communicationModalityBilling: s.communicationModalityBilling,
         clinicalActivitiesBilling: s.clinicalActivitiesBilling,

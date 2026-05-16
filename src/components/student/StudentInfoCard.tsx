@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import {
   Box,
   Card,
@@ -6,6 +6,8 @@ import {
   Chip,
   Typography,
 } from '@mui/material';
+import type { Icd10CodeEntry } from '../../types';
+import { normalizeIcd10Codes } from '../../utils/icd10Codes';
 
 interface StudentInfoCardProps {
   name: string;
@@ -16,6 +18,8 @@ interface StudentInfoCardProps {
   caseManager?: { name: string; role: string };
   frequencyPerWeek?: number;
   frequencyType?: 'per-week' | 'per-month';
+  icd10Codes?: Icd10CodeEntry[] | string[];
+  icd10Descriptions?: string[];
 }
 
 export const StudentInfoCard = memo(({
@@ -27,10 +31,17 @@ export const StudentInfoCard = memo(({
   caseManager,
   frequencyPerWeek,
   frequencyType,
+  icd10Codes,
+  icd10Descriptions,
 }: StudentInfoCardProps) => {
   const frequencyDisplay = frequencyPerWeek && frequencyType
     ? `${frequencyPerWeek} ${frequencyType === 'per-week' ? 'per week' : 'per month'}`
     : null;
+
+  const normalizedIcd10 = useMemo(
+    () => normalizeIcd10Codes(icd10Codes, icd10Descriptions),
+    [icd10Codes, icd10Descriptions]
+  );
 
   return (
     <Card sx={{ mb: 3 }}>
@@ -49,6 +60,30 @@ export const StudentInfoCard = memo(({
             color={status === 'active' ? 'primary' : 'default'}
           />
         </Box>
+        {normalizedIcd10.length > 0 && (
+          <Box sx={{ mb: concerns.length > 0 ? 2 : 0 }}>
+            <Typography variant="subtitle2" gutterBottom>
+              ICD-10 Codes
+            </Typography>
+            <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+              {normalizedIcd10.map((entry, index) => (
+                <Typography
+                  key={`${entry.code}-${index}`}
+                  component="li"
+                  variant="body2"
+                  sx={{
+                    fontWeight: entry.primary ? 700 : 400,
+                    mb: 0.25,
+                  }}
+                >
+                  {entry.code}
+                  {entry.description ? ` — ${entry.description}` : ''}
+                  {entry.startDate ? ` (${entry.startDate})` : ''}
+                </Typography>
+              ))}
+            </Box>
+          </Box>
+        )}
         {concerns.length > 0 && (
           <Box>
             <Typography variant="subtitle2" gutterBottom>
@@ -65,4 +100,3 @@ export const StudentInfoCard = memo(({
     </Card>
   );
 });
-

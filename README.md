@@ -59,7 +59,7 @@ A comprehensive web application designed to help Speech-Language Pathologists (S
 - **Session Scheduling**: Schedule recurring or one-time sessions with calendar integration
 - **Session Calendar**: Visual calendar view of scheduled and completed sessions
 - **Missed Session Tracking**: Mark sessions as missed for attendance tracking
-- **Billing-oriented fields** (optional; stored with the session): goals explicitly **addressed** (`goalsAddressed`), **group vs individual** (`tsisGroup`), **CPT** and **ICD-10** codes when you need them on the record; the **Session log** screen can still derive treatment CPT **92507** / **92508** from group vs individual when summarizing logs
+- **Billing-oriented fields** (optional; stored with the session): goals explicitly **addressed** (`goalsAddressed`), **group vs individual** (`tsisGroup`), and **CPT** when needed on the record; the **Session log** screen can still derive treatment CPT **92507** / **92508** from group vs individual when summarizing logs. **ICD-10** codes are entered manually on each **student profile** (SpedForms-aligned) and shown on the session log from the student record—not inferred from goals or domains.
 
 ### 📈 Progress Tracking
 - **Visual Analytics**: 
@@ -170,7 +170,7 @@ Administrative tools (under **Administrative** in the sidebar) for Noble-style d
 
 - **Goal export** (`/goal-export`): Choose a **school**, then generate a plain-text export (Noble Academy header) listing active students at that school with their goals. Includes **archived** goals (labeled `(archived)`); excludes goals marked **achieved** only. Uses first/last name parsed from the student **name** field; DOB and MA# appear when present on the student.
 - **Session log** (`/session-log`): Pick a **date range** and one or more **students**, then generate a table of **direct, non-missed** sessions with duration, goals addressed (text), individual vs **group**, and treatment CPT (**92507** individual / **92508** when grouped). **Print** hides filters and prints the log plus title/date range.
-- **AI goal mapper** (`/goal-mapper`): Select a student, review **in-progress** goals, run **Map all goals** to get Gemini-suggested ICD-10 and CPT codes, then **Confirm & save** to store mappings on the student as **`tsgoals`**. Uses a **Gemini API key** from Settings (browser) and/or **`GEMINI_API_KEY`** in the API `.env` (see [API README](./api/README.md)).
+- **AI goal mapper** (`/goal-mapper`): Select a student, review **in-progress** goals, run **Map all goals** for Gemini-suggested **CPT** codes and a deterministic **clinical domain** per goal (`inferGoalDomain`), then **Confirm & save** to store mappings on the student as **`tsgoals`**. ICD-10 is edited on the student profile, not via the mapper. Uses a **Gemini API key** from Settings (browser) and/or **`GEMINI_API_KEY`** in the API `.env` (see [API README](./api/README.md)).
 
 ### ⚙️ Data Management
 - **SQLite Backend**: Express.js + SQLite backend for reliable data storage

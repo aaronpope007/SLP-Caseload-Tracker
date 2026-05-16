@@ -26,6 +26,9 @@ import {
 } from '@mui/material';
 import PrintIcon from '@mui/icons-material/Print';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import { DOMAIN_META } from '../../utils/goalDomainMap';
+import { GoalDomainDot } from '../goal/GoalDomainDot';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { format, formatISO, startOfMonth } from 'date-fns';
@@ -93,6 +96,56 @@ function goalsAddressedList(entry: SessionLogEntry): string[] {
 
 function performanceSummaryList(entry: SessionLogEntry): NonNullable<SessionLogEntry['performanceSummary']> {
   return Array.isArray(entry.performanceSummary) ? entry.performanceSummary : [];
+}
+
+function GoalWithDomainLabel({
+  goalText,
+  truncateMax,
+}: {
+  goalText: string;
+  truncateMax?: number;
+}) {
+  const label =
+    truncateMax != null ? truncateGoalDescription(goalText, truncateMax) : (goalText || '').trim();
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+      <GoalDomainDot goalText={goalText} />
+      <Typography component="span" variant="body2" sx={{ ml: '6px' }}>
+        {label || '—'}
+      </Typography>
+    </Box>
+  );
+}
+
+const GOALS_DOMAIN_LEGEND = (
+  <Stack spacing={0.5} sx={{ py: 0.25 }}>
+    {(['articulation', 'language', 'pragmatics', 'unknown'] as const).map((key) => (
+      <Box key={key} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: DOMAIN_META[key].color }} />
+        <Typography variant="caption" component="span">
+          {DOMAIN_META[key].label}
+        </Typography>
+      </Box>
+    ))}
+  </Stack>
+);
+
+function GoalsAddressedHeaderCell({ className }: { className?: string }) {
+  return (
+    <TableCell className={className}>
+      <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+        Goals Addressed
+        <Tooltip title={GOALS_DOMAIN_LEGEND} placement="top">
+          <Box
+            component="span"
+            sx={{ display: 'inline-flex', alignItems: 'center', color: 'text.secondary', cursor: 'help' }}
+          >
+            <InfoOutlinedIcon sx={{ fontSize: 12 }} />
+          </Box>
+        </Tooltip>
+      </Box>
+    </TableCell>
+  );
 }
 
 function truncateGoalDescription(text: string, max: number): string {
@@ -209,9 +262,7 @@ function SessionLogGoalsCell({ entry, muted }: { entry: SessionLogEntry; muted?:
         <Stack spacing={1.25} className="session-log-performance">
           {perf.map((p) => (
             <Box key={p.goalId}>
-              <Typography variant="body2" component="div">
-                {truncateGoalDescription(p.goalDescription, 80)}
-              </Typography>
+              <GoalWithDomainLabel goalText={p.goalDescription} truncateMax={80} />
               <Typography
                 variant="body2"
                 component="div"
@@ -244,9 +295,9 @@ function SessionLogGoalsCell({ entry, muted }: { entry: SessionLogEntry; muted?:
           sx={{ m: 0, pl: 2.25, mb: hasSessionNotes ? 1 : 0, listStyleType: 'disc' }}
         >
           {goals.map((g, i) => (
-            <Typography key={i} component="li" variant="body2" sx={{ display: 'list-item' }}>
-              {g}
-            </Typography>
+            <Box key={i} component="li" sx={{ display: 'list-item', listStyle: 'disc' }}>
+              <GoalWithDomainLabel goalText={g} />
+            </Box>
           ))}
         </Box>
       ) : (
@@ -398,16 +449,18 @@ export function SessionLog() {
   }, [visibleSessions.length]);
 
   const handleMaLoggedToggle = useCallback(
-    async (sessionId: string, checked: boolean) => {
+    async (sessionId: string, checked: boolean): Promise<boolean> => {
       const was = sessions.find((s) => s.id === sessionId)?.maLogged ?? false;
       setSessions((prev) => prev.map((row) => (row.id === sessionId ? { ...row, maLogged: checked } : row)));
       try {
         await api.sessions.patchMaLogged(sessionId, { maLogged: checked });
+        return true;
       } catch (e) {
         setSessions((prev) => prev.map((row) => (row.id === sessionId ? { ...row, maLogged: was } : row)));
         const msg = e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Failed to update MA log';
         logError('MA logged toggle', e);
         showSnackbar(msg, 'error');
+        return false;
       }
     },
     [sessions, showSnackbar]
@@ -512,12 +565,20 @@ export function SessionLog() {
       try {
         await navigator.clipboard.writeText(text);
         setClipFeedback({ sessionId: r.id, kind });
-        showSnackbar(successMessage, 'success');
+        if (kind === 'note' && !r.maLogged) {
+          const marked = await handleMaLoggedToggle(r.id, true);
+          showSnackbar(
+            marked ? `${successMessage} Marked as logged to MA.` : `${successMessage} Could not update logged status.`,
+            marked ? 'success' : 'warning'
+          );
+        } else {
+          showSnackbar(successMessage, 'success');
+        }
       } catch {
         showSnackbar('Could not copy to clipboard', 'error');
       }
     },
-    [showSnackbar]
+    [showSnackbar, handleMaLoggedToggle]
   );
 
   useEffect(() => {
@@ -844,7 +905,7 @@ export function SessionLog() {
                         <TableCell>CPT Code</TableCell>
                         <TableCell>ICD-10 Codes</TableCell>
                         <TableCell className="no-print">Logged to MA</TableCell>
-                        <TableCell>Goals Addressed</TableCell>
+                        <GoalsAddressedHeaderCell />
                       </>
                     )}
                   </TableRow>
@@ -876,12 +937,9 @@ export function SessionLog() {
                           </TableCell>
                           <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>{r.resolvedCptCode}</TableCell>
                           <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>
-                            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                              {!r.codesMapped && <Chip size="small" color="warning" label="⚠️ Codes not mapped" />}
-                              <Typography variant="body2" component="span">
-                                {r.icd10Codes.length ? r.icd10Codes.join(', ') : '—'}
-                              </Typography>
-                            </Stack>
+                            <Typography variant="body2" component="span">
+                              {r.icd10Codes.length ? r.icd10Codes.join(', ') : '—'}
+                            </Typography>
                           </TableCell>
                           <TableCell className="no-print" align="center" sx={{ opacity: 1, textDecoration: 'none' }}>
                             <Checkbox
@@ -970,12 +1028,9 @@ export function SessionLog() {
                         </TableCell>
                         <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>{r.resolvedCptCode}</TableCell>
                         <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>
-                          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                            {!r.codesMapped && <Chip size="small" color="warning" label="⚠️ Codes not mapped" />}
-                            <Typography variant="body2" component="span">
-                              {r.icd10Codes.length ? r.icd10Codes.join(', ') : '—'}
-                            </Typography>
-                          </Stack>
+                          <Typography variant="body2" component="span">
+                            {r.icd10Codes.length ? r.icd10Codes.join(', ') : '—'}
+                          </Typography>
                         </TableCell>
                         <TableCell className="no-print" align="center" sx={{ opacity: 1, textDecoration: 'none' }}>
                           <Checkbox
@@ -1016,7 +1071,7 @@ export function SessionLog() {
                       <TableCell>CPT Code</TableCell>
                       <TableCell>ICD-10 Codes</TableCell>
                       <TableCell className="no-print">Logged to MA</TableCell>
-                      <TableCell>Goals Addressed</TableCell>
+                      <GoalsAddressedHeaderCell />
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -1045,12 +1100,9 @@ export function SessionLog() {
                         </TableCell>
                         <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>{r.resolvedCptCode}</TableCell>
                         <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>
-                          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                            {!r.codesMapped && <Chip size="small" color="warning" label="⚠️ Codes not mapped" />}
-                            <Typography variant="body2" component="span">
-                              {r.icd10Codes.length ? r.icd10Codes.join(', ') : '—'}
-                            </Typography>
-                          </Stack>
+                          <Typography variant="body2" component="span">
+                            {r.icd10Codes.length ? r.icd10Codes.join(', ') : '—'}
+                          </Typography>
                         </TableCell>
                         <TableCell className="no-print" align="center" sx={{ opacity: 1, textDecoration: 'none' }}>
                           <Checkbox
@@ -1086,7 +1138,7 @@ export function SessionLog() {
                   <TableCell>CPT Code</TableCell>
                   <TableCell>ICD-10 Codes</TableCell>
                   <TableCell className="no-print">Logged to MA</TableCell>
-                  <TableCell>Goals Addressed</TableCell>
+                  <GoalsAddressedHeaderCell />
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -1114,12 +1166,9 @@ export function SessionLog() {
                     </TableCell>
                     <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>{r.resolvedCptCode}</TableCell>
                     <TableCell sx={sessionLogMaMutedSx(r.maLogged)}>
-                      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                        {!r.codesMapped && <Chip size="small" color="warning" label="⚠️ Codes not mapped" />}
-                        <Typography variant="body2" component="span">
-                          {r.icd10Codes.length ? r.icd10Codes.join(', ') : '—'}
-                        </Typography>
-                      </Stack>
+                      <Typography variant="body2" component="span">
+                        {r.icd10Codes.length ? r.icd10Codes.join(', ') : '—'}
+                      </Typography>
                     </TableCell>
                     <TableCell className="no-print" align="center" sx={{ opacity: 1, textDecoration: 'none' }}>
                       <Checkbox

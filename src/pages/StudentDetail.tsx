@@ -374,6 +374,8 @@ export const StudentDetail = () => {
         concerns={student.concerns}
         frequencyPerWeek={student.frequencyPerWeek}
         frequencyType={student.frequencyType}
+        icd10Codes={student.icd10Codes}
+        icd10Descriptions={student.icd10Descriptions}
       />
 
       <Card sx={{ mb: 3 }}>

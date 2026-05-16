@@ -46,6 +46,14 @@ export interface CaseManager {
   gender?: 'male' | 'female' | 'non-binary';
 }
 
+/** One ICD-10 code on a student record (SpedForms-aligned). */
+export interface Icd10CodeEntry {
+  code: string;
+  description: string;
+  primary: boolean;
+  startDate?: string;
+}
+
 export interface Student {
   id: string;
   name: string;
@@ -74,7 +82,9 @@ export interface Student {
   tsgoals?: TsGoalEntry[];
   /** Top-level billing / diagnosis domain (not per-goal) */
   domain?: string;
-  icd10Codes?: string[];
+  /** SpedForms-aligned ICD-10 entries (API may still return legacy string[] until migrated). */
+  icd10Codes?: Icd10CodeEntry[] | string[];
+  /** @deprecated Parallel descriptions for legacy string[] icd10Codes; use description on each entry. */
   icd10Descriptions?: string[];
   cptCodeIndividual?: string;
   cptCodeGroup?: string;
@@ -241,9 +251,7 @@ export interface EvalLogEntry {
 export interface GoalMapAiMapping {
   goalId: string;
   goalText: string;
-  domain: string;
-  icd10Codes: string[];
-  icd10Descriptions: string[];
+  domain: 'articulation' | 'language' | 'pragmatics' | 'unknown';
   cptCodeIndividual: string;
   cptCodeGroup: string;
   rationale: string;

@@ -254,11 +254,17 @@ export function initDatabase() {
     if (!studentColumnNames.includes('domain')) {
       db.exec(`ALTER TABLE students ADD COLUMN domain TEXT`);
     }
+    // icd10Codes: JSON array of { code, description, primary, startDate? } (SpedForms-aligned).
+    // Legacy rows may still be string[] + parallel icd10Descriptions; readers should normalize.
     if (!studentColumnNames.includes('icd10Codes')) {
       db.exec(`ALTER TABLE students ADD COLUMN icd10Codes TEXT`);
     }
     if (!studentColumnNames.includes('icd10Descriptions')) {
       db.exec(`ALTER TABLE students ADD COLUMN icd10Descriptions TEXT`);
+    }
+    // Denormalized primary ICD-10 code (mirrors entry with primary: true in icd10Codes JSON).
+    if (!studentColumnNames.includes('icd10Primary')) {
+      db.exec(`ALTER TABLE students ADD COLUMN icd10Primary TEXT`);
     }
     if (!studentColumnNames.includes('cptCodeIndividual')) {
       db.exec(`ALTER TABLE students ADD COLUMN cptCodeIndividual TEXT DEFAULT '92507'`);
