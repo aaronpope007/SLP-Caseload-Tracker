@@ -18,6 +18,7 @@ import {
 import type { Goal, Student } from '../../types';
 import { flattenGoalHierarchy } from '../../utils/goalPaths';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
+import { sessionGoalDisplayLabel } from '../../utils/sessionGoalLabel';
 
 interface GoalSearchBarProps {
   goals: Goal[];
@@ -143,7 +144,7 @@ export const GoalSearchBar = ({
                       primary={
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                           <Typography variant="body2" component="span">
-                            {goal.description}
+                            {sessionGoalDisplayLabel(goal)}
                           </Typography>
                           {isSelected && (
                             <Chip label="Selected" size="small" color="primary" />

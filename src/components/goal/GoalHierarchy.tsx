@@ -21,6 +21,7 @@ import type { Goal } from '../../types';
 import { GoalProgressChip } from './GoalProgressChip';
 import { PerformanceDataForm } from '../session/PerformanceDataForm';
 import { arraysEqual, performanceDataEqual } from '../../utils/helpers';
+import { sessionGoalDisplayLabel } from '../../utils/sessionGoalLabel';
 
 interface PerformanceDataItem {
   goalId: string;
@@ -114,7 +115,7 @@ export const GoalHierarchy = memo(({
                   }
                   label={
                     <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                      <Box component="span" sx={{ fontSize: isCompact ? '0.875rem' : '1rem' }}>{goal.description}</Box>
+                      <Box component="span" sx={{ fontSize: isCompact ? '0.875rem' : '1rem' }}>{sessionGoalDisplayLabel(goal)}</Box>
                       <GoalProgressChip
                         average={recentAvg}
                         target={goal.target}
@@ -185,7 +186,7 @@ export const GoalHierarchy = memo(({
               }
               label={
                 <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                  <Box component="span" sx={{ fontSize: isCompact ? '0.875rem' : '1rem' }}>{goal.description}</Box>
+                  <Box component="span" sx={{ fontSize: isCompact ? '0.875rem' : '1rem' }}>{sessionGoalDisplayLabel(goal)}</Box>
                   <GoalProgressChip
                     average={recentAvg}
                     target={goal.target}
@@ -282,7 +283,7 @@ export const GoalHierarchy = memo(({
                     }
                     label={
                       <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                        <Box component="span" sx={{ fontSize: isCompact ? '0.875rem' : '1rem' }}>{goal.description}</Box>
+                        <Box component="span" sx={{ fontSize: isCompact ? '0.875rem' : '1rem' }}>{sessionGoalDisplayLabel(goal)}</Box>
                         <GoalProgressChip
                           average={recentAvg}
                           target={goal.target}

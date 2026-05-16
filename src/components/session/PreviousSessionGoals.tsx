@@ -11,6 +11,7 @@ import {
 } from '@mui/icons-material';
 import type { Student, Goal, Session } from '../../types';
 import { GoalProgressChip } from '../goal/GoalProgressChip';
+import { sessionGoalDisplayLabel } from '../../utils/sessionGoalLabel';
 
 interface PreviousSessionGoalsProps {
   students: Student[];
@@ -192,7 +193,7 @@ export const PreviousSessionGoals = ({
                   flexShrink: 1,
                 }}
               >
-                {goal.description}
+                {sessionGoalDisplayLabel(goal)}
               </Typography>
               {previousSessionPerformance !== null && (
                 <Typography variant="body2" sx={{ ml: 0.5, fontWeight: 'bold', whiteSpace: 'nowrap' }}>
@@ -212,7 +213,7 @@ export const PreviousSessionGoals = ({
           return (
             <Tooltip
               key={goal.id}
-              title={goal.description}
+              title={sessionGoalDisplayLabel(goal)}
               arrow
               placement="top"
             >

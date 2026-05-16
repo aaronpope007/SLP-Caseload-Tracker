@@ -15,6 +15,7 @@ import {
 import type { Goal, Student } from '../../types';
 import { getGoalPath } from '../../utils/goalPaths';
 import { GoalProgressChip } from './GoalProgressChip';
+import { sessionGoalDisplayLabel } from '../../utils/sessionGoalLabel';
 
 interface QuickAccessGoalsBarProps {
   goals: Goal[];
@@ -118,7 +119,7 @@ export const QuickAccessGoalsBar = memo(({
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                         <PinIcon sx={{ fontSize: '0.875rem' }} />
                         <Typography variant="caption" sx={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {studentName}: {goal.description}
+                          {studentName}: {sessionGoalDisplayLabel(goal)}
                         </Typography>
                         <GoalProgressChip
                           average={recentAvg}
@@ -169,7 +170,7 @@ export const QuickAccessGoalsBar = memo(({
                     label={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                         <Typography variant="caption" sx={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {studentName}: {goal.description}
+                          {studentName}: {sessionGoalDisplayLabel(goal)}
                         </Typography>
                         <GoalProgressChip
                           average={recentAvg}

@@ -15,6 +15,7 @@ import {
 import type { Goal, Student } from '../../types';
 import { getGoalPath } from '../../utils/goalPaths';
 import { GoalProgressChip } from './GoalProgressChip';
+import { sessionGoalDisplayLabel } from '../../utils/sessionGoalLabel';
 import { arraysEqual, performanceDataEqual } from '../../utils/helpers';
 
 interface PerformanceDataItem {
@@ -206,7 +207,7 @@ export const ActiveGoalsTrackingPanel = memo(({
                           {student?.name || 'Unknown'}
                         </Typography>
                         <Chip
-                          label={goal.description}
+                          label={sessionGoalDisplayLabel(goal)}
                           size="small"
                           color={isFocused ? 'primary' : 'default'}
                           sx={{ maxWidth: '100%' }}

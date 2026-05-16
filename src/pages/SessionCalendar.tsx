@@ -79,6 +79,7 @@ import {
   updateMeeting,
 } from '../utils/storage-api';
 import { generateId, toLocalDateTimeString, fromLocalDateTimeString } from '../utils/helpers';
+import { sessionGoalDisplayLabel } from '../utils/sessionGoalLabel';
 import { sessionSaveHasTimeDuplicate } from '../utils/sessionDuplicateCheck';
 import { useSchool } from '../context/SchoolContext';
 import { SessionFormDialog } from '../components/session/SessionFormDialog';
@@ -201,7 +202,7 @@ export const SessionCalendar = () => {
       if (isMountedRef.current) {
         setSessions(allSessions);
       }
-      const allGoals = await getGoals();
+      const allGoals = await getGoals(true);
       if (isMountedRef.current) {
         setGoals(allGoals);
       }
@@ -3525,7 +3526,8 @@ export const SessionCalendar = () => {
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                     {selected.slice(0, 3).map((id) => {
                       const goal = goals.find(g => g.id === id);
-                      return <Chip key={id} label={goal?.description || id} size="small" />;
+                      const label = goal ? sessionGoalDisplayLabel(goal) : id;
+                      return <Chip key={id} label={label} size="small" />;
                     })}
                     {selected.length > 3 && <Chip label={`+${selected.length - 3} more`} size="small" />}
                   </Box>
@@ -3534,7 +3536,7 @@ export const SessionCalendar = () => {
                 {formData.studentIds.flatMap(studentId =>
                   goals.filter(g => g.studentId === studentId).map(goal => (
                     <MenuItem key={goal.id} value={goal.id}>
-                      {students.find(s => s.id === goal.studentId)?.name}: {goal.description}
+                      {students.find(s => s.id === goal.studentId)?.name}: {sessionGoalDisplayLabel(goal)}
                     </MenuItem>
                   ))
                 )}

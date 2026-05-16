@@ -43,6 +43,7 @@ import { ActiveGoalsTrackingPanel } from '../goal/ActiveGoalsTrackingPanel';
 import { usePinnedGoals } from '../../hooks/usePinnedGoals';
 import { PreviousSessionGoals } from './PreviousSessionGoals';
 import { getDocumentTitleForPathname } from '../../config/routeTitles';
+import { sessionGoalDisplayLabel } from '../../utils/sessionGoalLabel';
 
 export interface SessionFormData {
   studentIds: string[];
@@ -1191,7 +1192,7 @@ export const SessionFormDialog = ({
                                   {completedGoals.map((goal) => (
                                     <Box key={goal.id} sx={{ p: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
                                       <Typography variant="body2">
-                                        {goal.description}
+                                        {sessionGoalDisplayLabel(goal)}
                                       </Typography>
                                       {goal.dateAchieved && (
                                         <Typography variant="caption" color="text.secondary">
@@ -1282,7 +1283,7 @@ export const SessionFormDialog = ({
                                     {completedGoals.map((goal) => (
                                       <Box key={goal.id} sx={{ p: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
                                         <Typography variant="body2">
-                                          {goal.description}
+                                          {sessionGoalDisplayLabel(goal)}
                                         </Typography>
                                         {goal.dateAchieved && (
                                           <Typography variant="caption" color="text.secondary">

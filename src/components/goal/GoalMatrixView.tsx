@@ -21,6 +21,7 @@ import { getGoalPath } from '../../utils/goalPaths';
 import { GoalProgressChip } from './GoalProgressChip';
 import { PerformanceDataForm } from '../session/PerformanceDataForm';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
+import { sessionGoalDisplayLabel } from '../../utils/sessionGoalLabel';
 
 interface PerformanceDataItem {
   goalId: string;
@@ -203,7 +204,7 @@ export const GoalMatrixView = memo(({
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
                   <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
-                    {goal.description}
+                    {sessionGoalDisplayLabel(goal)}
                   </Typography>
                   <GoalProgressChip
                     average={recentAvg}
