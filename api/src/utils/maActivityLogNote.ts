@@ -1,4 +1,70 @@
-/** Verbatim late-entry line prepended to MA activity log notes when applicable. */
+const MN_TZ = 'America/Chicago';
+
+/** Display date for late-entry header (M/D/YYYY in Minnesota timezone). */
+export function formatMaServiceDateDisplay(ymd: string): string {
+  const t = ymd.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) {
+    const [y, mo, da] = t.split('-').map((x) => parseInt(x, 10));
+    if (y && mo && da) {
+      const d = new Date(Date.UTC(y, mo - 1, da, 12, 0, 0));
+      return d.toLocaleDateString('en-US', {
+        timeZone: MN_TZ,
+        month: 'numeric',
+        day: 'numeric',
+        year: 'numeric',
+      });
+    }
+  }
+  return t;
+}
+
+/** Compact clock for late-entry header, e.g. 11:00 (Central; no AM/PM). */
+function formatMaSessionClockCompact(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: MN_TZ,
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).formatToParts(d);
+  const hour = parts.find((p) => p.type === 'hour')?.value ?? '';
+  const minute = parts.find((p) => p.type === 'minute')?.value ?? '00';
+  if (!hour) return '';
+  return `${hour}:${minute}`;
+}
+
+/** Session time range for late-entry header, e.g. 11:00-11:20. */
+export function formatMaSessionTimeRangeMn(startIso: string, endIso?: string): string {
+  const start = formatMaSessionClockCompact(startIso);
+  if (!start) return '';
+  const endRaw = (endIso ?? '').trim() || startIso;
+  const end = formatMaSessionClockCompact(endRaw);
+  if (!end || end === start) return start;
+  return `${start}-${end}`;
+}
+
+export interface MaLateEntryHeaderOptions {
+  startTime?: string;
+  endTime?: string;
+  isGroup?: boolean;
+}
+
+/** Late-entry header: scheduled date/time plus (group) or (individual). */
+export function buildMaLateEntryHeader(
+  serviceDateYmd: string,
+  opts?: MaLateEntryHeaderOptions
+): string {
+  const dateDisplay = formatMaServiceDateDisplay(serviceDateYmd);
+  const timeRange = opts?.startTime?.trim()
+    ? formatMaSessionTimeRangeMn(opts.startTime, opts.endTime)
+    : '';
+  const scheduled = timeRange ? `scheduled ${dateDisplay} ${timeRange}` : dateDisplay;
+  const serviceLabel = opts?.isGroup === true ? 'group' : 'individual';
+  return `LATE ENTRY — Note written after date of service (${scheduled}) (${serviceLabel})`;
+}
+
+/** @deprecated Use {@link buildMaLateEntryHeader} with service date. Legacy notes may omit the date. */
 export const MA_LATE_ENTRY_HEADER = 'LATE ENTRY — Note written after date of service';
 
 const OPENING_TEMPLATES = [
@@ -55,16 +121,18 @@ export function buildMaNoteStyleInstructions(studentName: string, serviceDateYmd
 - Preferred closing: ${CLOSING_TEMPLATES[i]}`;
 }
 
-const LATE_ENTRY_RE =
-  /^LATE\s+ENTRY\s*[—–-]\s*Note\s+written\s+after\s+date\s+of\s+service\s*(?:\r?\n){0,2}/i;
+const LATE_ENTRY_LINE_RE =
+  /^LATE\s+ENTRY\s*[—–-]\s*Note\s+written\s+after\s+date\s+of\s+service/i;
 
 /** Split stored note into optional late-entry header and narrative body. */
 export function splitMaActivityLogNote(note: string): { lateEntryHeader?: string; body: string } {
   const trimmed = note.trim();
   if (!trimmed) return { body: '' };
-  if (LATE_ENTRY_RE.test(trimmed)) {
-    const body = trimmed.replace(LATE_ENTRY_RE, '').trim();
-    return { lateEntryHeader: MA_LATE_ENTRY_HEADER, body };
+  const firstLine = trimmed.split(/\r?\n/)[0]?.trim() ?? '';
+  if (LATE_ENTRY_LINE_RE.test(firstLine)) {
+    const nl = trimmed.indexOf('\n');
+    const body = nl >= 0 ? trimmed.slice(nl + 1).replace(/^\r?\n/, '').trim() : '';
+    return { lateEntryHeader: firstLine, body };
   }
   return { body: trimmed };
 }
@@ -95,14 +163,27 @@ export function stripBillingCodesFromMaNote(text: string): string {
 
 export function postProcessMaActivityLogNote(
   note: string,
-  opts?: { isLateEntry?: boolean }
+  opts?: {
+    isLateEntry?: boolean;
+    serviceDateYmd?: string;
+    startTime?: string;
+    endTime?: string;
+    isGroup?: boolean;
+  }
 ): string {
   const { lateEntryHeader, body } = splitMaActivityLogNote(note);
   let cleaned = stripBillingCodesFromMaNote(body);
   cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
   const parts: string[] = [];
   if (opts?.isLateEntry || lateEntryHeader) {
-    parts.push(MA_LATE_ENTRY_HEADER);
+    const header = opts?.serviceDateYmd?.trim()
+      ? buildMaLateEntryHeader(opts.serviceDateYmd, {
+          startTime: opts.startTime,
+          endTime: opts.endTime,
+          isGroup: opts.isGroup,
+        })
+      : (lateEntryHeader ?? MA_LATE_ENTRY_HEADER);
+    parts.push(header);
   }
   if (cleaned) parts.push(cleaned);
   return parts.join('\n\n');

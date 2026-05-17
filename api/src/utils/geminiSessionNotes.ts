@@ -4,6 +4,7 @@ import { calcUnits, sessionDurationMinutes } from './billingUnits';
 import type { Icd10NarrativeContext } from './icd10NarrativeContext';
 import { logger } from './logger';
 import {
+  buildMaLateEntryHeader,
   buildMaNoteStyleInstructions,
   postProcessMaActivityLogNote,
 } from './maActivityLogNote';
@@ -214,7 +215,11 @@ function buildSoapSessionsBlock(sessions: SoapNoteGenerationSession[]): string {
   const parts: string[] = [];
   for (const s of sessions) {
     const lateLine = s.isLateEntry
-      ? 'LATE ENTRY — Note written after date of service'
+      ? buildMaLateEntryHeader(s.serviceDateYmd, {
+          startTime: s.startTime,
+          endTime: (s.endTime || '').trim() || s.startTime,
+          isGroup: s.isGroup,
+        })
       : '(not a late entry — omit late-entry line from header)';
     const endIso = (s.endTime || '').trim() || s.startTime;
     const sessionTimeCentral = `${formatClockMn(s.startTime)} – ${formatClockMn(endIso)}`;
@@ -299,7 +304,7 @@ The JSON field **"note"** is the **only narrative** pasted into the MA activity 
 OUTPUT FORMAT:
 - **One paragraph only** for the clinical narrative (no bullet points, no headers, no SOAP sections).
 - **80–130 words** for the narrative (max ~150 words). Third person, past tense, clinical but readable.
-- If late entry: first line MUST be exactly \`LATE ENTRY — Note written after date of service\` (no date on this line), then one blank line, then the paragraph.
+- If late entry: first line MUST match the "Late entry:" line from SESSION DATA exactly (e.g. \`LATE ENTRY — Note written after date of service (scheduled M/D/YYYY H:MM-H:MM) (group)\` or \`(individual)\`), then one blank line, then the paragraph.
 - If not a late entry: no late-entry line — start with the paragraph only.
 
 MUST INCLUDE IN THE PARAGRAPH:
@@ -523,6 +528,10 @@ export async function generateSessionNotesWithGemini(
         const sessionRow = sessions.find((x) => x.id === sessionId);
         const processed = postProcessMaActivityLogNote(note, {
           isLateEntry: sessionRow?.isLateEntry,
+          serviceDateYmd: sessionRow?.serviceDateYmd,
+          startTime: sessionRow?.startTime,
+          endTime: sessionRow?.endTime,
+          isGroup: sessionRow?.isGroup,
         });
         out.push({ sessionId, note: processed });
       }

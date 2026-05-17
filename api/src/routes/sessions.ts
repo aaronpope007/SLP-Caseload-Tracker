@@ -923,7 +923,13 @@ sessionsRouter.post(
         if (!note) {
           note = genericSessionNote(s.domain, { isGroup: s.isGroup });
         } else {
-          note = postProcessMaActivityLogNote(note, { isLateEntry: enrichedRow?.isLateEntry });
+          note = postProcessMaActivityLogNote(note, {
+            isLateEntry: enrichedRow?.isLateEntry,
+            serviceDateYmd: enrichedRow?.serviceDateYmd,
+            startTime: enrichedRow?.startTime,
+            endTime: enrichedRow?.endTime,
+            isGroup: enrichedRow?.isGroup,
+          });
         }
         updateStmt.run(note, s.id, studentId);
         notesOut.push({ sessionId: s.id, note });

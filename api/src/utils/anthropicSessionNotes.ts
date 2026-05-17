@@ -69,7 +69,13 @@ export async function generateSessionNotesWithAnthropic(
     const sessionRow = sessions.find((x) => x.id === sessionId);
     out.push({
       sessionId,
-      note: postProcessMaActivityLogNote(note, { isLateEntry: sessionRow?.isLateEntry }),
+      note: postProcessMaActivityLogNote(note, {
+        isLateEntry: sessionRow?.isLateEntry,
+        serviceDateYmd: sessionRow?.serviceDateYmd,
+        startTime: sessionRow?.startTime,
+        endTime: sessionRow?.endTime,
+        isGroup: sessionRow?.isGroup,
+      }),
     });
   }
 

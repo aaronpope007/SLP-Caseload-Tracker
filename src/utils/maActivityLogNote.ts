@@ -1,16 +1,16 @@
 /** Client helpers for MA activity log note display (keep in sync with api/src/utils/maActivityLogNote.ts). */
 
-export const MA_LATE_ENTRY_HEADER = 'LATE ENTRY — Note written after date of service';
-
-const LATE_ENTRY_RE =
-  /^LATE\s+ENTRY\s*[—–-]\s*Note\s+written\s+after\s+date\s+of\s+service\s*(?:\r?\n){0,2}/i;
+const LATE_ENTRY_LINE_RE =
+  /^LATE\s+ENTRY\s*[—–-]\s*Note\s+written\s+after\s+date\s+of\s+service/i;
 
 export function splitMaActivityLogNote(note: string): { lateEntryHeader?: string; body: string } {
   const trimmed = note.trim();
   if (!trimmed) return { body: '' };
-  if (LATE_ENTRY_RE.test(trimmed)) {
-    const body = trimmed.replace(LATE_ENTRY_RE, '').trim();
-    return { lateEntryHeader: MA_LATE_ENTRY_HEADER, body };
+  const firstLine = trimmed.split(/\r?\n/)[0]?.trim() ?? '';
+  if (LATE_ENTRY_LINE_RE.test(firstLine)) {
+    const nl = trimmed.indexOf('\n');
+    const body = nl >= 0 ? trimmed.slice(nl + 1).replace(/^\r?\n/, '').trim() : '';
+    return { lateEntryHeader: firstLine, body };
   }
   return { body: trimmed };
 }
