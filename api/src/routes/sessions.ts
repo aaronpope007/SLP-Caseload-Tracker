@@ -630,20 +630,36 @@ sessionsRouter.post(
     }
 
     const notesSessions: typeof bodySessions = [];
+    let skippedMissed = 0;
+    let skippedMaLogged = 0;
     for (const s of bodySessions) {
       const row = db
-        .prepare('SELECT id, missedSession FROM sessions WHERE id = ? AND studentId = ?')
-        .get(s.id, studentId) as { id: string; missedSession: number | null } | undefined;
+        .prepare('SELECT id, missedSession, maLogged FROM sessions WHERE id = ? AND studentId = ?')
+        .get(s.id, studentId) as
+        | { id: string; missedSession: number | null; maLogged: number | null }
+        | undefined;
       if (!row) {
         return res.status(400).json({ error: `Session ${s.id} not found for this student` });
       }
       if (row.missedSession === 1) {
         logger.warn({ sessionId: s.id }, 'Skipping note generation for missed session');
+        skippedMissed++;
+        continue;
+      }
+      if (row.maLogged === 1) {
+        logger.warn({ sessionId: s.id }, 'Skipping note generation for MA-logged session');
+        skippedMaLogged++;
         continue;
       }
       notesSessions.push(s);
     }
     if (notesSessions.length === 0) {
+      if (skippedMaLogged > 0 && skippedMissed === 0) {
+        return res.status(400).json({
+          error:
+            "All selected sessions are already logged to MA. Uncheck 'Logged to MA' before regenerating notes.",
+        });
+      }
       return res.status(400).json({
         error: 'No sessions to generate notes for (missed sessions are excluded).',
       });

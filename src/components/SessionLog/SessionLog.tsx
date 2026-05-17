@@ -471,6 +471,14 @@ export function SessionLog() {
   const handleGenerateAiNotes = useCallback(async () => {
     if (multiStudent || selectedIds.length !== 1 || sessions.length === 0) return;
     const st = students.find((s) => s.id === selectedIds[0]);
+    const selectedSessions = sessions.filter((s) => !s.missedSession && !s.maLogged);
+    if (selectedSessions.length === 0) {
+      showSnackbar(
+        'No sessions available for note generation. Sessions already logged to MA are excluded.',
+        'error'
+      );
+      return;
+    }
     setAiNotesLoading(true);
     try {
       const storedGeminiKey =
@@ -484,7 +492,6 @@ export function SessionLog() {
       const soapName = typeof localStorage !== 'undefined' ? localStorage.getItem('soap_provider_name')?.trim() : '';
       const soapCred = typeof localStorage !== 'undefined' ? localStorage.getItem('soap_provider_credentials')?.trim() : '';
       const soapNpi = typeof localStorage !== 'undefined' ? localStorage.getItem('soap_provider_npi')?.trim() : '';
-      const selectedSessions = sessions.filter((s) => !s.missedSession);
       const body = {
         ...(storedGeminiKey ? { apiKey: storedGeminiKey } : {}),
         ...(storedAnthropicKey ? { anthropicApiKey: storedAnthropicKey } : {}),
