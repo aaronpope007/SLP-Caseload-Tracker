@@ -160,6 +160,7 @@ export function initDatabase() {
       groupSessionId TEXT,
       missedSession INTEGER NOT NULL DEFAULT 0,
       maLogged INTEGER NOT NULL DEFAULT 0,
+      maLoggedAt TEXT,
       selectedSubjectiveStatements TEXT,
       customSubjective TEXT,
       plan TEXT,
@@ -207,6 +208,9 @@ export function initDatabase() {
     }
     if (!columnNames.includes('maLogged')) {
       db.exec(`ALTER TABLE sessions ADD COLUMN maLogged INTEGER NOT NULL DEFAULT 0`);
+    }
+    if (!columnNames.includes('maLoggedAt')) {
+      db.exec(`ALTER TABLE sessions ADD COLUMN maLoggedAt TEXT`);
     }
   } catch (e: any) {
     // If table doesn't exist yet, columns will be added via CREATE TABLE above

@@ -5,7 +5,7 @@
  * Set VITE_API_URL in your .env file or it defaults to http://localhost:3001
  */
 
-import type { Student, Goal, Session, Activity, Evaluation, ArticulationScreener, School, Teacher, CaseManager, SOAPNote, IEPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Meeting, Reminder, Communication, ScheduledSession, TimesheetNote, Todo, CombinedProgressNote, ReassessmentPlan, ReassessmentPlanItem, ReassessmentPlanTemplate, GoalsExportRow, SessionLogEntry, EvalLogEntry, GoalMapAiMapping } from '../types';
+import type { Student, Goal, Session, Activity, Evaluation, ArticulationScreener, School, Teacher, CaseManager, SOAPNote, IEPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Meeting, Reminder, Communication, ScheduledSession, TimesheetNote, Todo, CombinedProgressNote, ReassessmentPlan, ReassessmentPlanItem, ReassessmentPlanTemplate, GoalsExportRow, SessionLogEntry, EvalLogEntry, GoalMapAiMapping, MaBillingLogResponse } from '../types';
 import { buildQueryString } from './queryHelpers';
 import { logError } from './logger';
 
@@ -359,6 +359,11 @@ export const api = {
       request<SessionLogEntry[]>(
         `/sessions/log${buildQueryString(params)}`
       ),
+    getMaBillingLog: (params: {
+      startDate: string;
+      endDate: string;
+      filterBy?: 'serviceDate' | 'loggedDate';
+    }) => request<MaBillingLogResponse>(`/sessions/ma-billing-log${buildQueryString(params)}`),
     generateNotes: (body: {
       /** Same as map-goals: optional Settings key; server uses GEMINI_API_KEY if omitted. */
       apiKey?: string;

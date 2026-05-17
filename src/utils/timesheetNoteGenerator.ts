@@ -102,6 +102,51 @@ interface TimeTrackingItem {
 
 export type TimesheetNoteOutputFormat = 'detailed' | 'steppingStones';
 
+export interface MaBillingStudentForTimesheet {
+  initials: string;
+  grade: string;
+  sessionCount: number;
+}
+
+function maBillingInitialsGradeKey(initials: string, grade: string): string {
+  return `${initials}\0${grade}`;
+}
+
+/** Stepping Stones: merge MA billing students into `AB (3)` list; skip duplicates by initials+grade. */
+function mergeSteppingStonesStudentEntries(
+  existingEntries: string[],
+  maBillingStudents?: MaBillingStudentForTimesheet[]
+): string[] {
+  const presentKeys = new Set<string>();
+  for (const entry of existingEntries) {
+    const m = entry.match(/^(.+?)\s+\((.+)\)\s*$/);
+    if (m) {
+      presentKeys.add(maBillingInitialsGradeKey(m[1].trim(), m[2].trim()));
+    }
+  }
+  const merged = [...existingEntries];
+  for (const s of maBillingStudents ?? []) {
+    const key = maBillingInitialsGradeKey(s.initials, s.grade);
+    if (presentKeys.has(key)) continue;
+    presentKeys.add(key);
+    merged.push(`${s.initials} (${s.grade})`);
+  }
+  return merged.sort((a, b) => {
+    const ia = a.match(/^([^(]+)/)?.[1]?.trim() ?? a;
+    const ib = b.match(/^([^(]+)/)?.[1]?.trim() ?? b;
+    return ia.localeCompare(ib);
+  });
+}
+
+function formatMaBillingDetailedLine(maBillingStudents?: MaBillingStudentForTimesheet[]): string | null {
+  if (!maBillingStudents?.length) return null;
+  const parts = maBillingStudents
+    .slice()
+    .sort((a, b) => a.initials.localeCompare(b.initials))
+    .map((s) => `${s.initials}(${s.grade}) x${s.sessionCount}`);
+  return `MA Billing: ${parts.join(', ')}`;
+}
+
 interface GenerateTimesheetNoteParams {
   filteredItems: TimeTrackingItem[];
   sessions: Session[];
@@ -124,6 +169,7 @@ interface GenerateTimesheetNoteParams {
   scheduledSessionsDate?: string;
   /** Current school name; filters scheduled roster to this school’s students. */
   schoolName?: string;
+  maBillingStudents?: MaBillingStudentForTimesheet[];
 }
 
 export const generateTimesheetNote = ({
@@ -143,6 +189,7 @@ export const generateTimesheetNote = ({
   scheduledSessions = [],
   scheduledSessionsDate = '',
   schoolName = '',
+  maBillingStudents,
 }: GenerateTimesheetNoteParams): string => {
   const noteParts: string[] = [];
 
@@ -781,11 +828,17 @@ export const generateTimesheetNote = ({
       schoolName,
       getStudent,
     });
-    const rosterEntries = buildStudentEntries(scheduledIds);
+    const rosterEntries = mergeSteppingStonesStudentEntries(
+      buildStudentEntries(scheduledIds),
+      maBillingStudents
+    );
     const directLabel = isTeletherapy ? 'Offsite Direct Services:' : 'Direct Services:';
     const indirectLabel = isTeletherapy ? 'Offsite Indirect Services:' : 'Indirect Services:';
     const directEntries = buildStudentEntries(workDirectIds);
-    const indirectEntries = buildStudentEntries(workIndirectIds);
+    const indirectEntries = mergeSteppingStonesStudentEntries(
+      buildStudentEntries(workIndirectIds),
+      maBillingStudents
+    );
 
     const prepSection = [
       '1) Prep shift:',
@@ -1011,6 +1064,11 @@ export const generateTimesheetNote = ({
     addIndirectSubsection('Due process (Data Entry Spedforms):', spedformsDataEntryEntries.join(', '));
   }
 
+  const maBillingLine = formatMaBillingDetailedLine(maBillingStudents);
+  if (maBillingLine) {
+    addIndirectStandaloneLine(maBillingLine);
+  }
+
   noteParts.push(''); // Empty line after service
 
   // Remove trailing empty line if present
@@ -1041,6 +1099,7 @@ interface GenerateProspectiveTimesheetNoteParams {
   outputFormat?: TimesheetNoteOutputFormat;
   /** For Stepping Stones morning roster; filters scheduled students to this school. */
   schoolName?: string;
+  maBillingStudents?: MaBillingStudentForTimesheet[];
 }
 
 export const generateProspectiveTimesheetNote = ({
@@ -1054,6 +1113,7 @@ export const generateProspectiveTimesheetNote = ({
   formatTimeRange,
   outputFormat = 'detailed',
   schoolName = '',
+  maBillingStudents,
 }: GenerateProspectiveTimesheetNoteParams): string => {
   const noteParts: string[] = [];
 
@@ -1474,11 +1534,17 @@ export const generateProspectiveTimesheetNote = ({
       schoolName,
       getStudent,
     });
-    const rosterEntries = buildStudentEntries(scheduledIds);
+    const rosterEntries = mergeSteppingStonesStudentEntries(
+      buildStudentEntries(scheduledIds),
+      maBillingStudents
+    );
     const directLabel = isTeletherapy ? 'Offsite Direct Services:' : 'Direct Services:';
     const indirectLabel = isTeletherapy ? 'Offsite Indirect Services:' : 'Indirect Services:';
     const directEntries = buildStudentEntries(workDirectIds);
-    const indirectEntries = buildStudentEntries(workIndirectIds);
+    const indirectEntries = mergeSteppingStonesStudentEntries(
+      buildStudentEntries(workIndirectIds),
+      maBillingStudents
+    );
 
     const prepSection = [
       '1) Prep shift:',

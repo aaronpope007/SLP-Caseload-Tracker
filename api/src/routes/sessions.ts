@@ -22,6 +22,7 @@ import { parseStoredIcd10Codes } from '../utils/icd10Codes';
 import { postProcessMaActivityLogNote } from '../utils/maActivityLogNote';
 import { generateSessionNotesWithAnthropic } from '../utils/anthropicSessionNotes';
 import { logger } from '../utils/logger';
+import { generateInitialsList } from '../utils/studentInitials';
 
 // Database row types
 interface SessionRow {
@@ -47,6 +48,7 @@ interface SessionRow {
   icd10Codes: string | null;
   aiGeneratedNote: string | null;
   maLogged: number | null;
+  maLoggedAt: string | null;
 }
 
 // Performance data type for proper parsing
@@ -560,6 +562,141 @@ function normalizeDuplicateCheckStartIso(dateYmd: string, startTimeRaw: string):
   return d.toISOString();
 }
 
+type MaBillingFilterBy = 'serviceDate' | 'loggedDate';
+
+function parseMaBillingFilterBy(raw: unknown): MaBillingFilterBy | null {
+  if (raw === undefined || raw === null || raw === '') return 'serviceDate';
+  if (typeof raw !== 'string') return null;
+  const v = raw.trim();
+  if (v === 'serviceDate' || v === 'loggedDate') return v;
+  return null;
+}
+
+sessionsRouter.get('/ma-billing-log', asyncHandler(async (req, res) => {
+  const startDate = typeof req.query.startDate === 'string' ? req.query.startDate.trim() : '';
+  const endDate = typeof req.query.endDate === 'string' ? req.query.endDate.trim() : '';
+  const filterBy = parseMaBillingFilterBy(req.query.filterBy);
+
+  if (!startDate || !endDate) {
+    return res.status(400).json({ error: 'startDate and endDate are required' });
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+    return res.status(400).json({ error: 'startDate and endDate must be YYYY-MM-DD' });
+  }
+
+  if (filterBy === null) {
+    return res.status(400).json({ error: "filterBy must be 'serviceDate' or 'loggedDate'" });
+  }
+
+  const dateFilterSql =
+    filterBy === 'loggedDate'
+      ? `substr(s.maLoggedAt, 1, 10) >= ? AND substr(s.maLoggedAt, 1, 10) <= ? AND s.maLoggedAt IS NOT NULL`
+      : `substr(s.date, 1, 10) >= ? AND substr(s.date, 1, 10) <= ?`;
+
+  const rows = db
+    .prepare(
+      `
+      SELECT
+        s.id AS sessionId,
+        s.studentId AS studentId,
+        st.name AS studentName,
+        COALESCE(st.grade, '') AS grade,
+        substr(s.date, 1, 10) AS serviceDate,
+        s.maLoggedAt AS maLoggedAt,
+        ${
+          filterBy === 'loggedDate'
+            ? 'substr(s.maLoggedAt, 1, 10) AS reportDay'
+            : 'substr(s.date, 1, 10) AS reportDay'
+        }
+      FROM sessions s
+      INNER JOIN students st ON st.id = s.studentId
+      WHERE s.maLogged = 1
+        AND (s.missedSession = 0 OR s.missedSession IS NULL)
+        AND ${dateFilterSql}
+      ORDER BY st.name ASC, reportDay ASC, s.id ASC
+    `
+    )
+    .all(startDate, endDate) as Array<{
+      sessionId: string;
+      studentId: string;
+      studentName: string;
+      grade: string;
+      serviceDate: string;
+      maLoggedAt: string | null;
+      reportDay: string;
+    }>;
+
+  const byStudent = new Map<
+    string,
+    {
+      studentId: string;
+      studentName: string;
+      grade: string;
+      dates: Set<string>;
+      sessionCount: number;
+      sessions: Array<{ sessionId: string; serviceDate: string; maLoggedAt: string | null }>;
+    }
+  >();
+
+  for (const row of rows) {
+    let entry = byStudent.get(row.studentId);
+    if (!entry) {
+      entry = {
+        studentId: row.studentId,
+        studentName: row.studentName,
+        grade: row.grade,
+        dates: new Set<string>(),
+        sessionCount: 0,
+        sessions: [],
+      };
+      byStudent.set(row.studentId, entry);
+    }
+    entry.sessionCount += 1;
+    if (row.reportDay) {
+      entry.dates.add(row.reportDay);
+    }
+    entry.sessions.push({
+      sessionId: row.sessionId,
+      serviceDate: row.serviceDate,
+      maLoggedAt: row.maLoggedAt,
+    });
+  }
+
+  const studentList = [...byStudent.values()];
+  const initialsMap = generateInitialsList(
+    studentList.map((s) => ({
+      studentId: s.studentId,
+      name: s.studentName,
+      grade: s.grade,
+    }))
+  );
+
+  const students = studentList
+    .map((s) => ({
+      studentId: s.studentId,
+      studentName: s.studentName,
+      grade: s.grade,
+      initials: initialsMap.get(s.studentId) ?? '??',
+      sessionCount: s.sessionCount,
+      dates: [...s.dates].sort(),
+      sessions: s.sessions,
+    }))
+    .sort((a, b) => {
+      if (b.sessionCount !== a.sessionCount) {
+        return b.sessionCount - a.sessionCount;
+      }
+      return a.studentName.localeCompare(b.studentName);
+    });
+
+  res.json({
+    students,
+    totalSessions: rows.length,
+    dateRange: { startDate, endDate },
+    filterBy,
+  });
+}));
+
 sessionsRouter.get('/check-duplicate', asyncHandler(async (req, res) => {
   const q = req.query as Record<string, string | undefined>;
   const studentId = (q.studentId || '').trim();
@@ -807,7 +944,11 @@ sessionsRouter.patch(
     if (!id || typeof id !== 'string') {
       return res.status(400).json({ error: 'Invalid session ID' });
     }
-    const result = db.prepare('UPDATE sessions SET maLogged = ? WHERE id = ?').run(maLogged ? 1 : 0, id);
+    const result = maLogged
+      ? db
+          .prepare(`UPDATE sessions SET maLogged = 1, maLoggedAt = datetime('now') WHERE id = ?`)
+          .run(id)
+      : db.prepare(`UPDATE sessions SET maLogged = 0, maLoggedAt = NULL WHERE id = ?`).run(id);
     if (result.changes === 0) {
       return res.status(404).json({ error: 'Session not found' });
     }

@@ -232,6 +232,33 @@ export interface SessionLogEntry {
   maLogged: boolean;
 }
 
+/** One session row nested under GET /api/sessions/ma-billing-log student */
+export interface MaBillingLogSessionEntry {
+  sessionId: string;
+  serviceDate: string;
+  maLoggedAt: string | null;
+}
+
+/** One student row from GET /api/sessions/ma-billing-log */
+export interface MaBillingLogStudent {
+  studentId: string;
+  studentName: string;
+  grade: string;
+  initials: string;
+  sessionCount: number;
+  dates: string[];
+  sessions: MaBillingLogSessionEntry[];
+}
+
+export type MaBillingLogFilterBy = 'serviceDate' | 'loggedDate';
+
+export interface MaBillingLogResponse {
+  students: MaBillingLogStudent[];
+  totalSessions: number;
+  dateRange: { startDate: string; endDate: string };
+  filterBy: MaBillingLogFilterBy;
+}
+
 /** One row from GET /api/meetings/eval-log (meeting category exposed as `type`) */
 export interface EvalLogEntry {
   id: string;

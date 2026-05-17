@@ -31,7 +31,8 @@ import { TimesheetNoteDialog } from '../components/TimesheetNoteDialog';
 import { SavedNotesDialog } from '../components/SavedNotesDialog';
 import { TimeTrackingFilter } from '../components/TimeTrackingFilter';
 import { MeetingFormDialog } from '../components/meeting/MeetingFormDialog';
-import { generateTimesheetNote, generateProspectiveTimesheetNote } from '../utils/timesheetNoteGenerator';
+import { generateTimesheetNote, generateProspectiveTimesheetNote, type MaBillingStudentForTimesheet } from '../utils/timesheetNoteGenerator';
+import { MaBillingLogSection } from '../components/timeTracking/MaBillingLogSection';
 import { useConfirm, useSnackbar, useDialog } from '../hooks';
 import type { TimesheetNote } from '../types';
 import { migrateTimesheetNotes } from '../utils/migrateTimesheetNotes';
@@ -90,6 +91,39 @@ export const TimeTracking = () => {
   const [useSpecificTimes, setUseSpecificTimes] = useState(false);
   const [timesheetNote, setTimesheetNote] = useState('');
   const [savedNotes, setSavedNotes] = useState<TimesheetNote[]>([]);
+  const [maBillingStudents, setMaBillingStudents] = useState<MaBillingStudentForTimesheet[]>([]);
+
+  // Load MA billing for the selected service day (silent; used by timesheet generation).
+  useEffect(() => {
+    if (!selectedDate) {
+      setMaBillingStudents([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await api.sessions.getMaBillingLog({
+          startDate: selectedDate,
+          endDate: selectedDate,
+          filterBy: 'serviceDate',
+        });
+        if (cancelled) return;
+        setMaBillingStudents(
+          res.students.map((s) => ({
+            initials: s.initials,
+            grade: s.grade,
+            sessionCount: s.sessionCount,
+          }))
+        );
+      } catch (e) {
+        logError('MA billing auto-fetch for timesheet failed', e);
+        if (!cancelled) setMaBillingStudents([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDate]);
 
   // Per SSG SLP-SLPA billing rules: For tele services, exact time in/out is REQUIRED for direct services
   // Check if school is tele services and default useSpecificTimes to true
@@ -530,6 +564,7 @@ export const TimeTracking = () => {
       noteDate: selectedDate || '',
       outputFormat: 'detailed',
       scheduledSessions: latestScheduledSessions,
+      maBillingStudents,
     });
     
     setTimesheetNote(note);
@@ -672,6 +707,7 @@ export const TimeTracking = () => {
       scheduledSessions: latestScheduledSessions,
       scheduledSessionsDate: selectedDate || '',
       schoolName: selectedSchool,
+      maBillingStudents,
     });
 
     setTimesheetNote(note);
@@ -835,6 +871,11 @@ export const TimeTracking = () => {
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
         View all activities and evaluations in chronological order.
       </Typography>
+
+      <MaBillingLogSection
+        onStudentsLoaded={setMaBillingStudents}
+        onNotify={(message, severity) => showSnackbar(message, severity ?? 'success')}
+      />
 
       <TimeTrackingFilter
         selectedDate={selectedDate}
