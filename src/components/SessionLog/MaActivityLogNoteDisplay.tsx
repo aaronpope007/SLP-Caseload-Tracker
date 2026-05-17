@@ -1,6 +1,7 @@
 import { Box, Stack, Typography } from '@mui/material';
 import type { SessionLogEntry } from '../../types';
 import { splitMaActivityLogNote } from '../../utils/maActivityLogNote';
+import { stripBillingCodesFromNote } from '../../utils/stripBillingCodes';
 
 function formatSessionDateOnly(iso: string): string {
   try {
@@ -30,7 +31,8 @@ interface MaActivityLogNoteDisplayProps {
 
 /** SpedForms-style metadata row (codes) + plain narrative body (no codes). */
 export function MaActivityLogNoteDisplay({ entry, noteText }: MaActivityLogNoteDisplayProps) {
-  const { lateEntryHeader, body } = splitMaActivityLogNote(noteText);
+  const { lateEntryHeader, body: rawBody } = splitMaActivityLogNote(noteText);
+  const body = rawBody ? stripBillingCodesFromNote(rawBody) : '';
   const serviceLabel = entry.isGroup
     ? `Group${entry.groupSize ? ` (${entry.groupSize})` : ''}`
     : 'Individual';
