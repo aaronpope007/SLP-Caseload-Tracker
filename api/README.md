@@ -31,8 +31,6 @@ The SQLite database is stored in `./data/slp-caseload.db`. This file is automati
 
 ## Data Import
 
-**Follow-up:** `POST /api/admin/import-codes` still expects legacy parallel `icd10Codes` string arrays + `icd10Descriptions`. Root `import-codes-payload.json` uses the new object shape; update the admin route (see `TODO(cleanup)` in `api/src/routes/admin.ts`) before re-running bulk import.
-
 To import data from a JSON export file:
 
 1. Export your data using the export endpoint or through the app's export functionality

@@ -1,25 +1,35 @@
 import { Router } from 'express';
 import { db } from '../db';
 import { asyncHandler } from '../middleware/asyncHandler';
+import type { Icd10CodeEntry } from '../schemas/index';
+import { parseStoredIcd10Codes, serializeIcd10ForDb } from '../utils/icd10Codes';
 import { stringifyJsonField } from '../utils/jsonHelpers';
 import { splitStudentName } from '../utils/studentName';
 import { inferGoalDomainFromDescription } from '../utils/inferGoalDomainFromDescription';
 
 export const adminRouter = Router();
 
-// TODO(cleanup): POST /import-codes still expects legacy parallel string[] icd10Codes +
-// icd10Descriptions. import-codes-payload.json uses SpedForms object shape; update this route
-// to parse object[] and write via serializeIcd10ForDb (see students PUT) before re-running bulk import.
-
 type ImportEntry = {
   firstName?: string;
   lastName?: string;
   domain?: string;
-  icd10Codes?: string[];
+  icd10Codes?: string[] | Icd10CodeEntry[];
+  /** @deprecated Descriptions belong on each icd10Codes entry; still accepted for legacy payloads. */
   icd10Descriptions?: string[];
   cptCodeIndividual?: string;
   cptCodeGroup?: string;
 };
+
+function normalizeImportIcd10(entry: ImportEntry): ReturnType<typeof serializeIcd10ForDb> {
+  const codesRaw = Array.isArray(entry.icd10Codes) ? entry.icd10Codes : [];
+  const codesJson = stringifyJsonField(codesRaw) ?? '[]';
+  const descriptionsJson =
+    Array.isArray(entry.icd10Descriptions) && entry.icd10Descriptions.length > 0
+      ? stringifyJsonField(entry.icd10Descriptions)
+      : null;
+  const normalized = parseStoredIcd10Codes(codesJson, descriptionsJson);
+  return serializeIcd10ForDb(normalized);
+}
 
 adminRouter.post('/import-codes', asyncHandler(async (req, res) => {
   const headerToken = req.headers['x-admin-token'];
@@ -52,7 +62,7 @@ adminRouter.post('/import-codes', asyncHandler(async (req, res) => {
     UPDATE students SET
       domain = ?,
       icd10Codes = ?,
-      icd10Descriptions = ?,
+      icd10Primary = ?,
       cptCodeIndividual = ?,
       cptCodeGroup = ?,
       codesMappedAt = ?,
@@ -79,16 +89,15 @@ adminRouter.post('/import-codes', asyncHandler(async (req, res) => {
         continue;
       }
 
-      const icd10Codes = Array.isArray(entry.icd10Codes) ? entry.icd10Codes : [];
-      const icd10Descriptions = Array.isArray(entry.icd10Descriptions) ? entry.icd10Descriptions : [];
+      const { icd10CodesJson, icd10PrimaryJson } = normalizeImportIcd10(entry);
       const cptInd = entry.cptCodeIndividual?.trim() || '92507';
       const cptGrp = entry.cptCodeGroup?.trim() || '92508';
       const domain = entry.domain?.trim() ?? '';
 
       updateStmt.run(
         domain || null,
-        stringifyJsonField(icd10Codes) ?? '[]',
-        stringifyJsonField(icd10Descriptions) ?? '[]',
+        icd10CodesJson,
+        icd10PrimaryJson,
         cptInd,
         cptGrp,
         new Date().toISOString(),

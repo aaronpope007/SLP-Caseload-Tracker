@@ -31,4 +31,32 @@ describe('icd10Codes utils', () => {
     ]);
     expect(icd10PrimaryJson).toBeNull();
   });
+
+  it('round-trips import-codes payload object shape (new + legacy)', () => {
+    const newShape = [
+      { code: 'F80.0', description: 'Phonological disorder', primary: true },
+      { code: 'F80.2', description: 'Mixed receptive-expressive language disorder', primary: false },
+    ];
+    const { icd10CodesJson, icd10PrimaryJson } = serializeIcd10ForDb(
+      parseStoredIcd10Codes(JSON.stringify(newShape), null)
+    );
+    const roundTrip = parseStoredIcd10Codes(icd10CodesJson, null);
+    expect(roundTrip).toEqual([
+      { code: 'F80.0', description: 'Phonological disorder', primary: true, startDate: undefined },
+      {
+        code: 'F80.2',
+        description: 'Mixed receptive-expressive language disorder',
+        primary: false,
+        startDate: undefined,
+      },
+    ]);
+    expect(JSON.parse(icd10PrimaryJson!)).toMatchObject({ code: 'F80.0', primary: true });
+
+    const legacy = parseStoredIcd10Codes(
+      JSON.stringify(['F80.1']),
+      JSON.stringify(['Expressive language disorder'])
+    );
+    const legacyDb = serializeIcd10ForDb(legacy);
+    expect(parseStoredIcd10Codes(legacyDb.icd10CodesJson, null)).toEqual(legacy);
+  });
 });
