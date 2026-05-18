@@ -1,4 +1,6 @@
-const MN_TZ = 'America/Chicago';
+import { BILLING_TIMEZONE } from './billingTimezone';
+
+const MN_TZ = BILLING_TIMEZONE;
 
 /** Display date for late-entry header (M/D/YYYY in Minnesota timezone). */
 export function formatMaServiceDateDisplay(ymd: string): string {

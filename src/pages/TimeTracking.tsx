@@ -6,7 +6,16 @@ import {
   CardContent,
   Typography,
 } from '@mui/material';
-import type { Session, Evaluation, Student, Communication, ScheduledSession, ArticulationScreener, Meeting } from '../types';
+import type {
+  Session,
+  Evaluation,
+  Student,
+  Communication,
+  ScheduledSession,
+  ArticulationScreener,
+  Meeting,
+  MaBillingLogStudent,
+} from '../types';
 import {
   getSessions,
   getEvaluations,
@@ -42,6 +51,23 @@ interface TimeTrackingItem {
   type: 'session' | 'evaluation' | 'screener' | 'meeting' | 'communication';
   date: string;
   data: Session | Evaluation | ArticulationScreener | Meeting | Communication;
+}
+
+function mapMaBillingStudentsForTimesheet(students: MaBillingLogStudent[]): MaBillingStudentForTimesheet[] {
+  return students.map((s) => ({
+    initials: s.initials,
+    grade: s.grade,
+    sessionCount: s.sessionCount,
+  }));
+}
+
+async function fetchMaBillingForTimesheetDay(dateYmd: string): Promise<MaBillingStudentForTimesheet[]> {
+  const res = await api.sessions.getMaBillingLog({
+    startDate: dateYmd,
+    endDate: dateYmd,
+    filterBy: 'loggedDate',
+  });
+  return mapMaBillingStudentsForTimesheet(res.students);
 }
 
 // Storage functions for timesheet notes (now using API)
@@ -102,19 +128,9 @@ export const TimeTracking = () => {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await api.sessions.getMaBillingLog({
-          startDate: selectedDate,
-          endDate: selectedDate,
-          filterBy: 'serviceDate',
-        });
+        const students = await fetchMaBillingForTimesheetDay(selectedDate);
         if (cancelled) return;
-        setMaBillingStudents(
-          res.students.map((s) => ({
-            initials: s.initials,
-            grade: s.grade,
-            sessionCount: s.sessionCount,
-          }))
-        );
+        setMaBillingStudents(students);
       } catch (e) {
         logError('MA billing auto-fetch for timesheet failed', e);
         if (!cancelled) setMaBillingStudents([]);
@@ -424,8 +440,17 @@ export const TimeTracking = () => {
     return sessions.filter(s => s.groupSessionId === groupSessionId);
   };
 
+  const canGenerateTimesheet = Boolean(
+    selectedDate && (filteredItems.length > 0 || maBillingStudents.length > 0)
+  );
+
   const handleGenerateTimesheetNote = async () => {
     // Always pull freshest data at generation time (handles multi-tab usage without manual refresh).
+    const maBillingForNote = selectedDate
+      ? await fetchMaBillingForTimesheetDay(selectedDate).catch(() => maBillingStudents)
+      : maBillingStudents;
+    setMaBillingStudents(maBillingForNote);
+
     const [
       latestSessions,
       latestEvaluations,
@@ -564,7 +589,7 @@ export const TimeTracking = () => {
       noteDate: selectedDate || '',
       outputFormat: 'detailed',
       scheduledSessions: latestScheduledSessions,
-      maBillingStudents,
+      maBillingStudents: maBillingForNote,
     });
     
     setTimesheetNote(note);
@@ -572,6 +597,11 @@ export const TimeTracking = () => {
   };
 
   const handleGenerateSteppingStonesTimesheetNote = async () => {
+    const maBillingForNote = selectedDate
+      ? await fetchMaBillingForTimesheetDay(selectedDate).catch(() => maBillingStudents)
+      : maBillingStudents;
+    setMaBillingStudents(maBillingForNote);
+
     const [
       latestSessions,
       latestEvaluations,
@@ -707,7 +737,7 @@ export const TimeTracking = () => {
       scheduledSessions: latestScheduledSessions,
       scheduledSessionsDate: selectedDate || '',
       schoolName: selectedSchool,
-      maBillingStudents,
+      maBillingStudents: maBillingForNote,
     });
 
     setTimesheetNote(note);
@@ -890,7 +920,7 @@ export const TimeTracking = () => {
         onAddSlpScreener={handleAddSlpScreener}
         onAddDocumentation={handleAddDocumentation}
         onAddCaseloadPlanning={handleAddCaseloadPlanning}
-        hasItems={filteredItems.length > 0}
+        hasItems={canGenerateTimesheet}
         useSpecificTimes={useSpecificTimes}
         onUseSpecificTimesChange={setUseSpecificTimes}
       />
@@ -900,8 +930,10 @@ export const TimeTracking = () => {
           <Card>
             <CardContent>
               <Typography color="text.secondary" align="center">
-                {selectedDate 
-                  ? `No activities found for ${formatDate(selectedDate)}.`
+                {selectedDate
+                  ? maBillingStudents.length > 0
+                    ? `No therapy activities logged for ${formatDate(selectedDate)}, but MA billing entries are available — you can still generate a timesheet note.`
+                    : `No activities found for ${formatDate(selectedDate)}.`
                   : 'No activities or evaluations logged yet.'}
               </Typography>
             </CardContent>

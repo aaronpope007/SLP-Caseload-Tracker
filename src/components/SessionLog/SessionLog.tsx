@@ -468,13 +468,32 @@ export function SessionLog() {
 
   const multiStudent = selectedIds.length > 1 || allSelected;
 
-  const handleGenerateAiNotes = useCallback(async () => {
+  const handleGenerateAiNotes = useCallback(async (onlySessionId?: string) => {
     if (multiStudent || selectedIds.length !== 1 || sessions.length === 0) return;
     const st = students.find((s) => s.id === selectedIds[0]);
-    const selectedSessions = sessions.filter((s) => !s.missedSession && !s.maLogged);
+    const eligibleSessions = sessions.filter((s) => !s.missedSession && !s.maLogged);
+    if (onlySessionId) {
+      const row = sessions.find((s) => s.id === onlySessionId);
+      if (row?.maLogged) {
+        showSnackbar(
+          'This session is logged to MA. Uncheck Logged to MA before regenerating its note.',
+          'error'
+        );
+        return;
+      }
+      if (row?.missedSession) {
+        showSnackbar('Missed sessions cannot be regenerated.', 'error');
+        return;
+      }
+    }
+    const selectedSessions = onlySessionId
+      ? eligibleSessions.filter((s) => s.id === onlySessionId)
+      : eligibleSessions;
     if (selectedSessions.length === 0) {
       showSnackbar(
-        'No sessions available for note generation. Sessions already logged to MA are excluded.',
+        onlySessionId
+          ? 'Session not found or not eligible for note generation.'
+          : 'No sessions available for note generation. Sessions already logged to MA are excluded.',
         'error'
       );
       return;
@@ -540,7 +559,7 @@ export function SessionLog() {
       for (const n of res.notes) {
         next[n.sessionId] = n.note;
       }
-      setAiNotesBySessionId(next);
+      setAiNotesBySessionId((prev) => ({ ...prev, ...next }));
       setSessions((prev) =>
         prev.map((row) => {
           const hit = res.notes.find((n) => n.sessionId === row.id);
@@ -793,10 +812,10 @@ export function SessionLog() {
                     <Tooltip
                       title={
                         lastSoapNotesProvider
-                          ? `Last batch: ${lastSoapNotesProvider === 'anthropic' ? 'Claude (Anthropic)' : 'Gemini'}`
+                          ? `Last batch: ${lastSoapNotesProvider === 'anthropic' ? 'Claude (Anthropic)' : 'Gemini'}. Only sessions not logged to MA are regenerated.`
                           : preferClaudeOnlyForSoap
-                            ? 'Notes will be generated with Claude only (Anthropic key required).'
-                            : 'Uses Gemini first; falls back to Claude if Gemini fails (Anthropic key required for fallback).'
+                            ? 'Notes will be generated with Claude only (Anthropic key required). Sessions already logged to MA are skipped.'
+                            : 'Uses Gemini first; falls back to Claude if Gemini fails. Sessions already logged to MA are skipped.'
                       }
                     >
                       <span>
@@ -809,7 +828,7 @@ export function SessionLog() {
                               typeof window !== 'undefined' &&
                               !localStorage.getItem('anthropic_api_key')?.trim())
                           }
-                          onClick={handleGenerateAiNotes}
+                          onClick={() => void handleGenerateAiNotes()}
                         >
                           {showAiNotesLayout ? '✨ Regenerate AI Notes' : '✨ Generate AI Notes'}
                         </Button>
@@ -999,14 +1018,24 @@ export function SessionLog() {
                                   ? 'Copied ✓'
                                   : 'Copy'}
                               </Button>
-                              <Button
-                                size="small"
-                                variant="text"
-                                disabled={aiNotesLoading}
-                                onClick={() => handleGenerateAiNotes()}
+                              <Tooltip
+                                title={
+                                  r.maLogged
+                                    ? 'Logged to MA — uncheck the checkbox to regenerate this note'
+                                    : 'Regenerate this session only'
+                                }
                               >
-                                Regenerate
-                              </Button>
+                                <span>
+                                  <Button
+                                    size="small"
+                                    variant="text"
+                                    disabled={aiNotesLoading || r.maLogged}
+                                    onClick={() => void handleGenerateAiNotes(r.id)}
+                                  >
+                                    Regenerate
+                                  </Button>
+                                </span>
+                              </Tooltip>
                             </Stack>
                           </TableCell>
                         </TableRow>

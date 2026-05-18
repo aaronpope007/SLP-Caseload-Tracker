@@ -23,6 +23,7 @@ import { postProcessMaActivityLogNote } from '../utils/maActivityLogNote';
 import { generateSessionNotesWithAnthropic } from '../utils/anthropicSessionNotes';
 import { logger } from '../utils/logger';
 import { generateInitialsList } from '../utils/studentInitials';
+import { calendarYmdInBillingTz, isYmdInRange, nowIsoUtc } from '../utils/billingTimezone';
 
 // Database row types
 interface SessionRow {
@@ -378,13 +379,11 @@ sessionsRouter.get('/log', asyncHandler(async (req, res) => {
       INNER JOIN students st ON st.id = s.studentId
       WHERE st.school = ?
         AND st.id IN (${placeholders})
-        AND date(s.date) >= date(?)
-        AND date(s.date) <= date(?)
         AND (s.missedSession = 0 OR s.missedSession IS NULL)
       ORDER BY s.date ASC, st.name ASC
     `
     )
-    .all(schoolName, ...ids, startDate, endDate) as Array<
+    .all(schoolName, ...ids) as Array<
     SessionRow & {
       studentName: string;
       studentDomain: string | null;
@@ -395,9 +394,15 @@ sessionsRouter.get('/log', asyncHandler(async (req, res) => {
     }
   >;
 
+  const startYmd = startDate.includes('T') ? calendarYmdInBillingTz(startDate) : startDate.slice(0, 10);
+  const endYmd = endDate.includes('T') ? calendarYmdInBillingTz(endDate) : endDate.slice(0, 10);
+  const rowsInRange = rows.filter((row) =>
+    isYmdInRange(calendarYmdInBillingTz(row.date), startYmd, endYmd)
+  );
+
   const uniqueGroupSessionIds = [
     ...new Set(
-      rows
+      rowsInRange
         .map((r) => r.groupSessionId)
         .filter((g): g is string => typeof g === 'string' && g.trim() !== '')
     ),
@@ -417,7 +422,7 @@ sessionsRouter.get('/log', asyncHandler(async (req, res) => {
   }
 
   const goalIds = new Set<string>();
-  for (const row of rows) {
+  for (const row of rowsInRange) {
     const ga = parseJsonField<string[]>(row.goalsAddressed, []);
     const gt = parseJsonField<string[]>(row.goalsTargeted, []);
     const use = ga.length > 0 ? ga : gt;
@@ -453,7 +458,7 @@ sessionsRouter.get('/log', asyncHandler(async (req, res) => {
     }
   }
 
-  const out = rows.map((row) => {
+  const out = rowsInRange.map((row) => {
     const goalsAddressedIds = parseJsonField<string[]>(row.goalsAddressed, []);
     const perfRaw = parseJsonField<PerformanceDataItem[]>(row.performanceData, []);
 
@@ -589,11 +594,6 @@ sessionsRouter.get('/ma-billing-log', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: "filterBy must be 'serviceDate' or 'loggedDate'" });
   }
 
-  const dateFilterSql =
-    filterBy === 'loggedDate'
-      ? `substr(s.maLoggedAt, 1, 10) >= ? AND substr(s.maLoggedAt, 1, 10) <= ? AND s.maLoggedAt IS NOT NULL`
-      : `substr(s.date, 1, 10) >= ? AND substr(s.date, 1, 10) <= ?`;
-
   const rows = db
     .prepare(
       `
@@ -602,29 +602,22 @@ sessionsRouter.get('/ma-billing-log', asyncHandler(async (req, res) => {
         s.studentId AS studentId,
         st.name AS studentName,
         COALESCE(st.grade, '') AS grade,
-        substr(s.date, 1, 10) AS serviceDate,
-        s.maLoggedAt AS maLoggedAt,
-        ${
-          filterBy === 'loggedDate'
-            ? 'substr(s.maLoggedAt, 1, 10) AS reportDay'
-            : 'substr(s.date, 1, 10) AS reportDay'
-        }
+        s.date AS sessionDateIso,
+        s.maLoggedAt AS maLoggedAt
       FROM sessions s
       INNER JOIN students st ON st.id = s.studentId
       WHERE s.maLogged = 1
         AND (s.missedSession = 0 OR s.missedSession IS NULL)
-        AND ${dateFilterSql}
-      ORDER BY st.name ASC, reportDay ASC, s.id ASC
+      ORDER BY st.name ASC, s.date ASC, s.id ASC
     `
     )
-    .all(startDate, endDate) as Array<{
+    .all() as Array<{
       sessionId: string;
       studentId: string;
       studentName: string;
       grade: string;
-      serviceDate: string;
+      sessionDateIso: string;
       maLoggedAt: string | null;
-      reportDay: string;
     }>;
 
   const byStudent = new Map<
@@ -640,6 +633,13 @@ sessionsRouter.get('/ma-billing-log', asyncHandler(async (req, res) => {
   >();
 
   for (const row of rows) {
+    const serviceDateYmd = calendarYmdInBillingTz(row.sessionDateIso);
+    const loggedDateYmd = row.maLoggedAt ? calendarYmdInBillingTz(row.maLoggedAt) : '';
+    const reportDay = filterBy === 'loggedDate' ? loggedDateYmd : serviceDateYmd;
+
+    if (filterBy === 'loggedDate' && !loggedDateYmd) continue;
+    if (!isYmdInRange(reportDay, startDate, endDate)) continue;
+
     let entry = byStudent.get(row.studentId);
     if (!entry) {
       entry = {
@@ -653,12 +653,12 @@ sessionsRouter.get('/ma-billing-log', asyncHandler(async (req, res) => {
       byStudent.set(row.studentId, entry);
     }
     entry.sessionCount += 1;
-    if (row.reportDay) {
-      entry.dates.add(row.reportDay);
+    if (reportDay) {
+      entry.dates.add(reportDay);
     }
     entry.sessions.push({
       sessionId: row.sessionId,
-      serviceDate: row.serviceDate,
+      serviceDate: serviceDateYmd,
       maLoggedAt: row.maLoggedAt,
     });
   }
@@ -689,9 +689,11 @@ sessionsRouter.get('/ma-billing-log', asyncHandler(async (req, res) => {
       return a.studentName.localeCompare(b.studentName);
     });
 
+  const totalSessions = students.reduce((n, s) => n + s.sessionCount, 0);
+
   res.json({
     students,
-    totalSessions: rows.length,
+    totalSessions,
     dateRange: { startDate, endDate },
     filterBy,
   });
@@ -950,11 +952,10 @@ sessionsRouter.patch(
     if (!id || typeof id !== 'string') {
       return res.status(400).json({ error: 'Invalid session ID' });
     }
-    const result = maLogged
-      ? db
-          .prepare(`UPDATE sessions SET maLogged = 1, maLoggedAt = datetime('now') WHERE id = ?`)
-          .run(id)
-      : db.prepare(`UPDATE sessions SET maLogged = 0, maLoggedAt = NULL WHERE id = ?`).run(id);
+    const maLoggedAt = maLogged ? nowIsoUtc() : null;
+    const result = db
+      .prepare(`UPDATE sessions SET maLogged = ?, maLoggedAt = ? WHERE id = ?`)
+      .run(maLogged ? 1 : 0, maLoggedAt, id);
     if (result.changes === 0) {
       return res.status(404).json({ error: 'Session not found' });
     }
