@@ -90,6 +90,10 @@ function effectiveAiNote(r: SessionLogEntry, map: Record<string, string>): strin
   return (r.aiGeneratedNote || '').trim();
 }
 
+function sessionHasAiNote(r: SessionLogEntry, map: Record<string, string>): boolean {
+  return Boolean(effectiveAiNote(r, map));
+}
+
 function goalsAddressedList(entry: SessionLogEntry): string[] {
   return Array.isArray(entry.goalsAddressedText) ? entry.goalsAddressedText : [];
 }
@@ -661,8 +665,13 @@ export function SessionLog() {
       !multiStudent &&
       selectedIds.length === 1 &&
       sessions.length > 0 &&
-      sessions.every((s) => Boolean(effectiveAiNote(s, aiNotesBySessionId))),
+      sessions.every((s) => sessionHasAiNote(s, aiNotesBySessionId)),
     [multiStudent, selectedIds, sessions, aiNotesBySessionId]
+  );
+
+  const sessionLogTableShowsGoalsColumn = useMemo(
+    () => visibleSessions.some((s) => !sessionHasAiNote(s, aiNotesBySessionId)),
+    [visibleSessions, aiNotesBySessionId]
   );
 
   const canShowAiNotesButton = !multiStudent && selectedIds.length === 1 && sessions.length > 0;
@@ -912,33 +921,21 @@ export function SessionLog() {
               <Table size="small">
                 <TableHead>
                   <TableRow sx={sessionLogHeaderRowSx}>
-                    {showAiNotesLayout ? (
-                      <>
-                        <TableCell>Date</TableCell>
-                        <TableCell>Start</TableCell>
-                        <TableCell>End</TableCell>
-                        <TableCell>Individual/Group</TableCell>
-                        <TableCell>CPT Code</TableCell>
-                        <TableCell>ICD-10 Codes</TableCell>
-                        <TableCell className="no-print">Logged to MA</TableCell>
-                      </>
-                    ) : (
-                      <>
-                        <TableCell>Date</TableCell>
-                        <TableCell>Start</TableCell>
-                        <TableCell>End</TableCell>
-                        <TableCell>Individual/Group</TableCell>
-                        <TableCell>CPT Code</TableCell>
-                        <TableCell>ICD-10 Codes</TableCell>
-                        <TableCell className="no-print">Logged to MA</TableCell>
-                        <GoalsAddressedHeaderCell />
-                      </>
-                    )}
+                    <>
+                      <TableCell>Date</TableCell>
+                      <TableCell>Start</TableCell>
+                      <TableCell>End</TableCell>
+                      <TableCell>Individual/Group</TableCell>
+                      <TableCell>CPT Code</TableCell>
+                      <TableCell>ICD-10 Codes</TableCell>
+                      <TableCell className="no-print">Logged to MA</TableCell>
+                      {sessionLogTableShowsGoalsColumn ? <GoalsAddressedHeaderCell /> : null}
+                    </>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {visibleSessions.map((r) =>
-                    showAiNotesLayout ? (
+                    sessionHasAiNote(r, aiNotesBySessionId) ? (
                       <Fragment key={r.id}>
                         <TableRow>
                           <SessionLogTableDateCell
@@ -975,6 +972,7 @@ export function SessionLog() {
                               inputProps={{ 'aria-label': 'Logged to MA' }}
                             />
                           </TableCell>
+                          {sessionLogTableShowsGoalsColumn ? <TableCell sx={sessionLogMaMutedSx(r.maLogged)} /> : null}
                         </TableRow>
                         <TableRow
                           sx={{
@@ -984,7 +982,10 @@ export function SessionLog() {
                             },
                           }}
                         >
-                          <TableCell colSpan={6} sx={{ ...sessionLogMaMutedSx(r.maLogged), p: 1.5, verticalAlign: 'top' }}>
+                          <TableCell
+                            colSpan={sessionLogTableShowsGoalsColumn ? 7 : 6}
+                            sx={{ ...sessionLogMaMutedSx(r.maLogged), p: 1.5, verticalAlign: 'top' }}
+                          >
                             <Stack spacing={1.25}>
                               <Paper
                                 variant="outlined"
