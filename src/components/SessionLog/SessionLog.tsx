@@ -26,6 +26,7 @@ import {
 } from '@mui/material';
 import PrintIcon from '@mui/icons-material/Print';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { DOMAIN_META } from '../../utils/goalDomainMap';
 import { GoalDomainDot } from '../goal/GoalDomainDot';
@@ -166,6 +167,13 @@ function formatPerformanceCues(levels: string[] | undefined): string {
   return raw.join(', ');
 }
 
+function evalMaNotePreview(note: string | null | undefined): string {
+  const t = (note || '').trim();
+  if (!t) return '';
+  if (t.length <= 60) return t;
+  return `${t.slice(0, 60)}…`;
+}
+
 function evalLogStatusChip(entry: EvalLogEntry) {
   if (!entry.billable) {
     return <Chip size="small" color="error" label="Non-Billable" />;
@@ -179,7 +187,21 @@ function evalLogStatusChip(entry: EvalLogEntry) {
   return <Chip size="small" color="warning" label="⚠️ Review Code" />;
 }
 
-function EvalLogTable({ rows }: { rows: EvalLogEntry[] }) {
+function EvalLogTable({
+  rows,
+  evalMaNoteGeneratingId,
+  evalMaNoteCopiedId,
+  onMaLoggedChange,
+  onGenerateMaNote,
+  onCopyMaNote,
+}: {
+  rows: EvalLogEntry[];
+  evalMaNoteGeneratingId: string | null;
+  evalMaNoteCopiedId: string | null;
+  onMaLoggedChange: (meetingId: string, checked: boolean) => void;
+  onGenerateMaNote: (meetingId: string) => void;
+  onCopyMaNote: (meetingId: string, text: string) => void;
+}) {
   return (
     <Table size="small" sx={{ mb: 2 }}>
       <TableHead>
@@ -191,20 +213,78 @@ function EvalLogTable({ rows }: { rows: EvalLogEntry[] }) {
           <TableCell>Assessment</TableCell>
           <TableCell>CPT Code</TableCell>
           <TableCell>Status</TableCell>
+          <TableCell className="no-print">Logged to MA</TableCell>
+          <TableCell>MA Note</TableCell>
         </TableRow>
       </TableHead>
       <TableBody>
-        {rows.map((e) => (
-          <TableRow key={`${e.id}-${e.studentId}`}>
-            <TableCell>{e.studentName}</TableCell>
-            <TableCell>{formatSessionDateOnly(`${e.date}T12:00:00`)}</TableCell>
-            <TableCell>{e.startTime ? formatSessionClock(e.startTime) : '—'}</TableCell>
-            <TableCell>{formatSessionEnd(e.endTime)}</TableCell>
-            <TableCell sx={{ maxWidth: 280, whiteSpace: 'normal', wordBreak: 'break-word' }}>{e.title}</TableCell>
-            <TableCell>{e.cptCode?.trim() ? e.cptCode : '—'}</TableCell>
-            <TableCell>{evalLogStatusChip(e)}</TableCell>
-          </TableRow>
-        ))}
+        {rows.map((e) => {
+          const noteText = (e.maNote || '').trim();
+          const preview = evalMaNotePreview(e.maNote);
+          const generating = evalMaNoteGeneratingId === e.id;
+          return (
+            <TableRow key={`${e.id}-${e.studentId}`} sx={sessionLogMaMutedSx(e.maLogged)}>
+              <TableCell>{e.studentName}</TableCell>
+              <TableCell>{formatSessionDateOnly(`${e.date}T12:00:00`)}</TableCell>
+              <TableCell>{e.startTime ? formatSessionClock(e.startTime) : '—'}</TableCell>
+              <TableCell>{formatSessionEnd(e.endTime)}</TableCell>
+              <TableCell sx={{ maxWidth: 280, whiteSpace: 'normal', wordBreak: 'break-word' }}>{e.title}</TableCell>
+              <TableCell>{e.cptCode?.trim() ? e.cptCode : '—'}</TableCell>
+              <TableCell>{evalLogStatusChip(e)}</TableCell>
+              <TableCell className="no-print" align="center" sx={{ opacity: 1, textDecoration: 'none' }}>
+                <Tooltip
+                  title={e.billable ? '' : 'Not billable — cannot log to MA'}
+                  disableHoverListener={e.billable}
+                >
+                  <span>
+                    <Checkbox
+                      size="small"
+                      checked={e.maLogged}
+                      disabled={!e.billable}
+                      onChange={(ev) => onMaLoggedChange(e.id, ev.target.checked)}
+                      inputProps={{ 'aria-label': 'Logged to MA' }}
+                    />
+                  </span>
+                </Tooltip>
+              </TableCell>
+              <TableCell sx={{ maxWidth: 220, verticalAlign: 'middle' }}>
+                {generating ? (
+                  <CircularProgress size={22} />
+                ) : noteText ? (
+                  <Stack direction="row" alignItems="center" spacing={0.5} flexWrap="nowrap">
+                    <Typography variant="body2" component="span" sx={{ flex: 1, minWidth: 0 }}>
+                      {preview}
+                    </Typography>
+                    <Tooltip title="Copy MA note">
+                      <IconButton
+                        className="no-print"
+                        size="small"
+                        aria-label="Copy MA note"
+                        color={evalMaNoteCopiedId === e.id ? 'success' : 'default'}
+                        onClick={() => onCopyMaNote(e.id, noteText)}
+                      >
+                        <ContentCopyIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Stack>
+                ) : (
+                  <Tooltip title="Generate MA note">
+                    <span>
+                      <IconButton
+                        className="no-print"
+                        size="small"
+                        aria-label="Generate MA note"
+                        onClick={() => onGenerateMaNote(e.id)}
+                      >
+                        <AutoAwesomeIcon fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                )}
+              </TableCell>
+            </TableRow>
+          );
+        })}
       </TableBody>
     </Table>
   );
@@ -348,6 +428,8 @@ export function SessionLog() {
   const [maBillingActivities, setMaBillingActivities] = useState('');
   const [clipFeedback, setClipFeedback] = useState<{ sessionId: string; kind: SessionClipKind } | null>(null);
   const [showUnloggedOnly, setShowUnloggedOnly] = useState(false);
+  const [evalMaNoteGeneratingId, setEvalMaNoteGeneratingId] = useState<string | null>(null);
+  const [evalMaNoteCopiedId, setEvalMaNoteCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
     setSchool(selectedSchool || '');
@@ -432,7 +514,7 @@ export function SessionLog() {
         if (s.aiGeneratedNote?.trim()) nextAi[s.id] = s.aiGeneratedNote.trim();
       }
       setAiNotesBySessionId(nextAi);
-      setEvaluations(evalData);
+      setEvaluations(evalData.map((e) => ({ ...e, maLogged: Boolean(e.maLogged) })));
       setLogGenerated(true);
     } catch (e) {
       logError('Session log failed', e);
@@ -468,6 +550,102 @@ export function SessionLog() {
       }
     },
     [sessions, showSnackbar]
+  );
+
+  const updateEvaluationsForMeeting = useCallback(
+    (meetingId: string, patch: Partial<EvalLogEntry>) => {
+      setEvaluations((prev) => prev.map((row) => (row.id === meetingId ? { ...row, ...patch } : row)));
+    },
+    []
+  );
+
+  const handleEvalMaLoggedToggle = useCallback(
+    async (meetingId: string, checked: boolean) => {
+      const was = evaluations.find((e) => e.id === meetingId)?.maLogged ?? false;
+      updateEvaluationsForMeeting(meetingId, {
+        maLogged: checked,
+        maLoggedAt: checked ? new Date().toISOString() : null,
+      });
+      try {
+        const res = await api.meetings.patchMaLogged(meetingId, { maLogged: checked });
+        updateEvaluationsForMeeting(meetingId, {
+          maLogged: res.maLogged,
+          maLoggedAt: res.maLoggedAt,
+        });
+      } catch (e) {
+        updateEvaluationsForMeeting(meetingId, { maLogged: was });
+        const msg = e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Failed to update MA log';
+        logError('Eval MA logged toggle', e);
+        showSnackbar(msg, 'error');
+      }
+    },
+    [evaluations, updateEvaluationsForMeeting, showSnackbar]
+  );
+
+  const handleGenerateEvalMaNote = useCallback(
+    async (meetingId: string) => {
+      setEvalMaNoteGeneratingId(meetingId);
+      try {
+        const storedGeminiKey =
+          typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_api_key')?.trim() : '';
+        const storedAnthropicKey =
+          typeof localStorage !== 'undefined' ? localStorage.getItem('anthropic_api_key')?.trim() : '';
+        if (!storedGeminiKey && !storedAnthropicKey) {
+          showSnackbar('Add a Gemini and/or Anthropic API key in Settings to generate MA notes.', 'error');
+          return;
+        }
+        const res = await api.meetings.generateMaNote(meetingId, {
+          ...(storedGeminiKey ? { geminiKey: storedGeminiKey } : {}),
+          ...(storedAnthropicKey ? { anthropicKey: storedAnthropicKey } : {}),
+        });
+        updateEvaluationsForMeeting(meetingId, { maNote: res.maNote });
+        showSnackbar('MA eval note generated.', 'success');
+      } catch (e) {
+        const msg =
+          e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Failed to generate MA note';
+        logError('Eval MA note generation', e);
+        showSnackbar(msg, 'error');
+      } finally {
+        setEvalMaNoteGeneratingId(null);
+      }
+    },
+    [updateEvaluationsForMeeting, showSnackbar]
+  );
+
+  const handleCopyEvalMaNote = useCallback(
+    async (meetingId: string, text: string) => {
+      try {
+        await navigator.clipboard.writeText(text);
+        setEvalMaNoteCopiedId(meetingId);
+        showSnackbar('MA note copied to clipboard.', 'success');
+      } catch {
+        showSnackbar('Could not copy to clipboard', 'error');
+      }
+    },
+    [showSnackbar]
+  );
+
+  useEffect(() => {
+    if (!evalMaNoteCopiedId) return;
+    const t = window.setTimeout(() => setEvalMaNoteCopiedId(null), 2000);
+    return () => window.clearTimeout(t);
+  }, [evalMaNoteCopiedId]);
+
+  const evalLogTableProps = useMemo(
+    () => ({
+      evalMaNoteGeneratingId,
+      evalMaNoteCopiedId,
+      onMaLoggedChange: (meetingId: string, checked: boolean) => void handleEvalMaLoggedToggle(meetingId, checked),
+      onGenerateMaNote: (meetingId: string) => void handleGenerateEvalMaNote(meetingId),
+      onCopyMaNote: (meetingId: string, text: string) => void handleCopyEvalMaNote(meetingId, text),
+    }),
+    [
+      evalMaNoteGeneratingId,
+      evalMaNoteCopiedId,
+      handleEvalMaLoggedToggle,
+      handleGenerateEvalMaNote,
+      handleCopyEvalMaNote,
+    ]
   );
 
   const multiStudent = selectedIds.length > 1 || allSelected;
@@ -1236,11 +1414,11 @@ export function SessionLog() {
                     <Typography variant="subtitle1" sx={{ mb: 0.5, fontWeight: 600 }}>
                       {rows[0]?.studentName ?? 'Student'}
                     </Typography>
-                    <EvalLogTable rows={rows} />
+                    <EvalLogTable rows={rows} {...evalLogTableProps} />
                   </Box>
                 ))
               ) : (
-                <EvalLogTable rows={evaluations} />
+                <EvalLogTable rows={evaluations} {...evalLogTableProps} />
               )}
             </Box>
           )}

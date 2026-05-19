@@ -57,6 +57,17 @@ function buildMaBillingLineCopy(students: MaBillingLogResponse['students']): str
   return `MA Billing: ${parts.join(', ')}`;
 }
 
+function buildEvalMaLineCopy(evalStudents: MaBillingLogResponse['evalStudents']): string {
+  const parts = evalStudents
+    .slice()
+    .sort((a, b) => a.initials.localeCompare(b.initials))
+    .map((s) => {
+      const titlePart = s.titles.length > 0 ? ` [${s.titles.join(', ')}]` : '';
+      return `${s.initials}(${s.grade}) x${s.evalCount}${titlePart}`;
+    });
+  return `MA Evals: ${parts.join(', ')}`;
+}
+
 function DatesCell({
   studentId,
   dates,
@@ -160,11 +171,22 @@ export function MaBillingLogSection({ onStudentsLoaded, onNotify }: MaBillingLog
   );
 
   const hasResults = fetched && !loading && !error;
-  const isEmpty = hasResults && report !== null && report.students.length === 0;
+  const isEmpty =
+    hasResults &&
+    report !== null &&
+    report.students.length === 0 &&
+    (report.evalStudents?.length ?? 0) === 0;
 
   const summaryLine = useMemo(() => {
     if (!report) return '';
     return `Total: ${report.totalSessions} MA-logged session${report.totalSessions === 1 ? '' : 's'} across ${report.students.length} student${report.students.length === 1 ? '' : 's'}`;
+  }, [report]);
+
+  const evalSummaryLine = useMemo(() => {
+    if (!report || (report.evalStudents?.length ?? 0) === 0) return '';
+    const n = report.totalEvals ?? 0;
+    const m = report.evalStudents.length;
+    return `Total: ${n} MA-logged evaluation${n === 1 ? '' : 's'} across ${m} student${m === 1 ? '' : 's'}`;
   }, [report]);
 
   return (
@@ -298,6 +320,68 @@ export function MaBillingLogSection({ onStudentsLoaded, onNotify }: MaBillingLog
                   </Button>
                 </Stack>
               </>
+            )}
+
+            {hasResults && report && (report.evalStudents?.length ?? 0) > 0 && (
+              <Box sx={{ mt: report.students.length > 0 ? 3 : 0 }}>
+                <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
+                  Evaluations
+                </Typography>
+                <Table size="small" component={Paper} variant="outlined">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>
+                        Evals Logged
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Student</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Grade</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Initials</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Assessments</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Dates</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {report.evalStudents.map((row) => (
+                      <TableRow key={row.studentId}>
+                        <TableCell align="right">
+                          <Typography variant="body2" fontWeight={700}>
+                            {row.evalCount}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>{row.studentName}</TableCell>
+                        <TableCell>{row.grade || '—'}</TableCell>
+                        <TableCell>{row.initials}</TableCell>
+                        <TableCell sx={{ maxWidth: 280, whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                          {row.titles.length > 0 ? row.titles.join(', ') : '—'}
+                        </TableCell>
+                        <TableCell>
+                          <DatesCell
+                            studentId={row.studentId}
+                            dates={row.dates}
+                            expanded={expandedDateRows.has(row.studentId)}
+                            onToggleExpand={toggleDateExpand}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  {evalSummaryLine}
+                </Typography>
+
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mt: 1 }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<ContentCopyIcon />}
+                    onClick={() => void copyText(buildEvalMaLineCopy(report.evalStudents), 'Eval MA line')}
+                  >
+                    Copy Eval MA line
+                  </Button>
+                </Stack>
+              </Box>
             )}
           </Stack>
         </AccordionDetails>

@@ -569,6 +569,26 @@ function normalizeDuplicateCheckStartIso(dateYmd: string, startTimeRaw: string):
 
 type MaBillingFilterBy = 'serviceDate' | 'loggedDate';
 
+const LEGACY_ASSESSMENT_CATEGORY = 'Assessment';
+
+function meetingYmdFromStored(isoOrYmd: string | null | undefined): string {
+  const t = (isoOrYmd || '').trim();
+  if (!t) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+  return t.slice(0, 10);
+}
+
+function getMeetingStudentIdsFromRow(row: {
+  studentId: string | null;
+  studentIds: string | null;
+}): string[] {
+  const parsed = parseJsonField<string[]>(row.studentIds, []);
+  const fromJson = Array.isArray(parsed) ? parsed.filter((x) => typeof x === 'string' && x.trim()) : [];
+  if (fromJson.length > 0) return fromJson;
+  if (row.studentId) return [row.studentId];
+  return [];
+}
+
 function parseMaBillingFilterBy(raw: unknown): MaBillingFilterBy | null {
   if (raw === undefined || raw === null || raw === '') return 'serviceDate';
   if (typeof raw !== 'string') return null;
@@ -691,9 +711,125 @@ sessionsRouter.get('/ma-billing-log', asyncHandler(async (req, res) => {
 
   const totalSessions = students.reduce((n, s) => n + s.sessionCount, 0);
 
+  const evalMeetingRows = db
+    .prepare(
+      `
+      SELECT
+        m.id AS meetingId,
+        m.title AS title,
+        m.date AS meetingDateIso,
+        m.maLoggedAt AS maLoggedAt,
+        m.studentId AS studentId,
+        m.studentIds AS studentIds
+      FROM meetings m
+      WHERE m.maLogged = 1
+        AND m.maLoggedAt IS NOT NULL
+        AND (
+          m.category IN ('Initial Assessment', '3 Year Reassessment', 'SLP Screener')
+          OR (m.category = ? AND m.activitySubtype = 'assessment')
+        )
+      ORDER BY m.date ASC, m.id ASC
+    `
+    )
+    .all(LEGACY_ASSESSMENT_CATEGORY) as Array<{
+      meetingId: string;
+      title: string;
+      meetingDateIso: string;
+      maLoggedAt: string | null;
+      studentId: string | null;
+      studentIds: string | null;
+    }>;
+
+  const byEvalStudent = new Map<
+    string,
+    {
+      studentId: string;
+      studentName: string;
+      grade: string;
+      dates: Set<string>;
+      titles: Set<string>;
+      evalCount: number;
+    }
+  >();
+
+  const evalStudentNameCache = new Map<string, { name: string; grade: string }>();
+
+  const loadEvalStudent = (studentId: string): { name: string; grade: string } | null => {
+    if (evalStudentNameCache.has(studentId)) {
+      return evalStudentNameCache.get(studentId)!;
+    }
+    const st = db
+      .prepare('SELECT name, grade FROM students WHERE id = ?')
+      .get(studentId) as { name: string; grade: string | null } | undefined;
+    if (!st) return null;
+    const entry = { name: st.name, grade: st.grade || '' };
+    evalStudentNameCache.set(studentId, entry);
+    return entry;
+  };
+
+  for (const row of evalMeetingRows) {
+    const serviceDateYmd = meetingYmdFromStored(row.meetingDateIso);
+    const loggedDateYmd = meetingYmdFromStored(row.maLoggedAt);
+    const reportDay = filterBy === 'loggedDate' ? loggedDateYmd : serviceDateYmd;
+
+    if (filterBy === 'loggedDate' && !loggedDateYmd) continue;
+    if (!reportDay || reportDay < startDate || reportDay > endDate) continue;
+
+    const linkedStudentIds = getMeetingStudentIdsFromRow(row);
+    const title = (row.title || '').trim();
+    for (const studentId of linkedStudentIds) {
+      const st = loadEvalStudent(studentId);
+      if (!st) continue;
+
+      let entry = byEvalStudent.get(studentId);
+      if (!entry) {
+        entry = {
+          studentId,
+          studentName: st.name,
+          grade: st.grade,
+          dates: new Set<string>(),
+          titles: new Set<string>(),
+          evalCount: 0,
+        };
+        byEvalStudent.set(studentId, entry);
+      }
+      entry.evalCount += 1;
+      if (reportDay) entry.dates.add(reportDay);
+      if (title) entry.titles.add(title);
+    }
+  }
+
+  const evalStudentList = [...byEvalStudent.values()];
+  const evalInitialsMap = generateInitialsList(
+    evalStudentList.map((s) => ({
+      studentId: s.studentId,
+      name: s.studentName,
+      grade: s.grade,
+    }))
+  );
+
+  const evalStudents = evalStudentList
+    .map((s) => ({
+      studentId: s.studentId,
+      studentName: s.studentName,
+      grade: s.grade,
+      initials: evalInitialsMap.get(s.studentId) ?? '??',
+      evalCount: s.evalCount,
+      dates: [...s.dates].sort(),
+      titles: [...s.titles].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })),
+    }))
+    .sort((a, b) => {
+      if (b.evalCount !== a.evalCount) return b.evalCount - a.evalCount;
+      return a.studentName.localeCompare(b.studentName);
+    });
+
+  const totalEvals = evalStudents.reduce((n, s) => n + s.evalCount, 0);
+
   res.json({
     students,
+    evalStudents,
     totalSessions,
+    totalEvals,
     dateRange: { startDate, endDate },
     filterBy,
   });

@@ -813,6 +813,23 @@ export function initDatabase() {
     console.warn('Could not add studentIds column to meetings:', e.message);
   }
 
+  // MA billing fields for evaluation meetings (eval log)
+  try {
+    const meetingTableInfo = db.prepare('PRAGMA table_info(meetings)').all() as Array<{ name: string }>;
+    const meetingColumnNames = meetingTableInfo.map((col) => col.name);
+    if (!meetingColumnNames.includes('maLogged')) {
+      db.prepare('ALTER TABLE meetings ADD COLUMN maLogged INTEGER NOT NULL DEFAULT 0').run();
+    }
+    if (!meetingColumnNames.includes('maLoggedAt')) {
+      db.prepare('ALTER TABLE meetings ADD COLUMN maLoggedAt TEXT').run();
+    }
+    if (!meetingColumnNames.includes('maNote')) {
+      db.prepare('ALTER TABLE meetings ADD COLUMN maNote TEXT').run();
+    }
+  } catch (e: any) {
+    console.warn('Could not add MA billing columns to meetings:', e.message);
+  }
+
   // Drop lunches table if it exists (removed feature)
   try {
     // Check if lunches table exists

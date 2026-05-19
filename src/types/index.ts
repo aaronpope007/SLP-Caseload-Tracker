@@ -252,9 +252,22 @@ export interface MaBillingLogStudent {
 
 export type MaBillingLogFilterBy = 'serviceDate' | 'loggedDate';
 
+/** One student row from GET /api/sessions/ma-billing-log evalStudents */
+export interface MaBillingLogEvalStudent {
+  studentId: string;
+  studentName: string;
+  grade: string;
+  initials: string;
+  evalCount: number;
+  dates: string[];
+  titles: string[];
+}
+
 export interface MaBillingLogResponse {
   students: MaBillingLogStudent[];
+  evalStudents: MaBillingLogEvalStudent[];
   totalSessions: number;
+  totalEvals: number;
   dateRange: { startDate: string; endDate: string };
   filterBy: MaBillingLogFilterBy;
 }
@@ -272,6 +285,9 @@ export interface EvalLogEntry {
   cptCode: string;
   billable: boolean;
   needsReview: boolean;
+  maLogged: boolean;
+  maLoggedAt: string | null;
+  maNote: string | null;
 }
 
 /** One mapping from POST /api/students/:id/map-goals */

@@ -724,6 +724,27 @@ export const api = {
   meetings: {
     getEvalLog: (params: { startDate: string; endDate: string; studentIds: string; school: string }) =>
       request<EvalLogEntry[]>(`/meetings/eval-log${buildQueryString(params)}`),
+    patchMaLogged: (id: string, body: { maLogged: boolean }) =>
+      request<{ id: string; maLogged: boolean; maLoggedAt: string | null }>(
+        `/meetings/${encodeURIComponent(id)}/ma-logged`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify(body),
+        }
+      ),
+    patchMaNote: (id: string, body: { maNote: string }) =>
+      request<{ id: string; maNote: string | null }>(`/meetings/${encodeURIComponent(id)}/ma-note`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }),
+    generateMaNote: (
+      id: string,
+      body: { geminiKey?: string; anthropicKey?: string; additionalContext?: string }
+    ) =>
+      request<{ id: string; maNote: string }>(`/meetings/${encodeURIComponent(id)}/generate-ma-note`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
     getAll: (studentId?: string, school?: string, category?: string, startDate?: string, endDate?: string) =>
       request<Meeting[]>(`/meetings${buildQueryString({ studentId, school, category, startDate, endDate })}`),
     getById: (id: string) => 

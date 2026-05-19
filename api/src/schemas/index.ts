@@ -291,6 +291,23 @@ export const patchSessionMaLoggedBodySchema = z.object({
   maLogged: z.boolean(),
 });
 
+/** PATCH /api/meetings/:id/ma-logged */
+export const patchMeetingMaLoggedBodySchema = z.object({
+  maLogged: z.boolean(),
+});
+
+/** PATCH /api/meetings/:id/ma-note */
+export const patchMeetingMaNoteBodySchema = z.object({
+  maNote: z.string().max(8000),
+});
+
+/** POST /api/meetings/:id/generate-ma-note */
+export const generateMeetingMaNoteBodySchema = z.object({
+  geminiKey: z.string().optional(),
+  anthropicKey: z.string().optional(),
+  additionalContext: z.string().max(2000).optional(),
+});
+
 /** POST /api/sessions/generate-notes — batch MA clinical description text (Gemini / Anthropic) */
 export const generateSessionNotesBodySchema = z.object({
   /** Same optional client key as map-goals; falls back to GEMINI_API_KEY on the server. */
