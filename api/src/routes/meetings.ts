@@ -19,7 +19,6 @@ const LEGACY_ASSESSMENT_CATEGORY = 'Assessment';
 export const DOCUMENTATION_LOG_CATEGORIES = [
   'Initial assessment documentation',
   '3 year documentation',
-  'IEP documentation',
   'SLP Screening Assessment',
   'Caseload planning',
   'Case Management',

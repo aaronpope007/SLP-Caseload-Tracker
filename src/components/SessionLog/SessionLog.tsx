@@ -1500,6 +1500,9 @@ export function SessionLog() {
               <Typography variant="h6" sx={{ mb: 1 }}>
                 Evaluation Log
               </Typography>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                {"SpedForms reminder: When logging evaluations, use 'Time' (not 'Activity') to allow multiple dates/times to be billed as one evaluation claim."}
+              </Alert>
               {evaluations.length === 0 ? (
                 <Typography color="text.secondary">No evaluations in this range.</Typography>
               ) : multiStudent ? (
