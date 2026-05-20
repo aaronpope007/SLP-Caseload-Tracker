@@ -45,6 +45,7 @@ import {
   type MaBillingDataForTimesheet,
   hasMaBillingDataForTimesheet,
   mapMaBillingStudentsForTimesheet,
+  mergeMaBillingForTimesheet,
 } from '../utils/maBillingForTimesheet';
 import {
   getIncludeMaEvalBillingDocumentation,
@@ -606,7 +607,12 @@ export const TimeTracking = () => {
       noteDate: selectedDate || '',
       outputFormat: 'detailed',
       scheduledSessions: latestScheduledSessions,
-      maBillingData: maBillingForNote,
+      maBillingStudents: mergeMaBillingForTimesheet(
+        maBillingForNote.sessionStudents,
+        maBillingForNote.evalStudents,
+        maBillingForNote.docStudents,
+        maBillingEnabledForTimesheet()
+      ),
     });
     
     setTimesheetNote(note);
@@ -754,7 +760,12 @@ export const TimeTracking = () => {
       scheduledSessions: latestScheduledSessions,
       scheduledSessionsDate: selectedDate || '',
       schoolName: selectedSchool,
-      maBillingData: maBillingForNote,
+      maBillingStudents: mergeMaBillingForTimesheet(
+        maBillingForNote.sessionStudents,
+        maBillingForNote.evalStudents,
+        maBillingForNote.docStudents,
+        maBillingEnabledForTimesheet()
+      ),
     });
 
     setTimesheetNote(note);
@@ -790,7 +801,12 @@ export const TimeTracking = () => {
       isTeletherapy,
       useSpecificTimes,
       formatTimeRange,
-      maBillingData: maBillingForNote,
+      maBillingStudents: mergeMaBillingForTimesheet(
+        maBillingForNote.sessionStudents,
+        maBillingForNote.evalStudents,
+        maBillingForNote.docStudents,
+        maBillingEnabledForTimesheet()
+      ),
     });
     
     setTimesheetNote(note);
