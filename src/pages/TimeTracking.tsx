@@ -813,6 +813,46 @@ export const TimeTracking = () => {
     timesheetDialog.openDialog();
   };
 
+  const handleGenerateProspectiveSteppingStonesNote = async () => {
+    if (!selectedDate) {
+      showSnackbar('Please select a date first', 'error');
+      return;
+    }
+
+    const school = await getSchoolByName(selectedSchool);
+    const isTeletherapy = school?.teletherapy || false;
+
+    const latestScheduledSessions = await getScheduledSessions(selectedSchool).catch(() => [] as ScheduledSession[]);
+    const latestMeetings = await getMeetings(undefined, selectedSchool).catch(() => [] as Meeting[]);
+    setScheduledSessions(latestScheduledSessions);
+    setMeetings(latestMeetings);
+
+    const maBillingForNote = await fetchMaBillingForTimesheetDay(selectedDate).catch(() => maBillingData);
+    setMaBillingData(maBillingForNote);
+
+    const note = generateProspectiveTimesheetNote({
+      scheduledSessions: latestScheduledSessions,
+      targetDate: selectedDate,
+      meetings: latestMeetings.filter(meeting => getItemCalendarDate(meeting.date) === selectedDate),
+      getStudent,
+      getStudentInitials,
+      isTeletherapy,
+      useSpecificTimes,
+      formatTimeRange,
+      outputFormat: 'steppingStones',
+      schoolName: selectedSchool,
+      maBillingStudents: mergeMaBillingForTimesheet(
+        maBillingForNote.sessionStudents,
+        maBillingForNote.evalStudents,
+        maBillingForNote.docStudents,
+        maBillingEnabledForTimesheet()
+      ),
+    });
+
+    setTimesheetNote(note);
+    timesheetDialog.openDialog();
+  };
+
   const handleSaveNote = async () => {
     if (!timesheetNote.trim()) {
       showSnackbar('Cannot save empty note', 'error');
@@ -922,6 +962,7 @@ export const TimeTracking = () => {
         onGenerateTimesheet={handleGenerateTimesheetNote}
         onGenerateSteppingStonesTimesheet={handleGenerateSteppingStonesTimesheetNote}
         onGenerateProspectiveNote={handleGenerateProspectiveNote}
+        onGenerateProspectiveSteppingStonesNote={handleGenerateProspectiveSteppingStonesNote}
         onOpenSavedNotes={() => savedNotesDialog.openDialog()}
         hasItems={canGenerateTimesheet}
         useSpecificTimes={useSpecificTimes}

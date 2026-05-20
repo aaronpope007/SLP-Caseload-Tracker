@@ -21,6 +21,8 @@ interface TimeTrackingFilterProps {
   /** Condensed employer time report (Stepping Stones) — same data as timesheet, fewer sections. */
   onGenerateSteppingStonesTimesheet?: () => void;
   onGenerateProspectiveNote: () => void;
+  /** Prospective Stepping Stones time report from schedule + meetings (no logged sessions required). */
+  onGenerateProspectiveSteppingStonesNote?: () => void;
   onOpenSavedNotes: () => void;
   hasItems: boolean;
   useSpecificTimes: boolean;
@@ -33,6 +35,7 @@ export const TimeTrackingFilter = ({
   onGenerateTimesheet,
   onGenerateSteppingStonesTimesheet,
   onGenerateProspectiveNote,
+  onGenerateProspectiveSteppingStonesNote,
   onOpenSavedNotes,
   hasItems,
   useSpecificTimes,
@@ -83,6 +86,18 @@ export const TimeTrackingFilter = ({
             >
               Generate Prospective Note
             </Button>
+            {onGenerateProspectiveSteppingStonesNote && (
+              <Button
+                variant="outlined"
+                color="secondary"
+                startIcon={<BusinessIcon />}
+                onClick={onGenerateProspectiveSteppingStonesNote}
+                disabled={!selectedDate}
+                sx={{ flex: 1, minWidth: 'fit-content' }}
+              >
+                Prospective Stepping Stones time report
+              </Button>
+            )}
             <Button
               variant="outlined"
               startIcon={<FolderIcon />}
