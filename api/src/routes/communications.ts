@@ -53,7 +53,9 @@ communicationsRouter.get('/', asyncHandler(async (req, res) => {
       WHERE (
         (c.studentId IS NOT NULL AND s.school = ?) OR
         (c.contactId IS NOT NULL AND c.contactType = 'teacher' AND t.school = ?) OR
-        (c.contactId IS NOT NULL AND c.contactType = 'case-manager' AND cm.school = ?)
+        (c.contactId IS NOT NULL AND c.contactType = 'case-manager' AND cm.school = ?) OR
+        (c.studentId IS NULL AND c.contactType = 'administrative') OR
+        (c.studentId IS NULL AND c.contactId IS NULL)
       )
     `;
     params.unshift(school, school, school);

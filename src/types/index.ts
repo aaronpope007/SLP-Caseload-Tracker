@@ -522,7 +522,7 @@ export interface Reminder {
 export interface Communication {
   id: string;
   studentId?: string; // Optional - communication may be about a student
-  contactType: 'teacher' | 'parent' | 'case-manager';
+  contactType: 'teacher' | 'parent' | 'case-manager' | 'administrative';
   contactId?: string; // ID of teacher, case manager, or parent (if stored)
   contactName: string; // Name of the person communicated with
   contactEmail?: string; // Email address

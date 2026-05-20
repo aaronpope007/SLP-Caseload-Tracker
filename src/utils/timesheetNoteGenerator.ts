@@ -1,10 +1,25 @@
-import type { Session, Student, Evaluation, Communication, ScheduledSession, ArticulationScreener, Meeting } from '../types';
+import type {
+  Session,
+  Student,
+  Evaluation,
+  Communication,
+  ScheduledSession,
+  ArticulationScreener,
+  Meeting,
+  MaBillingLogDocStudent,
+  MaBillingLogEvalStudent,
+} from '../types';
 import { parse, format, isSameDay, isBefore, isAfter, setHours, setMinutes } from 'date-fns';
 import {
   isLegacyDirectAssessment,
   LEGACY_ASSESSMENT_CATEGORY,
   LEGACY_ASSESSMENT_DOCUMENTATION,
 } from './meetingCategories';
+import {
+  getIncludeMaEvalBillingDocumentation,
+  getIncludeMaSessionBillingDocumentation,
+} from './maTimesheetBillingSettings';
+import type { MaBillingDataForTimesheet } from './maBillingForTimesheet';
 
 /** Student IDs with any recurring/one-off session on `targetDate`, limited to `schoolName` when set. */
 function collectScheduledStudentIdsForSchoolDate({
@@ -138,13 +153,117 @@ function mergeSteppingStonesStudentEntries(
   });
 }
 
-function formatMaBillingDetailedLine(maBillingStudents?: MaBillingStudentForTimesheet[]): string | null {
+function formatMaSessionBillingDocumentationLine(
+  maBillingStudents?: MaBillingStudentForTimesheet[]
+): string | null {
   if (!maBillingStudents?.length) return null;
   const parts = maBillingStudents
     .slice()
     .sort((a, b) => a.initials.localeCompare(b.initials))
     .map((s) => `${s.initials}(${s.grade}) x${s.sessionCount}`);
-  return `MA Billing: ${parts.join(', ')}`;
+  return `MA Session Billing Documentation: ${parts.join(', ')}`;
+}
+
+function formatEvalMaBillingPart(evalStudents: MaBillingLogEvalStudent[]): string {
+  return evalStudents
+    .slice()
+    .sort((a, b) => a.initials.localeCompare(b.initials))
+    .map((s) => {
+      const titlePart = s.titles.length > 0 ? ` [${s.titles.join(', ')}]` : '';
+      return `${s.initials}(${s.grade}) x${s.evalCount}${titlePart}`;
+    })
+    .join(', ');
+}
+
+function formatDocMaBillingPart(docStudents: MaBillingLogDocStudent[]): string {
+  return docStudents
+    .slice()
+    .sort((a, b) => a.initials.localeCompare(b.initials))
+    .map((s) => {
+      const catPart = s.categories.length > 0 ? ` [${s.categories.join(', ')}]` : '';
+      return `${s.initials}(${s.grade}) x${s.docCount}${catPart}`;
+    })
+    .join(', ');
+}
+
+/** Detailed note lines for MA-logged evals and documentation (by logged date). */
+function formatMaEvalBillingDocumentationLines(
+  evalStudents?: MaBillingLogEvalStudent[],
+  docStudents?: MaBillingLogDocStudent[]
+): string[] {
+  const lines: string[] = [];
+  if (evalStudents?.length) {
+    lines.push(`MA Eval Billing Documentation: ${formatEvalMaBillingPart(evalStudents)}`);
+  }
+  if (docStudents?.length) {
+    lines.push(`MA Eval Billing Documentation: ${formatDocMaBillingPart(docStudents)}`);
+  }
+  return lines;
+}
+
+function mergeMaEvalBillingSteppingEntries(
+  existingEntries: string[],
+  evalStudents?: MaBillingLogEvalStudent[],
+  docStudents?: MaBillingLogDocStudent[]
+): string[] {
+  const pseudo: MaBillingStudentForTimesheet[] = [];
+  const seen = new Set<string>();
+  for (const s of [...(evalStudents ?? []), ...(docStudents ?? [])]) {
+    const key = maBillingInitialsGradeKey(s.initials, s.grade);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    pseudo.push({ initials: s.initials, grade: s.grade, sessionCount: 0 });
+  }
+  return mergeSteppingStonesStudentEntries(existingEntries, pseudo);
+}
+
+function resolveMaBillingForNote(
+  maBillingStudents?: MaBillingStudentForTimesheet[],
+  maBillingData?: MaBillingDataForTimesheet
+): MaBillingDataForTimesheet {
+  if (maBillingData) return maBillingData;
+  return {
+    sessionStudents: maBillingStudents ?? [],
+    evalStudents: [],
+    docStudents: [],
+  };
+}
+
+function appendMaBillingToDetailedNote(
+  noteParts: string[],
+  addIndirectStandaloneLine: (line: string) => void,
+  billing: MaBillingDataForTimesheet
+): void {
+  if (getIncludeMaSessionBillingDocumentation()) {
+    const sessionLine = formatMaSessionBillingDocumentationLine(billing.sessionStudents);
+    if (sessionLine) addIndirectStandaloneLine(sessionLine);
+  }
+  if (getIncludeMaEvalBillingDocumentation()) {
+    for (const line of formatMaEvalBillingDocumentationLines(
+      billing.evalStudents,
+      billing.docStudents
+    )) {
+      addIndirectStandaloneLine(line);
+    }
+  }
+}
+
+function mergeMaBillingIntoSteppingIndirect(
+  indirectEntries: string[],
+  billing: MaBillingDataForTimesheet
+): string[] {
+  let merged = indirectEntries;
+  if (getIncludeMaSessionBillingDocumentation()) {
+    merged = mergeSteppingStonesStudentEntries(merged, billing.sessionStudents);
+  }
+  if (getIncludeMaEvalBillingDocumentation()) {
+    merged = mergeMaEvalBillingSteppingEntries(
+      merged,
+      billing.evalStudents,
+      billing.docStudents
+    );
+  }
+  return merged;
 }
 
 interface GenerateTimesheetNoteParams {
@@ -170,6 +289,8 @@ interface GenerateTimesheetNoteParams {
   /** Current school name; filters scheduled roster to this school’s students. */
   schoolName?: string;
   maBillingStudents?: MaBillingStudentForTimesheet[];
+  /** Full MA billing log for the note date (logged-date filter); preferred over maBillingStudents alone. */
+  maBillingData?: MaBillingDataForTimesheet;
 }
 
 export const generateTimesheetNote = ({
@@ -190,8 +311,10 @@ export const generateTimesheetNote = ({
   scheduledSessionsDate = '',
   schoolName = '',
   maBillingStudents,
+  maBillingData,
 }: GenerateTimesheetNoteParams): string => {
   const noteParts: string[] = [];
+  const maBilling = resolveMaBillingForNote(maBillingStudents, maBillingData);
 
   const formatNoteDateForHeader = (dateStr: string): string => {
     const trimmed = dateStr.trim();
@@ -576,6 +699,22 @@ export const generateTimesheetNote = ({
     return countByStudent;
   };
 
+  const countGeneralByMethod = (method: 'email' | 'phone' | 'text') => {
+    let count = 0;
+    communications.forEach(comm => {
+      if (comm.method !== method || comm.studentId) return;
+      if (comm.contactType === 'parent') return;
+      if (shouldExcludeForIndirectServices(comm)) return;
+      count += 1;
+    });
+    return count;
+  };
+
+  const formatGeneralEmailsLine = (count: number): string | null => {
+    if (count <= 0) return null;
+    return count > 1 ? `General Emails x${count}` : 'General Emails';
+  };
+
   const countParentCommunicationByStudent = () => {
     const countByStudent = new Map<string, number>();
     communications.forEach(comm => {
@@ -830,14 +969,14 @@ export const generateTimesheetNote = ({
     });
     const rosterEntries = mergeSteppingStonesStudentEntries(
       buildStudentEntries(scheduledIds),
-      maBillingStudents
+      getIncludeMaSessionBillingDocumentation() ? maBilling.sessionStudents : []
     );
     const directLabel = isTeletherapy ? 'Offsite Direct Services:' : 'Direct Services:';
     const indirectLabel = isTeletherapy ? 'Offsite Indirect Services:' : 'Indirect Services:';
     const directEntries = buildStudentEntries(workDirectIds);
-    const indirectEntries = mergeSteppingStonesStudentEntries(
+    const indirectEntries = mergeMaBillingIntoSteppingIndirect(
       buildStudentEntries(workIndirectIds),
-      maBillingStudents
+      maBilling
     );
 
     const prepSection = [
@@ -882,6 +1021,7 @@ export const generateTimesheetNote = ({
 
   const documentationEntries = buildStudentEntries(documentationStudentIds);
   const parentCommunicationEntries = buildEmailCorrespondenceEntries(parentCommunicationCountByStudent);
+  const generalEmailCount = countGeneralByMethod('email');
   const emailCorrespondenceEntries = buildEmailCorrespondenceEntries(emailCorrespondenceCountByStudent);
   const phoneCallEntries = buildEmailCorrespondenceEntries(phoneCallCountByStudent);
   const textMessageEntries = buildEmailCorrespondenceEntries(textMessageCountByStudent);
@@ -944,8 +1084,11 @@ export const generateTimesheetNote = ({
   }
 
   // Email correspondence (lowercase 'c' per MN DOE)
-  if (emailCorrespondenceEntries.length > 0) {
-    addIndirectSubsection('Email correspondence:', emailCorrespondenceEntries.join(', '));
+  const emailCorrespondenceLineParts = [...emailCorrespondenceEntries];
+  const generalEmailsLine = formatGeneralEmailsLine(generalEmailCount);
+  if (generalEmailsLine) emailCorrespondenceLineParts.push(generalEmailsLine);
+  if (emailCorrespondenceLineParts.length > 0) {
+    addIndirectSubsection('Email correspondence:', emailCorrespondenceLineParts.join(', '));
   }
 
   // Phone calls and texts — reported separately for time reporting
@@ -1064,10 +1207,7 @@ export const generateTimesheetNote = ({
     addIndirectSubsection('Due process (Data Entry Spedforms):', spedformsDataEntryEntries.join(', '));
   }
 
-  const maBillingLine = formatMaBillingDetailedLine(maBillingStudents);
-  if (maBillingLine) {
-    addIndirectStandaloneLine(maBillingLine);
-  }
+  appendMaBillingToDetailedNote(noteParts, addIndirectStandaloneLine, maBilling);
 
   noteParts.push(''); // Empty line after service
 
@@ -1100,6 +1240,7 @@ interface GenerateProspectiveTimesheetNoteParams {
   /** For Stepping Stones morning roster; filters scheduled students to this school. */
   schoolName?: string;
   maBillingStudents?: MaBillingStudentForTimesheet[];
+  maBillingData?: MaBillingDataForTimesheet;
 }
 
 export const generateProspectiveTimesheetNote = ({
@@ -1114,8 +1255,10 @@ export const generateProspectiveTimesheetNote = ({
   outputFormat = 'detailed',
   schoolName = '',
   maBillingStudents,
+  maBillingData,
 }: GenerateProspectiveTimesheetNoteParams): string => {
   const noteParts: string[] = [];
+  const maBilling = resolveMaBillingForNote(maBillingStudents, maBillingData);
 
   const formatNoteDateForHeader = (dateStr: string): string => {
     const trimmed = dateStr.trim();
@@ -1536,14 +1679,14 @@ export const generateProspectiveTimesheetNote = ({
     });
     const rosterEntries = mergeSteppingStonesStudentEntries(
       buildStudentEntries(scheduledIds),
-      maBillingStudents
+      getIncludeMaSessionBillingDocumentation() ? maBilling.sessionStudents : []
     );
     const directLabel = isTeletherapy ? 'Offsite Direct Services:' : 'Direct Services:';
     const indirectLabel = isTeletherapy ? 'Offsite Indirect Services:' : 'Indirect Services:';
     const directEntries = buildStudentEntries(workDirectIds);
-    const indirectEntries = mergeSteppingStonesStudentEntries(
+    const indirectEntries = mergeMaBillingIntoSteppingIndirect(
       buildStudentEntries(workIndirectIds),
-      maBillingStudents
+      maBilling
     );
 
     const prepSection = [
@@ -1790,6 +1933,15 @@ export const generateProspectiveTimesheetNote = ({
   if (staffMeetingEntriesProspective.length > 0) {
     addIndirectSubsection('Indirect services, staff meeting:', staffMeetingEntriesProspective.join(', '));
   }
+
+  const addIndirectStandaloneLineProspective = (line: string) => {
+    if (hasIndirectSubsection) {
+      noteParts.push('');
+    }
+    noteParts.push(line);
+    hasIndirectSubsection = true;
+  };
+  appendMaBillingToDetailedNote(noteParts, addIndirectStandaloneLineProspective, maBilling);
 
   noteParts.push(''); // Empty line after service
 

@@ -11,10 +11,6 @@ import {
   Description as DescriptionIcon,
   Folder as FolderIcon,
   Event as EventIcon,
-  Assignment as AssignmentIcon,
-  Assessment as AssessmentIcon,
-  NoteAdd as NoteAddIcon,
-  ViewList as ViewListIcon,
   Business as BusinessIcon,
 } from '@mui/icons-material';
 
@@ -26,12 +22,6 @@ interface TimeTrackingFilterProps {
   onGenerateSteppingStonesTimesheet?: () => void;
   onGenerateProspectiveNote: () => void;
   onOpenSavedNotes: () => void;
-  onAddIEPActivity?: () => void;
-  onAdd3YearReassessment?: () => void;
-  onAddSlpScreening?: () => void;
-  onAddSlpScreener?: () => void;
-  onAddDocumentation?: () => void;
-  onAddCaseloadPlanning?: () => void;
   hasItems: boolean;
   useSpecificTimes: boolean;
   onUseSpecificTimesChange: (value: boolean) => void;
@@ -44,12 +34,6 @@ export const TimeTrackingFilter = ({
   onGenerateSteppingStonesTimesheet,
   onGenerateProspectiveNote,
   onOpenSavedNotes,
-  onAddIEPActivity,
-  onAdd3YearReassessment,
-  onAddSlpScreening,
-  onAddSlpScreener,
-  onAddDocumentation,
-  onAddCaseloadPlanning,
   hasItems,
   useSpecificTimes,
   onUseSpecificTimesChange,
@@ -69,78 +53,6 @@ export const TimeTrackingFilter = ({
         </Grid>
         <Grid item xs={12} sm={6} md={4}>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            {onAddIEPActivity && (
-              <Button
-                variant="outlined"
-                color="secondary"
-                startIcon={<AssignmentIcon />}
-                onClick={onAddIEPActivity}
-                disabled={!selectedDate}
-                sx={{ minWidth: 'fit-content' }}
-              >
-                Add IEP activity
-              </Button>
-            )}
-            {onAdd3YearReassessment && (
-              <Button
-                variant="outlined"
-                color="secondary"
-                startIcon={<AssessmentIcon />}
-                onClick={onAdd3YearReassessment}
-                disabled={!selectedDate}
-                sx={{ minWidth: 'fit-content' }}
-              >
-                Add 3 year reassessment
-              </Button>
-            )}
-            {onAddSlpScreening && (
-              <Button
-                variant="outlined"
-                color="secondary"
-                startIcon={<AssessmentIcon />}
-                onClick={onAddSlpScreening}
-                disabled={!selectedDate}
-                sx={{ minWidth: 'fit-content' }}
-              >
-                Add SLP Screening Assessment
-              </Button>
-            )}
-            {onAddSlpScreener && (
-              <Button
-                variant="outlined"
-                color="secondary"
-                startIcon={<AssessmentIcon />}
-                onClick={onAddSlpScreener}
-                disabled={!selectedDate}
-                sx={{ minWidth: 'fit-content' }}
-              >
-                Add SLP Screener
-              </Button>
-            )}
-            {onAddCaseloadPlanning && (
-              <Button
-                variant="outlined"
-                color="secondary"
-                startIcon={<ViewListIcon />}
-                onClick={onAddCaseloadPlanning}
-                disabled={!selectedDate}
-                sx={{ minWidth: 'fit-content' }}
-              >
-                Add caseload planning
-              </Button>
-            )}
-            {onAddDocumentation && (
-              <Button
-                variant="outlined"
-                color="secondary"
-                startIcon={<NoteAddIcon />}
-                onClick={onAddDocumentation}
-                disabled={!selectedDate}
-                sx={{ minWidth: 'fit-content' }}
-              >
-                Add documentation
-              </Button>
-            )}
             <Button
               variant="contained"
               startIcon={<DescriptionIcon />}

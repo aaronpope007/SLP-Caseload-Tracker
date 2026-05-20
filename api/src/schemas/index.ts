@@ -15,10 +15,28 @@ const nonEmptyString = z.string().min(1, 'This field is required').transform(s =
 /** Optional trimmed string (empty becomes undefined) */
 const optionalString = z.string().optional().transform(s => s?.trim() || undefined);
 
-/** ISO date string */
-const isoDateString = z.string().datetime({ offset: true }).or(
-  z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be a valid date (YYYY-MM-DD)')
-);
+/** ISO date string (with offset, or legacy local datetime without timezone) */
+const isoDateString = z
+  .string()
+  .datetime({ offset: true })
+  .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be a valid date (YYYY-MM-DD)'))
+  .or(
+    z.string().regex(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?$/,
+      'Must be a valid date/time (YYYY-MM-DDTHH:mm:ss)'
+    )
+  );
+
+/** Optional email — blank/whitespace omitted; invalid only when non-empty */
+const optionalEmail = z
+  .union([z.string(), z.undefined(), z.null()])
+  .optional()
+  .transform((v) => {
+    if (v == null) return undefined;
+    const t = String(v).trim();
+    return t === '' ? undefined : t;
+  })
+  .pipe(z.union([z.undefined(), z.string().email('Invalid email address')]));
 
 /** Optional ISO date string */
 const optionalIsoDate = isoDateString.optional().or(z.literal('').transform(() => undefined));
@@ -596,7 +614,7 @@ export const updateMeetingSchema = meetingSchema.partial();
 // Communication Schema
 // ============================================================================
 
-export const contactTypeSchema = z.enum(['teacher', 'parent', 'case-manager']);
+export const contactTypeSchema = z.enum(['teacher', 'parent', 'case-manager', 'administrative']);
 export const communicationMethodSchema = z.enum(['email', 'phone', 'text', 'in-person', 'other']);
 
 export const communicationSchema = z.object({
@@ -605,7 +623,7 @@ export const communicationSchema = z.object({
   contactType: contactTypeSchema,
   contactId: optionalString,
   contactName: nonEmptyString.pipe(z.string().max(200)),
-  contactEmail: z.string().email().optional().or(z.literal('')),
+  contactEmail: optionalEmail,
   subject: z.string().max(500).default(''),
   body: z.string().max(10000).default(''),
   method: communicationMethodSchema,

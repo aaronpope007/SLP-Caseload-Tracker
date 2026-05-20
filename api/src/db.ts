@@ -584,7 +584,7 @@ export function initDatabase() {
     CREATE TABLE IF NOT EXISTS communications (
       id TEXT PRIMARY KEY,
       studentId TEXT,
-      contactType TEXT NOT NULL CHECK(contactType IN ('teacher', 'parent', 'case-manager')),
+      contactType TEXT NOT NULL CHECK(contactType IN ('teacher', 'parent', 'case-manager', 'administrative')),
       contactId TEXT,
       contactName TEXT NOT NULL,
       contactEmail TEXT,
@@ -608,7 +608,7 @@ export function initDatabase() {
         CREATE TABLE communications_new (
           id TEXT PRIMARY KEY,
           studentId TEXT,
-          contactType TEXT NOT NULL CHECK(contactType IN ('teacher', 'parent', 'case-manager')),
+          contactType TEXT NOT NULL CHECK(contactType IN ('teacher', 'parent', 'case-manager', 'administrative')),
           contactId TEXT,
           contactName TEXT NOT NULL,
           contactEmail TEXT,
@@ -630,6 +630,39 @@ export function initDatabase() {
     }
   } catch (e: any) {
     console.warn('Communications method migration:', e.message);
+  }
+
+  // Migration: allow 'administrative' contactType in communications
+  try {
+    const commTableInfo = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='communications'").get() as { sql: string } | undefined;
+    if (commTableInfo?.sql && !commTableInfo.sql.includes("'administrative'")) {
+      db.exec(`
+        CREATE TABLE communications_contact_type_new (
+          id TEXT PRIMARY KEY,
+          studentId TEXT,
+          contactType TEXT NOT NULL CHECK(contactType IN ('teacher', 'parent', 'case-manager', 'administrative')),
+          contactId TEXT,
+          contactName TEXT NOT NULL,
+          contactEmail TEXT,
+          subject TEXT NOT NULL,
+          body TEXT NOT NULL,
+          method TEXT NOT NULL CHECK(method IN ('email', 'phone', 'text', 'in-person', 'other')),
+          date TEXT NOT NULL,
+          sessionId TEXT,
+          relatedTo TEXT,
+          dateCreated TEXT NOT NULL,
+          FOREIGN KEY (studentId) REFERENCES students(id) ON DELETE SET NULL,
+          FOREIGN KEY (sessionId) REFERENCES sessions(id) ON DELETE SET NULL
+        )
+      `);
+      db.exec(`INSERT INTO communications_contact_type_new SELECT * FROM communications`);
+      db.exec(`DROP TABLE communications`);
+      db.exec(`ALTER TABLE communications_contact_type_new RENAME TO communications`);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_communications_contactType ON communications(contactType)`);
+      console.log('Migrated communications table to support contactType=administrative');
+    }
+  } catch (e: any) {
+    console.warn('Communications contactType migration:', e.message);
   }
 
   // Timesheet Notes table

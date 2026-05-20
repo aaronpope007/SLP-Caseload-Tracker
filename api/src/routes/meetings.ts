@@ -442,6 +442,8 @@ meetingsRouter.post(
       title: row.title,
       cptCode: billing.cptCode,
       category: row.category || 'Evaluation',
+      startTime: row.date?.trim() ? row.date : null,
+      endTime: row.endTime?.trim() ? row.endTime : null,
       additionalContext: body.additionalContext,
     });
 

@@ -10,35 +10,56 @@ export interface EvalMaNotePromptInput {
   title: string;
   cptCode: string;
   category: string;
+  startTime?: string | null;
+  endTime?: string | null;
   additionalContext?: string;
 }
 
 export function buildEvalMaNotePrompt(input: EvalMaNotePromptInput): string {
-  const context = (input.additionalContext || '').trim() || 'none provided';
-  const cptDisplay = input.cptCode?.trim() || 'not specified';
+  const context = (input.additionalContext || '').trim();
+  const contextLine = context
+    ? `Additional context (may include multiple date/time blocks): ${context}`
+    : 'Additional context: none';
 
-  return `You are a licensed speech-language pathologist writing a brief MA billing documentation note for a speech-language evaluation.
+  const sessionTimes = [
+    input.startTime?.trim() ? `- Session start (ISO): ${input.startTime.trim()}` : null,
+    input.endTime?.trim() ? `- Session end (ISO): ${input.endTime.trim()}` : null,
+  ]
+    .filter(Boolean)
+    .join('\n');
 
-Write a single paragraph (60–100 words) suitable for MA billing documentation.
+  return `Generate MA billing log text for a speech-language evaluation.
+
+Output ONLY formatted time block(s) and one factual action line per block. No preamble, no explanation, no extra sentences, no headers, no paragraph prose, no clinical narrative.
+
+Required format for EACH entry (exactly two lines per entry):
+MM/DD/YYYY HH:MM am – HH:MM am
+[One simple factual sentence]
+
+Time formatting rules:
+- Date as MM/DD/YYYY
+- Times as HH:MM am or HH:MM pm (lowercase am/pm, no seconds)
+- Use an en-dash (–) between start and end on the time line
+- Separate multiple entries with a single blank line
+
+How many entries:
+- One session with one time block: generate ONE entry.
+- If additional context lists multiple dates/times: generate ONE entry per block.
+
+Action line (pick the best fit):
+- Assessment administration: Administered assessment. Scored [test name].
+- Report writing/documentation: Scored and interpreted results. Completed report, see evaluation report dated [date].
+- If unclear: Administered and scored [assessment title].
+Use [test name] or [assessment title] from the assessment title below. For the report line, [date] is the session date as MM/DD/YYYY.
 
 Session details:
 - Student: ${input.studentName}
-- Date: ${input.date}
-- Assessment(s) administered: ${input.title}
-- CPT code: ${cptDisplay}
+- Session date: ${input.date}
+- Assessment title: ${input.title}
 - Evaluation type: ${input.category || 'Evaluation'}
-- Additional context: ${context}
+${sessionTimes ? `${sessionTimes}\n` : ''}${contextLine}
 
-Rules:
-- Do NOT include CPT codes or ICD-10 codes in the note body
-- Write in third person, past tense
-- Mention the specific assessment(s) administered
-- State the purpose (e.g. "to assess speech sound production" or "to evaluate language comprehension and expression")
-- Note that results will be used to determine eligibility and guide treatment planning
-- Do not include scores or results (those go in the eval report)
-- End with one sentence about next steps (e.g. report completion, eligibility determination meeting)
-
-Return only the paragraph text with no headings or bullet points.`;
+Output ONLY the formatted time block(s) as plain text.`;
 }
 
 async function listGeminiModels(apiKey: string): Promise<string[]> {

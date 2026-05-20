@@ -32,7 +32,7 @@ import {
   Visibility as VisibilityIcon,
 } from '@mui/icons-material';
 import type { Communication, Student, Teacher, CaseManager } from '../types';
-import { api } from '../utils/api';
+import { api, ApiError } from '../utils/api';
 import { formatDateOnly, formatTime, getTodayLocalDateString } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
 import { useConfirm, useSnackbar, useDialog } from '../hooks';
@@ -48,8 +48,21 @@ const getContactTypeColor = (type: Communication['contactType']) => {
       return 'success';
     case 'case-manager':
       return 'warning';
+    case 'administrative':
+      return 'info';
     default:
       return 'default';
+  }
+};
+
+const formatContactTypeLabel = (type: Communication['contactType']) => {
+  switch (type) {
+    case 'case-manager':
+      return 'Case Manager';
+    case 'administrative':
+      return 'Administrative';
+    default:
+      return type.charAt(0).toUpperCase() + type.slice(1);
   }
 };
 
@@ -272,23 +285,27 @@ export const Communications = () => {
 
   const handleSave = async () => {
     try {
-      // Use form date; when editing preserve existing time, when creating use current time
+      const [y, m, d] = formData.date.split('-').map((n) => Number(n));
       let dateIso: string;
-      if (editingCommunication) {
-        const existingDate = editingCommunication.date;
-        const timePart = existingDate.includes('T') ? existingDate.slice(existingDate.indexOf('T')) : 'T12:00:00.000Z';
-        dateIso = formData.date + timePart;
+      if (editingCommunication?.date) {
+        const prev = new Date(editingCommunication.date);
+        if (!Number.isNaN(prev.getTime())) {
+          dateIso = new Date(y, m - 1, d, prev.getHours(), prev.getMinutes(), prev.getSeconds(), prev.getMilliseconds()).toISOString();
+        } else {
+          dateIso = new Date(y, m - 1, d, 12, 0, 0).toISOString();
+        }
       } else {
         const now = new Date();
-        dateIso = formData.date + 'T' + now.toISOString().slice(11);
+        dateIso = new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds()).toISOString();
       }
 
+      const emailTrimmed = formData.contactEmail.trim();
       const communicationData: Omit<Communication, 'id' | 'dateCreated'> = {
         studentId: formData.studentId || undefined,
         contactType: formData.contactType,
         contactId: formData.contactId || undefined,
-        contactName: formData.contactName,
-        contactEmail: formData.contactEmail || undefined,
+        contactName: formData.contactName.trim(),
+        contactEmail: emailTrimmed || undefined,
         subject: formData.subject,
         body: formData.body,
         method: formData.method,
@@ -309,7 +326,11 @@ export const Communications = () => {
       loadData();
     } catch (error: unknown) {
       logError('Failed to save communication', error);
-      showSnackbar(getErrorMessage(error) || 'Failed to save communication', 'error');
+      const msg =
+        error instanceof ApiError
+          ? error.getUserMessage()
+          : getErrorMessage(error) || 'Failed to save communication';
+      showSnackbar(msg, 'error');
     }
   };
 
@@ -480,7 +501,7 @@ export const Communications = () => {
       width: 120,
       renderCell: (params) => {
         if (!params.value) return null;
-        const label = params.value === 'case-manager' ? 'Case Manager' : params.value.charAt(0).toUpperCase() + params.value.slice(1);
+        const label = formatContactTypeLabel(params.value);
         return (
           <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
             <Chip
@@ -588,6 +609,7 @@ export const Communications = () => {
             <MenuItem value="teacher">Teacher</MenuItem>
             <MenuItem value="parent">Parent</MenuItem>
             <MenuItem value="case-manager">Case Manager</MenuItem>
+            <MenuItem value="administrative">Administrative</MenuItem>
           </Select>
         </FormControl>
             <FormControl size="small" sx={{ minWidth: 200 }}>
@@ -649,7 +671,7 @@ export const Communications = () => {
                       const highlightedItem = menuElement.querySelector('[data-highlighted="true"], .Mui-focusVisible, [aria-selected="true"]') as HTMLElement;
                       if (highlightedItem) {
                         const value = highlightedItem.getAttribute('data-value');
-                        if (value && ['teacher', 'parent', 'case-manager'].includes(value)) {
+                        if (value && ['teacher', 'parent', 'case-manager', 'administrative'].includes(value)) {
                           e.preventDefault();
                           handleContactTypeChange(value as Communication['contactType']);
                           // Close menu and move to next field
@@ -666,6 +688,7 @@ export const Communications = () => {
                 <MenuItem value="teacher">Teacher</MenuItem>
                 <MenuItem value="parent">Parent</MenuItem>
                 <MenuItem value="case-manager">Case Manager</MenuItem>
+                <MenuItem value="administrative">Administrative</MenuItem>
               </Select>
             </FormControl>
 
@@ -753,7 +776,9 @@ export const Communications = () => {
               />
             )}
 
-            {(formData.contactType === 'parent' || !formData.contactId) && (
+            {(formData.contactType === 'parent' ||
+              formData.contactType === 'administrative' ||
+              !formData.contactId) && (
               <>
                 <TextField
                   fullWidth
@@ -918,7 +943,7 @@ export const Communications = () => {
               <Box>
                 <Typography variant="caption" color="text.secondary">Type</Typography>
                 <Chip
-                  label={viewingCommunication.contactType === 'case-manager' ? 'Case Manager' : viewingCommunication.contactType.charAt(0).toUpperCase() + viewingCommunication.contactType.slice(1)}
+                  label={formatContactTypeLabel(viewingCommunication.contactType)}
                   size="small"
                   color={getContactTypeColor(viewingCommunication.contactType)}
                   sx={{ mt: 0.5 }}

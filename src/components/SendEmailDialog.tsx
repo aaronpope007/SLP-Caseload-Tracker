@@ -187,7 +187,7 @@ export const SendEmailDialog = ({
       setError('Please enter or select a contact name');
       return;
     }
-    if (!contactEmail.trim() && contactType !== 'parent') {
+    if (!contactEmail.trim() && contactType !== 'parent' && contactType !== 'administrative') {
       setError('Please enter or select a contact email address');
       return;
     }
@@ -290,7 +290,11 @@ export const SendEmailDialog = ({
     }
   };
 
-  const canSend = contactName.trim() && (contactType === 'parent' || contactEmail.trim()) && subject.trim() && body.trim();
+  const canSend =
+    contactName.trim() &&
+    (contactType === 'parent' || contactType === 'administrative' || contactEmail.trim()) &&
+    subject.trim() &&
+    body.trim();
 
   // Filter students by selected school
   const filteredStudents = selectedSchool 
@@ -312,6 +316,7 @@ export const SendEmailDialog = ({
               <MenuItem value="teacher">Teacher</MenuItem>
               <MenuItem value="parent">Parent</MenuItem>
               <MenuItem value="case-manager">Case Manager</MenuItem>
+              <MenuItem value="administrative">Administrative</MenuItem>
             </Select>
           </FormControl>
 
@@ -396,7 +401,7 @@ export const SendEmailDialog = ({
             />
           )}
 
-          {(contactType === 'parent' || !contactId) && (
+          {(contactType === 'parent' || contactType === 'administrative' || !contactId) && (
             <>
               <TextField
                 fullWidth
@@ -411,7 +416,7 @@ export const SendEmailDialog = ({
                 type="email"
                 value={contactEmail}
                 onChange={(e) => setContactEmail(e.target.value)}
-                required={contactType !== 'parent'}
+                required={contactType !== 'parent' && contactType !== 'administrative'}
               />
             </>
           )}

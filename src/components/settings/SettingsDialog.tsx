@@ -21,6 +21,17 @@ import { useAuth } from '../../context/AuthContext';
 import { api } from '../../utils/api';
 import { logError } from '../../utils/logger';
 import { persistEmailCredentials } from '../../utils/emailCredentials';
+import {
+  persistZoomLink,
+  readStoredZoomLinkForSettings,
+  ZOOM_LINK_PLACEHOLDER_TEMPLATE,
+} from '../../utils/zoomLink';
+import {
+  getIncludeMaEvalBillingDocumentation,
+  getIncludeMaSessionBillingDocumentation,
+  setIncludeMaEvalBillingDocumentation,
+  setIncludeMaSessionBillingDocumentation,
+} from '../../utils/maTimesheetBillingSettings';
 
 interface SettingsDialogProps {
   open: boolean;
@@ -33,6 +44,8 @@ export const SettingsDialog = ({ open, onClose }: SettingsDialogProps) => {
   const [exportOpen, setExportOpen] = useState(false);
   const [userName, setUserName] = useState('');
   const [defaultGoalTarget80, setDefaultGoalTarget80] = useState(false);
+  const [includeMaSessionBillingDoc, setIncludeMaSessionBillingDoc] = useState(true);
+  const [includeMaEvalBillingDoc, setIncludeMaEvalBillingDoc] = useState(true);
   const [zoomLink, setZoomLink] = useState('');
   const [emailAddress, setEmailAddress] = useState('');
   const [emailPassword, setEmailPassword] = useState('');
@@ -69,26 +82,9 @@ export const SettingsDialog = ({ open, onClose }: SettingsDialogProps) => {
       setUserName('Aaron Pope');
     }
     setDefaultGoalTarget80(localStorage.getItem('default_goal_target_80') === 'true');
-    const savedZoomLink = localStorage.getItem('zoom_link');
-    if (savedZoomLink) {
-      setZoomLink(savedZoomLink);
-    } else {
-      // Set default template (user should replace with their own Zoom link)
-      setZoomLink(`[Your Name] is inviting you to a scheduled Zoom meeting.
-
-Topic: [Your Meeting Topic]
-
-Join Zoom Meeting
-[Your Zoom Meeting Link]
-
-Meeting ID: [Your Meeting ID]
-Passcode: [Your Passcode]
-
----
-
-Join instructions
-[Your join instructions]`);
-    }
+    setIncludeMaSessionBillingDoc(getIncludeMaSessionBillingDocumentation());
+    setIncludeMaEvalBillingDoc(getIncludeMaEvalBillingDocumentation());
+    setZoomLink(readStoredZoomLinkForSettings());
     const savedEmailAddress = localStorage.getItem('email_address');
     if (savedEmailAddress) {
       setEmailAddress(savedEmailAddress);
@@ -218,8 +214,9 @@ Join instructions
     }
     localStorage.setItem('user_name', userName.trim() || 'Aaron Pope');
     localStorage.setItem('default_goal_target_80', defaultGoalTarget80 ? 'true' : 'false');
-    // Don't trim zoom link - preserve newlines and formatting
-    localStorage.setItem('zoom_link', zoomLink);
+    setIncludeMaSessionBillingDocumentation(includeMaSessionBillingDoc);
+    setIncludeMaEvalBillingDocumentation(includeMaEvalBillingDoc);
+    persistZoomLink(zoomLink);
     persistEmailCredentials(emailAddress, emailPassword);
     localStorage.setItem('soap_provider_name', soapProviderName.trim());
     localStorage.setItem('soap_provider_credentials', soapCredentials.trim());
@@ -347,9 +344,42 @@ Join instructions
             rows={8}
             value={zoomLink}
             onChange={(e) => setZoomLink(e.target.value)}
-            helperText="Your Zoom meeting invitation text"
+            placeholder={ZOOM_LINK_PLACEHOLDER_TEMPLATE.slice(0, 80) + '…'}
+            helperText="Paste your full Zoom invitation (from Zoom → Copy invitation). Leave empty until you add a real link — the template is not sent in emails."
             margin="normal"
           />
+        </Box>
+        <Divider sx={{ my: 2 }} />
+        <Box sx={{ mt: 1 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            Time tracking — MA billing on timesheet notes
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+            Uses MA Billing Log with &quot;By Logged Date&quot; for the selected day. Initials and grade match the MA billing report.
+          </Typography>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={includeMaSessionBillingDoc}
+                onChange={(e) => setIncludeMaSessionBillingDoc(e.target.checked)}
+                color="primary"
+              />
+            }
+            label="MA Session Billing Documentation"
+          />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={includeMaEvalBillingDoc}
+                onChange={(e) => setIncludeMaEvalBillingDoc(e.target.checked)}
+                color="primary"
+              />
+            }
+            label="MA Eval Billing Documentation"
+          />
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+            Session: therapy sessions logged to MA that day. Eval: evaluations and documentation time logged to MA that day (Stepping Stones: added under Offsite Indirect Services as ZL (8)).
+          </Typography>
         </Box>
         <Divider sx={{ my: 2 }} />
         <Box sx={{ mt: 1 }}>

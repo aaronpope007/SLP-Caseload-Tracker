@@ -14,7 +14,6 @@ import type {
   ScheduledSession,
   ArticulationScreener,
   Meeting,
-  MaBillingLogStudent,
 } from '../types';
 import {
   getSessions,
@@ -40,8 +39,17 @@ import { TimesheetNoteDialog } from '../components/TimesheetNoteDialog';
 import { SavedNotesDialog } from '../components/SavedNotesDialog';
 import { TimeTrackingFilter } from '../components/TimeTrackingFilter';
 import { MeetingFormDialog } from '../components/meeting/MeetingFormDialog';
-import { generateTimesheetNote, generateProspectiveTimesheetNote, type MaBillingStudentForTimesheet } from '../utils/timesheetNoteGenerator';
+import { generateTimesheetNote, generateProspectiveTimesheetNote } from '../utils/timesheetNoteGenerator';
 import { MaBillingLogSection } from '../components/timeTracking/MaBillingLogSection';
+import {
+  type MaBillingDataForTimesheet,
+  hasMaBillingDataForTimesheet,
+  mapMaBillingStudentsForTimesheet,
+} from '../utils/maBillingForTimesheet';
+import {
+  getIncludeMaEvalBillingDocumentation,
+  getIncludeMaSessionBillingDocumentation,
+} from '../utils/maTimesheetBillingSettings';
 import { useConfirm, useSnackbar, useDialog } from '../hooks';
 import type { TimesheetNote } from '../types';
 import { migrateTimesheetNotes } from '../utils/migrateTimesheetNotes';
@@ -53,21 +61,30 @@ interface TimeTrackingItem {
   data: Session | Evaluation | ArticulationScreener | Meeting | Communication;
 }
 
-function mapMaBillingStudentsForTimesheet(students: MaBillingLogStudent[]): MaBillingStudentForTimesheet[] {
-  return students.map((s) => ({
-    initials: s.initials,
-    grade: s.grade,
-    sessionCount: s.sessionCount,
-  }));
-}
+const emptyMaBillingData = (): MaBillingDataForTimesheet => ({
+  sessionStudents: [],
+  evalStudents: [],
+  docStudents: [],
+});
 
-async function fetchMaBillingForTimesheetDay(dateYmd: string): Promise<MaBillingStudentForTimesheet[]> {
+async function fetchMaBillingForTimesheetDay(dateYmd: string): Promise<MaBillingDataForTimesheet> {
   const res = await api.sessions.getMaBillingLog({
     startDate: dateYmd,
     endDate: dateYmd,
     filterBy: 'loggedDate',
   });
-  return mapMaBillingStudentsForTimesheet(res.students);
+  return {
+    sessionStudents: mapMaBillingStudentsForTimesheet(res.students),
+    evalStudents: res.evalStudents ?? [],
+    docStudents: res.docStudents ?? [],
+  };
+}
+
+function maBillingEnabledForTimesheet(): { includeSession: boolean; includeEval: boolean } {
+  return {
+    includeSession: getIncludeMaSessionBillingDocumentation(),
+    includeEval: getIncludeMaEvalBillingDocumentation(),
+  };
 }
 
 // Storage functions for timesheet notes (now using API)
@@ -96,7 +113,6 @@ export const TimeTracking = () => {
   const savedNotesDialog = useDialog();
   const meetingDialog = useDialog();
   const [editingMeeting, setEditingMeeting] = useState<Meeting | null>(null);
-  const [meetingDefaultCategory, setMeetingDefaultCategory] = useState<'IEP' | '3 Year Reassessment' | 'SLP Screening Assessment' | 'SLP Screener' | 'Initial assessment documentation' | 'Caseload planning' | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [screeners, setScreeners] = useState<ArticulationScreener[]>([]);
@@ -117,23 +133,23 @@ export const TimeTracking = () => {
   const [useSpecificTimes, setUseSpecificTimes] = useState(false);
   const [timesheetNote, setTimesheetNote] = useState('');
   const [savedNotes, setSavedNotes] = useState<TimesheetNote[]>([]);
-  const [maBillingStudents, setMaBillingStudents] = useState<MaBillingStudentForTimesheet[]>([]);
+  const [maBillingData, setMaBillingData] = useState<MaBillingDataForTimesheet>(emptyMaBillingData);
 
   // Load MA billing for the selected service day (silent; used by timesheet generation).
   useEffect(() => {
     if (!selectedDate) {
-      setMaBillingStudents([]);
+      setMaBillingData(emptyMaBillingData());
       return;
     }
     let cancelled = false;
     void (async () => {
       try {
-        const students = await fetchMaBillingForTimesheetDay(selectedDate);
+        const data = await fetchMaBillingForTimesheetDay(selectedDate);
         if (cancelled) return;
-        setMaBillingStudents(students);
+        setMaBillingData(data);
       } catch (e) {
         logError('MA billing auto-fetch for timesheet failed', e);
-        if (!cancelled) setMaBillingStudents([]);
+        if (!cancelled) setMaBillingData(emptyMaBillingData());
       }
     })();
     return () => {
@@ -441,15 +457,16 @@ export const TimeTracking = () => {
   };
 
   const canGenerateTimesheet = Boolean(
-    selectedDate && (filteredItems.length > 0 || maBillingStudents.length > 0)
+    selectedDate &&
+      (filteredItems.length > 0 || hasMaBillingDataForTimesheet(maBillingData, maBillingEnabledForTimesheet()))
   );
 
   const handleGenerateTimesheetNote = async () => {
     // Always pull freshest data at generation time (handles multi-tab usage without manual refresh).
     const maBillingForNote = selectedDate
-      ? await fetchMaBillingForTimesheetDay(selectedDate).catch(() => maBillingStudents)
-      : maBillingStudents;
-    setMaBillingStudents(maBillingForNote);
+      ? await fetchMaBillingForTimesheetDay(selectedDate).catch(() => maBillingData)
+      : maBillingData;
+    setMaBillingData(maBillingForNote);
 
     const [
       latestSessions,
@@ -589,7 +606,7 @@ export const TimeTracking = () => {
       noteDate: selectedDate || '',
       outputFormat: 'detailed',
       scheduledSessions: latestScheduledSessions,
-      maBillingStudents: maBillingForNote,
+      maBillingData: maBillingForNote,
     });
     
     setTimesheetNote(note);
@@ -598,9 +615,9 @@ export const TimeTracking = () => {
 
   const handleGenerateSteppingStonesTimesheetNote = async () => {
     const maBillingForNote = selectedDate
-      ? await fetchMaBillingForTimesheetDay(selectedDate).catch(() => maBillingStudents)
-      : maBillingStudents;
-    setMaBillingStudents(maBillingForNote);
+      ? await fetchMaBillingForTimesheetDay(selectedDate).catch(() => maBillingData)
+      : maBillingData;
+    setMaBillingData(maBillingForNote);
 
     const [
       latestSessions,
@@ -737,7 +754,7 @@ export const TimeTracking = () => {
       scheduledSessions: latestScheduledSessions,
       scheduledSessionsDate: selectedDate || '',
       schoolName: selectedSchool,
-      maBillingStudents: maBillingForNote,
+      maBillingData: maBillingForNote,
     });
 
     setTimesheetNote(note);
@@ -759,6 +776,9 @@ export const TimeTracking = () => {
     setScheduledSessions(latestScheduledSessions);
     setMeetings(latestMeetings);
 
+    const maBillingForNote = await fetchMaBillingForTimesheetDay(selectedDate).catch(() => maBillingData);
+    setMaBillingData(maBillingForNote);
+
     const note = generateProspectiveTimesheetNote({
       scheduledSessions: latestScheduledSessions,
       targetDate: selectedDate,
@@ -770,6 +790,7 @@ export const TimeTracking = () => {
       isTeletherapy,
       useSpecificTimes,
       formatTimeRange,
+      maBillingData: maBillingForNote,
     });
     
     setTimesheetNote(note);
@@ -808,46 +829,9 @@ export const TimeTracking = () => {
     timesheetDialog.openDialog();
   };
 
-  const handleAddIEPActivity = () => {
-    setEditingMeeting(null);
-    setMeetingDefaultCategory('IEP');
-    meetingDialog.openDialog();
-  };
-
-  const handleAdd3YearReassessment = () => {
-    setEditingMeeting(null);
-    setMeetingDefaultCategory('3 Year Reassessment');
-    meetingDialog.openDialog();
-  };
-
-  const handleAddSlpScreening = () => {
-    setEditingMeeting(null);
-    setMeetingDefaultCategory('SLP Screening Assessment');
-    meetingDialog.openDialog();
-  };
-
-  const handleAddSlpScreener = () => {
-    setEditingMeeting(null);
-    setMeetingDefaultCategory('SLP Screener');
-    meetingDialog.openDialog();
-  };
-
-  const handleAddDocumentation = () => {
-    setEditingMeeting(null);
-    setMeetingDefaultCategory('Initial assessment documentation');
-    meetingDialog.openDialog();
-  };
-
-  const handleAddCaseloadPlanning = () => {
-    setEditingMeeting(null);
-    setMeetingDefaultCategory('Caseload planning');
-    meetingDialog.openDialog();
-  };
-
   const handleCloseMeetingDialog = () => {
     meetingDialog.closeDialog();
     setEditingMeeting(null);
-    setMeetingDefaultCategory(null);
   };
 
   const handleSaveMeeting = async (meeting: Omit<Meeting, 'id' | 'dateCreated' | 'dateUpdated'>) => {
@@ -903,7 +887,16 @@ export const TimeTracking = () => {
       </Typography>
 
       <MaBillingLogSection
-        onStudentsLoaded={setMaBillingStudents}
+        onStudentsLoaded={(students) =>
+          setMaBillingData((prev) => ({
+            ...prev,
+            sessionStudents: students.map((s) => ({
+              initials: s.initials,
+              grade: s.grade,
+              sessionCount: s.sessionCount,
+            })),
+          }))
+        }
         onNotify={(message, severity) => showSnackbar(message, severity ?? 'success')}
       />
 
@@ -914,12 +907,6 @@ export const TimeTracking = () => {
         onGenerateSteppingStonesTimesheet={handleGenerateSteppingStonesTimesheetNote}
         onGenerateProspectiveNote={handleGenerateProspectiveNote}
         onOpenSavedNotes={() => savedNotesDialog.openDialog()}
-        onAddIEPActivity={handleAddIEPActivity}
-        onAdd3YearReassessment={handleAdd3YearReassessment}
-        onAddSlpScreening={handleAddSlpScreening}
-        onAddSlpScreener={handleAddSlpScreener}
-        onAddDocumentation={handleAddDocumentation}
-        onAddCaseloadPlanning={handleAddCaseloadPlanning}
         hasItems={canGenerateTimesheet}
         useSpecificTimes={useSpecificTimes}
         onUseSpecificTimesChange={setUseSpecificTimes}
@@ -931,7 +918,7 @@ export const TimeTracking = () => {
             <CardContent>
               <Typography color="text.secondary" align="center">
                 {selectedDate
-                  ? maBillingStudents.length > 0
+                  ? hasMaBillingDataForTimesheet(maBillingData, maBillingEnabledForTimesheet())
                     ? `No therapy activities logged for ${formatDate(selectedDate)}, but MA billing entries are available — you can still generate a timesheet note.`
                     : `No activities found for ${formatDate(selectedDate)}.`
                   : 'No activities or evaluations logged yet.'}
@@ -976,7 +963,6 @@ export const TimeTracking = () => {
                   getStudentName={getStudentName}
                   onEdit={(meeting) => {
                     setEditingMeeting(meeting);
-                    setMeetingDefaultCategory(null);
                     meetingDialog.openDialog();
                   }}
                 />
@@ -1019,7 +1005,6 @@ export const TimeTracking = () => {
         onSave={handleSaveMeeting}
         onDelete={handleDeleteMeeting}
         students={students}
-        defaultCategory={editingMeeting ? undefined : meetingDefaultCategory ?? undefined}
         defaultDate={selectedDate || undefined}
       />
 

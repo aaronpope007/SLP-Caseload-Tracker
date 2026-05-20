@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { logError, logWarn } from '../utils/logger';
+import { getEffectiveZoomLink, isZoomLinkPlaceholder } from '../utils/zoomLink';
 import { getErrorMessage } from '../utils/validators';
 import {
   Dialog,
@@ -207,11 +208,10 @@ export const EmailTeacherDialog = ({
 
     const teacherName = teacher?.name || 'Teacher';
     const userName = localStorage.getItem('user_name') || 'Aaron Pope';
-    const zoomLink = localStorage.getItem('zoom_link') || '';
-    
-    // Debug: Log zoom link to help diagnose issues
+    const zoomLink = getEffectiveZoomLink();
+
     if (!zoomLink) {
-      logWarn('Zoom link not found in localStorage. Please configure it in Settings.');
+      logWarn('Zoom link not configured in Settings (or still the placeholder template).');
     }
 
     // Format student names
@@ -955,16 +955,21 @@ export const EmailTeacherDialog = ({
       }
       
       // Ensure zoom link and signature are always included
-      const zoomLink = localStorage.getItem('zoom_link') || '';
+      const zoomLink = getEffectiveZoomLink();
       const signature = '\n\nThank you,\nAaron Pope, MS, CCC-SLP\nc. (612) 310-9661';
       
       let finalEmailBody = emailData.emailText.trim();
-      
-      // Check if zoom link is already in the email
-      const hasZoomLink = zoomLink && (
-        finalEmailBody.includes('Zoom link:') || 
-        finalEmailBody.includes(zoomLink) ||
-        finalEmailBody.toLowerCase().includes('zoom')
+
+      // Replace placeholder zoom text if it was generated before settings were fixed
+      if (isZoomLinkPlaceholder(finalEmailBody)) {
+        finalEmailBody = finalEmailBody.replace(
+          /Zoom link:\s*[\s\S]*?(?=\n\nThank you,|\n\nThank you,|$)/i,
+          ''
+        ).trim();
+      }
+
+      const hasZoomLink = Boolean(
+        zoomLink && finalEmailBody.includes(zoomLink)
       );
       
       // Check if signature is already in the email
