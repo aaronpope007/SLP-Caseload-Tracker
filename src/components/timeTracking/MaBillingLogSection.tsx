@@ -68,6 +68,17 @@ function buildEvalMaLineCopy(evalStudents: MaBillingLogResponse['evalStudents'])
   return `MA Evals: ${parts.join(', ')}`;
 }
 
+function buildDocTimeLineCopy(docStudents: MaBillingLogResponse['docStudents']): string {
+  const parts = docStudents
+    .slice()
+    .sort((a, b) => a.initials.localeCompare(b.initials))
+    .map((s) => {
+      const catPart = s.categories.length > 0 ? ` [${s.categories.join(', ')}]` : '';
+      return `${s.initials}(${s.grade}) x${s.docCount}${catPart}`;
+    });
+  return `Doc Time: ${parts.join(', ')}`;
+}
+
 function DatesCell({
   studentId,
   dates,
@@ -175,7 +186,8 @@ export function MaBillingLogSection({ onStudentsLoaded, onNotify }: MaBillingLog
     hasResults &&
     report !== null &&
     report.students.length === 0 &&
-    (report.evalStudents?.length ?? 0) === 0;
+    (report.evalStudents?.length ?? 0) === 0 &&
+    (report.docStudents?.length ?? 0) === 0;
 
   const summaryLine = useMemo(() => {
     if (!report) return '';
@@ -187,6 +199,13 @@ export function MaBillingLogSection({ onStudentsLoaded, onNotify }: MaBillingLog
     const n = report.totalEvals ?? 0;
     const m = report.evalStudents.length;
     return `Total: ${n} MA-logged evaluation${n === 1 ? '' : 's'} across ${m} student${m === 1 ? '' : 's'}`;
+  }, [report]);
+
+  const docSummaryLine = useMemo(() => {
+    if (!report || (report.docStudents?.length ?? 0) === 0) return '';
+    const n = report.totalDocs ?? 0;
+    const m = report.docStudents.length;
+    return `Total: ${n} MA-logged documentation entr${n === 1 ? 'y' : 'ies'} across ${m} student${m === 1 ? '' : 's'}`;
   }, [report]);
 
   return (
@@ -379,6 +398,73 @@ export function MaBillingLogSection({ onStudentsLoaded, onNotify }: MaBillingLog
                     onClick={() => void copyText(buildEvalMaLineCopy(report.evalStudents), 'Eval MA line')}
                   >
                     Copy Eval MA line
+                  </Button>
+                </Stack>
+              </Box>
+            )}
+
+            {hasResults && report && (report.docStudents?.length ?? 0) > 0 && (
+              <Box
+                sx={{
+                  mt:
+                    report.students.length > 0 || (report.evalStudents?.length ?? 0) > 0 ? 3 : 0,
+                }}
+              >
+                <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
+                  Documentation Time
+                </Typography>
+                <Table size="small" component={Paper} variant="outlined">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>
+                        Logged
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Student</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Grade</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Initials</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Types</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Dates</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {report.docStudents.map((row) => (
+                      <TableRow key={row.studentId}>
+                        <TableCell align="right">
+                          <Typography variant="body2" fontWeight={700}>
+                            {row.docCount}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>{row.studentName}</TableCell>
+                        <TableCell>{row.grade || '—'}</TableCell>
+                        <TableCell>{row.initials}</TableCell>
+                        <TableCell sx={{ maxWidth: 280, whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                          {row.categories.length > 0 ? row.categories.join(', ') : '—'}
+                        </TableCell>
+                        <TableCell>
+                          <DatesCell
+                            studentId={row.studentId}
+                            dates={row.dates}
+                            expanded={expandedDateRows.has(row.studentId)}
+                            onToggleExpand={toggleDateExpand}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  {docSummaryLine}
+                </Typography>
+
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mt: 1 }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<ContentCopyIcon />}
+                    onClick={() => void copyText(buildDocTimeLineCopy(report.docStudents), 'Doc Time line')}
+                  >
+                    Copy Doc Time line
                   </Button>
                 </Stack>
               </Box>

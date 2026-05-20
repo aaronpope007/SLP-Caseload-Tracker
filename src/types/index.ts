@@ -263,13 +263,40 @@ export interface MaBillingLogEvalStudent {
   titles: string[];
 }
 
+/** One student row from GET /api/sessions/ma-billing-log docStudents */
+export interface MaBillingLogDocStudent {
+  studentId: string;
+  studentName: string;
+  grade: string;
+  initials: string;
+  docCount: number;
+  dates: string[];
+  categories: string[];
+}
+
 export interface MaBillingLogResponse {
   students: MaBillingLogStudent[];
   evalStudents: MaBillingLogEvalStudent[];
+  docStudents: MaBillingLogDocStudent[];
   totalSessions: number;
   totalEvals: number;
+  totalDocs: number;
   dateRange: { startDate: string; endDate: string };
   filterBy: MaBillingLogFilterBy;
+}
+
+/** One row from GET /api/meetings/documentation-log */
+export interface DocLogEntry {
+  id: string;
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+  title: string;
+  category: string;
+  studentId: string;
+  studentName: string;
+  maLogged: boolean;
+  maLoggedAt: string | null;
 }
 
 /** One row from GET /api/meetings/eval-log (meeting category exposed as `type`) */

@@ -5,7 +5,7 @@
  * Set VITE_API_URL in your .env file or it defaults to http://localhost:3001
  */
 
-import type { Student, Goal, Session, Activity, Evaluation, ArticulationScreener, School, Teacher, CaseManager, SOAPNote, IEPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Meeting, Reminder, Communication, ScheduledSession, TimesheetNote, Todo, CombinedProgressNote, ReassessmentPlan, ReassessmentPlanItem, ReassessmentPlanTemplate, GoalsExportRow, SessionLogEntry, EvalLogEntry, GoalMapAiMapping, MaBillingLogResponse } from '../types';
+import type { Student, Goal, Session, Activity, Evaluation, ArticulationScreener, School, Teacher, CaseManager, SOAPNote, IEPNote, ProgressReport, ProgressReportTemplate, DueDateItem, Meeting, Reminder, Communication, ScheduledSession, TimesheetNote, Todo, CombinedProgressNote, ReassessmentPlan, ReassessmentPlanItem, ReassessmentPlanTemplate, GoalsExportRow, SessionLogEntry, EvalLogEntry, DocLogEntry, GoalMapAiMapping, MaBillingLogResponse } from '../types';
 import { buildQueryString } from './queryHelpers';
 import { logError } from './logger';
 
@@ -724,6 +724,8 @@ export const api = {
   meetings: {
     getEvalLog: (params: { startDate: string; endDate: string; studentIds: string; school: string }) =>
       request<EvalLogEntry[]>(`/meetings/eval-log${buildQueryString(params)}`),
+    getDocumentationLog: (params: { startDate: string; endDate: string; studentIds: string; school: string }) =>
+      request<DocLogEntry[]>(`/meetings/documentation-log${buildQueryString(params)}`),
     patchMaLogged: (id: string, body: { maLogged: boolean }) =>
       request<{ id: string; maLogged: boolean; maLoggedAt: string | null }>(
         `/meetings/${encodeURIComponent(id)}/ma-logged`,

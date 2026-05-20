@@ -35,7 +35,7 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { format, formatISO, startOfMonth } from 'date-fns';
 import { ApiError, api } from '../../utils/api';
 import { getStudents } from '../../utils/storage-api';
-import type { EvalLogEntry, SessionLogEntry, Student } from '../../types';
+import type { DocLogEntry, EvalLogEntry, SessionLogEntry, Student } from '../../types';
 import { groupSessionHasInsufficientData } from '../../utils/sessionValidation';
 import { GroupSessionDataWarning } from './GroupSessionDataWarning';
 import { MaActivityLogNoteDisplay } from './MaActivityLogNoteDisplay';
@@ -290,6 +290,50 @@ function EvalLogTable({
   );
 }
 
+function DocLogTable({
+  rows,
+  onMaLoggedChange,
+}: {
+  rows: DocLogEntry[];
+  onMaLoggedChange: (meetingId: string, checked: boolean) => void;
+}) {
+  return (
+    <Table size="small" sx={{ mb: 2 }}>
+      <TableHead>
+        <TableRow sx={sessionLogHeaderRowSx}>
+          <TableCell>Student Name</TableCell>
+          <TableCell>Date</TableCell>
+          <TableCell>Start</TableCell>
+          <TableCell>End</TableCell>
+          <TableCell>Type</TableCell>
+          <TableCell className="no-print">Logged to MA</TableCell>
+        </TableRow>
+      </TableHead>
+      <TableBody>
+        {rows.map((e) => (
+          <TableRow key={`${e.id}-${e.studentId}`} sx={sessionLogMaMutedSx(e.maLogged)}>
+            <TableCell>{e.studentName}</TableCell>
+            <TableCell>{formatSessionDateOnly(`${e.date}T12:00:00`)}</TableCell>
+            <TableCell>{e.startTime ? formatSessionClock(e.startTime) : '—'}</TableCell>
+            <TableCell>{formatSessionEnd(e.endTime)}</TableCell>
+            <TableCell sx={{ maxWidth: 280, whiteSpace: 'normal', wordBreak: 'break-word' }}>
+              {e.category || '—'}
+            </TableCell>
+            <TableCell className="no-print" align="center" sx={{ opacity: 1, textDecoration: 'none' }}>
+              <Checkbox
+                size="small"
+                checked={e.maLogged}
+                onChange={(ev) => onMaLoggedChange(e.id, ev.target.checked)}
+                inputProps={{ 'aria-label': 'Logged to MA' }}
+              />
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+
 function SessionLogTableDateCell({
   entry,
   muted,
@@ -415,6 +459,7 @@ export function SessionLog() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [sessions, setSessions] = useState<SessionLogEntry[]>([]);
   const [evaluations, setEvaluations] = useState<EvalLogEntry[]>([]);
+  const [docLogEntries, setDocLogEntries] = useState<DocLogEntry[]>([]);
   const [logGenerated, setLogGenerated] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -493,6 +538,7 @@ export function SessionLog() {
     setLogGenerated(false);
     setSessions([]);
     setEvaluations([]);
+    setDocLogEntries([]);
     setAiNotesBySessionId({});
   }, [school, startStr, endStr, selectedIds.join(',')]);
 
@@ -503,9 +549,10 @@ export function SessionLog() {
     try {
       const idsParam = allSelected ? 'all' : selectedIds.join(',');
       const params = { startDate: startStr, endDate: endStr, studentIds: idsParam, school };
-      const [sessionData, evalData] = await Promise.all([
+      const [sessionData, evalData, docData] = await Promise.all([
         api.sessions.getLog(params),
         api.meetings.getEvalLog(params),
+        api.meetings.getDocumentationLog(params),
       ]);
       const normalized = sessionData.map((s) => ({ ...s, maLogged: Boolean(s.maLogged) }));
       setSessions(normalized);
@@ -515,6 +562,7 @@ export function SessionLog() {
       }
       setAiNotesBySessionId(nextAi);
       setEvaluations(evalData.map((e) => ({ ...e, maLogged: Boolean(e.maLogged) })));
+      setDocLogEntries(docData.map((e) => ({ ...e, maLogged: Boolean(e.maLogged) })));
       setLogGenerated(true);
     } catch (e) {
       logError('Session log failed', e);
@@ -559,6 +607,10 @@ export function SessionLog() {
     []
   );
 
+  const updateDocLogForMeeting = useCallback((meetingId: string, patch: Partial<DocLogEntry>) => {
+    setDocLogEntries((prev) => prev.map((row) => (row.id === meetingId ? { ...row, ...patch } : row)));
+  }, []);
+
   const handleEvalMaLoggedToggle = useCallback(
     async (meetingId: string, checked: boolean) => {
       const was = evaluations.find((e) => e.id === meetingId)?.maLogged ?? false;
@@ -580,6 +632,29 @@ export function SessionLog() {
       }
     },
     [evaluations, updateEvaluationsForMeeting, showSnackbar]
+  );
+
+  const handleDocMaLoggedToggle = useCallback(
+    async (meetingId: string, checked: boolean) => {
+      const was = docLogEntries.find((e) => e.id === meetingId)?.maLogged ?? false;
+      updateDocLogForMeeting(meetingId, {
+        maLogged: checked,
+        maLoggedAt: checked ? new Date().toISOString() : null,
+      });
+      try {
+        const res = await api.meetings.patchMaLogged(meetingId, { maLogged: checked });
+        updateDocLogForMeeting(meetingId, {
+          maLogged: res.maLogged,
+          maLoggedAt: res.maLoggedAt,
+        });
+      } catch (e) {
+        updateDocLogForMeeting(meetingId, { maLogged: was });
+        const msg = e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Failed to update MA log';
+        logError('Documentation MA logged toggle', e);
+        showSnackbar(msg, 'error');
+      }
+    },
+    [docLogEntries, updateDocLogForMeeting, showSnackbar]
   );
 
   const handleGenerateEvalMaNote = useCallback(
@@ -824,6 +899,25 @@ export function SessionLog() {
       (a[1][0]?.studentName || '').localeCompare(b[1][0]?.studentName || '', undefined, { sensitivity: 'base' })
     );
   }, [evaluations]);
+
+  const docLogByStudent = useMemo(() => {
+    if (docLogEntries.length === 0) return [];
+    const map = new Map<string, DocLogEntry[]>();
+    for (const e of docLogEntries) {
+      if (!map.has(e.studentId)) map.set(e.studentId, []);
+      map.get(e.studentId)!.push(e);
+    }
+    for (const list of map.values()) {
+      list.sort((a, b) => {
+        const d = a.date.localeCompare(b.date);
+        if (d !== 0) return d;
+        return (a.startTime || '').localeCompare(b.startTime || '');
+      });
+    }
+    return [...map.entries()].sort((a, b) =>
+      (a[1][0]?.studentName || '').localeCompare(b[1][0]?.studentName || '', undefined, { sensitivity: 'base' })
+    );
+  }, [docLogEntries]);
 
   const printTitle = useMemo(() => {
     const range =
@@ -1419,6 +1513,26 @@ export function SessionLog() {
                 ))
               ) : (
                 <EvalLogTable rows={evaluations} {...evalLogTableProps} />
+              )}
+            </Box>
+          )}
+
+          {logGenerated && docLogEntries.length > 0 && (
+            <Box sx={{ mt: 4 }}>
+              <Typography variant="h6" sx={{ mb: 1 }}>
+                Documentation Time
+              </Typography>
+              {multiStudent ? (
+                docLogByStudent.map(([studentId, rows]) => (
+                  <Box key={studentId} sx={{ mb: 2 }}>
+                    <Typography variant="subtitle1" sx={{ mb: 0.5, fontWeight: 600 }}>
+                      {rows[0]?.studentName ?? 'Student'}
+                    </Typography>
+                    <DocLogTable rows={rows} onMaLoggedChange={handleDocMaLoggedToggle} />
+                  </Box>
+                ))
+              ) : (
+                <DocLogTable rows={docLogEntries} onMaLoggedChange={handleDocMaLoggedToggle} />
               )}
             </Box>
           )}

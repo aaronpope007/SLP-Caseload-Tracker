@@ -15,6 +15,18 @@ import { buildEvalMaNotePrompt, generateEvalMaNote } from '../utils/evalMaNote';
 
 const LEGACY_ASSESSMENT_CATEGORY = 'Assessment';
 
+/** Documentation subtypes for documentation-log (not billable under MA). */
+export const DOCUMENTATION_LOG_CATEGORIES = [
+  'Initial assessment documentation',
+  '3 year documentation',
+  'IEP documentation',
+  'SLP Screening Assessment',
+  'Caseload planning',
+  'Case Management',
+  'Due process (progress reports)',
+  'Due process (Data Entry Spedforms)',
+] as const;
+
 /** Title tokens → CPT for eval billing (session log). */
 export function resolveCptFromTitle(title: string): { cptCode: string; billable: boolean; needsReview: boolean } {
   const t = title.toLowerCase();
@@ -211,6 +223,131 @@ meetingsRouter.get('/eval-log', asyncHandler(async (req, res) => {
         maLogged: (row.maLogged ?? 0) === 1,
         maLoggedAt: row.maLoggedAt?.trim() ? row.maLoggedAt : null,
         maNote: row.maNote?.trim() ? row.maNote : null,
+      });
+    }
+  }
+
+  out.sort((a, b) => {
+    const da = a.date.localeCompare(b.date);
+    if (da !== 0) return da;
+    const ns = a.studentName.localeCompare(b.studentName, undefined, { sensitivity: 'base' });
+    if (ns !== 0) return ns;
+    return (a.startTime || '').localeCompare(b.startTime || '');
+  });
+
+  res.json(out);
+}));
+
+// Documentation time log (must be registered before GET / and GET /:id)
+meetingsRouter.get('/documentation-log', asyncHandler(async (req, res) => {
+  const { startDate, endDate, studentIds, school } = req.query;
+  if (!school || typeof school !== 'string' || !school.trim()) {
+    return res.status(400).json({ error: 'school is required' });
+  }
+  if (!startDate || !endDate || typeof startDate !== 'string' || typeof endDate !== 'string') {
+    return res.status(400).json({ error: 'startDate and endDate are required (ISO string)' });
+  }
+  if (!studentIds || typeof studentIds !== 'string' || !studentIds.trim()) {
+    return res.status(400).json({ error: 'studentIds is required (comma-separated ids or "all")' });
+  }
+
+  const schoolName = school.trim();
+  const studentIdsRaw = studentIds.trim();
+
+  let ids: string[] | null = null;
+  if (studentIdsRaw.toLowerCase() !== 'all') {
+    const parsed = studentIdsRaw
+      .split(',')
+      .map((x) => x.trim())
+      .filter(Boolean);
+    if (parsed.length === 0) {
+      return res.status(400).json({ error: 'At least one student id is required' });
+    }
+    ids = parsed;
+  } else {
+    const all = db
+      .prepare(
+        `
+        SELECT id FROM students
+        WHERE school = ?
+          AND status = 'active'
+          AND (archived IS NULL OR archived = 0)
+        `
+      )
+      .all(schoolName) as Array<{ id: string }>;
+    ids = all.map((r) => r.id);
+  }
+
+  if (!ids || ids.length === 0) {
+    return res.json([]);
+  }
+
+  const idSet = new Set(ids);
+  const docPlaceholders = DOCUMENTATION_LOG_CATEGORIES.map(() => '?').join(', ');
+  const rows = db
+    .prepare(
+      `
+      SELECT *
+      FROM meetings
+      WHERE school = ?
+        AND date(date) >= date(?)
+        AND date(date) <= date(?)
+        AND (
+          category IN (${docPlaceholders})
+          OR (category = '3 year assessment' AND COALESCE(activitySubtype, '') != 'assessment')
+        )
+      ORDER BY date ASC
+    `
+    )
+    .all(schoolName, startDate, endDate, ...DOCUMENTATION_LOG_CATEGORIES) as MeetingRow[];
+
+  type Out = {
+    id: string;
+    date: string;
+    startTime: string | null;
+    endTime: string | null;
+    title: string;
+    category: string;
+    studentId: string;
+    studentName: string;
+    maLogged: boolean;
+    maLoggedAt: string | null;
+  };
+
+  const out: Out[] = [];
+  const studentNameCache = new Map<string, string>();
+
+  const loadName = (studentId: string): string => {
+    if (studentNameCache.has(studentId)) return studentNameCache.get(studentId)!;
+    const st = db
+      .prepare('SELECT name FROM students WHERE id = ? AND school = ?')
+      .get(studentId, schoolName) as { name: string } | undefined;
+    const name = st?.name || 'Unknown student';
+    studentNameCache.set(studentId, name);
+    return name;
+  };
+
+  for (const row of rows) {
+    const mStudentIds = getMeetingStudentIdsFromRow(row);
+    const linked = [...new Set(mStudentIds.filter((sid) => idSet.has(sid)))];
+    if (linked.length === 0) continue;
+
+    const dateOnly = meetingDateOnly(row.date);
+    const startTimeVal = row.date?.trim() ? row.date : null;
+    const category = row.category || '';
+
+    for (const studentId of linked) {
+      out.push({
+        id: row.id,
+        date: dateOnly,
+        startTime: startTimeVal,
+        endTime: row.endTime?.trim() ? row.endTime : null,
+        title: row.title,
+        category,
+        studentId,
+        studentName: loadName(studentId),
+        maLogged: (row.maLogged ?? 0) === 1,
+        maLoggedAt: row.maLoggedAt?.trim() ? row.maLoggedAt : null,
       });
     }
   }

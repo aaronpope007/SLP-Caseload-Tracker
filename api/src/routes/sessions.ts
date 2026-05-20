@@ -24,6 +24,7 @@ import { generateSessionNotesWithAnthropic } from '../utils/anthropicSessionNote
 import { logger } from '../utils/logger';
 import { generateInitialsList } from '../utils/studentInitials';
 import { calendarYmdInBillingTz, isYmdInRange, nowIsoUtc } from '../utils/billingTimezone';
+import { DOCUMENTATION_LOG_CATEGORIES } from './meetings';
 
 // Database row types
 interface SessionRow {
@@ -825,11 +826,128 @@ sessionsRouter.get('/ma-billing-log', asyncHandler(async (req, res) => {
 
   const totalEvals = evalStudents.reduce((n, s) => n + s.evalCount, 0);
 
+  const docPlaceholders = DOCUMENTATION_LOG_CATEGORIES.map(() => '?').join(', ');
+  const docMeetingRows = db
+    .prepare(
+      `
+      SELECT
+        m.id AS meetingId,
+        m.category AS category,
+        m.date AS meetingDateIso,
+        m.maLoggedAt AS maLoggedAt,
+        m.studentId AS studentId,
+        m.studentIds AS studentIds
+      FROM meetings m
+      WHERE m.maLogged = 1
+        AND m.maLoggedAt IS NOT NULL
+        AND (
+          m.category IN (${docPlaceholders})
+          OR (m.category = '3 year assessment' AND COALESCE(m.activitySubtype, '') != 'assessment')
+        )
+      ORDER BY m.date ASC, m.id ASC
+    `
+    )
+    .all(...DOCUMENTATION_LOG_CATEGORIES) as Array<{
+      meetingId: string;
+      category: string | null;
+      meetingDateIso: string;
+      maLoggedAt: string | null;
+      studentId: string | null;
+      studentIds: string | null;
+    }>;
+
+  const byDocStudent = new Map<
+    string,
+    {
+      studentId: string;
+      studentName: string;
+      grade: string;
+      dates: Set<string>;
+      categories: Set<string>;
+      docCount: number;
+    }
+  >();
+
+  const docStudentNameCache = new Map<string, { name: string; grade: string }>();
+
+  const loadDocStudent = (studentId: string): { name: string; grade: string } | null => {
+    if (docStudentNameCache.has(studentId)) {
+      return docStudentNameCache.get(studentId)!;
+    }
+    const st = db
+      .prepare('SELECT name, grade FROM students WHERE id = ?')
+      .get(studentId) as { name: string; grade: string | null } | undefined;
+    if (!st) return null;
+    const entry = { name: st.name, grade: st.grade || '' };
+    docStudentNameCache.set(studentId, entry);
+    return entry;
+  };
+
+  for (const row of docMeetingRows) {
+    const serviceDateYmd = meetingYmdFromStored(row.meetingDateIso);
+    const loggedDateYmd = meetingYmdFromStored(row.maLoggedAt);
+    const reportDay = filterBy === 'loggedDate' ? loggedDateYmd : serviceDateYmd;
+
+    if (filterBy === 'loggedDate' && !loggedDateYmd) continue;
+    if (!reportDay || reportDay < startDate || reportDay > endDate) continue;
+
+    const linkedStudentIds = getMeetingStudentIdsFromRow(row);
+    const category = (row.category || '').trim();
+    for (const studentId of linkedStudentIds) {
+      const st = loadDocStudent(studentId);
+      if (!st) continue;
+
+      let entry = byDocStudent.get(studentId);
+      if (!entry) {
+        entry = {
+          studentId,
+          studentName: st.name,
+          grade: st.grade,
+          dates: new Set<string>(),
+          categories: new Set<string>(),
+          docCount: 0,
+        };
+        byDocStudent.set(studentId, entry);
+      }
+      entry.docCount += 1;
+      if (reportDay) entry.dates.add(reportDay);
+      if (category) entry.categories.add(category);
+    }
+  }
+
+  const docStudentList = [...byDocStudent.values()];
+  const docInitialsMap = generateInitialsList(
+    docStudentList.map((s) => ({
+      studentId: s.studentId,
+      name: s.studentName,
+      grade: s.grade,
+    }))
+  );
+
+  const docStudents = docStudentList
+    .map((s) => ({
+      studentId: s.studentId,
+      studentName: s.studentName,
+      grade: s.grade,
+      initials: docInitialsMap.get(s.studentId) ?? '??',
+      docCount: s.docCount,
+      dates: [...s.dates].sort(),
+      categories: [...s.categories].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })),
+    }))
+    .sort((a, b) => {
+      if (b.docCount !== a.docCount) return b.docCount - a.docCount;
+      return a.studentName.localeCompare(b.studentName);
+    });
+
+  const totalDocs = docStudents.reduce((n, s) => n + s.docCount, 0);
+
   res.json({
     students,
     evalStudents,
+    docStudents,
     totalSessions,
     totalEvals,
+    totalDocs,
     dateRange: { startDate, endDate },
     filterBy,
   });
