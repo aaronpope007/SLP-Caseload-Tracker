@@ -55,7 +55,7 @@ import {
 } from '../utils/storage-api';
 import { generateId, formatDate, convertMarkupToHtml } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
-import { useConfirm, useSnackbar, useDialog } from '../hooks';
+import { useConfirm, useConfirmDirtyClose, useSnackbar, useDialog } from '../hooks';
 import { ArticulationScreenerDialog } from '../components/ArticulationScreenerDialog';
 import { ReassessmentPlanDialog } from '../components/ReassessmentPlanDialog';
 
@@ -64,6 +64,7 @@ export const Evaluations = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { selectedSchool } = useSchool();
   const { confirm, ConfirmDialog } = useConfirm();
+  const { confirmIfDirty } = useConfirmDirtyClose({ confirm });
   const { showSnackbar, SnackbarComponent } = useSnackbar();
   const evaluationDialog = useDialog();
   const screenerDialog = useDialog();
@@ -132,6 +133,12 @@ export const Evaluations = () => {
     iepCompleted: '',
     meetingDate: '',
   });
+  const [initialFormData, setInitialFormData] = useState(formData);
+
+  const isFormDirty = () => {
+    if (!evaluationDialog.open) return false;
+    return JSON.stringify(formData) !== JSON.stringify(initialFormData);
+  };
 
   const loadData = useCallback(async () => {
     if (!isMountedRef.current) return;
@@ -164,9 +171,10 @@ export const Evaluations = () => {
 
 
   const handleOpenDialog = (evaluation?: Evaluation) => {
+    let newFormData: typeof formData;
     if (evaluation) {
       setEditingEvaluation(evaluation);
-      setFormData({
+      newFormData = {
         studentId: evaluation.studentId,
         grade: evaluation.grade,
         evaluationType: evaluation.evaluationType,
@@ -179,12 +187,12 @@ export const Evaluations = () => {
         reportCompleted: evaluation.reportCompleted || '',
         iepCompleted: evaluation.iepCompleted || '',
         meetingDate: evaluation.meetingDate || '',
-      });
+      };
     } else {
       setEditingEvaluation(null);
       const studentIdFromUrl = searchParams.get('studentId');
       const prefillStudentId = studentIdFromUrl && students.some((s) => s.id === studentIdFromUrl) ? studentIdFromUrl : '';
-      setFormData({
+      newFormData = {
         studentId: prefillStudentId,
         grade: '',
         evaluationType: '',
@@ -197,14 +205,20 @@ export const Evaluations = () => {
         reportCompleted: '',
         iepCompleted: '',
         meetingDate: '',
-      });
+      };
     }
+    setFormData(newFormData);
+    setInitialFormData(newFormData);
     evaluationDialog.openDialog();
   };
 
-  const handleCloseDialog = () => {
+  const doCloseDialog = () => {
     evaluationDialog.closeDialog();
     setEditingEvaluation(null);
+  };
+
+  const handleCloseDialog = () => {
+    confirmIfDirty(isFormDirty, doCloseDialog);
   };
 
   const handleSave = async () => {
@@ -248,7 +262,7 @@ export const Evaluations = () => {
       });
     }
     loadData();
-    handleCloseDialog();
+    doCloseDialog();
     if (editingEvaluation) {
       showSnackbar('Evaluation updated successfully', 'success');
     } else {

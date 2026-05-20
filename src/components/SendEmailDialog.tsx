@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { logError } from '../utils/logger';
 import { getErrorMessage } from '../utils/validators';
 import {
@@ -25,6 +25,7 @@ import {
 import type { Student, Teacher, CaseManager, Communication } from '../types';
 import { api } from '../utils/api';
 import { getEmailCredentials, EMAIL_CREDENTIALS_MISSING_MESSAGE } from '../utils/emailCredentials';
+import { useConfirm, useConfirmDirtyClose } from '../hooks';
 
 interface SendEmailDialogProps {
   open: boolean;
@@ -63,6 +64,27 @@ export const SendEmailDialog = ({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [copied, setCopied] = useState(false);
+  const { confirm, ConfirmDialog } = useConfirm();
+  const { confirmIfDirty } = useConfirmDirtyClose({ confirm });
+  const initialSnapshotRef = useRef<string | null>(null);
+
+  const captureSnapshot = () =>
+    JSON.stringify({
+      contactType,
+      contactId,
+      contactName,
+      contactEmail,
+      studentId,
+      subject,
+      body,
+      relatedTo,
+      ccTeacherId,
+      ccCaseManagerId,
+      ccFreeText,
+      contactInputValue,
+      ccTeacherInputValue,
+      ccCaseManagerInputValue,
+    });
 
   // Reset form when dialog opens/closes
   useEffect(() => {
@@ -84,8 +106,22 @@ export const SendEmailDialog = ({
       setError(null);
       setSuccess(false);
       setCopied(false);
+      const timer = setTimeout(() => {
+        initialSnapshotRef.current = captureSnapshot();
+      }, 0);
+      return () => clearTimeout(timer);
     }
+    initialSnapshotRef.current = null;
   }, [open]);
+
+  const isFormDirty = () => {
+    if (!open || !initialSnapshotRef.current) return false;
+    return captureSnapshot() !== initialSnapshotRef.current;
+  };
+
+  const handleCancel = () => {
+    confirmIfDirty(isFormDirty, onClose);
+  };
 
   // Handle contact type change
   const handleContactTypeChange = (type: Communication['contactType']) => {
@@ -302,7 +338,8 @@ export const SendEmailDialog = ({
     : students;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <>
+    <Dialog open={open} onClose={handleCancel} maxWidth="md" fullWidth>
       <DialogTitle>Send Email</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
@@ -555,7 +592,7 @@ export const SendEmailDialog = ({
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={sending}>
+        <Button onClick={handleCancel} disabled={sending}>
           Cancel
         </Button>
         <Button
@@ -576,6 +613,8 @@ export const SendEmailDialog = ({
         </Button>
       </DialogActions>
     </Dialog>
+    <ConfirmDialog />
+    </>
   );
 };
 

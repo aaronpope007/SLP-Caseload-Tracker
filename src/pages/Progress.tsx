@@ -55,7 +55,7 @@ import { getStudents, getGoals, getSessions, getCombinedProgressNotes, addCombin
 import { formatDate, generateId, convertMarkupToHtml } from '../utils/helpers';
 import { generateProgressNote, type GoalProgressData } from '../utils/gemini';
 import { useSchool } from '../context/SchoolContext';
-import { useAsyncOperation, useSnackbar, useAIGeneration } from '../hooks';
+import { useAsyncOperation, useSnackbar, useAIGeneration, useConfirm } from '../hooks';
 import { getErrorMessage } from '../utils/validators';
 import type { Student, CombinedProgressNote } from '../types';
 
@@ -108,6 +108,7 @@ const AdditionalContextField = ({
 export const Progress = () => {
   const { selectedSchool } = useSchool();
   const { showSnackbar, SnackbarComponent } = useSnackbar();
+  const { confirm, ConfirmDialog } = useConfirm();
   const { requireApiKey } = useAIGeneration();
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
@@ -579,23 +580,31 @@ export const Progress = () => {
     }
   };
 
-  const handleDeleteNote = async (id: string) => {
-    if (!isMountedRef.current) return;
-    try {
-      await deleteCombinedProgressNote(id);
-      if (!isMountedRef.current) return;
-      await loadSavedNotes();
-      if (editingNoteId === id) {
-        setEditingNoteId(null);
-        setCombinedNote('');
-        setSelectedGoals(new Set());
-      }
-      showSnackbar('Note deleted successfully', 'success');
-    } catch (error) {
-      if (!isMountedRef.current) return;
-      logError('Failed to delete note', error);
-      showSnackbar('Failed to delete note. Please try again.', 'error');
-    }
+  const handleDeleteNote = (id: string) => {
+    confirm({
+      title: 'Delete Saved Note',
+      message: 'Are you sure you want to delete this saved note? This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        if (!isMountedRef.current) return;
+        try {
+          await deleteCombinedProgressNote(id);
+          if (!isMountedRef.current) return;
+          await loadSavedNotes();
+          if (editingNoteId === id) {
+            setEditingNoteId(null);
+            setCombinedNote('');
+            setSelectedGoals(new Set());
+          }
+          showSnackbar('Note deleted successfully', 'success');
+        } catch (error) {
+          if (!isMountedRef.current) return;
+          logError('Failed to delete note', error);
+          showSnackbar('Failed to delete note. Please try again.', 'error');
+        }
+      },
+    });
   };
 
   const handleViewFormatted = (content?: string) => {
@@ -1216,6 +1225,7 @@ export const Progress = () => {
       </Dialog>
 
       <SnackbarComponent />
+      <ConfirmDialog />
     </Box>
   );
 };

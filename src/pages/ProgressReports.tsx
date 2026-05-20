@@ -50,7 +50,7 @@ import {
 } from '../utils/storage-api';
 import { formatDate, generateId, convertMarkupToHtml } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
-import { useConfirm, useSnackbar, useDialog } from '../hooks';
+import { useConfirm, useConfirmDirtyClose, useSnackbar, useDialog } from '../hooks';
 import { logError } from '../utils/logger';
 import { ProgressReportEditorDialog } from '../components/ProgressReportEditorDialog';
 
@@ -74,6 +74,7 @@ export const ProgressReports = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { selectedSchool } = useSchool();
   const { confirm, ConfirmDialog } = useConfirm();
+  const { confirmIfDirty } = useConfirmDirtyClose({ confirm });
   const [reports, setReports] = useState<ProgressReport[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const { showSnackbar, SnackbarComponent } = useSnackbar();
@@ -106,6 +107,12 @@ export const ProgressReports = () => {
     periodEnd: '',
     dueDate: '',
   });
+  const [initialFormData, setInitialFormData] = useState(formData);
+
+  const isFormDirty = () => {
+    if (!createReportDialog.open) return false;
+    return JSON.stringify(formData) !== JSON.stringify(initialFormData);
+  };
 
   const [studentInputValue, setStudentInputValue] = useState('');
   const studentInputRef = useRef('');
@@ -241,19 +248,21 @@ export const ProgressReports = () => {
     // Pre-fill student if filtered by student
     const prefillStudentId = studentFilter || '';
     const prefillStudent = studentsForForm.find((s) => s.id === prefillStudentId);
-    setFormData({
+    const newFormData = {
       studentId: prefillStudentId,
-      reportType: 'quarterly',
+      reportType: 'quarterly' as 'quarterly' | 'annual',
       periodStart: '',
       periodEnd: '',
       dueDate: '',
-    });
+    };
+    setFormData(newFormData);
+    setInitialFormData(newFormData);
     setStudentInputValue(prefillStudent ? `${prefillStudent.name}${prefillStudent.grade ? ` (${prefillStudent.grade})` : ''}` : '');
     studentInputRef.current = prefillStudent ? `${prefillStudent.name}${prefillStudent.grade ? ` (${prefillStudent.grade})` : ''}` : '';
     createReportDialog.openDialog();
   };
 
-  const handleCloseDialog = () => {
+  const doCloseDialog = () => {
     createReportDialog.closeDialog();
     setFormData({
       studentId: '',
@@ -262,8 +271,19 @@ export const ProgressReports = () => {
       periodEnd: '',
       dueDate: '',
     });
+    setInitialFormData({
+      studentId: '',
+      reportType: 'quarterly',
+      periodStart: '',
+      periodEnd: '',
+      dueDate: '',
+    });
     setStudentInputValue('');
     studentInputRef.current = '';
+  };
+
+  const handleCloseDialog = () => {
+    confirmIfDirty(isFormDirty, doCloseDialog);
   };
 
   const handleSaveReport = async () => {
@@ -290,7 +310,7 @@ export const ProgressReports = () => {
         dateUpdated: now.toISOString(),
       });
       await loadData();
-      handleCloseDialog();
+      doCloseDialog();
       showSnackbar('Progress report created successfully', 'success');
     } catch (error) {
       logError('Failed to create report', error);
@@ -889,7 +909,7 @@ export const ProgressReports = () => {
                 startIcon={<ScheduleIcon />}
                 onClick={async () => {
                   await handleScheduleForStudent(formData.studentId);
-                  handleCloseDialog();
+                  doCloseDialog();
                   await loadData();
                 }}
                 sx={{ mt: 1 }}

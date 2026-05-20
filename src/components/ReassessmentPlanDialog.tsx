@@ -45,6 +45,7 @@ import {
 import { useSchool } from '../context/SchoolContext';
 import { generateId, formatDate } from '../utils/helpers';
 import { useSnackbar } from '../hooks/useSnackbar';
+import { useConfirm, useConfirmDirtyClose } from '../hooks';
 import { logError } from '../utils/logger';
 
 interface ReassessmentPlanDialogProps {
@@ -65,6 +66,9 @@ export const ReassessmentPlanDialog = ({
   onPlanSaved,
 }: ReassessmentPlanDialogProps) => {
   const { showSnackbar } = useSnackbar();
+  const { confirm, ConfirmDialog } = useConfirm();
+  const { confirmIfDirty } = useConfirmDirtyClose({ confirm });
+  const initialSnapshotRef = useRef<{ formData: typeof formData; planItems: ReassessmentPlanItem[] } | null>(null);
   const { selectedSchool } = useSchool();
   const [students, setStudents] = useState<Student[]>([]);
   const [templates, setTemplates] = useState<ReassessmentPlanTemplate[]>([]);
@@ -96,7 +100,7 @@ export const ReassessmentPlanDialog = ({
       loadStudents(abortController.signal);
       loadTemplates(abortController.signal);
       if (existingPlan) {
-        setFormData({
+        const loadedForm = {
           studentId: existingPlan.studentId,
           evaluationId: existingPlan.evaluationId || '',
           title: existingPlan.title,
@@ -104,9 +108,14 @@ export const ReassessmentPlanDialog = ({
           dueDate: existingPlan.dueDate.split('T')[0],
           status: existingPlan.status,
           templateId: existingPlan.templateId || '',
-        });
+        };
+        setFormData(loadedForm);
         if (existingPlan.items) {
           setPlanItems(existingPlan.items);
+          initialSnapshotRef.current = {
+            formData: loadedForm,
+            planItems: JSON.parse(JSON.stringify(existingPlan.items)),
+          };
         } else {
           loadPlanItems(existingPlan.id, abortController.signal);
         }
@@ -132,10 +141,21 @@ export const ReassessmentPlanDialog = ({
         setPlanItems(prev => prev.length === 0 ? [] : prev);
         setEditingItemIndex(null);
         setItemFormData({ description: '', dueDate: '' });
+        const emptyForm = {
+          studentId: student?.id || '',
+          evaluationId: evaluation?.id || '',
+          title: '',
+          description: '',
+          dueDate: '',
+          status: 'pending' as ReassessmentPlan['status'],
+          templateId: '',
+        };
+        initialSnapshotRef.current = { formData: emptyForm, planItems: [] };
       }
     } else {
       // Reset form when dialog closes
       resetForm();
+      initialSnapshotRef.current = null;
     }
     
     return () => {
@@ -175,12 +195,34 @@ export const ReassessmentPlanDialog = ({
       const items = await getReassessmentPlanItems(planId);
       if (!signal?.aborted) {
         setPlanItems(items);
+        if (initialSnapshotRef.current) {
+          initialSnapshotRef.current = {
+            ...initialSnapshotRef.current,
+            planItems: JSON.parse(JSON.stringify(items)),
+          };
+        }
       }
     } catch (error) {
       if (!signal?.aborted) {
         logError('Failed to load plan items', error);
       }
     }
+  };
+
+  const isFormDirty = () => {
+    if (!open || !initialSnapshotRef.current) return false;
+    const initial = initialSnapshotRef.current;
+    return (
+      JSON.stringify(formData) !== JSON.stringify(initial.formData) ||
+      JSON.stringify(planItems) !== JSON.stringify(initial.planItems)
+    );
+  };
+
+  const handleCancel = () => {
+    confirmIfDirty(isFormDirty, () => {
+      resetForm();
+      onClose();
+    });
   };
 
   const resetForm = () => {
@@ -255,14 +297,23 @@ export const ReassessmentPlanDialog = ({
 
   const handleDeleteItem = (index: number) => {
     const item = planItems[index];
-    if (item.id && existingPlan) {
-      // Delete from database
-      deleteReassessmentPlanItem(item.id).catch(error => {
-        logError('Failed to delete item', error);
-      });
-    }
-    const updated = planItems.filter((_, i) => i !== index);
-    setPlanItems(updated);
+    confirm({
+      title: 'Delete Plan Item',
+      message: item.description
+        ? `Are you sure you want to delete "${item.description}"?`
+        : 'Are you sure you want to delete this plan item?',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      onConfirm: () => {
+        if (item.id && existingPlan) {
+          deleteReassessmentPlanItem(item.id).catch(error => {
+            logError('Failed to delete item', error);
+          });
+        }
+        const updated = planItems.filter((_, i) => i !== index);
+        setPlanItems(updated);
+      },
+    });
   };
 
   const handleToggleItemComplete = async (index: number) => {
@@ -481,7 +532,8 @@ export const ReassessmentPlanDialog = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <>
+    <Dialog open={open} onClose={handleCancel} maxWidth="md" fullWidth>
       <DialogTitle>
         <Box>
           <Box component="span">{existingPlan ? 'Edit Reassessment Plan' : 'Create Reassessment Plan'}</Box>
@@ -658,7 +710,7 @@ export const ReassessmentPlanDialog = ({
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={handleCancel}>Cancel</Button>
         <Button 
           onClick={(e) => {
             e.preventDefault();
@@ -672,5 +724,7 @@ export const ReassessmentPlanDialog = ({
         </Button>
       </DialogActions>
     </Dialog>
+    <ConfirmDialog />
+    </>
   );
 };

@@ -18,7 +18,7 @@ import { Delete as DeleteIcon } from '@mui/icons-material';
 import type { Meeting, Student, MeetingActivitySubtype } from '../../types';
 import { toLocalDateTimeString, extractTimeFromISO, combineDateWithTime } from '../../utils/helpers';
 import { useSchool } from '../../context/SchoolContext';
-import { useConfirm } from '../../hooks';
+import { useConfirm, useConfirmDirtyClose } from '../../hooks';
 import {
   MEETING_CATEGORY_GROUPS,
   getCategoryGroup,
@@ -52,6 +52,7 @@ export const MeetingFormDialog = ({
 }: MeetingFormDialogProps) => {
   const { selectedSchool, availableSchools } = useSchool();
   const { confirm, ConfirmDialog } = useConfirm();
+  const { confirmIfDirty } = useConfirmDirtyClose({ confirm });
   const [deleting, setDeleting] = useState(false);
   const [formData, setFormData] = useState({
     school: '',
@@ -65,6 +66,7 @@ export const MeetingFormDialog = ({
   });
   const [saving, setSaving] = useState(false);
   const studentInputRef = useRef('');
+  const initialFormRef = useRef<typeof formData | null>(null);
 
   useEffect(() => {
     if (editingMeeting) {
@@ -75,7 +77,7 @@ export const MeetingFormDialog = ({
       const studentIds = editingMeeting.studentIds?.length
         ? editingMeeting.studentIds
         : (editingMeeting.studentId ? [editingMeeting.studentId] : []);
-      setFormData({
+      const loadedForm = {
         school: editingMeeting.school || '',
         title: editingMeeting.title,
         description: editingMeeting.description || '',
@@ -84,26 +86,39 @@ export const MeetingFormDialog = ({
         studentIds,
         category: editingMeeting.category || '',
         activitySubtype: (editingMeeting.activitySubtype || '') as '' | MeetingActivitySubtype,
-      });
+      };
+      setFormData(loadedForm);
+      initialFormRef.current = loadedForm;
       studentInputRef.current = '';
     } else {
       // New meeting: use default date (e.g. selected date on Time Tracking) at 8:00 AM local, or now
       const dateForNew = defaultDate
         ? `${defaultDate}T08:00`
         : toLocalDateTimeString(new Date()).slice(0, 16);
-      setFormData({
+      const newForm = {
         school: selectedSchool || (availableSchools[0] ?? ''),
         title: '',
         description: '',
         date: dateForNew,
         endTime: '',
-        studentIds: [],
+        studentIds: [] as string[],
         category: defaultCategory || '',
         activitySubtype: (defaultCategory && isCategoryWithActivitySubtype(defaultCategory) ? 'meeting' : '') as '' | MeetingActivitySubtype,
-      });
+      };
+      setFormData(newForm);
+      initialFormRef.current = newForm;
       studentInputRef.current = '';
     }
   }, [editingMeeting, open, selectedSchool, availableSchools, defaultCategory, defaultDate, students]);
+
+  const isFormDirty = () => {
+    if (!initialFormRef.current) return false;
+    return JSON.stringify(formData) !== JSON.stringify(initialFormRef.current);
+  };
+
+  const handleCancel = () => {
+    confirmIfDirty(isFormDirty, onClose);
+  };
 
   const doSave = useCallback(async () => {
     if (!formData.title || !formData.date || !formData.school) return;
@@ -243,7 +258,7 @@ export const MeetingFormDialog = ({
     <>
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={handleCancel}
       maxWidth="sm"
       fullWidth
       PaperProps={{
@@ -441,7 +456,7 @@ export const MeetingFormDialog = ({
         </Box>
         </DialogContent>
         <DialogActions sx={{ flexShrink: 0 }}>
-          <Button type="button" onClick={onClose} disabled={saving || deleting}>
+          <Button type="button" onClick={handleCancel} disabled={saving || deleting}>
             Cancel
           </Button>
           <Button

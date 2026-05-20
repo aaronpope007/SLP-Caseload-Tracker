@@ -31,6 +31,7 @@ import { logError, logDebug } from '../utils/logger';
 import { formatPhoneForDisplay } from '../utils/formatters';
 import { useSchool } from '../context/SchoolContext';
 import type { Teacher, CaseManager } from '../types';
+import { useConfirm, useConfirmDirtyClose } from '../hooks';
 
 interface ExtractedPerson {
   name: string;
@@ -53,6 +54,8 @@ interface ImportTeachersDialogProps {
 }
 
 export const ImportTeachersDialog = ({ open, onClose, onImport }: ImportTeachersDialogProps) => {
+  const { confirm, ConfirmDialog } = useConfirm();
+  const { confirmIfDirty } = useConfirmDirtyClose({ confirm });
   const { availableSchools, selectedSchool } = useSchool();
   const [file, setFile] = useState<File | null>(null);
   const [selectedSchoolName, setSelectedSchoolName] = useState(selectedSchool || '');
@@ -272,14 +275,16 @@ export const ImportTeachersDialog = ({ open, onClose, onImport }: ImportTeachers
       }
 
       await onImport(teachers, caseManagers);
-      handleClose();
+      resetAndClose();
     } catch (err) {
       logError('Failed to import teachers', err);
       setError('Failed to import teachers. Please try again.');
     }
   };
 
-  const handleClose = () => {
+  const isFormDirty = () => file !== null || parsedData !== null;
+
+  const resetAndClose = () => {
     setFile(null);
     setParsedData(null);
     setError('');
@@ -293,7 +298,12 @@ export const ImportTeachersDialog = ({ open, onClose, onImport }: ImportTeachers
     onClose();
   };
 
+  const handleClose = () => {
+    confirmIfDirty(isFormDirty, resetAndClose);
+  };
+
   return (
+    <>
     <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
       <DialogTitle>Import Teachers & Staff from Document</DialogTitle>
       <DialogContent>
@@ -548,6 +558,8 @@ export const ImportTeachersDialog = ({ open, onClose, onImport }: ImportTeachers
         )}
       </DialogActions>
     </Dialog>
+    <ConfirmDialog />
+    </>
   );
 };
 

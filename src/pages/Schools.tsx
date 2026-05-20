@@ -37,7 +37,7 @@ import {
 } from '../utils/storage-api';
 import { generateId } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
-import { useConfirm, useDialog, useSnackbar, useFormValidation, useDebouncedValue } from '../hooks';
+import { useConfirm, useConfirmDirtyClose, useDialog, useSnackbar, useFormValidation, useDebouncedValue } from '../hooks';
 import { ApiError } from '../utils/api';
 import { getStudents } from '../utils/storage-api';
 import { SchoolCard } from '../components/SchoolCard';
@@ -112,6 +112,7 @@ export const Schools = () => {
   const schoolDialog = useDialog();
   const { showSnackbar, SnackbarComponent } = useSnackbar();
   const { confirm, ConfirmDialog } = useConfirm();
+  const { confirmIfDirty } = useConfirmDirtyClose({ confirm });
   const { fieldErrors, clearError, handleApiError, clearAllErrors } = useFormValidation();
 
   const [formData, setFormData] = useState({
@@ -128,6 +129,12 @@ export const Schools = () => {
     },
     primarySchoolContact: undefined as { contactType: 'teacher' | 'case-manager' | 'custom'; contactId?: string; name?: string; email?: string } | undefined,
   });
+  const [initialFormData, setInitialFormData] = useState(formData);
+
+  const isFormDirty = () => {
+    if (!schoolDialog.open) return false;
+    return JSON.stringify(formData) !== JSON.stringify(initialFormData);
+  };
 
   const loadSchools = async () => {
     try {
@@ -241,19 +248,20 @@ export const Schools = () => {
 
 
   const handleOpenDialog = (school?: School) => {
+    let newFormData: typeof formData;
     if (school) {
       setEditingSchool(school);
-      setFormData({
+      newFormData = {
         name: school.name,
         state: school.state || '',
         teletherapy: school.teletherapy || false,
         schoolHours: school.schoolHours || { startHour: 8, endHour: 17 },
         studentTimes: school.studentTimes || { startTime: '08:00', endTime: '15:00' },
         primarySchoolContact: school.primarySchoolContact,
-      });
+      };
     } else {
       setEditingSchool(null);
-      setFormData({
+      newFormData = {
         name: '',
         state: '',
         teletherapy: false,
@@ -266,13 +274,15 @@ export const Schools = () => {
           endTime: '15:00',
         },
         primarySchoolContact: undefined,
-      });
+      };
     }
+    setFormData(newFormData);
+    setInitialFormData(newFormData);
     clearAllErrors(); // Clear any previous validation errors
     schoolDialog.openDialog();
   };
 
-  const handleCloseDialog = () => {
+  const doCloseDialog = () => {
     schoolDialog.closeDialog();
     setEditingSchool(null);
     setFormData({
@@ -289,6 +299,24 @@ export const Schools = () => {
       },
       primarySchoolContact: undefined,
     });
+    setInitialFormData({
+      name: '',
+      state: '',
+      teletherapy: false,
+      schoolHours: {
+        startHour: 8,
+        endHour: 17,
+      },
+      studentTimes: {
+        startTime: '08:00',
+        endTime: '15:00',
+      },
+      primarySchoolContact: undefined,
+    });
+  };
+
+  const handleCloseDialog = () => {
+    confirmIfDirty(isFormDirty, doCloseDialog);
   };
 
   const handleSave = async () => {
@@ -318,7 +346,7 @@ export const Schools = () => {
         showSnackbar('School created successfully', 'success');
       }
       await loadSchools();
-      handleCloseDialog();
+      doCloseDialog();
     } catch (error) {
       logError('Failed to save school', error);
       

@@ -41,8 +41,7 @@ import {
   fromLocalDateString,
   toLocalDateTimeString,
 } from '../utils/helpers';
-import { useAIGeneration } from '../hooks/useAIGeneration';
-import { useSnackbar } from '../hooks/useSnackbar';
+import { useAIGeneration, useConfirm, useConfirmDirtyClose, useSnackbar } from '../hooks';
 import { logError } from '../utils/logger';
 
 interface ArticulationScreenerDialogProps {
@@ -113,6 +112,18 @@ export const ArticulationScreenerDialog = ({
   
   const { requireApiKey } = useAIGeneration();
   const { showSnackbar, SnackbarComponent } = useSnackbar();
+  const { confirm, ConfirmDialog } = useConfirm();
+  const { confirmIfDirty } = useConfirmDirtyClose({ confirm });
+  const initialSnapshotRef = useRef<string | null>(null);
+
+  const captureSnapshot = () =>
+    JSON.stringify({
+      disorderedPhonemes,
+      phonemeNotes,
+      additionalNotes,
+      report,
+      screeningDate,
+    });
 
   useEffect(() => {
     return () => {
@@ -148,8 +159,22 @@ export const ArticulationScreenerDialog = ({
         setScreeningDate(getTodayLocalDateString());
         setEditingScreener(null);
       }
+      const timer = setTimeout(() => {
+        initialSnapshotRef.current = captureSnapshot();
+      }, 0);
+      return () => clearTimeout(timer);
     }
+    initialSnapshotRef.current = null;
   }, [open, existingScreener]);
+
+  const isFormDirty = () => {
+    if (!open || !initialSnapshotRef.current) return false;
+    return captureSnapshot() !== initialSnapshotRef.current;
+  };
+
+  const handleCancel = () => {
+    confirmIfDirty(isFormDirty, onClose);
+  };
 
   const handlePhonemeToggle = (phoneme: string) => {
     if (!isMountedRef.current) return;
@@ -485,7 +510,7 @@ export const ArticulationScreenerDialog = ({
 
   return (
     <>
-      <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
+      <Dialog open={open} onClose={handleCancel} maxWidth="lg" fullWidth>
         <DialogTitle>
           <Box>
             <Box component="span">Articulation Screener</Box>
@@ -579,7 +604,7 @@ export const ArticulationScreenerDialog = ({
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={onClose}>Cancel</Button>
+          <Button onClick={handleCancel}>Cancel</Button>
           <Button
             variant="contained"
             startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
@@ -590,6 +615,7 @@ export const ArticulationScreenerDialog = ({
           </Button>
         </DialogActions>
       </Dialog>
+      <ConfirmDialog />
       <SnackbarComponent />
     </>
   );

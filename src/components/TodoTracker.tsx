@@ -27,9 +27,11 @@ import {
 } from '@mui/icons-material';
 import { getTodos, createTodo, updateTodo, toggleTodo, deleteTodo } from '../utils/storage-api';
 import { logError } from '../utils/logger';
+import { useConfirm } from '../hooks/useConfirm';
 import type { Todo } from '../types';
 
 export const TodoTracker = () => {
+  const { confirm, ConfirmDialog } = useConfirm();
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
   const [newTodoText, setNewTodoText] = useState('');
@@ -103,17 +105,25 @@ export const TodoTracker = () => {
     }
   };
 
-  const handleDeleteTodo = async (id: string) => {
-    try {
-      await deleteTodo(id);
-      if (!isMountedRef.current) return;
-      setSnackbar({ open: true, message: 'Todo deleted successfully', severity: 'success' });
-      await loadTodos();
-    } catch (error) {
-      if (!isMountedRef.current) return;
-      logError('Failed to delete todo', error);
-      setSnackbar({ open: true, message: 'Failed to delete todo', severity: 'error' });
-    }
+  const handleDeleteTodo = (id: string) => {
+    confirm({
+      title: 'Delete Todo',
+      message: 'Are you sure you want to delete this todo?',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          await deleteTodo(id);
+          if (!isMountedRef.current) return;
+          setSnackbar({ open: true, message: 'Todo deleted successfully', severity: 'success' });
+          await loadTodos();
+        } catch (error) {
+          if (!isMountedRef.current) return;
+          logError('Failed to delete todo', error);
+          setSnackbar({ open: true, message: 'Failed to delete todo', severity: 'error' });
+        }
+      },
+    });
   };
 
   const handleStartEdit = (todo: Todo) => {
@@ -413,6 +423,7 @@ export const TodoTracker = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+      <ConfirmDialog />
     </>
   );
 };

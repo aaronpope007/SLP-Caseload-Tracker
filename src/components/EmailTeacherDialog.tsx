@@ -37,6 +37,7 @@ import {
   EMAIL_CREDENTIALS_MISSING_MESSAGE,
 } from '../utils/emailCredentials';
 import { useSchool } from '../context/SchoolContext';
+import { useConfirm, useConfirmDirtyClose } from '../hooks';
 
 interface EmailTeacherDialogProps {
   open: boolean;
@@ -92,6 +93,27 @@ export const EmailTeacherDialog = ({
 
   // Track if component is mounted to prevent state updates after unmount
   const isMountedRef = useRef(true);
+  const { confirm, ConfirmDialog } = useConfirm();
+  const { confirmIfDirty } = useConfirmDirtyClose({ confirm });
+  const initialSnapshotRef = useRef<string | null>(null);
+
+  const captureSnapshot = () =>
+    JSON.stringify({
+      teacherEmails,
+      availableTimes,
+      ccCaseManager,
+      ccSusan,
+      selectedTeacherIndex,
+    });
+
+  const isFormDirty = () => {
+    if (!open || !initialSnapshotRef.current) return false;
+    return captureSnapshot() !== initialSnapshotRef.current;
+  };
+
+  const handleCancel = () => {
+    confirmIfDirty(isFormDirty, onClose);
+  };
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -425,6 +447,14 @@ export const EmailTeacherDialog = ({
     if (emails.length > 0) {
       setSelectedTeacherIndex(0);
     }
+
+    initialSnapshotRef.current = JSON.stringify({
+      teacherEmails: emails,
+      availableTimes: availableTimesList,
+      ccCaseManager,
+      ccSusan,
+      selectedTeacherIndex: emails.length > 0 ? 0 : null,
+    });
   };
 
   const findAvailableTimes = async (primaryStudent: Student): Promise<string[]> => {
@@ -1161,11 +1191,12 @@ export const EmailTeacherDialog = ({
     : [];
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <>
+    <Dialog open={open} onClose={handleCancel} maxWidth="md" fullWidth>
       <DialogTitle>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h6">Email Teacher or Case Manager</Typography>
-          <IconButton onClick={onClose} size="small">
+          <IconButton onClick={handleCancel} size="small">
             <CloseIcon />
           </IconButton>
         </Box>
@@ -1320,7 +1351,7 @@ export const EmailTeacherDialog = ({
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={sending}>Close</Button>
+        <Button onClick={handleCancel} disabled={sending}>Close</Button>
         {currentEmail && (
           <>
             <Button
@@ -1356,6 +1387,8 @@ export const EmailTeacherDialog = ({
         )}
       </DialogActions>
     </Dialog>
+    <ConfirmDialog />
+    </>
   );
 };
 

@@ -31,6 +31,7 @@ import { getScheduledSessions } from '../utils/storage-api';
 import { format, isBefore, isAfter, parse, isSameDay, startOfDay } from 'date-fns';
 import { api } from '../utils/api';
 import { getEmailCredentials, EMAIL_CREDENTIALS_MISSING_MESSAGE } from '../utils/emailCredentials';
+import { useConfirm, useConfirmDirtyClose } from '../hooks';
 
 interface CancellationEmailDialogProps {
   open: boolean;
@@ -72,6 +73,27 @@ export const CancellationEmailDialog = ({
 
   // Track if component is mounted to prevent state updates after unmount
   const isMountedRef = useRef(true);
+  const { confirm, ConfirmDialog } = useConfirm();
+  const { confirmIfDirty } = useConfirmDirtyClose({ confirm });
+  const initialSnapshotRef = useRef<string | null>(null);
+
+  const captureSnapshot = () =>
+    JSON.stringify({
+      teacherEmails,
+      availableTimes,
+      ccCaseManager,
+      ccPrimarySchoolContact,
+      selectedTeacherIndex,
+    });
+
+  const isFormDirty = () => {
+    if (!open || !initialSnapshotRef.current) return false;
+    return captureSnapshot() !== initialSnapshotRef.current;
+  };
+
+  const handleCancel = () => {
+    confirmIfDirty(isFormDirty, onClose);
+  };
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -605,6 +627,14 @@ export const CancellationEmailDialog = ({
     if (emails.length > 0) {
       setSelectedTeacherIndex(0);
     }
+
+    initialSnapshotRef.current = JSON.stringify({
+      teacherEmails: emails,
+      availableTimes: availableTimesList,
+      ccCaseManager: false,
+      ccPrimarySchoolContact: false,
+      selectedTeacherIndex: emails.length > 0 ? 0 : null,
+    });
   };
 
   const handleCopy = (index: number) => {
@@ -832,11 +862,12 @@ export const CancellationEmailDialog = ({
     : [];
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <>
+    <Dialog open={open} onClose={handleCancel} maxWidth="md" fullWidth>
       <DialogTitle>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h6">Send Cancellation Email</Typography>
-          <IconButton onClick={onClose} size="small">
+          <IconButton onClick={handleCancel} size="small">
             <CloseIcon />
           </IconButton>
         </Box>
@@ -967,7 +998,7 @@ export const CancellationEmailDialog = ({
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={sending}>Close</Button>
+        <Button onClick={handleCancel} disabled={sending}>Close</Button>
         {currentEmail && (
           <>
             <Button
@@ -1003,6 +1034,8 @@ export const CancellationEmailDialog = ({
         )}
       </DialogActions>
     </Dialog>
+    <ConfirmDialog />
+    </>
   );
 };
 

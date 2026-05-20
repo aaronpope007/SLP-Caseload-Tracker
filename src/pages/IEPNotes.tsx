@@ -27,7 +27,7 @@ import { getStudents, getGoals, getSessions, getIEPNotesByStudent, addIEPNote, d
 import { formatDate, generateId, convertMarkupToHtml } from '../utils/helpers';
 import { generateIEPCommentUpdate, type GoalProgressData } from '../utils/gemini';
 import { useSchool } from '../context/SchoolContext';
-import { useSnackbar, useAIGeneration } from '../hooks';
+import { useSnackbar, useAIGeneration, useConfirm } from '../hooks';
 import { getErrorMessage } from '../utils/validators';
 import type { Student, IEPNote } from '../types';
 
@@ -37,6 +37,7 @@ export const SESSIONS_FOR_IEP_NOTES = 8;
 export const IEPNotes = () => {
   const { selectedSchool } = useSchool();
   const { showSnackbar, SnackbarComponent } = useSnackbar();
+  const { confirm, ConfirmDialog } = useConfirm();
   const { requireApiKey } = useAIGeneration();
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
@@ -306,14 +307,22 @@ export const IEPNotes = () => {
     showSnackbar('Loaded saved note.', 'success');
   };
 
-  const handleDeleteNote = async (id: string) => {
-    try {
-      await deleteIEPNote(id);
-      setSavedNotes((prev) => prev.filter((n) => n.id !== id));
-      showSnackbar('Saved note deleted.', 'success');
-    } catch (err: unknown) {
-      showSnackbar(getErrorMessage(err), 'error');
-    }
+  const handleDeleteNote = (id: string) => {
+    confirm({
+      title: 'Delete Saved Note',
+      message: 'Are you sure you want to delete this saved note? This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          await deleteIEPNote(id);
+          setSavedNotes((prev) => prev.filter((n) => n.id !== id));
+          showSnackbar('Saved note deleted.', 'success');
+        } catch (err: unknown) {
+          showSnackbar(getErrorMessage(err), 'error');
+        }
+      },
+    });
   };
 
   const handleCopyFormatted = async () => {
@@ -577,6 +586,7 @@ export const IEPNotes = () => {
       )}
 
       <SnackbarComponent />
+      <ConfirmDialog />
     </Box>
   );
 };

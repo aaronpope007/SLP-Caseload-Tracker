@@ -40,6 +40,7 @@ import {
 import { api } from '../../utils/api';
 import { formatDistanceToNow } from 'date-fns';
 import { logError } from '../../utils/logger';
+import { useConfirm } from '../../hooks/useConfirm';
 
 interface BackupInfo {
   filename: string;
@@ -49,6 +50,7 @@ interface BackupInfo {
 }
 
 export function BackupManager() {
+  const { confirm, ConfirmDialog } = useConfirm();
   const [backups, setBackups] = useState<BackupInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -97,20 +99,24 @@ export function BackupManager() {
     window.open(url, '_blank');
   };
 
-  const handleDelete = async (filename: string) => {
-    if (!confirm(`Are you sure you want to delete backup "${filename}"?`)) {
-      return;
-    }
-
-    try {
-      setError(null);
-      await api.backup.delete(filename);
-      setSuccess('Backup deleted');
-      await loadBackups();
-    } catch (err) {
-      setError('Failed to delete backup');
-      logError('Failed to delete backup', err);
-    }
+  const handleDelete = (filename: string) => {
+    confirm({
+      title: 'Delete Backup',
+      message: `Are you sure you want to delete backup "${filename}"?`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          setError(null);
+          await api.backup.delete(filename);
+          setSuccess('Backup deleted');
+          await loadBackups();
+        } catch (err) {
+          setError('Failed to delete backup');
+          logError('Failed to delete backup', err);
+        }
+      },
+    });
   };
 
   const handleRestore = async () => {
@@ -258,6 +264,7 @@ export function BackupManager() {
           </Button>
         </DialogActions>
       </Dialog>
+      <ConfirmDialog />
     </Paper>
   );
 }

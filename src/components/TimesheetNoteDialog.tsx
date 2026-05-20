@@ -1,3 +1,4 @@
+import { useRef, useEffect } from 'react';
 import {
   Button,
   Dialog,
@@ -10,6 +11,7 @@ import {
 } from '@mui/material';
 import { Save as SaveIcon } from '@mui/icons-material';
 import { timesheetNoteToSingleLine } from '../utils/timesheetNoteSingleLine';
+import { useConfirm, useConfirmDirtyClose } from '../hooks';
 
 const BOLD_HEADERS = new Set([
   'Offsite Direct Services:',
@@ -33,10 +35,27 @@ export const TimesheetNoteDialog = ({
   onSave,
   onNoteChange,
 }: TimesheetNoteDialogProps) => {
+  const { confirm, ConfirmDialog } = useConfirm();
+  const { confirmIfDirty } = useConfirmDirtyClose({ confirm });
+  const initialNoteRef = useRef('');
+
+  useEffect(() => {
+    if (open) {
+      initialNoteRef.current = note;
+    }
+  }, [open]);
+
+  const isDirty = () => note !== initialNoteRef.current;
+
+  const handleCancel = () => {
+    confirmIfDirty(isDirty, onClose);
+  };
+
   const lines = note.split('\n');
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <>
+    <Dialog open={open} onClose={handleCancel} maxWidth="md" fullWidth>
       <DialogTitle>Timesheet Note</DialogTitle>
       <DialogContent>
         <Box sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
@@ -82,11 +101,12 @@ export const TimesheetNoteDialog = ({
         <Button onClick={onSave} startIcon={<SaveIcon />} variant="outlined">
           Save Note
         </Button>
-        <Button onClick={onClose} variant="contained">
+        <Button onClick={handleCancel} variant="contained">
           Close
         </Button>
       </DialogActions>
     </Dialog>
+    <ConfirmDialog />
+    </>
   );
 };
-

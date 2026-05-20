@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Button,
@@ -15,6 +15,7 @@ import type { Goal } from '../../types';
 import { generateArticulationGoalTree, type ArticulationLevel } from '../../utils/quickGoals';
 import { GOAL_DOMAINS, normalizeGoalDomainForForm } from '../../constants/goalDomains';
 import { extractPercentageFromTarget } from '../../utils/helpers';
+import { useConfirm, useConfirmDirtyClose } from '../../hooks';
 
 interface QuickGoalsDialogProps {
   open: boolean;
@@ -42,6 +43,12 @@ export const QuickGoalsDialog: React.FC<QuickGoalsDialogProps> = ({
   const [priority, setPriority] = useState<'high' | 'medium' | 'low'>('medium');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>('');
+  const { confirm, ConfirmDialog } = useConfirm();
+  const { confirmIfDirty } = useConfirmDirtyClose({ confirm });
+  const initialSnapshotRef = useRef<string | null>(null);
+
+  const captureSnapshot = () =>
+    JSON.stringify({ domain, phoneme, level, targetPercentage, priority });
 
   // When dialog opens with a parent goal, inherit the domain and target percentage
   useEffect(() => {
@@ -59,9 +66,22 @@ export const QuickGoalsDialog: React.FC<QuickGoalsDialogProps> = ({
       setDomain('');
       setTargetPercentage('90');
     }
+    if (!open) {
+      initialSnapshotRef.current = null;
+      return;
+    }
+    const timer = setTimeout(() => {
+      initialSnapshotRef.current = captureSnapshot();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [open, parentGoalId, parentGoalDomain, parentGoalTarget]);
 
-  const handleClose = () => {
+  const isFormDirty = () => {
+    if (!open || !initialSnapshotRef.current) return false;
+    return captureSnapshot() !== initialSnapshotRef.current;
+  };
+
+  const resetAndClose = () => {
     setDomain('');
     setPhoneme('');
     setLevel('conversation');
@@ -69,6 +89,10 @@ export const QuickGoalsDialog: React.FC<QuickGoalsDialogProps> = ({
     setPriority('medium');
     setError('');
     onClose();
+  };
+
+  const handleClose = () => {
+    confirmIfDirty(isFormDirty, resetAndClose);
   };
 
   const handleSave = async () => {
@@ -101,7 +125,7 @@ export const QuickGoalsDialog: React.FC<QuickGoalsDialogProps> = ({
           parentGoalId,
         });
         await onSave(goals);
-        handleClose();
+        resetAndClose();
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to create goals');
       } finally {
@@ -122,6 +146,7 @@ export const QuickGoalsDialog: React.FC<QuickGoalsDialogProps> = ({
   ];
 
   return (
+    <>
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>{parentGoalId ? 'Quick Sub-goal' : 'Quick Goal'}</DialogTitle>
       <DialogContent>
@@ -267,6 +292,8 @@ export const QuickGoalsDialog: React.FC<QuickGoalsDialogProps> = ({
         </Button>
       </DialogActions>
     </Dialog>
+    <ConfirmDialog />
+    </>
   );
 };
 

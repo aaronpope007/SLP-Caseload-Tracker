@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -13,11 +13,14 @@ import {
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import type { Goal } from '../../types';
+import { useConfirm, useConfirmDirtyClose } from '../../hooks';
 
 interface Replacement {
   from: string;
   to: string;
 }
+
+const DEFAULT_REPLACEMENTS: Replacement[] = [{ from: '', to: '' }];
 
 interface CopySubtreeDialogProps {
   open: boolean;
@@ -32,9 +35,20 @@ export const CopySubtreeDialog: React.FC<CopySubtreeDialogProps> = ({
   onClose,
   onConfirm,
 }) => {
-  const [replacements, setReplacements] = useState<Replacement[]>([
-    { from: '', to: '' },
-  ]);
+  const [replacements, setReplacements] = useState<Replacement[]>(DEFAULT_REPLACEMENTS);
+  const { confirm, ConfirmDialog } = useConfirm();
+  const { confirmIfDirty } = useConfirmDirtyClose({ confirm });
+  const initialReplacementsRef = useRef<string>(JSON.stringify(DEFAULT_REPLACEMENTS));
+
+  useEffect(() => {
+    if (open) {
+      setReplacements(DEFAULT_REPLACEMENTS);
+      initialReplacementsRef.current = JSON.stringify(DEFAULT_REPLACEMENTS);
+    }
+  }, [open]);
+
+  const isFormDirty = () =>
+    JSON.stringify(replacements) !== initialReplacementsRef.current;
 
   const handleAddReplacement = () => {
     setReplacements([...replacements, { from: '', to: '' }]);
@@ -54,16 +68,21 @@ export const CopySubtreeDialog: React.FC<CopySubtreeDialogProps> = ({
     // Filter out empty replacements
     const validReplacements = replacements.filter(r => r.from.trim() !== '');
     onConfirm(validReplacements);
-    // Reset form
-    setReplacements([{ from: '', to: '' }]);
+    setReplacements(DEFAULT_REPLACEMENTS);
+    initialReplacementsRef.current = JSON.stringify(DEFAULT_REPLACEMENTS);
   };
 
-  const handleClose = () => {
-    setReplacements([{ from: '', to: '' }]);
+  const resetAndClose = () => {
+    setReplacements(DEFAULT_REPLACEMENTS);
     onClose();
   };
 
+  const handleClose = () => {
+    confirmIfDirty(isFormDirty, resetAndClose);
+  };
+
   return (
+    <>
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>
         Copy Goal Subtree
@@ -138,6 +157,8 @@ export const CopySubtreeDialog: React.FC<CopySubtreeDialogProps> = ({
         </Button>
       </DialogActions>
     </Dialog>
+    <ConfirmDialog />
+    </>
   );
 };
 

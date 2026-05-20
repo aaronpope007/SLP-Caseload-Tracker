@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -32,6 +32,7 @@ import {
   setIncludeMaEvalBillingDocumentation,
   setIncludeMaSessionBillingDocumentation,
 } from '../../utils/maTimesheetBillingSettings';
+import { useConfirm, useConfirmDirtyClose } from '../../hooks';
 
 interface SettingsDialogProps {
   open: boolean;
@@ -39,6 +40,9 @@ interface SettingsDialogProps {
 }
 
 export const SettingsDialog = ({ open, onClose }: SettingsDialogProps) => {
+  const { confirm, ConfirmDialog } = useConfirm();
+  const { confirmIfDirty } = useConfirmDirtyClose({ confirm });
+  const initialSettingsRef = useRef<string | null>(null);
   const [apiKey, setApiKey] = useState('');
   const [anthropicApiKey, setAnthropicApiKey] = useState('');
   const [exportOpen, setExportOpen] = useState(false);
@@ -98,12 +102,44 @@ export const SettingsDialog = ({ open, onClose }: SettingsDialogProps) => {
     setSoapNpi(localStorage.getItem('soap_provider_npi') || '');
   }, []);
 
-  // Check if test data exists when dialog opens
+  const captureSettingsSnapshot = () =>
+    JSON.stringify({
+      apiKey,
+      anthropicApiKey,
+      userName,
+      defaultGoalTarget80,
+      includeMaSessionBillingDoc,
+      includeMaEvalBillingDoc,
+      zoomLink,
+      emailAddress,
+      emailPassword,
+      soapProviderName,
+      soapCredentials,
+      soapNpi,
+      mode,
+      currentPassword,
+      newPassword,
+      confirmNewPassword,
+    });
+
+  // Check if test data exists when dialog opens; snapshot for dirty cancel
   useEffect(() => {
     if (open) {
       checkTestDataExists();
+      initialSettingsRef.current = captureSettingsSnapshot();
+    } else {
+      initialSettingsRef.current = null;
     }
   }, [open]);
+
+  const isSettingsDirty = () => {
+    if (!open || !initialSettingsRef.current) return false;
+    return captureSettingsSnapshot() !== initialSettingsRef.current;
+  };
+
+  const handleCancel = () => {
+    confirmIfDirty(isSettingsDirty, onClose);
+  };
 
   const checkTestDataExists = async () => {
     try {
@@ -138,31 +174,35 @@ export const SettingsDialog = ({ open, onClose }: SettingsDialogProps) => {
     }
   };
 
-  const handleDeleteTestData = async () => {
-    if (!window.confirm('Are you sure you want to delete all test data? This action cannot be undone.')) {
-      return;
-    }
-    setTestDataLoading(true);
-    setTestDataMessage(null);
-    try {
-      await api.seedTestData.delete();
-      setTestDataExists(false);
-      setTestDataMessage({
-        type: 'success',
-        text: 'Test data deleted successfully!',
-      });
-      // Refresh after a short delay to show the message
-      setTimeout(() => {
-        window.location.reload();
-      }, 2000);
-    } catch (error: any) {
-      setTestDataMessage({
-        type: 'error',
-        text: error.message || 'Failed to delete test data. Please try again.',
-      });
-    } finally {
-      setTestDataLoading(false);
-    }
+  const handleDeleteTestData = () => {
+    confirm({
+      title: 'Delete Test Data',
+      message: 'Are you sure you want to delete all test data? This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        setTestDataLoading(true);
+        setTestDataMessage(null);
+        try {
+          await api.seedTestData.delete();
+          setTestDataExists(false);
+          setTestDataMessage({
+            type: 'success',
+            text: 'Test data deleted successfully!',
+          });
+          setTimeout(() => {
+            window.location.reload();
+          }, 2000);
+        } catch (error: any) {
+          setTestDataMessage({
+            type: 'error',
+            text: error.message || 'Failed to delete test data. Please try again.',
+          });
+        } finally {
+          setTestDataLoading(false);
+        }
+      },
+    });
   };
 
   const handleChangePassword = async () => {
@@ -225,7 +265,7 @@ export const SettingsDialog = ({ open, onClose }: SettingsDialogProps) => {
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog open={open} onClose={handleCancel} maxWidth="md" fullWidth>
       <DialogTitle>Settings</DialogTitle>
       <DialogContent>
         <Box sx={{ mt: 1 }}>
@@ -542,7 +582,7 @@ export const SettingsDialog = ({ open, onClose }: SettingsDialogProps) => {
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={handleCancel}>Cancel</Button>
         <Button onClick={handleSave} variant="contained">
           Save
         </Button>
@@ -551,6 +591,7 @@ export const SettingsDialog = ({ open, onClose }: SettingsDialogProps) => {
         open={exportOpen}
         onClose={() => setExportOpen(false)}
       />
+      <ConfirmDialog />
     </Dialog>
   );
 };

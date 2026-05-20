@@ -41,7 +41,7 @@ import {
 } from '../utils/storage-api';
 import { generateId, formatDate } from '../utils/helpers';
 import { useSchool } from '../context/SchoolContext';
-import { useConfirm, useSnackbar, useDialog } from '../hooks';
+import { useConfirm, useConfirmDirtyClose, useSnackbar, useDialog } from '../hooks';
 
 const getStatusColor = (status: DueDateItem['status']) => {
   switch (status) {
@@ -72,6 +72,7 @@ const getPriorityColor = (priority?: DueDateItem['priority']) => {
 export const DueDateItems = () => {
   const { selectedSchool } = useSchool();
   const { confirm, ConfirmDialog } = useConfirm();
+  const { confirmIfDirty } = useConfirmDirtyClose({ confirm });
   const { showSnackbar, SnackbarComponent } = useSnackbar();
   const itemDialog = useDialog();
   const [items, setItems] = useState<DueDateItem[]>([]);
@@ -91,6 +92,12 @@ export const DueDateItems = () => {
     category: '',
     priority: 'medium' as DueDateItem['priority'],
   });
+  const [initialFormData, setInitialFormData] = useState(formData);
+
+  const isFormDirty = () => {
+    if (!itemDialog.open) return false;
+    return JSON.stringify(formData) !== JSON.stringify(initialFormData);
+  };
 
   const loadData = useCallback(async () => {
     try {
@@ -121,33 +128,40 @@ export const DueDateItems = () => {
   }, [loadData]);
 
   const handleOpenDialog = (item?: DueDateItem) => {
+    let newFormData: typeof formData;
     if (item) {
       setEditingItem(item);
-      setFormData({
+      newFormData = {
         title: item.title,
         description: item.description || '',
         dueDate: item.dueDate.split('T')[0],
         studentId: item.studentId || '',
         category: item.category || '',
         priority: item.priority || 'medium',
-      });
-      } else {
-        setEditingItem(null);
-        setFormData({
-          title: '',
-          description: '',
-          dueDate: '',
-          studentId: '',
-          category: '',
-          priority: 'medium',
-        });
-      }
+      };
+    } else {
+      setEditingItem(null);
+      newFormData = {
+        title: '',
+        description: '',
+        dueDate: '',
+        studentId: '',
+        category: '',
+        priority: 'medium',
+      };
+    }
+    setFormData(newFormData);
+    setInitialFormData(newFormData);
     itemDialog.openDialog();
   };
 
-  const handleCloseDialog = () => {
+  const doCloseDialog = () => {
     itemDialog.closeDialog();
     setEditingItem(null);
+  };
+
+  const handleCloseDialog = () => {
+    confirmIfDirty(isFormDirty, doCloseDialog);
   };
 
   const handleSave = async () => {
@@ -182,7 +196,7 @@ export const DueDateItems = () => {
       });
     }
     loadData();
-    handleCloseDialog();
+    doCloseDialog();
     if (editingItem) {
       showSnackbar('Due date item updated successfully', 'success');
     } else {

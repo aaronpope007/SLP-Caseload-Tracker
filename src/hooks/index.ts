@@ -7,6 +7,7 @@ export { useDocumentTitle } from './useDocumentTitle';
 export { useAsyncOperation } from './useAsyncOperation';
 export { useSnackbar } from './useSnackbar';
 export { useConfirm } from './useConfirm';
+export { useConfirmDirtyClose } from './useConfirmDirtyClose';
 export { useAIGeneration } from './useAIGeneration';
 export { useGoalManagement } from './useGoalManagement';
 export { useGoalForm } from './useGoalForm';
