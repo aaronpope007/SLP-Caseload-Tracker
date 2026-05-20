@@ -1973,76 +1973,88 @@ export const SessionCalendar = () => {
     setDuplicateSessionWarningOpen(false);
   };
 
-  const handleStudentToggle = (studentId: string) => {
-    const isSelected = sessionFormData.studentIds.includes(studentId);
-    let newStudentIds: string[];
-    let newGoalsTargeted: string[] = [...sessionFormData.goalsTargeted];
-    let newPerformanceData = [...sessionFormData.performanceData];
-
-    if (isSelected) {
-      newStudentIds = sessionFormData.studentIds.filter(id => id !== studentId);
-      const studentGoals = goals.filter(g => g.studentId === studentId).map(g => g.id);
-      newGoalsTargeted = sessionFormData.goalsTargeted.filter(gId => !studentGoals.includes(gId));
-      newPerformanceData = sessionFormData.performanceData.filter(p => p.studentId !== studentId);
-    } else {
-      newStudentIds = [...sessionFormData.studentIds, studentId];
-    }
-
-    setSessionFormData({
-      ...sessionFormData,
-      studentIds: newStudentIds,
-      goalsTargeted: newGoalsTargeted,
-      performanceData: newPerformanceData,
+  const handleStudentToggle = useCallback((studentId: string) => {
+    setSessionFormData((prev) => {
+      const isSelected = prev.studentIds.includes(studentId);
+      if (isSelected) {
+        const newStudentIds = prev.studentIds.filter((id) => id !== studentId);
+        const studentGoals = goals.filter((g) => g.studentId === studentId).map((g) => g.id);
+        const newGoalsTargeted = prev.goalsTargeted.filter((gId) => !studentGoals.includes(gId));
+        const newPerformanceData = prev.performanceData.filter((p) => p.studentId !== studentId);
+        return {
+          ...prev,
+          studentIds: newStudentIds,
+          goalsTargeted: newGoalsTargeted,
+          performanceData: newPerformanceData,
+        };
+      }
+      return {
+        ...prev,
+        studentIds: [...prev.studentIds, studentId],
+      };
     });
-  };
+  }, [goals]);
 
-  const handleGoalToggle = (goalId: string, studentId: string) => {
-    const isSelected = sessionFormData.goalsTargeted.includes(goalId);
-    let newGoalsTargeted: string[];
-    let newPerformanceData = [...sessionFormData.performanceData];
-
-    if (isSelected) {
-      newGoalsTargeted = sessionFormData.goalsTargeted.filter((id) => id !== goalId);
-      newPerformanceData = newPerformanceData.filter((p) => p.goalId !== goalId || p.studentId !== studentId);
-    } else {
-      newGoalsTargeted = [...sessionFormData.goalsTargeted, goalId];
-      newPerformanceData.push({ goalId, studentId, notes: '', cuingLevels: [] });
-    }
-
-    setSessionFormData({
-      ...sessionFormData,
-      goalsTargeted: newGoalsTargeted,
-      performanceData: newPerformanceData,
+  const handleGoalToggle = useCallback((goalId: string, studentId: string) => {
+    setSessionFormData((prev) => {
+      const isSelected = prev.goalsTargeted.includes(goalId);
+      if (isSelected) {
+        return {
+          ...prev,
+          goalsTargeted: prev.goalsTargeted.filter((id) => id !== goalId),
+          performanceData: prev.performanceData.filter(
+            (p) => p.goalId !== goalId || p.studentId !== studentId
+          ),
+        };
+      }
+      return {
+        ...prev,
+        goalsTargeted: [...prev.goalsTargeted, goalId],
+        performanceData: [
+          ...prev.performanceData,
+          { goalId, studentId, notes: '', cuingLevels: [] },
+        ],
+      };
     });
-  };
+  }, []);
 
-  const handlePerformanceUpdate = (goalId: string, studentId: string, field: 'accuracy' | 'notes', value: string) => {
-    setSessionFormData({
-      ...sessionFormData,
-      performanceData: sessionFormData.performanceData.map((p) =>
-        p.goalId === goalId && p.studentId === studentId ? { ...p, [field]: value } : p
-      ),
-    });
-  };
+  const handlePerformanceUpdate = useCallback(
+    (goalId: string, studentId: string, field: 'accuracy' | 'notes', value: string) => {
+      setSessionFormData((prev) => ({
+        ...prev,
+        performanceData: prev.performanceData.map((p) =>
+          p.goalId === goalId && p.studentId === studentId ? { ...p, [field]: value } : p
+        ),
+      }));
+    },
+    []
+  );
 
-  const handleCuingLevelToggle = (goalId: string, studentId: string, cuingLevel: 'independent' | 'verbal' | 'visual' | 'tactile' | 'physical') => {
-    setSessionFormData({
-      ...sessionFormData,
-      performanceData: sessionFormData.performanceData.map((p) => {
-        if (p.goalId !== goalId || p.studentId !== studentId) return p;
-        const currentLevels = p.cuingLevels || [];
-        const newLevels = currentLevels.includes(cuingLevel)
-          ? currentLevels.filter(l => l !== cuingLevel)
-          : [...currentLevels, cuingLevel];
-        return { ...p, cuingLevels: newLevels };
-      }),
-    });
-  };
+  const handleCuingLevelToggle = useCallback(
+    (
+      goalId: string,
+      studentId: string,
+      cuingLevel: 'independent' | 'verbal' | 'visual' | 'tactile' | 'physical'
+    ) => {
+      setSessionFormData((prev) => ({
+        ...prev,
+        performanceData: prev.performanceData.map((p) => {
+          if (p.goalId !== goalId || p.studentId !== studentId) return p;
+          const currentLevels = p.cuingLevels || [];
+          const newLevels = currentLevels.includes(cuingLevel)
+            ? currentLevels.filter((l) => l !== cuingLevel)
+            : [...currentLevels, cuingLevel];
+          return { ...p, cuingLevels: newLevels };
+        }),
+      }));
+    },
+    []
+  );
 
-  const handleTrialUpdate = (goalId: string, studentId: string, isCorrect: boolean) => {
-    setSessionFormData({
-      ...sessionFormData,
-      performanceData: sessionFormData.performanceData.map((p) => {
+  const handleTrialUpdate = useCallback((goalId: string, studentId: string, isCorrect: boolean) => {
+    setSessionFormData((prev) => ({
+      ...prev,
+      performanceData: prev.performanceData.map((p) => {
         if (p.goalId !== goalId || p.studentId !== studentId) return p;
         const correctTrials = (p.correctTrials || 0) + (isCorrect ? 1 : 0);
         const incorrectTrials = (p.incorrectTrials || 0) + (isCorrect ? 0 : 1);
@@ -2055,8 +2067,8 @@ export const SessionCalendar = () => {
           accuracy: accuracy.toString(),
         };
       }),
-    });
-  };
+    }));
+  }, []);
 
   // Memoized callback for form data changes to prevent memory leaks from excessive re-renders
   const sessionFormDataRef = useRef(sessionFormData);

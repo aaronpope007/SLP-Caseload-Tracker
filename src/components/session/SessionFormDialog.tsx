@@ -161,9 +161,17 @@ export const SessionFormDialog = ({
   // Sync local state when formData changes externally (e.g., when editing a session)
   // Only update if the change came from outside (not from our own debounced sync)
   useEffect(() => {
-    if (formData.notes !== lastSyncedRef.current.notes) {
-      setLocalNotes(formData.notes);
-      lastSyncedRef.current.notes = formData.notes;
+    const parentNotes = formData.notes ?? '';
+    const syncedNotes = lastSyncedRef.current.notes ?? '';
+    if (parentNotes !== syncedNotes) {
+      // Parent can briefly hold stale empty notes (e.g. goal toggle with non-functional setState).
+      // Do not overwrite in-progress session notes in that case.
+      const local = localNotesRef.current ?? '';
+      if (parentNotes === '' && local.trim() !== '') {
+        return;
+      }
+      setLocalNotes(parentNotes);
+      lastSyncedRef.current.notes = parentNotes;
     }
   }, [formData.notes]);
   
@@ -288,6 +296,54 @@ export const SessionFormDialog = ({
       debounceSyncTimeoutRef.current = null;
     }, 500);
   }, [open]);
+
+  // Flush debounced text fields before structural form changes (goal/student toggle)
+  const flushPendingTextFields = useCallback(() => {
+    if (debounceSyncTimeoutRef.current) {
+      clearTimeout(debounceSyncTimeoutRef.current);
+      debounceSyncTimeoutRef.current = null;
+    }
+    const updates: Partial<SessionFormData> = {};
+    const currentNotes = localNotesRef.current;
+    if (currentNotes !== lastSyncedRef.current.notes) {
+      updates.notes = currentNotes;
+      lastSyncedRef.current.notes = currentNotes;
+    }
+    const currentPlan = localPlanRef.current;
+    if (currentPlan !== lastSyncedRef.current.plan) {
+      updates.plan = currentPlan;
+      lastSyncedRef.current.plan = currentPlan;
+    }
+    const currentCustomSubjective = localCustomSubjectiveRef.current;
+    if (currentCustomSubjective !== lastSyncedRef.current.customSubjective) {
+      updates.customSubjective = currentCustomSubjective;
+      lastSyncedRef.current.customSubjective = currentCustomSubjective;
+    }
+    const currentIndirectServicesNotes = localIndirectServicesNotesRef.current;
+    if (currentIndirectServicesNotes !== lastSyncedRef.current.indirectServicesNotes) {
+      updates.indirectServicesNotes = currentIndirectServicesNotes;
+      lastSyncedRef.current.indirectServicesNotes = currentIndirectServicesNotes;
+    }
+    if (Object.keys(updates).length > 0) {
+      onFormDataChangeRef.current(updates);
+    }
+  }, []);
+
+  const handleGoalToggleWithFlush = useCallback(
+    (goalId: string, studentId: string) => {
+      flushPendingTextFields();
+      onGoalToggle(goalId, studentId);
+    },
+    [flushPendingTextFields, onGoalToggle]
+  );
+
+  const handleStudentToggleWithFlush = useCallback(
+    (studentId: string) => {
+      flushPendingTextFields();
+      onStudentToggle(studentId);
+    },
+    [flushPendingTextFields, onStudentToggle]
+  );
 
   // Effect to handle dialog open/close and cleanup
   useEffect(() => {
@@ -884,7 +940,7 @@ export const SessionFormDialog = ({
             selectedStudentIds={studentIds}
             searchTerm={studentSearch}
             onSearchChange={onStudentSearchChange}
-            onStudentToggle={onStudentToggle}
+            onStudentToggle={handleStudentToggleWithFlush}
             autoFocus={!editingSession && !editingGroupSessionId}
           />
 
@@ -1000,7 +1056,7 @@ export const SessionFormDialog = ({
                       goalsTargeted={goalsTargeted}
                       getRecentPerformance={getRecentPerformance}
                       getRecentPerformanceFull={getRecentPerformanceFull}
-                      onGoalToggle={onGoalToggle}
+                      onGoalToggle={handleGoalToggleWithFlush}
                       isDirectServices={formData.isDirectServices}
                     />
                   )}
@@ -1073,7 +1129,7 @@ export const SessionFormDialog = ({
                         students={students}
                         selectedStudentIds={studentIds}
                         goalsTargeted={goalsTargeted}
-                        onGoalSelect={onGoalToggle}
+                        onGoalSelect={handleGoalToggleWithFlush}
                         inputRef={searchInputRef}
                       />
                     </Box>
@@ -1088,7 +1144,7 @@ export const SessionFormDialog = ({
                       getRecentPerformance={getRecentPerformance}
                       getRecentPerformanceFull={getRecentPerformanceFull}
                       onGoalFocus={setFocusedGoalId}
-                      onGoalToggle={onGoalToggle}
+                      onGoalToggle={handleGoalToggleWithFlush}
                       onTrialUpdate={onTrialUpdate}
                       collapsed={trackingPanelCollapsed}
                       onToggleCollapse={() => setTrackingPanelCollapsed(!trackingPanelCollapsed)}
@@ -1102,7 +1158,7 @@ export const SessionFormDialog = ({
                     selectedStudentIds={studentIds}
                     goalsTargeted={goalsTargeted}
                     pinnedGoalIds={pinnedGoalIds}
-                    onGoalToggle={onGoalToggle}
+                    onGoalToggle={handleGoalToggleWithFlush}
                     onPinToggle={togglePin}
                     onClearPinned={clearPinned}
                     getRecentPerformance={getRecentPerformance}
@@ -1120,7 +1176,7 @@ export const SessionFormDialog = ({
                         performanceData={deferredPerformanceData}
                         getRecentPerformance={getRecentPerformance}
                         getRecentPerformanceFull={getRecentPerformanceFull}
-                        onGoalToggle={onGoalToggle}
+                        onGoalToggle={handleGoalToggleWithFlush}
                         onTrialUpdate={onTrialUpdate}
                         onPerformanceUpdate={onPerformanceUpdate}
                         onCuingLevelToggle={onCuingLevelToggle}
@@ -1162,7 +1218,7 @@ export const SessionFormDialog = ({
                                 isCompact={false}
                                 getRecentPerformance={getRecentPerformance}
                                 getRecentPerformanceFull={getRecentPerformanceFull}
-                                onGoalToggle={onGoalToggle}
+                                onGoalToggle={handleGoalToggleWithFlush}
                                 onTrialUpdate={onTrialUpdate}
                                 onPerformanceUpdate={onPerformanceUpdate}
                                 onCuingLevelToggle={onCuingLevelToggle}
@@ -1254,7 +1310,7 @@ export const SessionFormDialog = ({
                                 isCompact={true}
                                 getRecentPerformance={getRecentPerformance}
                                 getRecentPerformanceFull={getRecentPerformanceFull}
-                                onGoalToggle={onGoalToggle}
+                                onGoalToggle={handleGoalToggleWithFlush}
                                 onTrialUpdate={onTrialUpdate}
                                 onPerformanceUpdate={onPerformanceUpdate}
                                 onCuingLevelToggle={onCuingLevelToggle}
