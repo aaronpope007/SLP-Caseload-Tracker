@@ -24,7 +24,7 @@ import { generateSessionNotesWithAnthropic } from '../utils/anthropicSessionNote
 import { logger } from '../utils/logger';
 import { generateInitialsList } from '../utils/studentInitials';
 import { calendarYmdInBillingTz, isYmdInRange, nowIsoUtc } from '../utils/billingTimezone';
-import { DOCUMENTATION_LOG_CATEGORIES } from './meetings';
+import { MA_BILLING_DOC_CATEGORIES } from './meetings';
 
 // Database row types
 interface SessionRow {
@@ -826,7 +826,7 @@ sessionsRouter.get('/ma-billing-log', asyncHandler(async (req, res) => {
 
   const totalEvals = evalStudents.reduce((n, s) => n + s.evalCount, 0);
 
-  const docPlaceholders = DOCUMENTATION_LOG_CATEGORIES.map(() => '?').join(', ');
+  const docPlaceholders = MA_BILLING_DOC_CATEGORIES.map(() => '?').join(', ');
   const docMeetingRows = db
     .prepare(
       `
@@ -847,7 +847,7 @@ sessionsRouter.get('/ma-billing-log', asyncHandler(async (req, res) => {
       ORDER BY m.date ASC, m.id ASC
     `
     )
-    .all(...DOCUMENTATION_LOG_CATEGORIES) as Array<{
+    .all(...MA_BILLING_DOC_CATEGORIES) as Array<{
       meetingId: string;
       category: string | null;
       meetingDateIso: string;

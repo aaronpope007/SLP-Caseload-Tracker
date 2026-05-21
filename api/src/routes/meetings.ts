@@ -15,15 +15,20 @@ import { buildEvalMaNotePrompt, generateEvalMaNote } from '../utils/evalMaNote';
 
 const LEGACY_ASSESSMENT_CATEGORY = 'Assessment';
 
-/** Documentation subtypes for documentation-log (not billable under MA). */
+/** Documentation subtypes for GET /documentation-log (Session Log Documentation Time). */
 export const DOCUMENTATION_LOG_CATEGORIES = [
   'Initial assessment documentation',
   '3 year documentation',
   'SLP Screening Assessment',
   'Caseload planning',
   'Case Management',
-  'Due process (progress reports)',
   'Due process (Data Entry Spedforms)',
+] as const;
+
+/** MA billing log documentation categories (includes progress reports). */
+export const MA_BILLING_DOC_CATEGORIES = [
+  ...DOCUMENTATION_LOG_CATEGORIES,
+  'Due process (progress reports)',
 ] as const;
 
 /** Title tokens → CPT for eval billing (session log). */
