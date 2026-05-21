@@ -158,20 +158,69 @@ export const SessionFormDialog = ({
     indirectServicesNotes: formData.indirectServicesNotes ?? '',
   });
 
+  const editActivityKey =
+    editingSession?.id ??
+    (editingGroupSessionId != null ? `group:${editingGroupSessionId}` : 'new');
+  const lastLoadedActivityKeyRef = useRef<string | null>(null);
+  const formDataForResetRef = useRef(formData);
+  formDataForResetRef.current = formData;
+
+  const applyFormDataToLocalFields = useCallback((data: SessionFormData) => {
+    const acts = (Array.isArray(data.activitiesUsed) ? data.activitiesUsed : []).join(', ');
+    const notes = data.notes ?? '';
+    const plan = data.plan || '';
+    const customSubjective = data.customSubjective || '';
+    const indirectServicesNotes = data.indirectServicesNotes ?? '';
+
+    setLocalNotes(notes);
+    setLocalPlan(plan);
+    setLocalActivitiesUsed(acts);
+    setLocalCustomSubjective(customSubjective);
+    setLocalIndirectServicesNotes(indirectServicesNotes);
+
+    lastSyncedRef.current = {
+      notes,
+      plan,
+      activitiesUsed: acts,
+      customSubjective,
+      indirectServicesNotes,
+    };
+    localNotesRef.current = notes;
+    localPlanRef.current = plan;
+    localActivitiesUsedRef.current = acts;
+    localCustomSubjectiveRef.current = customSubjective;
+    localIndirectServicesNotesRef.current = indirectServicesNotes;
+  }, []);
+
+  // Reset text fields when the dialog opens for a different session/activity (not only on close).
+  useEffect(() => {
+    if (!open) {
+      lastLoadedActivityKeyRef.current = null;
+      return;
+    }
+
+    if (lastLoadedActivityKeyRef.current === editActivityKey) {
+      return;
+    }
+    lastLoadedActivityKeyRef.current = editActivityKey;
+
+    if (debounceSyncTimeoutRef.current) {
+      clearTimeout(debounceSyncTimeoutRef.current);
+      debounceSyncTimeoutRef.current = null;
+    }
+
+    applyFormDataToLocalFields(formDataForResetRef.current);
+  }, [open, editActivityKey, applyFormDataToLocalFields]);
+
   // Sync local state when formData changes externally (e.g., when editing a session)
   // Only update if the change came from outside (not from our own debounced sync)
   useEffect(() => {
     const parentNotes = formData.notes ?? '';
     const syncedNotes = lastSyncedRef.current.notes ?? '';
     if (parentNotes !== syncedNotes) {
-      // Parent can briefly hold stale empty notes (e.g. goal toggle with non-functional setState).
-      // Do not overwrite in-progress session notes in that case.
-      const local = localNotesRef.current ?? '';
-      if (parentNotes === '' && local.trim() !== '') {
-        return;
-      }
       setLocalNotes(parentNotes);
       lastSyncedRef.current.notes = parentNotes;
+      localNotesRef.current = parentNotes;
     }
   }, [formData.notes]);
   
@@ -180,6 +229,7 @@ export const SessionFormDialog = ({
     if (newPlan !== lastSyncedRef.current.plan) {
       setLocalPlan(newPlan);
       lastSyncedRef.current.plan = newPlan;
+      localPlanRef.current = newPlan;
     }
   }, [formData.plan]);
   
@@ -188,6 +238,7 @@ export const SessionFormDialog = ({
     if (newActivities !== lastSyncedRef.current.activitiesUsed) {
       setLocalActivitiesUsed(newActivities);
       lastSyncedRef.current.activitiesUsed = newActivities;
+      localActivitiesUsedRef.current = newActivities;
     }
   }, [formData.activitiesUsed]);
   
@@ -196,6 +247,7 @@ export const SessionFormDialog = ({
     if (newCustomSubjective !== lastSyncedRef.current.customSubjective) {
       setLocalCustomSubjective(newCustomSubjective);
       lastSyncedRef.current.customSubjective = newCustomSubjective;
+      localCustomSubjectiveRef.current = newCustomSubjective;
     }
   }, [formData.customSubjective]);
   
@@ -203,6 +255,7 @@ export const SessionFormDialog = ({
     if (formData.indirectServicesNotes !== lastSyncedRef.current.indirectServicesNotes) {
       setLocalIndirectServicesNotes(formData.indirectServicesNotes);
       lastSyncedRef.current.indirectServicesNotes = formData.indirectServicesNotes;
+      localIndirectServicesNotesRef.current = formData.indirectServicesNotes;
     }
   }, [formData.indirectServicesNotes]);
 
